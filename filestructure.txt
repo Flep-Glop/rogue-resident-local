@@ -1,0 +1,125 @@
+.
+├── README.md
+├── app
+│   ├── components
+│   │   ├── DayNightTransition.tsx
+│   │   ├── FontPreLoader.tsx
+│   │   ├── GameContainer.tsx
+│   │   ├── HillHomeScene.tsx
+│   │   ├── PixelThemeProvider.tsx
+│   │   ├── PlayerStats.tsx
+│   │   ├── ResidentPortrait.tsx
+│   │   ├── challenges
+│   │   │   ├── ChallengeRouter.tsx
+│   │   │   └── formats
+│   │   │       └── ConversationFormat.tsx
+│   │   ├── debug
+│   │   │   ├── ChamberDebugInitializer.tsx
+│   │   │   ├── ClientDashboardWrapper.tsx
+│   │   │   ├── PerformanceDashboard.tsx
+│   │   │   └── VerticalSliceDebugPanel.tsx
+│   │   ├── gameplay
+│   │   │   ├── InsightMeter.tsx
+│   │   │   ├── MomentumCounter.tsx
+│   │   │   └── StrategicActions.tsx
+│   │   ├── journal
+│   │   │   ├── Journal.tsx
+│   │   │   └── JournalAcquisitionAnimation.tsx
+│   │   ├── knowledge
+│   │   │   ├── ConstellationView.tsx
+│   │   │   ├── KnowledgeUpdate.tsx
+│   │   │   ├── constellationCanvasUtils.ts
+│   │   │   └── ui
+│   │   │       ├── ConnectionSuggestionsPanel.tsx
+│   │   │       ├── ConstellationActions.tsx
+│   │   │       ├── ConstellationControls.tsx
+│   │   │       ├── ConstellationInfoPanel.tsx
+│   │   │       ├── ConstellationLegend.tsx
+│   │   │       ├── HelpOverlay.tsx
+│   │   │       ├── JournalOverlay.tsx
+│   │   │       └── SelectedNodePanel.tsx
+│   │   └── map
+│   │       └── SimplifiedKapoorMap.tsx
+│   ├── core
+│   │   ├── dialogue
+│   │   │   ├── ActionIntegration.ts
+│   │   │   ├── DialogueStateMachine.ts
+│   │   │   └── NarrativeTransaction.ts
+│   │   ├── events
+│   │   │   ├── CentralEventBus.ts
+│   │   │   ├── EventSubscriptionHooks.ts
+│   │   │   └── EventTypes.ts
+│   │   ├── init.ts
+│   │   ├── progression
+│   │   │   └── ProgressionResolver.ts
+│   │   ├── statemachine
+│   │   │   └── GameStateMachine.ts
+│   │   ├── themeConstants.ts
+│   │   └── utils
+│   │       ├── chamberDebug.ts
+│   │       ├── storeAnalyzer.ts
+│   │       └── storeHooks.ts
+│   ├── data
+│   │   ├── concepts
+│   │   │   └── medicalPhysicsConcepts.ts
+│   │   ├── dialogues
+│   │   │   └── calibrations
+│   │   │       └── kapoor-calibration.ts
+│   │   └── items.ts
+│   ├── favicon.ico
+│   ├── globals.css
+│   ├── hooks
+│   │   ├── useConstellationInteraction.ts
+│   │   ├── useDialogueFlow.ts
+│   │   ├── useGameState.ts
+│   │   ├── useGameplayEffects.ts
+│   │   ├── usePrimitiveStoreValue.ts
+│   │   └── useTypewriter.ts
+│   ├── layout.tsx
+│   ├── page.tsx
+│   ├── store
+│   │   ├── gameStore.ts
+│   │   ├── journalStore.ts
+│   │   ├── knowledgeStore.ts
+│   │   └── resourceStore.ts
+│   └── types
+│       ├── game.ts
+│       └── player.ts
+├── combined_tsx.txt
+├── components
+│   └── ui
+│       └── button.tsx
+├── components.json
+├── docs
+│   ├── day-night-transition-sequence.mermaid
+│   ├── documentation-review.md
+│   ├── enhanced-architecture-doc.md
+│   ├── knowledge-mastery-progression.mermaid
+│   ├── mentor-personality-matrix.mermaid
+│   ├── mentor-response-system.mermaid
+│   ├── player-satisfaction-loops.mermaid
+│   ├── strategic-action-decision-tree.mermaid
+│   └── systems-integration-diagram.mermaid
+├── eslint.config.mjs
+├── filestructure.txt
+├── jest-config.js
+├── lib
+│   └── utils.ts
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.mjs
+├── tailwind.config.js
+├── tests
+│   ├── assert.js
+│   ├── eventRecorder.js
+│   ├── simpleRunner.js
+│   ├── testDialogueSystem.js
+│   ├── testKnowledgeSystem.js
+│   ├── testResourceSystems.js
+│   └── verticalSliceIntegrationTest.js
+├── tsconfig.json
+└── tsconfig.tsbuildinfo
+
+28 directories, 94 files

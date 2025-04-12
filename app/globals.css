@@ -1,0 +1,1387 @@
+/* app/globals.css */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Pixel font imports */
+@font-face {
+  font-family: 'VT323';
+  src: url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  font-display: swap;
+}
+
+:root {
+  /* Retro pixel theme - darker/muted palette */
+  --surface: #242830;
+  --surface-dark: #1a1e24;
+  --border: oklch(0.922 0 0);
+  --text-primary: #c8d2e0;
+  --text-secondary: #8892a3;
+  --accent-primary: #53a8d4;
+  --accent-secondary: #2ba695;
+  --success: #4e9e6a;
+  --warning: #d6b740;
+  --danger: #cc4d4d;
+
+  /* Node type colors (muted versions) */
+  --clinical-color: #4e83bd;
+  --clinical-color-dark: #3a6590;
+  --clinical-color-light: #63a0db;
+
+  --qa-color: #5a6978;
+  --qa-color-dark: #464e59;
+  --qa-color-light: #6d7c8a;
+
+  --educational-color: #2c9287;
+  --educational-color-dark: #1f6e66;
+  --educational-color-light: #3db3a6;
+
+  --storage-color: #bfb38b;
+  --storage-color-dark: #a59970;
+  --storage-color-light: #d8cca3;
+
+  --vendor-color: #323f4f;
+  --vendor-color-dark: #25303d;
+  --vendor-color-light: #3e4e61;
+
+  --boss-color: #cc4d4d;
+  --boss-color-dark: #a33c3c;
+  --boss-color-light: #e05e5e;
+
+  /* Font variables */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --font-pixel: 'VT323', monospace;
+  --font-pixel-heading: 'Press Start 2P', monospace;
+  --font-sans: var(--font-geist-sans, Arial, Helvetica, sans-serif);
+  --font-mono: var(--font-geist-mono, monospace);
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* Pixel art utility classes */
+.pixel-borders {
+  box-shadow:
+    0 -2px 0 0 var(--border),
+    0 2px 0 0 var(--border),
+    -2px 0 0 0 var(--border),
+    2px 0 0 0 var(--border);
+  image-rendering: pixelated;
+}
+
+.pixel-borders-thin {
+  box-shadow:
+    0 -1px 0 0 var(--border),
+    0 1px 0 0 var(--border),
+    -1px 0 0 0 var(--border),
+    1px 0 0 0 var(--border);
+  image-rendering: pixelated;
+}
+
+.pixel-text {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.5px;
+}
+
+.pixel-heading {
+  font-family: var(--font-pixel-heading);
+  letter-spacing: 1px;
+  line-height: 1.4;
+}
+
+/* Scanline effect */
+.scanlines {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanlines::before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(0, 0, 0, 0.05) 51%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* CRT flicker animation */
+@keyframes crt-flicker {
+  0% {
+    opacity: 0.97;
+  }
+  10% {
+    opacity: 0.98;
+  }
+  20% {
+    opacity: 0.97;
+  }
+  50% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.98;
+  }
+  90% {
+    opacity: 0.96;
+  }
+  100% {
+    opacity: 0.98;
+  }
+}
+
+.crt-flicker {
+  animation: crt-flicker 0.15s infinite alternate;
+}
+
+/* Pixel button */
+.pixel-button {
+  font-family: var(--font-pixel);
+  background-color: var(--surface);
+  color: var(--text-primary);
+  border: none;
+  box-shadow:
+    inset -2px -2px 0 var(--border),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1rem;
+  transition: all 0.1s ease;
+  image-rendering: pixelated;
+}
+
+.pixel-button:hover {
+  background-color: var(--accent-primary);
+  color: var(--surface-dark);
+  box-shadow:
+    inset -2px -2px 0 rgba(0, 0, 0, 0.2),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.pixel-button:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 2px 2px 0 rgba(0, 0, 0, 0.2),
+    inset -2px -2px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Pixel card */
+.pixel-card {
+  background-color: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--border),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 0;
+  image-rendering: pixelated;
+}
+
+/* Pixel progress bar */
+.pixel-progress-bg {
+  height: 12px;
+  background-color: var(--surface-dark);
+  border: 1px solid var(--border);
+}
+
+.pixel-progress-fill {
+  height: 100%;
+  background: repeating-linear-gradient(
+    to right,
+    var(--accent-primary),
+    var(--accent-primary) 8px,
+    var(--accent-secondary) 8px,
+    var(--accent-secondary) 16px
+  );
+}
+
+/* Node type specific themes */
+.clinical-theme {
+  --node-color: var(--clinical-color);
+  --node-color-dark: var(--clinical-color-dark);
+  --node-color-light: var(--clinical-color-light);
+}
+
+.qa-theme {
+  --node-color: var(--qa-color);
+  --node-color-dark: var(--qa-color-dark);
+  --node-color-light: var(--qa-color-light);
+}
+
+.educational-theme {
+  --node-color: var(--educational-color);
+  --node-color-dark: var(--educational-color-dark);
+  --node-color-light: var(--educational-color-light);
+}
+
+.storage-theme {
+  --node-color: var(--storage-color);
+  --node-color-dark: var(--storage-color-dark);
+  --node-color-light: var(--storage-color-light);
+}
+
+.vendor-theme {
+  --node-color: var(--vendor-color);
+  --node-color-dark: var(--vendor-color-dark);
+  --node-color-light: var(--vendor-color-light);
+}
+
+.boss-theme {
+  --node-color: var(--boss-color);
+  --node-color-dark: var(--boss-color-dark);
+  --node-color-light: var(--boss-color-light);
+}
+
+/* Health bar pixel style */
+.health-pixel {
+  width: 12px;
+  height: 12px;
+  margin: 0 1px;
+  clip-path: polygon(
+    0% 0%,
+    100% 0%,
+    100% 100%,
+    0% 100%
+  );
+}
+
+/* Additional styles to add to your globals.css */
+
+/* Node type custom background and text colors */
+.bg-clinical {
+  background-color: var(--clinical-color);
+}
+.bg-clinical-dark {
+  background-color: var(--clinical-color-dark);
+}
+.bg-clinical-light {
+  background-color: var(--clinical-color-light);
+}
+.text-clinical-light {
+  color: var(--clinical-color-light);
+}
+
+.bg-qa {
+  background-color: var(--qa-color);
+}
+.bg-qa-dark {
+  background-color: var(--qa-color-dark);
+}
+.bg-qa-light {
+  background-color: var(--qa-color-light);
+}
+.text-qa-light {
+  color: var(--qa-color-light);
+}
+
+.bg-educational {
+  background-color: var(--educational-color);
+}
+.bg-educational-dark {
+  background-color: var(--educational-color-dark);
+}
+.bg-educational-light {
+  background-color: var(--educational-color-light);
+}
+.text-educational-light {
+  color: var(--educational-color-light);
+}
+
+.bg-storage {
+  background-color: var(--storage-color);
+}
+.bg-storage-dark {
+  background-color: var(--storage-color-dark);
+}
+.bg-storage-light {
+  background-color: var(--storage-color-light);
+}
+.text-storage-light {
+  color: var(--storage-color-light);
+}
+
+.bg-vendor {
+  background-color: var(--vendor-color);
+}
+.bg-vendor-dark {
+  background-color: var(--vendor-color-dark);
+}
+.bg-vendor-light {
+  background-color: var(--vendor-color-light);
+}
+.text-vendor-light {
+  color: var(--vendor-color-light);
+}
+
+.bg-boss {
+  background-color: var(--boss-color);
+}
+.bg-boss-dark {
+  background-color: var(--boss-color-dark);
+}
+.bg-boss-light {
+  background-color: var(--boss-color-light);
+}
+.text-boss-light {
+  color: var(--boss-color-light);
+}
+
+.bg-success {
+  background-color: var(--success);
+}
+.bg-success-dark {
+  background-color: #3d7e55;
+}
+.bg-success-light {
+  background-color: #5eae7a;
+}
+.text-success {
+  color: var(--success);
+}
+
+.bg-warning {
+  background-color: var(--warning);
+}
+.bg-danger {
+  background-color: var(--danger);
+}
+
+/* Enhanced pixel animations */
+@keyframes pixel-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.animate-pixel-pulse {
+  animation: pixel-pulse 2s ease-in-out infinite;
+}
+
+/* Enhanced container styles */
+.clinical-container {
+  border-color: var(--clinical-color);
+}
+
+.qa-container {
+  border-color: var(--qa-color);
+}
+
+.educational-container {
+  border-color: var(--educational-color);
+}
+
+.storage-container {
+  border-color: var(--storage-color);
+}
+
+.vendor-container {
+  border-color: var(--vendor-color);
+}
+
+.boss-container {
+  border-color: var(--boss-color);
+}
+
+/* Font utility classes */
+.font-pixel {
+  font-family: var(--font-pixel);
+}
+
+.font-pixel-heading {
+  font-family: var(--font-pixel-heading);
+}
+
+/* Global pixel art rendering settings */
+img.pixel-art,
+.pixel-sprite,
+.pixel-icon {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+/* Make sure the character portrait maintains crisp edges */
+.character-portrait img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+/* Fix node icons */
+.node-icon img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+/* Character animations for emotes and reactions */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* Shared pulse animation definition */
+@keyframes pulse-shared {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Animation for ping effect */
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Animation for floating effect */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* Animation for subtle float effect */
+@keyframes float-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Animation for glowing text */
+@keyframes glow {
+  0%, 100% { text-shadow: 0 0 5px rgba(255, 255, 255, 0.5); }
+  50% { text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+}
+
+/* Particle animations */
+@keyframes particle1 {
+  0% { transform: translate(0, 0); opacity: 1; }
+  100% { transform: translate(-20px, -50px); opacity: 0; }
+}
+
+@keyframes particle2 {
+  0% { transform: translate(0, 0); opacity: 1; }
+  100% { transform: translate(30px, -40px); opacity: 0; }
+}
+
+@keyframes particle3 {
+  0% { transform: translate(0, 0); opacity: 1; }
+  100% { transform: translate(-10px, 60px); opacity: 0; }
+}
+
+/* Animation for floating particles upwards */
+@keyframes float-up {
+  0% { transform: translateY(0); opacity: 0.8; }
+  100% { transform: translateY(-50vh); opacity: 0; }
+}
+
+/* Fade in/out animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Animation for subtle pulse */
+@keyframes pulse-subtle {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(55, 145, 216, 0.4); } /* Use a neutral color or variable */
+  50% { box-shadow: 0 0 0 4px rgba(55, 145, 216, 0.4); }
+}
+
+/* Animation for subtle bounce */
+@keyframes bounce-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* Utility classes using the keyframes */
+.animate-pulse {
+  animation: pulse-shared 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-ping {
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-float-subtle {
+  animation: float-subtle 3s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-particle1 {
+  animation: particle1 2s ease-out infinite;
+}
+
+.animate-particle2 {
+  animation: particle2 2.5s ease-out infinite;
+}
+
+.animate-particle3 {
+  animation: particle3 3s ease-out infinite;
+}
+
+.animate-float-up {
+  animation: float-up 3s forwards ease-out;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 1s forwards;
+}
+
+.animate-fadeOut {
+  animation: fadeOut 1s forwards;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s infinite;
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 2s infinite;
+}
+
+/* Apply the global pulse animation */
+/* This class is shared across components */
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes character-shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+.character-shake {
+  animation: character-shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+/* Add at the end of your existing CSS file */
+
+/* Character reaction animations */
+@keyframes portrait-shake {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+.character-shake {
+  animation: portrait-shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes pixel-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-bounce {
+  animation: pixel-bounce 0.8s ease-in-out infinite;
+}
+
+/* Mini dialogue portrait styling */
+.character-portrait-mini {
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Value change animation */
+@keyframes value-pulse {
+  0% { transform: scale(1); color: white; }
+  50% { transform: scale(1.2); color: #5df3ff; }
+  100% { transform: scale(1); color: white; }
+}
+
+.value-change {
+  animation: value-pulse 0.4s ease-out;
+  display: inline-block;
+}
+
+/* Enhanced character portrait styles */
+.character-portrait {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.1),
+    inset 0 0 10px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+
+.character-portrait:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(80, 160, 220, 0.3),
+    inset 0 0 10px rgba(0,0,0,0.2);
+}
+
+@keyframes reaction-enter {
+  from { opacity: 0; transform: translateY(-20px) scale(0.8); }
+  to { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+@keyframes reaction-exit {
+  from { opacity: 1; transform: translateY(-50%) scale(1); }
+  to { opacity: 0; transform: translateY(-70%) scale(0.8); }
+}
+
+.reaction-enter {
+  animation: reaction-enter 0.3s forwards;
+}
+
+.reaction-exit {
+  animation: reaction-exit 0.3s forwards;
+}
+
+.reaction-active {
+  animation: pulse 0.8s infinite alternate;
+}
+
+/* Re-use the pulse animation defined earlier */
+/* @keyframes pulse defined earlier */
+
+/* Add to app/globals.css */
+
+/* Line clamp with proper cross-browser support */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-clamp: 1; /* Standard property */
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-clamp: 2; /* Standard property */
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-clamp: 3;
+}
+
+/* Ensure we have proper transition timing for the interactive nodes */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Adjust this class to handle null ref elegantly */
+.starfield-bg {
+  background-color: #0f1117;
+  background-image:
+    radial-gradient(1px 1px at 25% 25%, rgba(255, 255, 255, 0.1) 1px, transparent 0),
+    radial-gradient(1px 1px at 50% 50%, rgba(255, 255, 255, 0.15) 1px, transparent 0),
+    radial-gradient(1px 1px at 75% 75%, rgba(255, 255, 255, 0.1) 1px, transparent 0),
+    radial-gradient(2px 2px at 10% 80%, rgba(100, 155, 255, 0.12) 1px, transparent 0),
+    radial-gradient(2px 2px at 60% 10%, rgba(100, 155, 255, 0.12) 1px, transparent 0);
+  background-size: 50px 50px, 100px 100px, 150px 150px, 200px 200px, 250px 250px;
+  min-height: 100%;
+  position: relative;
+}
+
+/* Add these to your globals.css file */
+
+/* Enhanced animations for node interactions */
+@keyframes pulse-path {
+  0%, 100% { opacity: 0.7; filter: drop-shadow(0 0 2px rgba(52, 211, 153, 0.2)); }
+  50% { opacity: 1; filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.4)); }
+}
+
+.animate-pulse-path {
+  animation: pulse-path 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-path-subtle {
+  0%, 100% { opacity: 0.6; filter: drop-shadow(0 0 1px rgba(79, 107, 187, 0.1)); }
+  50% { opacity: 0.9; filter: drop-shadow(0 0 3px rgba(79, 107, 187, 0.3)); }
+}
+
+.animate-pulse-path-subtle {
+  animation: pulse-path-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Enhanced text glow effect */
+.glow-text {
+  text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+  animation: text-glow 4s ease-in-out infinite;
+}
+
+@keyframes text-glow {
+  0%, 100% { text-shadow: 0 0 5px rgba(255, 255, 255, 0.3); }
+  50% { text-shadow: 0 0 15px rgba(100, 155, 255, 0.6); }
+}
+
+/* Enhanced node container with lighting effects */
+.node-container {
+  background: linear-gradient(135deg,
+    rgba(255,255,255,0.05) 0%,
+    rgba(255,255,255,0) 50%,
+    rgba(0,0,0,0.1) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 0 rgba(255,255,255,0.15),
+    inset -1px -1px 0 0 rgba(0,0,0,0.3),
+    0 4px 8px rgba(0,0,0,0.5);
+}
+
+/* Visual feedback for map interactions */
+@keyframes node-select-ripple {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.node-select-ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%) scale(0.5);
+  animation: node-select-ripple 0.6s ease-out forwards;
+}
+
+/* Enhanced button with sweep effect */
+.enhanced-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.enhanced-button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to right,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,0.2) 50%,
+    rgba(255,255,255,0) 100%);
+  transform: skewX(-25deg);
+  transition: left 0.5s ease-out;
+}
+
+.enhanced-button:hover::after {
+  left: 100%;
+}
+
+/* Character-specific glow effects */
+.glow-kapoor {
+  box-shadow: 0 0 10px rgba(78, 131, 189, 0.3);
+}
+
+.glow-quinn {
+  box-shadow: 0 0 10px rgba(44, 146, 135, 0.3);
+}
+
+.glow-jesse {
+  box-shadow: 0 0 10px rgba(90, 105, 120, 0.3);
+}
+
+.glow-garcia {
+  box-shadow: 0 0 10px rgba(60, 138, 117, 0.3);
+}
+
+/* Add more precise blur utilities */
+.blur-sm {
+  filter: blur(1px);
+}
+
+.blur-md {
+  filter: blur(2px);
+}
+
+.blur-lg {
+  filter: blur(4px);
+}
+
+/* Node state transitions */
+.node-state-transition {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              filter 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced ring effects for focus states */
+.ring-glow {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2),
+              0 0 15px rgba(255, 255, 255, 0.2);
+}
+
+/* Pixel noise overlay for retro effect */
+.pixel-noise {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.05;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+/* Enhanced starfield animation */
+@keyframes subtle-stars {
+  0% { background-position: 0px 0px, 25px 25px, 50px 50px; }
+  100% { background-position: 100px 100px, 125px 125px, 150px 150px; }
+}
+
+.animate-stars {
+  animation: subtle-stars 120s linear infinite;
+}
+
+/* Line clamp utilities with better cross-browser support */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-clamp: 1; /* Standard property */
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-clamp: 2; /* Standard property */
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-clamp: 3;
+}
+
+/* Add to your CSS for that slick highlight effect */
+.node-highlight-glow {
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.07) 49%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.07) 51%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+.node-container:hover .node-highlight-glow,
+.node-active .node-highlight-glow {
+  opacity: 1;
+}
+
+.node-accessible {
+  animation: node-pulse 3s infinite;
+  box-shadow: 0 0 15px rgba(79, 107, 187, 0.5);
+}
+
+@keyframes node-pulse {
+  0% { box-shadow: 0 0 15px rgba(79, 107, 187, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(79, 107, 187, 0.7); }
+  100% { box-shadow: 0 0 15px rgba(79, 107, 187, 0.3); }
+}
+
+/* In globals.css */
+.line-clamp-1 {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  /* other properties */
+}
+
+.line-clamp-2 {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  /* other properties */
+}
+
+/* Knowledge acquisition animations */
+@keyframes particle-flow {
+  0% {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+  80% {
+    transform: translate(-300px, 300px);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(-320px, 320px);
+    opacity: 0;
+  }
+}
+
+@keyframes particle-burst {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(var(--tx, 50px), var(--ty, 50px)) scale(1.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(var(--tx, 100px), var(--ty, 100px)) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes float-particle {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(var(--tx, 3px), var(--ty, -3px));
+  }
+}
+
+@keyframes animate-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: animate-fade-in 0.3s ease-in-out forwards;
+}
+
+.debug-box {
+  position: fixed;
+  bottom: 40px;
+  left: 10px;
+  background: rgba(0,0,0,0.8);
+  color: lime;
+  font-family: monospace;
+  padding: 10px;
+  border: 1px solid lime;
+  z-index: 9999;
+  max-width: 300px;
+  overflow: auto;
+  max-height: 150px;
+  font-size: 12px;
+}
+
+/* These could go in globals.css or a separate styles/pixel.css */
+
+/* Pixel-perfect frames */
+.pixel-frame {
+  @apply border-2 border-gray-900 overflow-hidden relative;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
+  image-rendering: pixelated;
+}
+
+.pixel-frame::before {
+  content: '';
+  @apply absolute top-0 left-0 w-1 h-1 bg-white opacity-50;
+}
+
+/* Strategic action buttons */
+.strategic-action-button {
+  @apply w-10 h-10 relative transition-all duration-100 flex items-center justify-center;
+  image-rendering: pixelated;
+}
+
+.strategic-action-button:hover {
+  transform: translateY(-2px);
+}
+
+.strategic-action-button:active {
+  transform: translateY(1px);
+}
+
+.strategic-action-button.active {
+  @apply ring-2 ring-white;
+  animation: pulse 2s infinite;
+}
+
+/* Button color variants */
+.reframe-button {
+  @apply bg-blue-900 border-2 border-blue-950;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3);
+}
+
+.extrapolate-button {
+  @apply bg-purple-900 border-2 border-purple-950;
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.3);
+}
+
+/* Button icons using CSS pixel art */
+.pixel-icon {
+  @apply w-6 h-6;
+  image-rendering: pixelated;
+}
+
+.reframe-icon {
+  background-image: url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='1' y='1' width='4' height='1' fill='white'/%3E%3Crect x='1' y='3' width='4' height='1' fill='white'/%3E%3Crect x='1' y='5' width='3' height='1' fill='white'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+/* Pixel-specific visual treatments */
+.mix-blend-overlay {
+  mix-blend-mode: overlay;
+}
+
+/* Strategic Action button styling */
+.strategic-action-button {
+  @apply w-12 h-12 relative transition-all duration-100;
+  image-rendering: pixelated;
+}
+
+.strategic-action-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.strategic-action-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.strategic-action-button.active {
+  @apply ring-2 ring-white;
+  animation: pulse 2s infinite;
+}
+
+/* Pixel patterns */
+.pixel-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='1' height='1' fill='rgba(255,255,255,0.1)'/%3E%3Crect x='3' y='3' width='1' height='1' fill='rgba(255,255,255,0.1)'/%3E%3C/svg%3E");
+  background-size: 6px 6px;
+}
+
+/* Text glow effects */
+.text-glow-sm {
+  text-shadow: 0 0 2px currentColor;
+}
+
+.text-glow-md {
+  text-shadow: 0 0 4px currentColor;
+}
+
+.text-glow-lg {
+  text-shadow: 0 0 8px currentColor;
+}
+
+/* Append these styles to app/globals.css */
+
+/* Enhanced feedback animations */
+@keyframes feedback-border-pulse-correct {
+  0% { border-color: rgba(22, 163, 74, 0.3); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.3); }
+  50% { border-color: rgba(34, 197, 94, 0.8); box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1); }
+  100% { border-color: rgba(22, 163, 74, 0.3); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.3); }
+}
+
+.feedback-correct-border {
+  animation: feedback-border-pulse-correct 0.6s ease-out forwards;
+}
+
+@keyframes feedback-border-pulse-incorrect {
+  0% { border-color: rgba(220, 38, 38, 0.3); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.3); }
+  50% { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1); }
+  100% { border-color: rgba(220, 38, 38, 0.3); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.3); }
+}
+
+.feedback-incorrect-border {
+  animation: feedback-border-pulse-incorrect 0.6s ease-out forwards;
+}
+
+/* Particle Burst Effect (Simulated with pseudo-elements) */
+.particle-burst-correct {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1px;
+  height: 1px;
+  transform: translate(-50%, -50%);
+  opacity: 0; /* Start hidden */
+  animation: particle-burst-start 0.5s ease-out forwards;
+}
+
+.particle-burst-correct::before,
+.particle-burst-correct::after {
+  content: '';
+  position: absolute;
+  width: 80px; /* Size of the burst */
+  height: 80px;
+  top: -40px;
+  left: -40px;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.6) 0%, rgba(34, 197, 94, 0) 70%);
+  border-radius: 50%;
+}
+
+.particle-burst-correct::after {
+  transform: scale(0.6);
+  background: radial-gradient(circle, rgba(134, 239, 172, 0.8) 0%, rgba(134, 239, 172, 0) 70%);
+}
+
+@keyframes particle-burst-start {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+}
+
+/* Screen Shake Animations */
+@keyframes shake-subtle {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-1px); }
+  20%, 40%, 60%, 80% { transform: translateX(1px); }
+}
+
+.animate-shake-subtle {
+  animation: shake-subtle 0.3s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake-strong {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  10% { transform: translateX(-3px) rotate(-0.5deg); }
+  20% { transform: translateX(3px) rotate(0.5deg); }
+  30% { transform: translateX(-3px) rotate(-0.5deg); }
+  40% { transform: translateX(3px) rotate(0.5deg); }
+  50% { transform: translateX(-3px) rotate(-0.5deg); }
+  60% { transform: translateX(3px) rotate(0.5deg); }
+  70% { transform: translateX(-3px) rotate(-0.5deg); }
+  80% { transform: translateX(2px) rotate(0.5deg); }
+  90% { transform: translateX(-1px) rotate(-0.5deg); }
+}
+
+.animate-shake-strong {
+  animation: shake-strong 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* Momentum Animations */
+@keyframes pulse-strong {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+.animate-pulse-strong {
+  animation: pulse-strong 1.5s ease-in-out infinite;
+}
+
+/* Fast Pulse for Insight Gain */
+@keyframes pulse-fast {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+.animate-pulse-fast {
+    animation: pulse-fast 0.5s ease-out;
+}
+
+@keyframes pulseFlow {
+  0% { width: 0%; }
+  50% { width: 100%; }
+  100% { width: 0%; }
+}
+
+.animate-pulse-flow {
+  animation: pulseFlow 2s ease-in-out infinite;
+}
+
+.transition-opacity {
+  transition: opacity 700ms ease-in-out;
+}
+/* Add the missing twinkle animation */
+@keyframes twinkle {
+  0%, 100% { opacity: var(--base-opacity, 0.6); }
+  50% { opacity: 1; }
+}
+
+.animate-twinkle {
+  animation: twinkle var(--duration, 3s) ease-in-out infinite;
+}
+
+/* Fallback base opacity */
+:root {
+  --base-opacity: 0.6;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Dark panels for consistent UI styling */
+.pixel-panel {
+  background-color: var(--surface-dark);
+  box-shadow:
+    inset -2px -2px 0 rgba(0, 0, 0, 0.3),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.05);
+  padding: 0.75rem;
+  color: var(--text-primary);
+  image-rendering: pixelated;
+}
+
+.pixel-panel-darker {
+  background-color: var(--surface-dark);
+  box-shadow:
+    inset -2px -2px 0 rgba(0, 0, 0, 0.4),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.02);
+  padding: 0.75rem;
+  color: var(--text-primary);
+  image-rendering: pixelated;
+}
+
+.pixel-panel-overlay {
+  background-color: rgba(26, 30, 36, 0.9);
+  box-shadow:
+    inset -2px -2px 0 rgba(0, 0, 0, 0.3),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.05);
+  padding: 0.75rem;
+  color: var(--text-primary);
+  image-rendering: pixelated;
+  backdrop-filter: blur(2px);
+}
+
+.pixel-card {
+  /* ... existing code ... */
+}
