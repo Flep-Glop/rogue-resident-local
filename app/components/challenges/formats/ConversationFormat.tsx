@@ -108,47 +108,65 @@ function ConversationFormat({
   const kapoorDialogue = useMemo(() => [
     {
       text: "Welcome to the calibration lab. Today we'll be checking the linear accelerator output calibration.",
-      options: ["I'm ready to begin, Dr. Kapoor.", "What exactly will we be calibrating?"]
+      options: [
+        { text: "I'm ready to begin, Dr. Kapoor.", type: "neutral" },
+        { text: "What exactly will we be calibrating?", type: "question" }
+      ]
     },
     {
       text: "Excellent. First, what's the standard unit we use to measure absorbed dose?",
-      options: ["Gray (Gy)", "Sievert (Sv)", "Becquerel (Bq)"]
+      options: [
+        { text: "Gray (Gy)", type: "technical" },
+        { text: "Sievert (Sv)", type: "technical" },
+        { text: "Becquerel (Bq)", type: "technical" }
+      ]
     },
     {
       text: "Correct! The Gray is our standard unit for absorbed dose. Now, when we calibrate the linac, which device do we primarily use?",
-      options: ["Ionization chamber", "TLD", "Film dosimeter"]
+      options: [
+        { text: "Ionization chamber", type: "technical" },
+        { text: "TLD", type: "technical" },
+        { text: "Film dosimeter", type: "technical" }
+      ]
     },
     {
       text: "Very good. For your records, I've prepared this calibration journal. You should document all your findings in it.",
-      options: ["Thank you, I'll keep detailed notes.", "Is this part of standard protocol?"]
+      options: [
+        { text: "Thank you, I'll keep detailed notes.", type: "positive" },
+        { text: "Is this part of standard protocol?", type: "question" }
+      ]
     },
     {
       text: "That's all for today's calibration. The equipment is operating within acceptable parameters.",
-      options: ["Return to hospital map"]
+      options: [
+        { text: "Return to hospital map", type: "neutral" }
+      ]
     }
   ], []);
   
   // Character data
   const charData = useMemo<CharacterData>(() => {
-    // Default character data if none provided
-    return {
-      name: "Dr. Kapoor",
-      title: "Chief Medical Physicist",
-      sprite: "/images/characters/kapoor.png",
-      primaryColor: "#3498db",
-      textClass: "text-blue-500",
-      bgClass: "bg-blue-900"
-    };
+    return getCharacterData(normalizedCharacterId);
   }, [normalizedCharacterId]);
   
   // ===== HANDLERS =====
   // Handle option selection
   const handleOptionClick = useCallback((optionIndex: number) => {
+    const selectedOption = kapoorDialogue[dialogueStage].options[optionIndex];
     setSelectedOptionIndex(optionIndex);
     setShowResponse(true);
     
     // First question - just advance
     if (dialogueStage === 0) {
+      // Extra insight for asking questions
+      if (selectedOption.type === 'question') {
+        updateInsight(5);
+        setResults(prev => ({
+          ...prev,
+          insightGained: prev.insightGained + 5
+        }));
+      }
+      
       setTimeout(() => {
         setDialogueStage(1);
         setShowResponse(false);
@@ -161,7 +179,11 @@ function ConversationFormat({
       updateInsight(10);
       setResults(prev => ({
         ...prev,
-        insightGained: prev.insightGained + 10
+        insightGained: prev.insightGained + 10,
+        knowledgeGained: {
+          ...prev.knowledgeGained,
+          'radiation_units': (prev.knowledgeGained['radiation_units'] || 0) + 1
+        }
       }));
       setTimeout(() => {
         setDialogueStage(2);
@@ -189,7 +211,11 @@ function ConversationFormat({
       updateInsight(10);
       setResults(prev => ({
         ...prev,
-        insightGained: prev.insightGained + 10
+        insightGained: prev.insightGained + 10,
+        knowledgeGained: {
+          ...prev.knowledgeGained,
+          'calibration_equipment': (prev.knowledgeGained['calibration_equipment'] || 0) + 1
+        }
       }));
       setTimeout(() => {
         setDialogueStage(3);
@@ -213,13 +239,24 @@ function ConversationFormat({
     }
     // Journal acquisition
     else if (dialogueStage === 3) {
+      // Extra insight for asking questions
+      if (selectedOption.type === 'question') {
+        updateInsight(5);
+        setResults(prev => ({
+          ...prev,
+          insightGained: prev.insightGained + 5
+        }));
+      }
+      
       // Trigger journal acquisition
       safeDispatch(GameEventType.NODE_COMPLETED, {
         nodeId: storeNodeId,
         result: {
-          isJournalAcquisition: true
+          isJournalAcquisition: true,
+          journalTier: 'technical'
         }
       });
+      
       setTimeout(() => {
         setDialogueStage(4);
         setShowResponse(false);
@@ -235,10 +272,13 @@ function ConversationFormat({
       
       // Call onComplete if provided
       if (onComplete) {
-        onComplete(results);
+        onComplete({
+          ...results,
+          journalTier: 'technical'
+        });
       }
     }
-  }, [dialogueStage, incrementMomentum, updateInsight, storeNodeId, gameStore, onComplete, results]);
+  }, [dialogueStage, incrementMomentum, updateInsight, storeNodeId, gameStore, onComplete, results, kapoorDialogue]);
   
   // ===== COMPONENT LIFECYCLE =====
   
@@ -258,40 +298,141 @@ function ConversationFormat({
   
   // Render the conversation UI
   return (
-    <div className="flex flex-col h-full w-full bg-gray-900 text-white p-4">
-      <div className="flex mb-4">
-        <div className="w-1/3">
-          {/* Character portrait */}
-          <div className={`w-32 h-32 ${charData.bgClass} rounded-lg mb-2`}></div>
-          <div className="text-lg">{charData.name}</div>
-          <div className="text-sm text-gray-400">{charData.title}</div>
-        </div>
-        <div className="w-2/3 p-4 bg-gray-800 rounded-lg">
-          {currentDialogue.text}
+    <div className="relative w-full h-full flex flex-col items-center justify-end">
+      {/* Background with grid pattern */}
+      <div className="absolute inset-0 bg-gray-900 z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(25,33,55,0.8)_0%,rgba(10,15,30,1)_100%)]">
+          {/* Grid pattern overlay */}
+          <div 
+            className="absolute inset-0 opacity-20" 
+            style={{ 
+              backgroundImage: 'linear-gradient(to right, rgba(30,64,175,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(30,64,175,0.1) 1px, transparent 1px)',
+              backgroundSize: '24px 24px' 
+            }}
+          />
         </div>
       </div>
       
-      <div className="mt-auto">
-        <div className="flex flex-col space-y-2">
-          {currentDialogue.options.map((option, index) => (
-            <button
-              key={index}
-              className={`p-2 bg-blue-700 hover:bg-blue-600 rounded-lg text-left ${
-                selectedOptionIndex === index ? 'ring-2 ring-yellow-400' : ''
-              }`}
-              onClick={() => handleOptionClick(index)}
-              disabled={showResponse}
+      {/* Scanline effect overlay */}
+      <div className="absolute inset-0 pointer-events-none z-50 scanlines opacity-10"></div>
+      
+      {/* Subtle ambient particles */}
+      <div className="absolute inset-0 overflow-hidden z-10 pointer-events-none">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div 
+            key={i}
+            className="absolute w-1 h-1 bg-blue-400/20 rounded-full animate-pulse"
+            style={{ 
+              top: `${Math.random() * 100}%`, 
+              left: `${Math.random() * 100}%`,
+              animationDuration: `${3 + Math.random() * 5}s`,
+              animationDelay: `${Math.random() * 2}s`
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Character Portrait - with subtle floating animation */}
+      <div 
+        ref={characterRef}
+        className="absolute left-16 bottom-48 w-64 h-64 z-20"
+      >
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative w-full h-full animate-float-slow"
+        >
+          <div className="absolute inset-0 flex items-center justify-center">
+            <img
+              src={charData.sprite}
+              alt={charData.name}
+              className="w-full h-full object-contain pixelated"
+              style={{ imageRendering: 'pixelated' }}
+            />
+          </div>
+          
+          {/* Subtle glow effect */}
+          <div 
+            className="absolute inset-0 rounded-full blur-lg opacity-30 -z-10"
+            style={{ backgroundColor: charData.primaryColor, transform: 'scale(0.9)' }}
+          />
+        </motion.div>
+      </div>
+
+      {/* Character Name & Title - with pixel border */}
+      <div className="absolute left-16 bottom-36 bg-black/80 p-2 rounded z-20 pixel-borders pixel-borders--clinical">
+        <h3 className={`text-lg font-pixel ${charData.textClass}`}>{charData.name}</h3>
+        <p className="text-sm text-gray-400 font-pixel">{charData.title}</p>
+      </div>
+
+      {/* Main Dialogue Box */}
+      <div 
+        ref={dialogueContainerRef}
+        className="w-full max-w-4xl mb-24 px-6 relative z-20"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="relative"
+        >
+          <div className="bg-black/80 border border-blue-500/30 rounded p-6 shadow-lg pixel-borders pixel-borders--blue">
+            {/* Dialogue Text - with subtle text effect */}
+            <p className="text-lg font-pixel leading-relaxed text-white mb-6 whitespace-pre-wrap">
+              {kapoorDialogue[dialogueStage].text}
+            </p>
+
+            {/* Options Container - with improved hover effects */}
+            <div 
+              ref={optionsContainerRef}
+              className="space-y-3"
             >
-              {option}
-            </button>
-          ))}
-        </div>
+              {kapoorDialogue[dialogueStage].options.map((option, index) => (
+                <motion.button
+                  key={index}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  onClick={() => handleOptionClick(index)}
+                  disabled={selectedOptionIndex !== null}
+                  className={`
+                    w-full text-left px-4 py-2 rounded
+                    font-pixel text-sm leading-relaxed
+                    ${selectedOptionIndex === index 
+                      ? 'bg-blue-500/50 text-white shadow-inner shadow-blue-800/50' 
+                      : 'bg-black/70 text-gray-300 hover:bg-blue-500/20 hover:text-white hover:shadow-inner hover:shadow-blue-700/20'}
+                    ${option.type === 'technical' ? 'text-technical-light border-l-4 border-technical-light/50' : 'border-l-4 border-transparent'}
+                    ${option.type === 'question' ? 'text-educational-light border-l-4 border-educational-light/50' : ''}
+                    ${option.type === 'positive' ? 'text-qa-light border-l-4 border-qa-light/50' : ''}
+                    transition-all duration-200
+                    border border-blue-500/30
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    flex items-start
+                  `}
+                >
+                  <span className="mr-2 opacity-60">{'>'}</span>
+                  <span className="flex-1">{option.text}</span>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
       </div>
-      
-      {/* Resource meters */}
-      <div className="absolute top-4 right-4 flex flex-col items-end space-y-2">
+
+      {/* Insight & Momentum UI */}
+      <div className="absolute top-6 right-6 flex flex-col space-y-4 z-20">
         <InsightMeter />
         <MomentumCounter />
+      </div>
+      
+      {/* Scene decoration - lab visual elements */}
+      <div className="absolute top-20 left-20 w-16 h-16 opacity-40 z-10">
+        <div className="w-full h-full rounded-full bg-blue-500/10 animate-pulse-slow border border-blue-500/20"></div>
+      </div>
+      <div className="absolute top-40 right-40 w-24 h-24 opacity-30 z-10">
+        <div className="w-full h-full rounded-full bg-blue-400/10 animate-pulse-slow border border-blue-400/20" 
+            style={{animationDelay: '1s'}}></div>
       </div>
     </div>
   );
@@ -301,29 +442,62 @@ export default ConversationFormat;
 
 // Helper function to get character data
 function getCharacterData(characterId: string): CharacterData {
-  // Default character data
-  const defaultData: CharacterData = {
-    name: "Unknown",
-    title: "Character",
-    sprite: "/images/characters/default.png",
-    primaryColor: "#cccccc",
-    textClass: "text-gray-200",
-    bgClass: "bg-gray-700"
+  const characterData: Record<string, CharacterData> = {
+    'kapoor': {
+      name: "Dr. Kapoor",
+      title: "Chief Medical Physicist",
+      sprite: "/characters/kapoor.png",
+      primaryColor: "var(--clinical-color)",
+      textClass: "text-clinical-light",
+      bgClass: "bg-clinical"
+    },
+    'jesse': {
+      name: "Technician Jesse",
+      title: "Equipment Specialist",
+      sprite: "/characters/jesse.png",
+      primaryColor: "var(--qa-color)",
+      textClass: "text-qa-light",
+      bgClass: "bg-qa"
+    },
+    'quinn': {
+      name: "Dr. Zephyr Quinn",
+      title: "Experimental Researcher",
+      sprite: "/characters/quinn.png",
+      primaryColor: "var(--educational-color)",
+      textClass: "text-educational-light",
+      bgClass: "bg-educational"
+    },
+    'garcia': {
+      name: "Dr. Garcia",
+      title: "Radiation Oncologist",
+      sprite: "/characters/garcia.png",
+      primaryColor: "var(--clinical-alt-color)",
+      textClass: "text-clinical-light",
+      bgClass: "bg-clinical"
+    }
   };
-  
-  // Character-specific data
-  switch (characterId) {
-    case 'kapoor':
-      return {
-        name: "Dr. Kapoor",
-        title: "Chief Medical Physicist",
-        sprite: "/images/characters/kapoor.png",
-        primaryColor: "#3498db",
-        textClass: "text-blue-500",
-        bgClass: "bg-blue-900"
-      };
-    default:
-      return defaultData;
+  return characterData[characterId] || characterData.kapoor;
+}
+
+// Global CSS additions for the animations
+// Add this to your global CSS or use CSS modules
+// If you're using tailwind.config.js, add these custom animations:
+/*
+module.exports = {
+  theme: {
+    extend: {
+      animation: {
+        'float-slow': 'float 3s ease-in-out infinite',
+        'pulse-slow': 'pulse 4s ease-in-out infinite',
+      },
+      keyframes: {
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-8px)' },
+        }
+      }
+    }
   }
 }
+*/
 

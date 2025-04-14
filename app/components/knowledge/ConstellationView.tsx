@@ -24,7 +24,8 @@ import {
   drawConnections,
   drawNodes,
   drawPendingConnection,
-  drawParticles
+  drawParticles,
+  initializeImages
 } from './constellationCanvasUtils';
 
 // Import UI Sub-components
@@ -87,6 +88,7 @@ export default function ConstellationView({
   const animationFrameRef = useRef<number | null>(null);
   const isComponentMountedRef = useRef(true);
   const particleEffectsRef = useRef<ParticleEffect[]>([]);
+  const autoSelectionPerformedRef = useRef(false);
   const interactionStateRef = useRef({
     isDragging: false,
     dragStart: { x: 0, y: 0 },
@@ -139,20 +141,12 @@ export default function ConstellationView({
     0
   );
   
-  // Extract full objects using a safe pattern
-  const { 
-    nodes,
-    connections,
-    domainMastery,
-    newlyDiscovered,
-    journalEntries
-  } = useKnowledgeStore(state => ({
-    nodes: state.nodes,
-    connections: state.connections,
-    domainMastery: state.domainMastery,
-    newlyDiscovered: state.newlyDiscovered,
-    journalEntries: state.journalEntries
-  }));
+  // Extract full objects using a safe pattern - use shallow equality to prevent excess re-renders
+  const nodes = useKnowledgeStore(state => state.nodes);
+  const connections = useKnowledgeStore(state => state.connections);
+  const domainMastery = useKnowledgeStore(state => state.domainMastery);
+  const newlyDiscovered = useKnowledgeStore(state => state.newlyDiscovered);
+  const journalEntries = useKnowledgeStore(state => state.journalEntries);
   
   // Directly access needed store functions
   const storeActions = useMemo(() => ({
@@ -162,7 +156,7 @@ export default function ConstellationView({
   }), []);
 
   // ========= DERIVED DATA =========
-  // Filter for discovered nodes and connections
+  // Filter for discovered nodes and connections - memoize to prevent recalculations
   const discoveredNodes = useMemo(() => 
     nodes.filter(node => node.discovered), 
   [nodes]);
@@ -171,22 +165,83 @@ export default function ConstellationView({
     connections.filter(conn => conn.discovered), 
   [connections]);
 
+  // ========= RENDER SCHEDULING =========
+  // Schedule next animation frame for rendering
+  const scheduleRender = useCallback(() => {
+    if (!isComponentMountedRef.current || animationFrameRef.current !== null) return;
+    
+    animationFrameRef.current = requestAnimationFrame(() => {
+      animationFrameRef.current = null;
+      
+      if (!isComponentMountedRef.current) return;
+      
+      // Update particles
+      if (particleEffectsRef.current.length > 0) {
+        let particlesActive = false;
+        
+        // Process particles (using ref to avoid state updates)
+        particleEffectsRef.current = particleEffectsRef.current
+          .map(p => {
+            const dx = p.targetX - p.x;
+            const dy = p.targetY - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > 5) {
+              particlesActive = true;
+              return { 
+                ...p, 
+                x: p.x + dx * 0.05, 
+                y: p.y + dy * 0.05, 
+                life: p.life - 1 
+              };
+            } else {
+              return { ...p, life: p.life - 3 }; // Decay faster at target
+            }
+          })
+          .filter(p => p.life > 0);
+        
+        if (particlesActive) {
+          interactionStateRef.current.renderNeeded = true;
+        }
+      }
+      
+      // Render if needed
+      if (interactionStateRef.current.renderNeeded) {
+        renderCanvas();
+        interactionStateRef.current.renderNeeded = false;
+      }
+      
+      // Continue animation if needed
+      if (particleEffectsRef.current.length > 0) {
+        scheduleRender();
+      }
+    });
+  }, []);
+
   // ========= DIMENSION MANAGEMENT =========
   // Initialize and update dimensions based on container size
   useEffect(() => {
     if (!isComponentMountedRef.current) return;
     
     const updateDimensions = () => {
+      // In fullscreen mode, use the viewport dimensions
+      if (fullscreen) {
+        setDimensions({
+          width: window.innerWidth,
+          height: window.innerHeight
+        });
+        debugLog('Dimensions updated to fullscreen', { 
+          width: window.innerWidth, 
+          height: window.innerHeight 
+        });
+        return;
+      }
+      
+      // For non-fullscreen, use container or provided dimensions
       if (!containerRef.current?.parentElement) return;
       
-      const containerWidth = fullscreen
-        ? containerRef.current.parentElement.clientWidth || window.innerWidth
-        : width || 800;
-        
-      const containerHeight = fullscreen
-        ? containerRef.current.parentElement.clientHeight || window.innerHeight
-        : height || 600;
-        
+      const containerWidth = width || containerRef.current.parentElement.clientWidth || 800;
+      const containerHeight = height || containerRef.current.parentElement.clientHeight || 600;
       const padding = 24;
       
       setDimensions({
@@ -199,10 +254,8 @@ export default function ConstellationView({
     
     updateDimensions();
     
-    if (fullscreen) {
-      window.addEventListener('resize', updateDimensions);
-      return () => window.removeEventListener('resize', updateDimensions);
-    }
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
   }, [fullscreen, width, height, debugLog]);
 
   // ========= LIFECYCLE MANAGEMENT =========
@@ -210,6 +263,22 @@ export default function ConstellationView({
   useEffect(() => {
     debugLog('Component mounted');
     isComponentMountedRef.current = true;
+    autoSelectionPerformedRef.current = false;
+    
+    // Initialize images on client-side only
+    if (typeof window !== 'undefined') {
+      // Add extra debugging for image loading
+      console.log('Checking for star image file...');
+      
+      // Check if the file exists by creating a test image
+      const testImage = new Image();
+      testImage.onload = () => console.log('✅ Star image exists at /icons/star.png');
+      testImage.onerror = () => console.error('❌ Star image not found at /icons/star.png - check file path');
+      testImage.src = '/icons/star.png';
+      
+      // Initialize all images
+      initializeImages();
+    }
     
     return () => {
       debugLog('Component unmounting');
@@ -224,7 +293,29 @@ export default function ConstellationView({
   }, [debugLog]);
 
   // ========= COORDINATION UPDATES =========
-  // Highlight active nodes with particle effects
+  // Auto-select node only when needed
+  useEffect(() => {
+    if (!isComponentMountedRef.current || selectedNode || autoSelectionPerformedRef.current) return;
+    
+    const nodesToFocus = [...activeNodes, ...newlyDiscovered];
+    if (nodesToFocus.length === 0) return;
+    
+    const nodeToFocus = nodes.find(n => n.discovered && nodesToFocus.includes(n.id));
+    if (nodeToFocus) {
+      debugLog('Auto-selecting highlighted node', nodeToFocus.id);
+      autoSelectionPerformedRef.current = true;
+      setSelectedNode(nodeToFocus);
+    }
+  }, [nodes, activeNodes, newlyDiscovered, selectedNode, debugLog]);
+  
+  // Reset autoSelection flag when selected node changes
+  useEffect(() => {
+    if (selectedNode === null) {
+      autoSelectionPerformedRef.current = false;
+    }
+  }, [selectedNode]);
+
+  // Highlight active nodes with particle effects - separated from node selection logic
   useEffect(() => {
     if (!isComponentMountedRef.current || nodes.length === 0) return;
 
@@ -232,15 +323,6 @@ export default function ConstellationView({
     if (nodesToHighlight.length === 0) return;
     
     debugLog('Highlighting nodes', nodesToHighlight);
-
-    // Focus on the first highlighted node if none is selected
-    if (!selectedNode) {
-      const nodeToFocus = nodes.find(n => nodesToHighlight.includes(n.id));
-      if (nodeToFocus) {
-        debugLog('Auto-selecting highlighted node', nodeToFocus.id);
-        setSelectedNode(nodeToFocus);
-      }
-    }
 
     // Generate particle effects for highlighted nodes
     const newParticles: ParticleEffect[] = [];
@@ -283,7 +365,7 @@ export default function ConstellationView({
         );
       }
     }
-  }, [activeNodes, newlyDiscovered, nodes, selectedNode, debugLog]);
+  }, [activeNodes, newlyDiscovered, nodes, scheduleRender, debugLog]);
 
   // Track recent insights for Journal Overlay
   useEffect(() => {
@@ -352,58 +434,6 @@ export default function ConstellationView({
   }, [canvasRef]);
 
   // ========= RENDERING & ANIMATION =========
-  // Schedule next animation frame for rendering
-  const scheduleRender = useCallback(() => {
-    if (!isComponentMountedRef.current || animationFrameRef.current !== null) return;
-    
-    animationFrameRef.current = requestAnimationFrame(() => {
-      animationFrameRef.current = null;
-      
-      if (!isComponentMountedRef.current) return;
-      
-      // Update particles
-      if (particleEffectsRef.current.length > 0) {
-        let particlesActive = false;
-        
-        // Process particles (using ref to avoid state updates)
-        particleEffectsRef.current = particleEffectsRef.current
-          .map(p => {
-            const dx = p.targetX - p.x;
-            const dy = p.targetY - p.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist > 5) {
-              particlesActive = true;
-              return { 
-                ...p, 
-                x: p.x + dx * 0.05, 
-                y: p.y + dy * 0.05, 
-                life: p.life - 1 
-              };
-            } else {
-              return { ...p, life: p.life - 3 }; // Decay faster at target
-            }
-          })
-          .filter(p => p.life > 0);
-        
-        if (particlesActive) {
-          interactionStateRef.current.renderNeeded = true;
-        }
-      }
-      
-      // Render if needed
-      if (interactionStateRef.current.renderNeeded) {
-        renderCanvas();
-        interactionStateRef.current.renderNeeded = false;
-      }
-      
-      // Continue animation if needed
-      if (particleEffectsRef.current.length > 0) {
-        scheduleRender();
-      }
-    });
-  }, []);
-
   // Render canvas with current state
   const renderCanvas = useCallback(() => {
     if (!canvasRef.current || !isComponentMountedRef.current) return;
@@ -412,6 +442,9 @@ export default function ConstellationView({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Disable image smoothing for pixel-perfect rendering
+    ctx.imageSmoothingEnabled = false;
+    
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -447,15 +480,19 @@ export default function ConstellationView({
     newlyDiscovered, 
     zoomLevel, 
     cameraPosition, 
-    showLabels
+    showLabels,
   ]);
 
   // Initial render and dimension changes
   useEffect(() => {
+    if (!isComponentMountedRef.current) return;
+    
+    // Just mark that rendering is needed and schedule once
     interactionStateRef.current.renderNeeded = true;
     scheduleRender();
+    
+    // Don't include scheduleRender in dependencies to avoid cycles
   }, [
-    scheduleRender, 
     dimensions.width, 
     dimensions.height
   ]);
@@ -495,7 +532,100 @@ export default function ConstellationView({
     // Update particles and request render
     particleEffectsRef.current = [...particleEffectsRef.current, ...newParticles];
     interactionStateRef.current.renderNeeded = true;
-    scheduleRender();
+    
+    // Schedule the render directly with requestAnimationFrame instead of using scheduleRender
+    // to avoid circular dependencies
+    if (animationFrameRef.current === null) {
+      animationFrameRef.current = requestAnimationFrame(() => {
+        animationFrameRef.current = null;
+        if (isComponentMountedRef.current) {
+          scheduleRender();
+        }
+      });
+    }
+  });
+
+  // Primary node interaction handler (separated for reuse)
+  const handleNodeInteraction = useStableCallback((clientX: number, clientY: number) => {
+    if (!interactive || !isComponentMountedRef.current) return;
+    
+    try {
+      // Get scene coordinates for hit testing
+      const { x: sceneX, y: sceneY } = getSceneCoordinates(clientX, clientY);
+      const clickedNode = findNodeAtCoordinates(sceneX, sceneY);
+      
+      // Log the interaction attempt
+      debugLog('Node interaction', { 
+        sceneCoords: { x: sceneX, y: sceneY },
+        clickedNode: clickedNode?.id || 'none',
+        pendingConnection,
+        selectedNode: selectedNode?.id || 'none'
+      });
+      
+      // Skip if no node clicked
+      if (!clickedNode) {
+        // Clear selection if clicking empty space
+        if (selectedNode) {
+          setSelectedNode(null);
+          safeDispatch(
+            GameEventType.UI_NODE_SELECTION_CLEARED, 
+            {}, 
+            'constellation'
+          );
+        }
+        return;
+      }
+      
+      // Handle connection creation if we have a pending connection
+      if (pendingConnection && clickedNode.id !== pendingConnection) {
+        // Don't allow self-connections
+        const sourceNode = discoveredNodes.find(n => n.id === pendingConnection);
+        
+        if (sourceNode) {
+          // Try to create the connection
+          debugLog('Creating connection', { source: sourceNode.id, target: clickedNode.id });
+          
+          storeActions.createConnection(sourceNode.id, clickedNode.id);
+          setPendingConnection(null);
+          
+          // Visual feedback
+          createConnectionParticles(sourceNode, clickedNode);
+          
+          // Notify about connection creation
+          safeDispatch(
+            GameEventType.UI_CONNECTION_STARTED, 
+            { 
+              sourceId: sourceNode.id, 
+              targetId: clickedNode.id 
+            }, 
+            'constellation'
+          );
+          
+          // Increment mastery when making connections
+          storeActions.updateMastery(sourceNode.id, 5);
+          storeActions.updateMastery(clickedNode.id, 5);
+          
+          return;
+        }
+      }
+      
+      // Default node selection behavior
+      setSelectedNode(clickedNode);
+      
+      // Clear pending connection if selecting a different node
+      if (pendingConnection && clickedNode.id !== pendingConnection) {
+        setPendingConnection(null);
+      }
+      
+      // Notify about node selection
+      safeDispatch(
+        GameEventType.UI_NODE_SELECTED, 
+        { nodeId: clickedNode.id }, 
+        'constellation'
+      );
+    } catch (err) {
+      console.error('Error in node interaction logic:', err);
+    }
   });
 
   // ========= INTERACTION HANDLERS =========
@@ -620,131 +750,37 @@ export default function ConstellationView({
     interactive,
     activeNode,
     updateCursor,
+    handleNodeInteraction
   ]);
 
-  // Primary node interaction handler (separated for reuse)
-  const handleNodeInteraction = useStableCallback((clientX: number, clientY: number) => {
-    if (!interactive || !isComponentMountedRef.current) return;
+  // Direct click handler (backup for browsers where mouseup/down doesn't work properly)
+  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Prevent double-processing if we already handled this in mouseUp
+    const now = Date.now();
+    const state = interactionStateRef.current;
+    const timeSinceLastClick = now - state.lastClickTime;
     
-    // Get scene coordinates for hit testing
-    const { x: sceneX, y: sceneY } = getSceneCoordinates(clientX, clientY);
-    const clickedNode = findNodeAtCoordinates(sceneX, sceneY);
-    
-    // Log the interaction attempt
-    debugLog('Node interaction', { 
-      sceneCoords: { x: sceneX, y: sceneY },
-      clickedNode: clickedNode?.id || 'none',
-      pendingConnection,
-      selectedNode: selectedNode?.id || 'none'
-    });
-    
-    // Skip if no node clicked
-    if (!clickedNode) {
-      // Clear selection if clicking empty space
-      if (selectedNode) {
-        setSelectedNode(null);
-        safeDispatch(
-          GameEventType.UI_NODE_SELECTION_CLEARED, 
-          {}, 
-          'constellation'
-        );
-      }
+    // Skip if we just processed this click in mouseUp (within 50ms)
+    if (timeSinceLastClick < 50) {
+      debugLog('Skipping redundant click', { timeSinceLastClick });
       return;
     }
     
-    // IMPORTANT: Dispatch click event regardless of further logic
-    safeDispatch(
-      GameEventType.UI_NODE_CLICKED, 
-      { nodeId: clickedNode.id }, 
-      'constellation'
-    );
+    // Update last click time
+    state.lastClickTime = now;
     
-    // Handle pending connection logic
-    if (pendingConnection) {
-      if (pendingConnection !== clickedNode.id) {
-        const sourceNode = discoveredNodes.find(n => n.id === pendingConnection);
-        if (!sourceNode) return;
-        
-        // Check if connection already exists
-        const existingConnection = discoveredConnections.find(
-          conn => (conn.source === pendingConnection && conn.target === clickedNode.id) ||
-                 (conn.source === clickedNode.id && conn.target === pendingConnection)
-        );
-        
-        if (!existingConnection) {
-          // Create connection using store actions
-          storeActions.createConnection(pendingConnection, clickedNode.id);
-          
-          // Update mastery for both nodes
-          storeActions.updateMastery(
-            pendingConnection, 
-            Math.min(5, 100 - (sourceNode.mastery || 0))
-          );
-          storeActions.updateMastery(
-            clickedNode.id, 
-            Math.min(5, 100 - (clickedNode.mastery || 0))
-          );
-          
-          // Create particle effect
-          createConnectionParticles(sourceNode, clickedNode);
-          
-          // Dispatch connection created event
-          safeDispatch(
-            GameEventType.KNOWLEDGE_CONNECTION_CREATED, 
-            { 
-              source: pendingConnection, 
-              target: clickedNode.id 
-            }, 
-            'constellation'
-          );
-        }
-        
-        // Clear pending connection
-        setPendingConnection(null);
-      } else {
-        // Cancel if clicking the same node
-        setPendingConnection(null);
+    // Process the click directly
+    try {
+      if (!state.isDragging) {
+        handleNodeInteraction(e.clientX, e.clientY);
       }
-    } else {
-      // Handle node selection
-      if (selectedNode?.id === clickedNode.id) {
-        // Start connection if clicking already selected node
-        setPendingConnection(clickedNode.id);
-        
-        // Dispatch pending connection event
-        safeDispatch(
-          GameEventType.UI_CONNECTION_STARTED, 
-          { nodeId: clickedNode.id }, 
-          'constellation'
-        );
-      } else {
-        // Select the node
-        setSelectedNode(clickedNode);
-        
-        // Dispatch selection event
-        safeDispatch(
-          GameEventType.UI_NODE_SELECTED, 
-          { nodeId: clickedNode.id }, 
-          'constellation'
-        );
-      }
+    } catch (err) {
+      console.error('Error handling constellation click:', err);
+      // Recover from error state
+      state.isDragging = false;
+      updateCursor('grab');
     }
-  });
-
-  // Direct click handler (as fallback)
-  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    // This is a redundant handler that serves as a fallback
-    // Most clicks are already handled in mouseUp for better drag detection
-    // Prevent double handling by checking time since last mouseup
-    const state = interactionStateRef.current;
-    const timeSinceLastClick = Date.now() - state.lastClickTime;
-    
-    // If it's been more than 50ms since our mouseup handler,
-    // this may be a synthetic event or delayed click, so process it
-    if (timeSinceLastClick > 50) {
-      handleNodeInteraction(e.clientX, e.clientY);
-    }
-  }, [handleNodeInteraction]);
+  }, [handleNodeInteraction, updateCursor]);
 
   // Wheel handler for zooming
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
@@ -805,10 +841,11 @@ export default function ConstellationView({
       ref={containerRef}
       className="relative bg-black pixel-borders"
       style={{
-        width: dimensions.width,
-        height: dimensions.height,
+        width: fullscreen ? '100vw' : dimensions.width,
+        height: fullscreen ? '100vh' : dimensions.height,
         maxWidth: '100%',
-        maxHeight: '100%'
+        maxHeight: '100%',
+        overflow: 'hidden'
       }}
       data-component="constellation-view"
       data-interactive={interactive.toString()}
@@ -818,7 +855,7 @@ export default function ConstellationView({
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
-        className="w-full h-full"
+        className="w-full h-full object-cover"
         // Attach interaction handlers
         onMouseMove={handleMouseMove}
         onClick={handleClick}
@@ -856,18 +893,34 @@ export default function ConstellationView({
       {selectedNode && (
         <SelectedNodePanel
           selectedNode={selectedNode}
-          discoveredNodes={discoveredNodes}
-          pendingConnection={pendingConnection}
-          setPendingConnection={setPendingConnection}
+          masteryLevel={selectedNode.mastery || 0}
+          onConnect={() => setPendingConnection(selectedNode.id)}
+          canConnect={pendingConnection !== selectedNode.id}
         />
       )}
 
-      {interactive && selectedNode && (
+      {interactive && selectedNode && pendingConnection && (
          <ConnectionSuggestionsPanel
-           selectedNode={selectedNode}
-           discoveredNodes={discoveredNodes}
-           discoveredConnections={discoveredConnections}
-           setPendingConnection={setPendingConnection}
+           suggestions={discoveredNodes.filter(node => 
+             node.id !== selectedNode.id && 
+             node.id !== pendingConnection &&
+             !discoveredConnections.some(conn => 
+               (conn.source === pendingConnection && conn.target === node.id) ||
+               (conn.source === node.id && conn.target === pendingConnection)
+             )
+           )}
+           onSelect={(nodeId) => {
+             const targetNode = discoveredNodes.find(n => n.id === nodeId);
+             if (targetNode && pendingConnection) {
+               const sourceNode = discoveredNodes.find(n => n.id === pendingConnection);
+               if (sourceNode) {
+                 storeActions.createConnection(pendingConnection, nodeId);
+                 createConnectionParticles(sourceNode, targetNode);
+                 setPendingConnection(null);
+               }
+             }
+           }}
+           pendingConnection={pendingConnection}
          />
        )}
 

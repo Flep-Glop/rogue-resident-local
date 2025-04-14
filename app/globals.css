@@ -1,6 +1,7 @@
 /* app/globals.css */
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./styles/pixel-borders.css";
 
 @custom-variant dark (&:is(.dark *));
 

@@ -5,6 +5,7 @@ import GameContainer from './components/GameContainer';
 import JournalAcquisitionAnimation from './components/journal/JournalAcquisitionAnimation';
 import { useCoreInitialization } from './core/init';
 import ChamberDebugInitializer from './components/debug/ChamberDebugInitializer';
+import UnifiedDebugPanel from './components/debug/UnifiedDebugPanel';
 
 // Debug styles for initialization visualization
 const debugStyles = {
@@ -30,7 +31,7 @@ const debugStyles = {
  * 2. Rich error reporting with stack traces
  * 3. Initialization phase tracking
  * 4. System status overview
- * 5. Debug controls for troubleshooting
+ * 5. Unified debug controls for troubleshooting
  */
 export default function VerticalSlicePage() {
   // Initialize core systems with enhanced return values
@@ -298,13 +299,13 @@ export default function VerticalSlicePage() {
         ) : null}
       </div>
       
-      {/* Debug toggle button (always visible) */}
-      {process.env.NODE_ENV !== 'production' && (
+      {/* Debug toggle button for initialization panel only */}
+      {process.env.NODE_ENV !== 'production' && !initialized && (
         <button 
-          className="fixed bottom-4 right-4 bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg z-50 text-xs"
+          className="fixed bottom-4 right-4 bg-blue-600 text-white px-3 py-2 rounded-full shadow-lg z-50 text-xs pixel-button"
           onClick={() => setShowDebugPanel(prev => !prev)}
         >
-          {showDebugPanel ? 'Hide Debug' : 'Show Debug'}
+          {showDebugPanel ? 'Hide Init Debug' : 'Show Init Debug'}
         </button>
       )}
     </ErrorBoundary>

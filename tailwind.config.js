@@ -16,9 +16,10 @@ module.exports = {
       colors: {
         // Dark theme base colors
         background: '#191c21',
-        surface: '#242830',
-        'surface-dark': '#1a1e24',
-        border: '#353b47',
+        surface: '#1a1e24',        // Darker surface color
+        'surface-dark': '#141618', // Even darker surface color
+        'surface-light': '#242830',// Previous surface color becomes light
+        border: '#2a2f38',         // Slightly darker border
         'text-primary': '#c8d2e0',
         'text-secondary': '#8892a3',
         
@@ -97,12 +98,18 @@ module.exports = {
           '80%': { opacity: '0.98' },
           '90%': { opacity: '0.96' },
           '100%': { opacity: '0.98' },
+        },
+        'float': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-8px)' },
         }
       },
       animation: {
         'pixel-pulse': 'pixel-pulse 2s ease-in-out infinite',
         'scanline': 'scanline 8s linear infinite',
         'crt-flicker': 'crt-flicker 0.15s infinite alternate',
+        'float-slow': 'float 3s ease-in-out infinite',
+        'pulse-slow': 'pulse 4s ease-in-out infinite',
       },
       // Pixel-specific sizing
       spacing: {

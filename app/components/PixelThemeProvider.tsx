@@ -108,12 +108,12 @@ export function PixelBox({
   bordered = true
 }: PixelBoxProps) {
   const variantClasses = {
-    default: "bg-surface",
-    dark: "bg-surface-dark",
-    light: "bg-surface-light",
-    clinical: "bg-clinical bg-opacity-10",
-    qa: "bg-qa bg-opacity-10",
-    educational: "bg-educational bg-opacity-10"
+    default: "bg-black backdrop-blur-[2px]",
+    dark: "bg-black backdrop-blur-[2px]",
+    light: "bg-[#0f1216] backdrop-blur-[2px]",
+    clinical: "bg-black backdrop-blur-[2px]",
+    qa: "bg-black backdrop-blur-[2px]",
+    educational: "bg-black backdrop-blur-[2px]"
   };
 
   return (
@@ -123,7 +123,7 @@ export function PixelBox({
         ${bordered ? 'pixel-borders' : ''}
         ${className}
       `}
-      style={bordered ? { boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1)" } : undefined}
+      style={bordered ? { boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.02)" } : undefined}
     >
       {children}
     </div>

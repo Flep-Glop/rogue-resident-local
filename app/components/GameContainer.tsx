@@ -21,7 +21,7 @@ import { useCoreInitialization } from '@/app/core/init';
 import SimplifiedKapoorMap from './map/SimplifiedKapoorMap';
 import HillHomeScene from './HillHomeScene';
 import PlayerStats from './PlayerStats';
-import VerticalSliceDebugPanel from './debug/VerticalSliceDebugPanel';
+import UnifiedDebugPanel from './debug/UnifiedDebugPanel';
 import ChallengeRouter from './challenges/ChallengeRouter';
 import DayNightTransition from './DayNightTransition';
 import FontPreLoader from './FontPreLoader';
@@ -32,6 +32,16 @@ import {
   useStableCallback,
   usePrimitiveValues
 } from '@/app/core/utils/storeHooks';
+
+// Type declarations for window extensions
+declare global {
+  interface Window {
+    __FORCE_REINITIALIZE__?: () => void;
+    __EMERGENCY_RESET__?: () => void;
+    __TOGGLE_DEBUG_PANEL__?: () => void;
+    __INIT_STATE__?: any;
+  }
+}
 
 // Transition timing constants
 const TRANSITION_VISUAL_DURATION = 800; // Duration for the fade effect (ms)
@@ -647,34 +657,18 @@ export default function GameContainer() {
             {renderGameContent()}
           </div>
         </div>
-        
-        {/* Only render stats panel when fully initialized */}
-        {initialized && renderPhase === 'ready' && (
-          <div className="w-64 flex-shrink-0 border-l border-gray-800 overflow-hidden flex flex-col">
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
-              <PlayerStats />
-            </div>
+        <div className="w-64 flex-shrink-0 border-l border-gray-800 bg-black backdrop-blur-sm overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <PlayerStats />
           </div>
-        )}
+        </div>
       </div>
 
       {/* Purely presentational transition overlay - only when initialized */}
       {initialized && <DayNightTransition />}
 
-      {/* Debug Panel - Only in development */}
-      {process.env.NODE_ENV !== 'production' && <VerticalSliceDebugPanel />}
-
-      {/* Enhanced Debug Info - Only in development */}
-      {process.env.NODE_ENV !== 'production' && (
-        <div className="fixed bottom-0 left-0 bg-black/80 text-white p-2 text-xs z-50">
-          Phase: <span className="text-green-400">{gamePhase}</span> | 
-          Node: <span className="text-blue-400">{currentNodeId || 'none'}</span> | 
-          Transitioning: {isTransitioning ? 'Yes' : 'No'} | 
-          Day: {currentDay} | 
-          Init: {initialized ? 'Yes' : 'No'} |
-          R-Phase: {renderPhase}
-        </div>
-      )}
+      {/* Unified Debug Panel - Only in development */}
+      {process.env.NODE_ENV !== 'production' && <UnifiedDebugPanel />}
     </div>
   );
 }

@@ -9,12 +9,22 @@ import { MapNode, JournalEntry, NodeType } from '@/app/types/game';
 import { safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { usePrimitiveStoreValue, useStableCallback } from '@/app/core/utils/storeHooks';
+import Image from 'next/image';
+
+// Add this at the top level of the file, before the component
+declare global {
+  interface Window {
+    __GAME_STATE_MACHINE_DEBUG__?: {
+      getCurrentState: () => any;
+    };
+  }
+}
 
 /**
  * Enhanced SimplifiedKapoorMap Component
  * 
  * Improvements:
- * 1. Collapsible debug UI
+ * 1. Removed standalone debug UI (now in UnifiedDebugPanel)
  * 2. Enhanced visuals with subtle animations
  * 3. Improved node interaction feedback
  * 4. Better visual distinction between node types
@@ -28,11 +38,18 @@ const SimplifiedKapoorMap: React.FC = () => {
   const animationTimeoutRefs = useRef<NodeJS.Timeout[]>([]);
   
   // ===== DEBUG STATE =====
-  const [debugVisible, setDebugVisible] = useState<boolean>(false);
+  const [debugVisible, setDebugVisible] = useState(false);
   const [clickPosition, setClickPosition] = useState<{x: number, y: number} | null>(null);
   const [clickTarget, setClickTarget] = useState<string>('None');
   const [clickCount, setClickCount] = useState(0);
   const [svgBounds, setSvgBounds] = useState<DOMRect | null>(null);
+  const [debugState, setDebugState] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState({
+    lastClick: null as string | null,
+    lastError: null as string | null,
+    storeAvailable: false,
+    nodeSelectionState: 'idle'
+  });
   
   // ===== PRIMITIVE STORE VALUES =====
   const currentSystem = usePrimitiveStoreValue(
@@ -53,64 +70,67 @@ const SimplifiedKapoorMap: React.FC = () => {
   
   // ===== LOCAL COMPONENT STATE =====
   // Enhanced static map nodes data with more visual metadata
-  const mapNodes = useMemo<MapNode[]>(() => [
-    { 
-      id: 'node-1', 
-      x: 150, 
-      y: 150, 
-      label: 'Calibration Challenge', 
-      type: 'educational', 
-      connections: ['node-2'], 
-      data: { 
-        difficulty: 'beginner',
-        imageUrl: '/assets/icons/calibration.png',
-        description: 'Learn about basic calibration protocols'
-      } 
-    },
-    { 
-      id: 'node-2', 
-      x: 350, 
-      y: 200, 
-      label: 'Dosimetry Principles', 
-      type: 'system', 
-      connections: ['node-3'], 
-      data: { 
-        difficulty: 'intermediate',
-        imageUrl: '/assets/icons/dosimetry.png',
-        description: 'Explore fundamental dosimetry concepts'
-      } 
-    },
-    { 
-      id: 'node-3', 
-      x: 550, 
-      y: 150, 
-      label: 'Radiation Safety', 
-      type: 'system', 
-      connections: [], 
-      data: { 
-        difficulty: 'advanced',
-        imageUrl: '/assets/icons/safety.png',
-        description: 'Master radiation safety protocols'
-      } 
-    },
-  ], []);
+  const [nodes, setNodes] = useState<MapNode[]>([
+    // Start node
+    { id: 'node-1', x: 500, y: 220, label: 'Start', type: 'calibration', connections: ['node-2-1', 'node-2-2', 'node-2-3'], data: {} },
+    
+    // Level 2 nodes (3 branches from start)
+    { id: 'node-2-1', x: 300, y: 320, label: 'Branch A', type: 'qa', connections: ['node-3-1', 'node-3-2'], data: {} },
+    { id: 'node-2-2', x: 500, y: 320, label: 'Branch B', type: 'educational', connections: ['node-3-3', 'node-3-4'], data: {} },
+    { id: 'node-2-3', x: 700, y: 320, label: 'Branch C', type: 'qa', connections: ['node-3-5', 'node-3-6'], data: {} },
+    
+    // Level 3 nodes
+    { id: 'node-3-1', x: 200, y: 420, label: 'A1', type: 'educational', connections: ['node-4-1'], data: {} },
+    { id: 'node-3-2', x: 300, y: 420, label: 'A2', type: 'clinical', connections: ['node-4-2'], data: {} },
+    { id: 'node-3-3', x: 400, y: 420, label: 'B1', type: 'qa', connections: ['node-4-3'], data: {} },
+    { id: 'node-3-4', x: 500, y: 420, label: 'B2', type: 'calibration', connections: ['node-4-4'], data: {} },
+    { id: 'node-3-5', x: 600, y: 420, label: 'C1', type: 'educational', connections: ['node-4-5'], data: {} },
+    { id: 'node-3-6', x: 700, y: 420, label: 'C2', type: 'clinical', connections: ['node-4-6'], data: {} },
+    
+    // Level 4 nodes
+    { id: 'node-4-1', x: 150, y: 520, label: 'A1-1', type: 'qa', connections: ['node-5-1'], data: {} },
+    { id: 'node-4-2', x: 250, y: 520, label: 'A2-1', type: 'clinical', connections: ['node-5-1'], data: {} },
+    { id: 'node-4-3', x: 350, y: 520, label: 'B1-1', type: 'educational', connections: ['node-5-2'], data: {} },
+    { id: 'node-4-4', x: 450, y: 520, label: 'B2-1', type: 'calibration', connections: ['node-5-2'], data: {} },
+    { id: 'node-4-5', x: 550, y: 520, label: 'C1-1', type: 'qa', connections: ['node-5-3'], data: {} },
+    { id: 'node-4-6', x: 650, y: 520, label: 'C2-1', type: 'clinical', connections: ['node-5-3'], data: {} },
+    
+    // Level 5 nodes (converging paths)
+    { id: 'node-5-1', x: 200, y: 620, label: 'Path A', type: 'educational', connections: ['node-6-1'], data: {} },
+    { id: 'node-5-2', x: 400, y: 620, label: 'Path B', type: 'qa', connections: ['node-6-2'], data: {} },
+    { id: 'node-5-3', x: 600, y: 620, label: 'Path C', type: 'calibration', connections: ['node-6-3'], data: {} },
+    
+    // Level 6 nodes (pre-boss)
+    { id: 'node-6-1', x: 300, y: 720, label: 'Pre-Boss A', type: 'clinical', connections: ['node-boss'], data: {} },
+    { id: 'node-6-2', x: 500, y: 720, label: 'Pre-Boss B', type: 'educational', connections: ['node-boss'], data: {} },
+    { id: 'node-6-3', x: 700, y: 720, label: 'Pre-Boss C', type: 'qa', connections: ['node-boss'], data: {} },
+    
+    // Boss node
+    { id: 'node-boss', x: 500, y: 820, label: 'BOSS', type: 'clinical', connections: [], data: {} },
+  ]);
   
   const [completedNodes, setCompletedNodes] = useState<string[]>([]);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
+  const [stageSize, setStageSize] = useState({ width: 800, height: 1000 });
   const [isAnimating, setIsAnimating] = useState(false);
   const [clickedNodeId, setClickedNodeId] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState({
-    lastClick: null as string | null,
-    eventsSent: 0,
-    lastError: null as string | null,
-    nodeSelectionState: 'idle',
-    storeAvailable: false
-  });
   
   // New visual enhancement states
   const [showParticles, setShowParticles] = useState(false);
   const [particleAnimationActive, setParticleAnimationActive] = useState(false);
+  
+  // Node type to image mapping
+  const nodeImages = {
+    calibration: '/icons/calibration.png',
+    qa: '/icons/qa.png',
+    clinical: '/icons/clinical.png',
+    educational: '/icons/educational.png',
+    default: '/icons/node-default.png'
+  };
+
+  const getNodeImage = (nodeType: string): string => {
+    return nodeImages[nodeType as keyof typeof nodeImages] || nodeImages.default;
+  };
   
   // ===== LIFECYCLE EFFECTS =====
   // Handle component mount/unmount with debug logging
@@ -186,17 +206,18 @@ const SimplifiedKapoorMap: React.FC = () => {
     }
   }, []);
   
-  // Handle window resize for responsive SVG
+  // Update the stage size effect
   useEffect(() => {
     const handleResize = () => {
       if (!isMountedRef.current || !containerRef.current) return;
       
-      const containerWidth = containerRef.current.clientWidth || window.innerWidth * 0.8;
-      const containerHeight = containerRef.current.clientHeight || window.innerHeight * 0.6;
+      const containerWidth = containerRef.current.clientWidth || window.innerWidth;
+      const containerHeight = containerRef.current.clientHeight || window.innerHeight;
       
+      // Make sure we have enough space for the nodes and padding
       setStageSize({
-        width: Math.max(containerWidth, 400),
-        height: Math.max(containerHeight, 300)
+        width: containerWidth,
+        height: containerHeight
       });
     };
     
@@ -221,6 +242,24 @@ const SimplifiedKapoorMap: React.FC = () => {
     }
   }, [currentNodeId]);
   
+  // Update debug state handling
+  useEffect(() => {
+    const handleDebugToggle = () => {
+      const debug = window.__GAME_STATE_MACHINE_DEBUG__;
+      setDebugVisible(!!debug);
+      if (debug?.getCurrentState) {
+        setDebugState(debug.getCurrentState());
+      }
+    };
+
+    // Initial state
+    handleDebugToggle();
+
+    // Listen for debug state changes
+    window.addEventListener('debug-toggle', handleDebugToggle);
+    return () => window.removeEventListener('debug-toggle', handleDebugToggle);
+  }, []);
+  
   // ===== VISUAL ENHANCEMENT FUNCTIONS =====
   
   // Trigger ambient particle animation
@@ -240,124 +279,11 @@ const SimplifiedKapoorMap: React.FC = () => {
     animationTimeoutRefs.current.push(timeout);
   };
   
-  // ===== DEBUG HANDLERS =====
-  // Container click handler with debugging
-  const handleContainerClick = useCallback((event: React.MouseEvent) => {
-    // Record click position for debugging
-    if (debugVisible) {
-      setClickCount(prev => prev + 1);
-      
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (rect) {
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        setClickPosition({x, y});
-        
-        if (event.target instanceof Element) {
-          setClickTarget(`${event.target.tagName}${event.target.id ? '#'+event.target.id : ''}${
-            event.target.classList.length > 0 ? '.'+Array.from(event.target.classList).join('.') : ''
-          }`);
-        } else {
-          setClickTarget('Unknown');
-        }
-      }
-    }
-  }, [debugVisible]);
-  
-  // ===== NODE CLICK HANDLING =====
-  // Direct node click handler
-  const handleNodeClick = useCallback((nodeId: string, event?: React.MouseEvent) => {
-    // Stop propagation to prevent double handling
-    event?.stopPropagation();
-    
-    // Set clicked node for visual feedback
-    setClickedNodeId(nodeId);
+  // Trigger selection animation for visual feedback
+  const triggerSelectionAnimation = useCallback(() => {
     setIsAnimating(true);
     
-    // Trigger particle animation for visual feedback
-    triggerParticleAnimation();
-    
-    // Update debug state
-    setDebugInfo(prev => ({
-      ...prev,
-      lastClick: nodeId,
-      eventsSent: prev.eventsSent + 1,
-      nodeSelectionState: 'processing',
-      lastError: null
-    }));
-    
-    // Find the clicked node
-    const clickedNode = mapNodes.find(n => n.id === nodeId);
-    if (!clickedNode) {
-      console.error(`[MAP] Node not found: ${nodeId}`);
-      setDebugInfo(prev => ({
-        ...prev,
-        lastError: `Node not found: ${nodeId}`,
-        nodeSelectionState: 'error'
-      }));
-      return;
-    }
-    
-    // Add journal entry
-    try {
-      const journalStore = useJournalStore.getState();
-      if (journalStore && journalStore.addEntry) {
-        const newEntry: Partial<JournalEntry> = {
-          title: `Visited ${clickedNode.label || nodeId}`,
-          content: `Successfully navigated to ${clickedNode.label || nodeId}.`,
-          tags: ['map', 'navigation', nodeId],
-          category: 'Log',
-        };
-        
-        journalStore.addEntry(newEntry as any);
-      }
-    } catch (error) {
-      console.error('[MAP] Failed to add journal entry:', error);
-    }
-    
-    // DIRECT METHOD CALL
-    try {
-      // For node-1 (Kapoor's calibration)
-      if (nodeId === 'node-1') {
-        if (startNodeChallenge) {
-          startNodeChallenge(nodeId, 'kapoor', NodeType.EDUCATIONAL);
-        } else if (setCurrentNode) {
-          setCurrentNode(nodeId);
-        } else {
-          // Last resort - try direct store access
-          const gameStore = useGameStore.getState();
-          if (gameStore?.startNodeChallenge) {
-            gameStore.startNodeChallenge(nodeId, 'kapoor', NodeType.EDUCATIONAL);
-          } else if (gameStore?.setCurrentNode) {
-            gameStore.setCurrentNode(nodeId);
-          } else {
-            throw new Error('No method available to start challenge');
-          }
-        }
-      } else {
-        // For other nodes
-        if (setCurrentNode) {
-          setCurrentNode(nodeId);
-        } else {
-          // Try direct store access
-          const gameStore = useGameStore.getState();
-          if (gameStore?.setCurrentNode) {
-            gameStore.setCurrentNode(nodeId);
-          } else {
-            throw new Error('setCurrentNode not available');
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[MAP] Failed to set node:', error);
-      setDebugInfo(prev => ({
-        ...prev, 
-        lastError: `Node action failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        nodeSelectionState: 'error'
-      }));
-    }
-    
-    // Reset animation state after a delay
+    // Reset animation after delay
     const timeout = setTimeout(() => {
       if (isMountedRef.current) {
         setIsAnimating(false);
@@ -366,7 +292,92 @@ const SimplifiedKapoorMap: React.FC = () => {
     }, 600);
     
     animationTimeoutRefs.current.push(timeout);
-  }, [mapNodes, setCurrentNode, startNodeChallenge]);
+  }, []);
+  
+  // ===== DEBUG HANDLERS =====
+  // Container click handler with debugging
+  const handleContainerClick = useCallback((event: React.MouseEvent) => {
+    // Record click position for debugging (still keeping this for the UnifiedDebugPanel)
+    setClickCount(prev => prev + 1);
+    
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      setClickPosition({x, y});
+      
+      if (event.target instanceof Element) {
+        setClickTarget(`${event.target.tagName}${event.target.id ? '#'+event.target.id : ''}${
+          event.target.classList.length > 0 ? '.'+Array.from(event.target.classList).join('.') : ''
+        }`);
+      } else {
+        setClickTarget('Unknown');
+      }
+    }
+  }, []);
+  
+  // ===== NODE CLICK HANDLING =====
+  // Node click handler
+  const handleNodeClick = useCallback((nodeId: string) => {
+    // Only proceed if the component is still mounted
+    if (!isMountedRef.current) return;
+    
+    // Track clicks for debugging
+    setClickedNodeId(nodeId);
+    setDebugInfo(prev => ({
+      ...prev,
+      lastClick: nodeId,
+      nodeSelectionState: 'pending'
+    }));
+    
+    try {
+      // Validate node data is available
+      const nodeData = nodes.find(n => n.id === nodeId);
+      if (!nodeData) {
+        if (isMountedRef.current) {
+          setDebugInfo(prev => ({
+            ...prev,
+            lastError: `Invalid node ID: ${nodeId}`,
+            nodeSelectionState: 'error'
+          }));
+        }
+        return;
+      }
+      
+      // Set the node in the store
+      const gameStore = useGameStore.getState();
+      if (isMountedRef.current) {
+        setDebugInfo(prev => ({ 
+          ...prev, 
+          storeAvailable: !!gameStore 
+        }));
+      }
+      
+      if (gameStore && gameStore.setCurrentNode) {
+        gameStore.setCurrentNode(nodeId);
+        // Dispatch centralized event for selection
+        safeDispatch(GameEventType.UI_NODE_SELECTED, { nodeId, source: 'map' });
+        
+        // Trigger visual feedback
+        triggerSelectionAnimation();
+      } else if (isMountedRef.current) {
+        setDebugInfo(prev => ({
+          ...prev,
+          lastError: 'Game store not available',
+          nodeSelectionState: 'error'
+        }));
+      }
+    } catch (error) {
+      console.error('Error in node click:', error);
+      if (isMountedRef.current) {
+        setDebugInfo(prev => ({
+          ...prev,
+          lastError: error instanceof Error ? error.message : 'Unknown error',
+          nodeSelectionState: 'error'
+        }));
+      }
+    }
+  }, [nodes, triggerSelectionAnimation]);
   
   // ===== DEBUG FORCE NODE SELECTION =====
   const forceNodeSelection = useCallback((nodeId: string) => {
@@ -423,9 +434,9 @@ const SimplifiedKapoorMap: React.FC = () => {
   // ===== UTILITY FUNCTIONS =====
   // Find node coordinates for drawing lines
   const getNodeCoords = useCallback((nodeId: string): { x: number; y: number } | null => {
-    const node = mapNodes.find(n => n.id === nodeId);
+    const node = nodes.find(n => n.id === nodeId);
     return node ? { x: node.x, y: node.y } : null;
-  }, [mapNodes]);
+  }, [nodes]);
   
   // ===== RENDER HELPERS =====
   // Ambient particles renderer - adds visual interest to the scene
@@ -462,7 +473,7 @@ const SimplifiedKapoorMap: React.FC = () => {
   
   // Connection lines renderer with enhanced styling
   const renderConnectionLines = useCallback(() => {
-    return mapNodes.flatMap(node =>
+    return nodes.flatMap(node =>
       node.connections.map((targetId: string) => {
         const startCoords = getNodeCoords(node.id);
         const endCoords = getNodeCoords(targetId);
@@ -501,210 +512,81 @@ const SimplifiedKapoorMap: React.FC = () => {
                 pointerEvents="none"
               />
             )}
-            
-            {/* Direction indicator */}
-            <polygon
-              points="0,-4 8,0 0,4"
-              fill={isActivePath ? "rgba(120, 160, 255, 0.8)" : "rgba(100, 100, 255, 0.6)"}
-              className={isActivePath ? "animate-pulse-path" : ""}
-              transform={`translate(${endCoords.x - 10}, ${endCoords.y}) rotate(${Math.atan2(endCoords.y - startCoords.y, endCoords.x - startCoords.x) * 180 / Math.PI})`}
-              pointerEvents="none"
-            />
           </g>
         );
       })
     );
-  }, [mapNodes, getNodeCoords, currentNodeId, hoveredNodeId]);
+  }, [nodes, getNodeCoords, currentNodeId, hoveredNodeId]);
   
   // Node renderer with enhanced visuals
   const renderNodes = useCallback(() => {
-    return mapNodes.map(node => {
+    return nodes.map(node => {
       const isCurrentNode = node.id === currentNodeId;
       const isHovered = node.id === hoveredNodeId;
       const isClicked = node.id === clickedNodeId;
       const isCompleted = completedNodes.includes(node.id);
-      
-      // Determine node colors based on state and type
-      let fillColor, strokeColor;
-      
-      // Node coloring based on type
-      switch (node.type) {
-        case 'educational':
-          fillColor = isCurrentNode ? "rgba(44, 146, 135, 0.9)" : "rgba(44, 146, 135, 0.8)";
-          strokeColor = "#3db3a6";
-          break;
-        case 'system':
-          fillColor = isCurrentNode ? "rgba(78, 131, 189, 0.9)" : "rgba(78, 131, 189, 0.8)";
-          strokeColor = "#63a0db";
-          break;
-        default:
-          fillColor = isCurrentNode ? "rgba(0, 150, 255, 0.9)" : "rgba(0, 150, 255, 0.8)";
-          strokeColor = "rgba(255, 255, 255, 0.7)";
-      }
-      
-      // Adjust for completion state
-      if (isCompleted) {
-        fillColor = isCurrentNode 
-          ? "rgba(0, 200, 100, 0.9)"
-          : "rgba(0, 200, 100, 0.8)";
-        strokeColor = "rgba(100, 255, 150, 1)";
-      }
-      
-      // Highlight when hovered/clicked
-      const highlightStroke = isHovered || isClicked ? "rgba(255, 255, 255, 1)" : strokeColor;
-      
-      // Determine node animation class
-      const animationClass = isCurrentNode 
-        ? "animate-pulse-path" 
-        : isCompleted
-          ? "animate-pulse-path-subtle"
-          : "";
-      
+      const size = 45; // 300% larger than original
+
       return (
         <g 
-          key={node.id} 
-          className="node-group" 
-          onClick={(e) => handleNodeClick(node.id, e)}
+          key={node.id}
+          onClick={() => handleNodeClick(node.id)}
           onMouseEnter={() => setHoveredNodeId(node.id)}
           onMouseLeave={() => setHoveredNodeId(null)}
-          pointerEvents="all"
           style={{ cursor: 'pointer' }}
+          className={`node-group ${isCurrentNode ? 'current-node' : ''} ${isHovered ? 'hovered-node' : ''}`}
         >
-          {/* Outer glow for active nodes */}
+          {/* Glow effect for active/hovered nodes */}
           {(isCurrentNode || isHovered) && (
             <circle
               cx={node.x}
               cy={node.y}
-              r={28}
+              r={size + 5}
               fill="none"
-              stroke={highlightStroke}
-              strokeWidth={1.5}
-              opacity={0.5}
-              filter="blur(4px)"
-              pointerEvents="none"
-            />
-          )}
-          
-          {/* Click area (larger than visible node) */}
-          <circle
-            cx={node.x}
-            cy={node.y}
-            r={40}
-            fill="rgba(255, 255, 255, 0.01)" 
-            pointerEvents="all"
-            data-node-id={`${node.id}-target`}
-          />
-          
-          {/* Node background glow */}
-          <circle
-            cx={node.x}
-            cy={node.y}
-            r={24}
-            fill={fillColor}
-            opacity={0.3}
-            filter="blur(8px)"
-            className={animationClass}
-            pointerEvents="none"
-          />
-          
-          {/* Main node circle */}
-          <circle
-            cx={node.x}
-            cy={node.y}
-            r={20}
-            fill={fillColor}
-            stroke={highlightStroke}
-            strokeWidth={isHovered || isClicked ? 3 : 1.5}
-            className={`node-circle ${isClicked ? 'pulse-animation' : ''} ${animationClass}`}
-            filter={isCurrentNode ? "drop-shadow(0 0 6px rgba(255,255,255,0.3))" : "none"}
-            data-node-id={node.id}
-            pointerEvents="all"
-          />
-          
-          {/* Node inner highlight */}
-          <circle
-            cx={node.x - 5}
-            cy={node.y - 5}
-            r={10}
-            fill="rgba(255, 255, 255, 0.2)"
-            pointerEvents="none"
-          />
-          
-          {/* Center dot */}
-          <circle
-            cx={node.x}
-            cy={node.y}
-            r={3}
-            fill="#fff"
-            opacity={0.7}
-            pointerEvents="none"
-          />
-          
-          {/* Completion indicator */}
-          {isCompleted && (
-            <circle
-              cx={node.x}
-              cy={node.y}
-              r={15}
-              fill="none"
-              stroke="rgba(100, 255, 100, 0.5)"
+              stroke={isCurrentNode ? "rgba(120, 160, 255, 0.5)" : "rgba(255, 255, 255, 0.3)"}
               strokeWidth={2}
-              className="animate-pulse-slow"
-              pointerEvents="none"
+              filter="blur(4px)"
             />
           )}
-          
-          {/* Node label with improved styling */}
-          <g pointerEvents="none">
-            {/* Label background for better readability */}
-            <rect
-              x={node.x + 25 - 5}
-              y={node.y - 8}
-              width={node.label.length * 7 + 10} 
-              height={20}
-              rx={4}
-              fill="rgba(0, 0, 0, 0.5)"
-              opacity={0.8}
-            />
-            
-            {/* Label text */}
-            <text
-              x={node.x + 25}
-              y={node.y + 5}
-              fontSize={14}
-              fontWeight={isCurrentNode || isHovered ? "bold" : "normal"}
-              fill="#fff"
-              filter={isCurrentNode ? "drop-shadow(0 0 2px rgba(255,255,255,0.5))" : "none"}
-              className="pixel-text"
-            >
-              {node.label}
-            </text>
-          </g>
-          
-          {/* Node ID (shown only in debug mode) */}
-          {debugVisible && (
-            <text
-              x={node.x}
-              y={node.y - 25}
-              fontSize={10}
-              fill="rgba(255, 255, 255, 0.7)"
-              className="debug-id"
-              pointerEvents="none"
-              textAnchor="middle"
-            >
-              ID: {node.id}
-            </text>
-          )}
+
+          {/* Node image */}
+          <image
+            href={getNodeImage(node.type)}
+            x={node.x - size}
+            y={node.y - size}
+            width={size * 2}
+            height={size * 2}
+            className={isCurrentNode ? "animate-pulse-slow" : ""}
+            style={{
+              imageRendering: 'pixelated',
+              shapeRendering: 'crispEdges'
+            }}
+          />
+
+          {/* Node label */}
+          <text
+            x={node.x + size + 10}
+            y={node.y}
+            fill="white"
+            fontSize={14}
+            className="pixel-text"
+            style={{ 
+              filter: isCurrentNode ? "drop-shadow(0 0 2px rgba(255,255,255,0.5))" : "none",
+              pointerEvents: "none"
+            }}
+          >
+            {node.label}
+          </text>
         </g>
       );
     });
-  }, [mapNodes, currentNodeId, hoveredNodeId, clickedNodeId, completedNodes, handleNodeClick, debugVisible]);
+  }, [nodes, currentNodeId, hoveredNodeId, clickedNodeId, completedNodes, handleNodeClick]);
   
   // ===== MAIN RENDER =====
   return (
     <div 
       ref={containerRef}
-      className={`w-full h-full overflow-hidden relative bg-gray-900 flex items-center justify-center ${isAnimating ? 'animate-map-click' : ''}`}
+      className="w-full h-full flex items-center justify-center bg-gray-900"
       data-testid="kapoor-map-container"
       onClick={handleContainerClick}
     >
@@ -717,25 +599,15 @@ const SimplifiedKapoorMap: React.FC = () => {
       {/* Ambient noise overlay for visual texture */}
       <div className="absolute inset-0 pixel-noise opacity-10" />
       
-      {/* Debug click position indicator (only in debug mode) */}
-      {debugVisible && clickPosition && (
-        <div 
-          className="absolute w-8 h-8 rounded-full border-2 border-red-500 pointer-events-none z-10"
-          style={{
-            left: clickPosition.x - 16,
-            top: clickPosition.y - 16
-          }}
-        />
-      )}
-      
-      {/* Main SVG Map with enhanced styling */}
+      {/* Main SVG Map */}
       <svg 
         ref={svgRef}
-        width={stageSize.width} 
-        height={stageSize.height} 
-        className="relative z-10"
+        width="100%"
+        height="100%"
+        viewBox="0 0 1000 900"
+        preserveAspectRatio="xMidYMid meet"
+        className={`z-10 ${isAnimating ? 'animate-map-click' : ''}`}
         data-testid="kapoor-map-svg"
-        pointerEvents="all"
       >
         {/* Grid pattern definition */}
         <defs>
@@ -766,88 +638,8 @@ const SimplifiedKapoorMap: React.FC = () => {
         {renderNodes()}
       </svg>
       
-      {/* Collapsible Debug UI - only visible when debugVisible is true */}
-      {debugVisible && (
-        <div className="absolute top-4 left-4 right-4 bg-black/80 p-3 rounded text-white z-20 text-sm transition-all">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-bold">DEBUG MODE</h3>
-            <button 
-              className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 rounded text-xs"
-              onClick={() => setDebugVisible(false)}
-            >
-              Minimize
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <div>
-              <p>SVG Size: {stageSize.width}x{stageSize.height}</p>
-              <p>Click Count: {clickCount}</p>
-              <p>Click Target: {clickTarget}</p>
-              <p>Click Position: {clickPosition ? `${clickPosition.x.toFixed(0)}, ${clickPosition.y.toFixed(0)}` : 'None'}</p>
-            </div>
-            <div>
-              <p>Current Node: {currentNodeId || 'None'}</p>
-              <p>Last Click: {debugInfo.lastClick || 'None'}</p>
-              <p>Store Available: {debugInfo.storeAvailable ? 'Yes' : 'No'}</p>
-              <p>Selection State: {debugInfo.nodeSelectionState}</p>
-            </div>
-          </div>
-          
-          {/* Direct node select buttons */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button 
-              className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs"
-              onClick={() => forceNodeSelection('node-1')}
-            >
-              Force Node 1
-            </button>
-            <button 
-              className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs"
-              onClick={() => forceNodeSelection('node-2')}
-            >
-              Force Node 2
-            </button>
-            <button 
-              className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs"
-              onClick={() => forceNodeSelection('node-3')}
-            >
-              Force Node 3
-            </button>
-            <button 
-              className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs"
-              onClick={() => {
-                const gameStore = useGameStore.getState();
-                if (gameStore && gameStore.setCurrentNode) {
-                  gameStore.setCurrentNode(null);
-                }
-              }}
-            >
-              Reset Selection
-            </button>
-          </div>
-          
-          {/* Error display */}
-          {debugInfo.lastError && (
-            <div className="mt-2 p-1 bg-red-900/80 rounded">
-              Error: {debugInfo.lastError}
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Floating debug toggle button - always visible */}
-      <div className="absolute top-4 right-4 z-20">
-        <button
-          className="px-3 py-1 bg-gray-800/70 hover:bg-gray-700 text-white rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-lg backdrop-blur-sm"
-          onClick={() => setDebugVisible(!debugVisible)}
-        >
-          {debugVisible ? 'Hide Debug' : 'Show Debug'}
-        </button>
-      </div>
-      
       {/* Action button with enhanced styling */}
-      <div className="absolute bottom-4 right-4 z-10">
+      <div className="fixed bottom-4 right-4 z-10">
         <button
           className="px-4 py-2 bg-blue-800/90 hover:bg-blue-700 text-white rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-lg backdrop-blur-sm transition-all duration-200 enhanced-button"
           onClick={handleMapAction}
@@ -873,8 +665,8 @@ const SimplifiedKapoorMap: React.FC = () => {
         
         /* Keyframes for subtle pulse animation */
         @keyframes pulse-slow {
-          0%, 100% { transform: scale(1); opacity: 0.7; }
-          50% { transform: scale(1.1); opacity: 0.9; }
+          0%, 100% { transform: scale(1); opacity: 0.9; }
+          50% { transform: scale(1.1); opacity: 1; }
         }
         
         /* Animation classes */
@@ -927,12 +719,30 @@ const SimplifiedKapoorMap: React.FC = () => {
             rgba(255,255,255,0.2) 50%,
             rgba(255,255,255,0) 100%
           );
+          transition: all 0.8s ease;
+          z-index: 1;
           transform: skewX(-25deg);
-          transition: all 0.5s ease;
         }
         
         .enhanced-button:hover::after {
           left: 100%;
+        }
+        
+        /* Starfield background */
+        .starfield-bg {
+          background-image: radial-gradient(
+            circle at center,
+            rgba(255, 255, 255, 0.1) 1px,
+            transparent 1px
+          );
+          background-size: 25px 25px;
+        }
+        
+        /* Pixel noise effect */
+        .pixel-noise {
+          background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADi0lEQVR4nO2ZW2hcVRSGv3WdJgaCaGtFCtJe4oNSLwWtNVPrQy/2SUUFvfhSgjVtKRF8UBIQpeAlPimK1hegT1pTJdCKMVIhVE2jiEgRRIMoFYtWG6KmXpJMlsw0M1mz59hMmMuZZM6ZSOYPCzKXvda/1z5777XXiXCDQXrDh/3BXgE2As0WNZeBS8DCQOfgKFPEpBzpD75qYHMNbvYXtD59cOgkJcJvI/ZsNLLLom5XfvnmJ/q3kCJs2IiIyHwDO4HVFnUvqsomFV2nqutVdLuBH4GfRdjiT3TtcWlTbRsxIm0G3gZWTzVHVS/PmrH+LxF5GdinyiIDNBT0PBvoGhxxYVdtGxGpNbAXaJnqVaH/vWwuP+OTJzz41KXeRkp9JNQevBtYUjI8IsJr6RXpNxu/7DtfmxVVQF0jBvbXlU1m40cGJPVAOvXJJ8K9C0N7Oj91aWfFHjEibQb6gcbikRHg3cbujoOFjXn3zr7Hc/nZr9YflXOVGv2/9YjBvshbAOkLbQ8Xj6uqL3Np7Lv0/JZE8c8n9C6ufhVpqFiPiLSp6rdAT9FQRoRNmf3DHUxC0KjXwCPFQ4ocrM3KKqMcj3iB0jrBV0o2EeyxuL0U3lvCkw40lUelHolJPDKd5xMi34nIMyZwxyoKDhbTcqvF4Vkgbh7KlzJDFdtbBqo93Tc2ySRFMJcMdNRmZZVR9WHIiMSFCT0CkJjTGGw00DMTXEeXVm5W5kwReQ/YP1/GVUQmKfIAcNSB3KpR0Teegf0O5FaNetrIiScGtwCP2dblAtWsiV4Dj1vW5AS29YinRE89C3jTYVE5QvGm5rHs99vC3yTwPgMR8QzhKtlU5Dv92jRpvjswrTfnG5jtddGkYkG7gf0Vur0A3G0p+98c5d6xGG84rmZKYVOP+P4adCjYlehNrL7YCWBgM7Ciagsds9rD7uHSPgtHZ2bqkSQbRn8H3gRmWdQ9AYwCl1VkGPgs0DX4m1Mr67F4frUQkYYZK55g4O4ZKnXoEeX5tdlOq+E5RLUe8crlpNIARETkhWnmVOSRLRHO4BHReaoyPtvIOtqZpKcMtAEpYA4wF1iqwuMK7zYuePDFdw9MlqhrzU1SZEGkH8B6h+hb0TvKE+5H+rZ7+eSvwBJVfSiQTJ6zwBaIjSM1RI39E3yDmjc3/bxUAAAAAElFTkSuQmCC");
+          background-size: 4px 4px;
+          image-rendering: pixelated;
         }
       `}</style>
     </div>
