@@ -8,7 +8,7 @@ import { usePrimitiveStoreValue, useStableStoreValue } from '../../core/utils/st
 import { PixelText } from '../PixelThemeProvider';
 
 // Type definitions
-type StrategicActionType = 'reframe' | 'extrapolate' | 'boast' | 'synthesis';
+type StrategicActionType = 'tangent' | 'reframe' | 'peer_review' | 'boast';
 
 interface StrategicActionsProps {
   characterId: string;
@@ -52,10 +52,10 @@ export default function StrategicActions({
   const availableActions = useStableStoreValue(
     useResourceStore,
     state => state.availableActions || {
+      tangent: false,
       reframe: false,
-      extrapolate: false,
-      boast: false,
-      synthesis: false
+      peer_review: false,
+      boast: false
     }
   );
   
@@ -68,37 +68,37 @@ export default function StrategicActions({
     borderClass: string;
     iconPath: string;
   }>>(() => ({
-    reframe: {
-      label: 'Reframe',
-      description: 'Shift to more approachable topics',
+    tangent: {
+      label: 'Tangent',
+      description: 'Swap the current question for a different concept',
       cost: 25,
       bgClass: 'bg-blue-800',
       borderClass: 'border-blue-900',
-      iconPath: "M4,4 H12 M4,8 H12 M4,12 H10" // Simple text-line icon SVG path
+      iconPath: "M4,5 L12,13 M12,5 L4,13" // X-shape for swap
     },
-    extrapolate: {
-      label: 'Extrapolate',
-      description: 'Form connections between concepts',
+    reframe: {
+      label: 'Reframe',
+      description: 'Change the context of the current problem',
       cost: 50,
       bgClass: 'bg-purple-800',
       borderClass: 'border-purple-900',
-      iconPath: "M5,8 L8,5 M9,6 L12,3 M8,9 L11,6" // Connect-the-dots icon
+      iconPath: "M4,4 H12 M4,8 H12 M4,12 H10" // Simple text-line icon SVG path
+    },
+    peer_review: {
+      label: 'Peer-Review',
+      description: 'Summon a different mentor for a helpful hint',
+      cost: 75,
+      bgClass: 'bg-green-700',
+      borderClass: 'border-green-900',
+      iconPath: "M5,5 L8,3 L11,5 M8,3 V9 M5,11 L8,13 L11,11" // Person icon
     },
     boast: {
       label: 'Challenge',
-      description: 'Demonstrate expert knowledge',
+      description: 'Take on a high-difficulty alternative',
       cost: 0, // Uses momentum instead
       bgClass: 'bg-orange-700',
       borderClass: 'border-orange-800',
       iconPath: "M8,3 L12,7 L8,11 L4,7 Z" // Diamond shape
-    },
-    synthesis: {
-      label: 'Synthesis',
-      description: 'Discover new knowledge domains',
-      cost: 75,
-      bgClass: 'bg-green-700',
-      borderClass: 'border-green-900',
-      iconPath: "M4,5 H12 M4,8 H10 M4,11 H8" // Narrowing text lines
     }
   }), []);
   
@@ -236,9 +236,10 @@ export default function StrategicActions({
   
   return (
     <div className={`flex items-center gap-3 ${className} relative`}>
+      {availableActions.tangent && <ActionButton type="tangent" isAvailable={availableActions.tangent} />}
       {availableActions.reframe && <ActionButton type="reframe" isAvailable={availableActions.reframe} />}
-      {availableActions.extrapolate && <ActionButton type="extrapolate" isAvailable={availableActions.extrapolate} />}
-      {availableActions.synthesis && <ActionButton type="synthesis" isAvailable={availableActions.synthesis} />}
+      {availableActions.peer_review && <ActionButton type="peer_review" isAvailable={availableActions.peer_review} />}
+      {availableActions.boast && <ActionButton type="boast" isAvailable={availableActions.boast} />}
       
       {/* Tooltip using DOM-based positioning */}
       <div 

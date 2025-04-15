@@ -28,23 +28,23 @@ export default function PlayerStats() {
   // Global state with safety fallbacks and stable subscriptions
   const player = useStableStoreValue(
     useGameStore, 
-    state => state.player || { insight: 0, momentum: 0, maxMomentum: 3 }
+    (state: any) => state.player || { insight: 0, momentum: 0, maxMomentum: 3 }
   );
 
   // FIXED: Use primitive selector for string values
-  const currentNodeId = usePrimitiveStoreValue(useGameStore, state => state.currentNodeId);
+  const currentNodeId = usePrimitiveStoreValue(useGameStore, (state: any) => state.currentNodeId, null);
   
   // FIXED: Access gamePhase directly from the state machine store with primitive selector
   const gamePhase = usePrimitiveStoreValue(
     useGameStateMachine, 
-    state => state.gamePhase,
+    (state: any) => state.gamePhase,
     'day' // Fallback to day if we get a non-string value
   );
   
   // FIXED: Access dayCount directly and safely
   const dayCount = usePrimitiveStoreValue(
     useGameStateMachine, 
-    state => state.currentDay,
+    (state: any) => state.currentDay,
     1 // Fallback to day 1 if undefined
   );
   
@@ -61,7 +61,7 @@ export default function PlayerStats() {
   // Direct function access with type safety
   const toggleJournal = useStableStoreValue(
     useJournalStore,
-    state => state.setJournalOpen || (
+    (state: any) => state.setJournalOpen || (
       // Fallback implementation if function is missing
       ((isOpen: boolean) => console.warn("Journal toggle not available"))
     )
@@ -110,18 +110,18 @@ export default function PlayerStats() {
   };
   
   return (
-    <div className="p-3 h-full flex flex-col space-y-3 player-stats-panel">
+    <div className="p-3 h-full flex flex-col space-y-4 player-stats-panel">
       {/* 1. Character Identity Block - Always visible, defines player identity */}
-      <PixelBox className="p-3 flex items-center">
+      <PixelBox className="p-4 flex items-center relative">
         <ResidentPortrait 
           showFullBody={shouldShowFullBody}
           size="md"
-          className="mr-3"
+          className="mr-4"
         />
         <div>
-          <h2 className="text-lg font-pixel">Medical Physics Resident</h2>
+          <h2 className="text-lg font-pixel font-bold">Medical Physics Resident</h2>
           <div className="flex items-center gap-2 mt-1">
-            <div className={`w-2 h-2 rounded-full bg-${getPhaseColor()}-light`}></div>
+            <div className={`w-3 h-3 rounded-full bg-${getPhaseColor()}-light animate-pulse`}></div>
             <div className="text-sm text-text-secondary font-pixel">
               Day {dayCount} | {gamePhase === 'day' ? 'Hospital' : 'Hill Home'}
             </div>
@@ -130,27 +130,32 @@ export default function PlayerStats() {
       </PixelBox>
       
       {/* 2. Core Resources Block - Tactical resources for challenges */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4">
         {/* Insight meter */}
         <PixelBox 
-          className="p-3" 
+          className="p-4" 
           variant={gamePhase === 'day' ? 'clinical' : 'default'}
         >
+          <div className="font-pixel text-sm text-text-secondary mb-1">INSIGHT</div>
           <InsightMeter 
-            insight={player?.insight || 0} 
-            showAnimation={showInsightAnimation} 
+            className=""
+            size="md"
+            showLabel={false}
+            showAnimation={showInsightAnimation}
           />
         </PixelBox>
         
         {/* Momentum counter */}
         <PixelBox 
-          className="p-3" 
+          className="p-4" 
           variant={(player?.momentum || 0) >= 2 ? 'dark' : 'default'}
         >
+          <div className="font-pixel text-sm text-text-secondary mb-1">MOMENTUM</div>
           <MomentumCounter 
             level={player?.momentum || 0} 
             consecutiveCorrect={(player?.momentum || 0) * 2} // Approximation
-            compact={true} 
+            compact={true}
+            showLabel={false}
             className="w-full"
           />
         </PixelBox>
@@ -158,17 +163,43 @@ export default function PlayerStats() {
       
       {/* 3. Knowledge Progression Block - Strategic long-term resources */}
       <PixelBox 
-        className="p-3" 
+        className="p-4 relative" 
         variant={newlyDiscovered?.length > 0 ? 'educational' : 'default'}
       >
-        <div className="text-sm text-text-secondary font-pixel mb-1">Knowledge Mastery</div>
+        {/* Journal Icon - Only shown if journal is acquired */}
+        {hasJournal && (
+          <div 
+            className={`absolute top-4 right-5 w-10 h-10 cursor-pointer transition-transform hover:scale-110 ${showJournalButtonAnimation ? 'animate-bounce-subtle' : ''}`}
+            onClick={() => toggleJournal(true)}
+            title={`${currentUpgrade === 'base' ? 'Basic Notebook' : currentUpgrade === 'technical' ? 'Technical Journal' : 'Annotated Journal'}`}
+          >
+            <div className="w-full h-full relative">
+              <img 
+                src="/icons/educational.png"
+                alt="Journal"
+                className="w-full h-full object-contain"
+                style={{ 
+                  imageRendering: 'pixelated',
+                  filter: 'brightness(1.2) contrast(1.1)' 
+                }}
+              />
+              {/* Visual indicator for journal upgrades */}
+              {currentUpgrade !== 'base' && (
+                <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ${
+                  currentUpgrade === 'technical' ? 'bg-clinical-light' : 'bg-educational-light'
+                }`}></div>
+              )}
+            </div>
+          </div>
+        )}
+        <div className="text-sm text-text-secondary font-pixel mb-2 font-bold">Knowledge Mastery</div>
         <div className="flex items-center">
-          <div className={`text-${getPhaseColor()}-light text-lg font-pixel`}>
+          <div className={`text-${getPhaseColor()}-light text-xl font-pixel font-bold`}>
             {totalMastery || 0}%
           </div>
           
           {/* Visual progress bar - pixel style */}
-          <div className="ml-2 flex-grow h-2 bg-surface-dark rounded-none overflow-hidden">
+          <div className="ml-3 flex-grow h-3 bg-surface-dark rounded-none overflow-hidden">
             <motion.div 
               className={`h-full bg-${getPhaseColor()}`}
               initial={{ width: 0 }}
@@ -189,56 +220,18 @@ export default function PlayerStats() {
         <AnimatePresence>
           {newlyDiscovered?.length > 0 && (
             <motion.div 
-              className="mt-2 text-xs text-educational font-pixel"
+              className="mt-3 text-sm text-educational font-pixel"
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
             >
               <div className="flex items-center">
-                <div className="w-2 h-2 bg-educational-light mr-1 animate-pulse"></div>
-                {newlyDiscovered.length} new concept{newlyDiscovered.length !== 1 ? 's' : ''} discovered
+                <div className="w-3 h-3 bg-educational-light mr-2 animate-pulse"></div>
+                <span className="font-bold">{newlyDiscovered.length}</span> new concept{newlyDiscovered.length !== 1 ? 's' : ''} discovered
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-      </PixelBox>
-      
-      {/* 4. Journal Block - The tangible manifestation of knowledge */}
-      <PixelBox 
-        className={`p-3 ${showJournalButtonAnimation ? 'animate-pulse-subtle' : ''}`}
-        variant={hasJournal ? 'clinical' : 'default'}
-      >
-        <div className="text-sm text-text-secondary font-pixel mb-1">Journal</div>
-        {hasJournal ? (
-          <div className="flex flex-col">
-            <div className="text-clinical-light text-lg font-pixel">
-              {currentUpgrade === 'base' && 'Basic Notebook'}
-              {currentUpgrade === 'technical' && 'Technical Journal'}
-              {currentUpgrade === 'annotated' && 'Annotated Journal'}
-              {currentUpgrade === 'indexed' && 'Indexed Compendium'}
-              {currentUpgrade === 'integrated' && 'Integrated Codex'}
-            </div>
-            
-            {/* Add journal open button */}
-            <button 
-              className={`mt-2 px-3 py-1 bg-${getPhaseColor()} text-white text-sm font-pixel
-                hover:bg-${getPhaseColor()}-light transition-colors
-                ${showJournalButtonAnimation ? 'animate-bounce-subtle' : ''}
-                pixel-button
-              `}
-              onClick={() => toggleJournal(true)}
-            >
-              <div className="flex items-center justify-center">
-                <span className="mr-1 text-lg">📖</span>
-                Open Journal
-              </div>
-            </button>
-          </div>
-        ) : (
-          <div className="text-warning text-lg font-pixel">
-            Not Acquired
-          </div>
-        )}
       </PixelBox>
       
       {/* 5. Expandable Debug Panel - Only in dev mode */}
@@ -251,7 +244,7 @@ export default function PlayerStats() {
               <div>Day: {dayCount}</div>
               <div>Insight: {player?.insight || 0}</div>
               <div>Momentum: {player?.momentum || 0}/{player?.maxMomentum || 3}</div>
-              <div>Node: {currentNodeId ? currentNodeId.substring(0, 8) + '...' : 'none'}</div>
+              <div>Node: {currentNodeId && typeof currentNodeId === 'string' ? currentNodeId.substring(0, 8) + '...' : 'none'}</div>
             </div>
           </details>
         </div>

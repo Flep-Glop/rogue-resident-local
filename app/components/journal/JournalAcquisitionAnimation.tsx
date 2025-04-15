@@ -79,31 +79,9 @@ export default function JournalAcquisitionAnimation({
     containerRef.current.classList.add('animate-fadeIn');
     containerRef.current.classList.remove('animate-fadeOut');
     
-    // Apply journal tier styling
+    // Journal bounce in animation
     if (journalRef.current) {
-      journalRef.current.className = `w-full h-full ${
-        tier === 'base' ? 'bg-amber-800' :
-        tier === 'technical' ? 'bg-clinical' :
-        'bg-clinical-light'
-      } shadow-lg rounded-sm animate-float`;
-      
-      // Add tier-specific elements
-      if (tier === 'technical' || tier === 'annotated') {
-        const circle = document.createElement('div');
-        circle.className = 'absolute inset-0 flex items-center justify-center';
-        
-        const innerCircle = document.createElement('div');
-        innerCircle.className = 'w-16 h-16 border-4 border-amber-500/50 rounded-full';
-        circle.appendChild(innerCircle);
-        
-        journalRef.current.appendChild(circle);
-        
-        if (tier === 'annotated') {
-          const diamond = document.createElement('div');
-          diamond.className = 'absolute inset-0 m-auto w-10 h-10 border-2 border-amber-300/70 transform rotate-45';
-          circle.appendChild(diamond);
-        }
-      }
+      journalRef.current.classList.add('animate-bounce-in-intense');
     }
     
     // Start particle effects
@@ -111,9 +89,47 @@ export default function JournalAcquisitionAnimation({
       const particles = particlesRef.current.querySelectorAll('.particle');
       particles.forEach((p, i) => {
         const particle = p as HTMLElement;
-        particle.style.animationDelay = `${i * 0.2}s`;
+        particle.style.animationDelay = `${i * 0.05}s`;
         particle.classList.add('animate-particle');
       });
+    }
+    
+    // Create sparkle elements - MORE OF THEM!
+    if (journalRef.current) {
+      for (let i = 0; i < 30; i++) {
+        const sparkle = document.createElement('div');
+        sparkle.className = 'sparkle absolute';
+        
+        // Random positioning around the journal
+        const size = Math.random() * 5 + 2;
+        sparkle.style.width = `${size}px`;
+        sparkle.style.height = `${size}px`;
+        sparkle.style.left = `${Math.random() * 200 - 50}%`;
+        sparkle.style.top = `${Math.random() * 200 - 50}%`;
+        sparkle.style.backgroundColor = ['#FFD700', '#FFEC8B', '#E6E6FA', '#87CEFA', '#00FFFF', '#FF00FF'][Math.floor(Math.random() * 6)];
+        sparkle.style.borderRadius = '50%';
+        sparkle.style.opacity = '0';
+        sparkle.style.animationDelay = `${Math.random() * 1.5}s`;
+        sparkle.style.animationDuration = `${Math.random() * 1 + 1}s`;
+        sparkle.classList.add('animate-sparkle-intense');
+        
+        journalRef.current.appendChild(sparkle);
+      }
+    }
+    
+    // Create shock wave effect
+    if (journalRef.current) {
+      const shockWave = document.createElement('div');
+      shockWave.className = 'absolute inset-0 rounded-full animate-shockwave';
+      shockWave.style.border = '2px solid rgba(255, 255, 255, 0.7)';
+      journalRef.current.appendChild(shockWave);
+      
+      // Add a second shock wave with delay
+      const shockWave2 = document.createElement('div');
+      shockWave2.className = 'absolute inset-0 rounded-full animate-shockwave';
+      shockWave2.style.border = '2px solid rgba(124, 191, 253, 0.7)';
+      shockWave2.style.animationDelay = '0.5s';
+      journalRef.current.appendChild(shockWave2);
     }
     
     // Transition to display phase after fade in
@@ -124,7 +140,13 @@ export default function JournalAcquisitionAnimation({
       if (containerRef.current) {
         containerRef.current.classList.remove('animate-fadeIn');
       }
-    }, 1000);
+      
+      // Add pulse effect to title after initial animation
+      const titleEl = document.querySelector('.journal-title');
+      if (titleEl) {
+        titleEl.classList.add('animate-pulse-glow-intense');
+      }
+    }, 800); // Faster transition
     
     timerRefs.current.push(displayTimer);
   }, []);
@@ -158,7 +180,7 @@ export default function JournalAcquisitionAnimation({
       if (onComplete) {
         onComplete();
       }
-    }, 1000);
+    }, 800); // Faster transition
     
     timerRefs.current.push(hideTimer);
   }, [onComplete]);
@@ -235,42 +257,63 @@ export default function JournalAcquisitionAnimation({
       <div className="max-w-md text-center">
         {/* Journal icon */}
         <div className="w-32 h-40 mx-auto mb-6 relative">
-          <div ref={journalRef} className="w-full h-full bg-amber-800 shadow-lg rounded-sm">
-            <div className="absolute inset-2 border border-amber-500/30"></div>
+          <div ref={journalRef} className="w-full h-full relative flex items-center justify-center animate-float-intense">
+            <div className="absolute inset-0 rounded-sm bg-blue-400/30 animate-pulse-intense"></div>
+            <div className="relative w-20 h-20">
+              <svg width="100%" height="100%" className="animate-tilt-oscillate">
+                <image 
+                  href="/icons/educational.png"
+                  width="100%" 
+                  height="100%" 
+                  className="z-10"
+                  style={{ 
+                    imageRendering: 'pixelated',
+                    shapeRendering: 'crispEdges', 
+                    filter: 'brightness(1.2) contrast(1.1)' 
+                  }}
+                />
+              </svg>
+            </div>
             
             {/* Particle effects container */}
-            <div ref={particlesRef} className="absolute -inset-4 pointer-events-none">
-              <div className="particle absolute top-0 left-1/2 w-1 h-1 bg-clinical rounded-full"></div>
-              <div className="particle absolute top-0 left-1/3 w-2 h-2 bg-educational rounded-full"></div>
-              <div className="particle absolute bottom-0 right-1/4 w-1 h-1 bg-qa rounded-full"></div>
+            <div ref={particlesRef} className="absolute -inset-12 pointer-events-none">
+              {[...Array(20)].map((_, i) => (
+                <div 
+                  key={i}
+                  className={`particle absolute w-${Math.floor(Math.random() * 3) + 1} h-${Math.floor(Math.random() * 3) + 1} bg-${['clinical', 'educational', 'qa', 'amber-500', 'blue-400', 'cyan-300', 'purple-400'][Math.floor(Math.random() * 7)]} rounded-full opacity-90`}
+                  style={{
+                    top: `${Math.random() * 100}%`,
+                    left: `${Math.random() * 100}%`,
+                  }}
+                ></div>
+              ))}
             </div>
           </div>
         </div>
         
-        {/* Title with glow effect applied via DOM instead of CSS classes */}
+        {/* Title with glow effect */}
         <h2 
-          className="text-2xl font-pixel text-white mb-4" 
-          style={{ textShadow: '0 0 10px rgba(255, 255, 255, 0.7)' }}
+          className="journal-title text-3xl font-pixel text-white mb-4 animate-glow-intense transition-all"
         >
           Journal Acquired!
         </h2>
         
         {/* Description based on tier */}
-        <p className="text-gray-300 mb-6 journal-description">
+        <p className="text-gray-300 mb-6 journal-description animate-fade-in-up-fast">
           You've received a notebook to record your observations.
         </p>
         
         {/* Buttons */}
         <div className="flex justify-center space-x-4">
           <button
-            className="px-6 py-2 bg-clinical hover:bg-clinical-light text-white font-pixel transition-colors"
+            className="px-6 py-2 bg-clinical hover:bg-clinical-light text-white font-pixel transition-colors animate-fade-in-left-fast"
             onClick={handleOpenJournal}
           >
             Open Journal
           </button>
           
           <button
-            className="px-6 py-2 bg-surface hover:bg-surface-dark text-white font-pixel transition-colors"
+            className="px-6 py-2 bg-surface hover:bg-surface-dark text-white font-pixel transition-colors animate-fade-in-right-fast"
             onClick={handleClose}
           >
             Continue
@@ -290,53 +333,145 @@ export default function JournalAcquisitionAnimation({
           to { opacity: 0; }
         }
         
-        @keyframes float {
+        @keyframes floatIntense {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
+          50% { transform: translateY(-15px); }
         }
         
-        @keyframes glow {
-          0%, 100% { text-shadow: 0 0 5px rgba(255, 255, 255, 0.5); }
-          50% { text-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+        @keyframes tiltOscillate {
+          0%, 100% { transform: rotate(-15deg); }
+          50% { transform: rotate(15deg); }
         }
         
-        @keyframes particle1 {
-          0% { transform: translate(0, 0); opacity: 1; }
-          100% { transform: translate(-20px, -50px); opacity: 0; }
+        @keyframes pulseGlowIntense {
+          0%, 100% { text-shadow: 0 0 12px rgba(255, 255, 255, 0.8), 0 0 20px rgba(124, 191, 253, 0.7), 0 0 30px rgba(0, 191, 255, 0.5); }
+          50% { text-shadow: 0 0 25px rgba(255, 255, 255, 1), 0 0 40px rgba(124, 191, 253, 0.9), 0 0 60px rgba(0, 191, 255, 0.7); }
         }
         
-        @keyframes particle2 {
-          0% { transform: translate(0, 0); opacity: 1; }
-          100% { transform: translate(30px, -40px); opacity: 0; }
+        @keyframes pulseIntense {
+          0%, 100% { opacity: 0.4; transform: scale(0.98); }
+          50% { opacity: 0.9; transform: scale(1.05); }
         }
         
-        @keyframes particle3 {
-          0% { transform: translate(0, 0); opacity: 1; }
-          100% { transform: translate(-10px, 60px); opacity: 0; }
+        @keyframes bounceInIntense {
+          0% { transform: scale(0); opacity: 0; }
+          40% { transform: scale(0.6); }
+          60% { transform: scale(1.3); }
+          80% { transform: scale(0.9); }
+          90% { transform: scale(1.1); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        
+        @keyframes fadeInUpFast {
+          0% { opacity: 0; transform: translateY(30px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeInLeftFast {
+          0% { opacity: 0; transform: translateX(-30px); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes fadeInRightFast {
+          0% { opacity: 0; transform: translateX(30px); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes sparkleIntense {
+          0% { transform: scale(0); opacity: 0; }
+          50% { transform: scale(1.5); opacity: 1; filter: drop-shadow(0 0 5px currentColor); }
+          100% { transform: scale(0); opacity: 0; }
+        }
+        
+        @keyframes shockwave {
+          0% { transform: scale(0.5); opacity: 1; }
+          100% { transform: scale(2.5); opacity: 0; }
+        }
+        
+        @keyframes particle1Intense {
+          0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+          100% { transform: translate(-80px, -100px) rotate(720deg); opacity: 0; }
+        }
+        
+        @keyframes particle2Intense {
+          0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+          100% { transform: translate(100px, -120px) rotate(-720deg); opacity: 0; }
+        }
+        
+        @keyframes particle3Intense {
+          0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+          100% { transform: translate(-70px, 130px) rotate(360deg); opacity: 0; }
         }
         
         .animate-fadeIn {
-          animation: fadeIn 1s forwards;
+          animation: fadeIn 0.7s forwards;
         }
         
         .animate-fadeOut {
-          animation: fadeOut 1s forwards;
+          animation: fadeOut 0.7s forwards;
         }
         
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
+        .animate-float-intense {
+          animation: floatIntense 3s ease-in-out infinite;
         }
         
-        .animate-particle:nth-child(1) {
-          animation: particle1 2s ease-out infinite;
+        .animate-tilt-oscillate {
+          animation: tiltOscillate 2.5s ease-in-out infinite;
+          transform-origin: center center;
         }
         
-        .animate-particle:nth-child(2) {
-          animation: particle2 2.5s ease-out infinite;
+        .animate-pulse-glow-intense {
+          animation: pulseGlowIntense 1.5s ease-in-out infinite;
         }
         
-        .animate-particle:nth-child(3) {
-          animation: particle3 3s ease-out infinite;
+        .animate-pulse-intense {
+          animation: pulseIntense 2s ease-in-out infinite;
+        }
+        
+        .animate-bounce-in-intense {
+          animation: bounceInIntense 0.8s cubic-bezier(0.215, 0.610, 0.355, 1.000) forwards;
+        }
+        
+        .animate-fade-in-up-fast {
+          animation: fadeInUpFast 0.4s ease-out forwards;
+          animation-delay: 0.2s;
+          opacity: 0;
+        }
+        
+        .animate-fade-in-left-fast {
+          animation: fadeInLeftFast 0.4s ease-out forwards;
+          animation-delay: 0.3s;
+          opacity: 0;
+        }
+        
+        .animate-fade-in-right-fast {
+          animation: fadeInRightFast 0.4s ease-out forwards;
+          animation-delay: 0.4s;
+          opacity: 0;
+        }
+        
+        .animate-sparkle-intense {
+          animation: sparkleIntense 2s ease-in-out infinite;
+        }
+        
+        .animate-shockwave {
+          animation: shockwave 1.5s ease-out forwards;
+        }
+        
+        .animate-particle:nth-child(3n+1) {
+          animation: particle1Intense 1.8s ease-out infinite;
+        }
+        
+        .animate-particle:nth-child(3n+2) {
+          animation: particle2Intense 2s ease-out infinite;
+        }
+        
+        .animate-particle:nth-child(3n) {
+          animation: particle3Intense 2.2s ease-out infinite;
+        }
+        
+        .animate-glow-intense {
+          text-shadow: 0 0 12px rgba(255, 255, 255, 0.8), 0 0 20px rgba(124, 191, 253, 0.7);
         }
       `}</style>
       

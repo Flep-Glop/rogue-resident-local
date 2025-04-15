@@ -427,24 +427,6 @@ export default function Journal() {
     console.log('[Journal] Render with tier:', currentUpgrade, 'hasJournal:', hasJournal, 'isOpen:', isJournalOpen);
   }, [currentUpgrade, hasJournal, isJournalOpen]);
   
-  // Floating journal button when closed
-  if (hasJournal && !isJournalOpen && internalStateRef.current.showFloatingButton) {
-    console.log('[Journal] Rendering floating button');
-    return (
-      <div 
-        ref={floatingButtonRef}
-        className="fixed bottom-4 right-4 z-50"
-      >
-        <button
-          className="px-4 py-2 bg-clinical text-white font-pixel hover:bg-clinical-light transition-colors shadow-lg"
-          onClick={toggleJournal}
-        >
-          Open Journal
-        </button>
-      </div>
-    );
-  }
-  
   // Don't render anything if player doesn't have journal or it's not open
   if (!hasJournal || !isJournalOpen) {
     if (!hasJournal) {

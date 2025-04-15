@@ -670,8 +670,8 @@ export default function GameContainer() {
             {renderGameContent()}
           </div>
         </div>
-        <div className="w-64 flex-shrink-0 border-l border-gray-800 bg-black backdrop-blur-sm overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="w-72 flex-shrink-0 border-l border-gray-800 bg-black/90 backdrop-blur-md overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden shadow-lg">
             <PlayerStats />
           </div>
         </div>

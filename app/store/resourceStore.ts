@@ -18,9 +18,9 @@ import { GameEventType } from '../core/events/EventTypes';
 // ======== CONSTANTS ========
 
 export const RESOURCE_THRESHOLDS = {
-  REFRAME: 25,
-  EXTRAPOLATE: 50,
-  SYNTHESIS: 75,
+  TANGENT: 25,
+  REFRAME: 50,
+  PEER_REVIEW: 75,
   MAX: 100
 };
 
@@ -34,10 +34,10 @@ const DEBUG_LOGGING = process.env.NODE_ENV !== 'production';
 export type ResourceType = 'insight' | 'momentum';
 
 export type StrategicActionType =
+  | 'tangent'
   | 'reframe'
-  | 'extrapolate'
-  | 'boast'
-  | 'synthesis';
+  | 'peer_review'
+  | 'boast';
 
 interface ActionHistoryRecord {
   actionType: StrategicActionType;
@@ -139,15 +139,15 @@ const initialState: Omit<ResourceState,
     triggeredBy: undefined
   },
   insightThresholds: [
-    { value: RESOURCE_THRESHOLDS.REFRAME, label: 'R', actionType: 'reframe', nearbyRange: 10, isNearby: false },
-    { value: RESOURCE_THRESHOLDS.EXTRAPOLATE, label: 'E', actionType: 'extrapolate', nearbyRange: 15, isNearby: false },
-    { value: RESOURCE_THRESHOLDS.SYNTHESIS, label: 'S', actionType: 'synthesis', nearbyRange: 20, isNearby: false }
+    { value: RESOURCE_THRESHOLDS.TANGENT, label: 'T', actionType: 'tangent', nearbyRange: 10, isNearby: false },
+    { value: RESOURCE_THRESHOLDS.REFRAME, label: 'R', actionType: 'reframe', nearbyRange: 15, isNearby: false },
+    { value: RESOURCE_THRESHOLDS.PEER_REVIEW, label: 'P', actionType: 'peer_review', nearbyRange: 20, isNearby: false }
   ],
   availableActions: {
+    tangent: false,
     reframe: false,
-    extrapolate: false,
-    boast: false,
-    synthesis: false
+    peer_review: false,
+    boast: false
   },
   pendingResourceUpdates: false,
   lastResourceChange: {
@@ -308,16 +308,16 @@ export const useResourceStore = create<ResourceState>()(
         let canAfford = false;
         
         switch (actionType) {
-          case 'reframe':
-            cost = RESOURCE_THRESHOLDS.REFRAME;
+          case 'tangent':
+            cost = RESOURCE_THRESHOLDS.TANGENT;
             canAfford = insight >= cost;
             break;
-          case 'extrapolate':
-            cost = RESOURCE_THRESHOLDS.EXTRAPOLATE;
+          case 'reframe':
+            cost = RESOURCE_THRESHOLDS.REFRAME;
             canAfford = insight >= cost && momentum >= 2;
             break;
-          case 'synthesis':
-            cost = RESOURCE_THRESHOLDS.SYNTHESIS;
+          case 'peer_review':
+            cost = RESOURCE_THRESHOLDS.PEER_REVIEW;
             canAfford = insight >= cost;
             break;
           case 'boast':
@@ -605,9 +605,9 @@ export const useResourceStore = create<ResourceState>()(
                 newValue: state.insight,
                 change: state.lastResourceChange.amount, 
                 thresholdProximity: {
+                  tangent: state.getThresholdProximity('tangent'),
                   reframe: state.getThresholdProximity('reframe'),
-                  extrapolate: state.getThresholdProximity('extrapolate'),
-                  synthesis: state.getThresholdProximity('synthesis')
+                  peer_review: state.getThresholdProximity('peer_review')
                 }
               },
               'resourceStore.batchUpdate'
@@ -678,20 +678,20 @@ function updateAvailableActions(state: ResourceState) {
   // If an action is already active, no other actions are available
   if (activeAction !== null) {
     state.availableActions = {
+      tangent: false,
       reframe: false,
-      extrapolate: false,
-      boast: false,
-      synthesis: false
+      peer_review: false,
+      boast: false
     };
     return;
   }
   
   // Update availability based on current resources
   state.availableActions = {
-    reframe: insight >= RESOURCE_THRESHOLDS.REFRAME,
-    extrapolate: insight >= RESOURCE_THRESHOLDS.EXTRAPOLATE && momentum >= 2,
-    boast: momentum === MAX_MOMENTUM_LEVEL,
-    synthesis: insight >= RESOURCE_THRESHOLDS.SYNTHESIS
+    tangent: insight >= RESOURCE_THRESHOLDS.TANGENT,
+    reframe: insight >= RESOURCE_THRESHOLDS.REFRAME && momentum >= 2,
+    peer_review: insight >= RESOURCE_THRESHOLDS.PEER_REVIEW,
+    boast: momentum === MAX_MOMENTUM_LEVEL
   };
 }
 
@@ -700,9 +700,10 @@ function updateAvailableActions(state: ResourceState) {
  */
 function getInsightCost(actionType: StrategicActionType): number {
   switch (actionType) {
+    case 'tangent': return RESOURCE_THRESHOLDS.TANGENT;
     case 'reframe': return RESOURCE_THRESHOLDS.REFRAME;
-    case 'extrapolate': return RESOURCE_THRESHOLDS.EXTRAPOLATE;
-    case 'synthesis': return RESOURCE_THRESHOLDS.SYNTHESIS;
+    case 'peer_review': return RESOURCE_THRESHOLDS.PEER_REVIEW;
+    case 'boast': return 0;
     default: return 0;
   }
 }
@@ -713,7 +714,7 @@ function getInsightCost(actionType: StrategicActionType): number {
 function getMomentumRequired(actionType: StrategicActionType): number {
   switch (actionType) {
     case 'boast': return MAX_MOMENTUM_LEVEL;
-    case 'extrapolate': return 2;
+    case 'reframe': return 2;
     default: return 0;
   }
 }
@@ -733,10 +734,10 @@ export const selectors = {
   getActiveAction: (state: ResourceState) => state.activeAction,
   
   // Resource availability
+  getCanUseTangent: (state: ResourceState) => state.availableActions.tangent,
   getCanUseReframe: (state: ResourceState) => state.availableActions.reframe,
-  getCanUseExtrapolate: (state: ResourceState) => state.availableActions.extrapolate,
+  getCanUsePeerReview: (state: ResourceState) => state.availableActions.peer_review,
   getCanUseBoast: (state: ResourceState) => state.availableActions.boast,
-  getCanUseSynthesis: (state: ResourceState) => state.availableActions.synthesis,
   
   // Effect states
   getInsightEffectActive: (state: ResourceState) => state.insightEffect.active,
@@ -750,6 +751,15 @@ export const selectors = {
   getMomentumPercentage: (state: ResourceState) => (state.momentum / MAX_MOMENTUM_LEVEL) * 100,
   
   // Threshold proximity values - implemented directly for performance
+  getTangentProximity: (state: ResourceState) => {
+    const threshold = RESOURCE_THRESHOLDS.TANGENT;
+    if (state.insight >= threshold) return 1;
+    const thr = state.insightThresholds.find(t => t.actionType === 'tangent');
+    if (!thr) return 0;
+    const start = threshold - thr.nearbyRange;
+    return state.insight < start ? 0 : (state.insight - start) / thr.nearbyRange;
+  },
+  
   getReframeProximity: (state: ResourceState) => {
     const threshold = RESOURCE_THRESHOLDS.REFRAME;
     if (state.insight >= threshold) return 1;
@@ -759,19 +769,10 @@ export const selectors = {
     return state.insight < start ? 0 : (state.insight - start) / thr.nearbyRange;
   },
   
-  getExtrapolateProximity: (state: ResourceState) => {
-    const threshold = RESOURCE_THRESHOLDS.EXTRAPOLATE;
+  getPeerReviewProximity: (state: ResourceState) => {
+    const threshold = RESOURCE_THRESHOLDS.PEER_REVIEW;
     if (state.insight >= threshold) return 1;
-    const thr = state.insightThresholds.find(t => t.actionType === 'extrapolate');
-    if (!thr) return 0;
-    const start = threshold - thr.nearbyRange;
-    return state.insight < start ? 0 : (state.insight - start) / thr.nearbyRange;
-  },
-  
-  getSynthesisProximity: (state: ResourceState) => {
-    const threshold = RESOURCE_THRESHOLDS.SYNTHESIS;
-    if (state.insight >= threshold) return 1;
-    const thr = state.insightThresholds.find(t => t.actionType === 'synthesis');
+    const thr = state.insightThresholds.find(t => t.actionType === 'peer_review');
     if (!thr) return 0;
     const start = threshold - thr.nearbyRange;
     return state.insight < start ? 0 : (state.insight - start) / thr.nearbyRange;
@@ -798,10 +799,10 @@ export const selectors = {
   }),
   
   getActionAvailability: (state: ResourceState) => ({
+    tangent: state.availableActions.tangent,
     reframe: state.availableActions.reframe,
-    extrapolate: state.availableActions.extrapolate,
+    peer_review: state.availableActions.peer_review,
     boast: state.availableActions.boast,
-    synthesis: state.availableActions.synthesis,
     anyAvailable: Object.values(state.availableActions).some(v => v)
   }),
   

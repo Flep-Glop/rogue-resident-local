@@ -777,7 +777,7 @@ const SimplifiedKapoorMap: React.FC = () => {
     ];
     
     return (
-      <div className="fixed top-4 right-4 z-20 bg-gray-900/80 backdrop-blur-sm rounded-md p-3 shadow-lg border border-blue-900">
+      <div className="absolute bottom-8 left-8 z-20 bg-gray-900/80 backdrop-blur-sm rounded-md p-3 shadow-lg border border-blue-900 text-white">
         <h3 className="text-white text-sm font-medium mb-2">Map Legend</h3>
         <div className="space-y-2">
           {legendItems.map(item => {

@@ -9,13 +9,13 @@ import { useTypewriter } from '../../../hooks/useTypewriter';
 import { PixelButton, PixelText, PixelBox } from '../../PixelThemeProvider';
 import { safeDispatch } from '../../../core/events/CentralEventBus';
 import { GameEventType } from '../../../core/events/EventTypes';
-import InsightMeter from '../../gameplay/InsightMeter';
-import MomentumCounter from '../../gameplay/MomentumCounter';
 import { StrategicActionsContainer } from '../../gameplay/StrategicActions';
 import { applyStrategicAction, enhanceDialogueOptions } from '../../../core/dialogue/ActionIntegration';
 import { usePrimitiveStoreValue, useStableStoreValue } from '../../../core/utils/storeHooks';
 import { NodeType } from '../../../types/game';
 import { getCharacterData } from '../../../data/characters';
+import useGameStateMachine from '../../../core/statemachine/GameStateMachine';
+import { useEventBus } from '../../../core/events/CentralEventBus';
 
 // Import the kapoor dialogue content
 import kapoorCalibrationDialogue from '../../../data/dialogues/calibrations/kapoor-calibration';
@@ -89,6 +89,9 @@ function ConversationFormat({
   // Get resource store for insight and momentum
   const { updateInsight, incrementMomentum, resetMomentum } = useResourceStore();
   
+  // Add insight value for ability availability check
+  const playerInsight = usePrimitiveStoreValue(useResourceStore, state => (state as any)?.insight || 0, 0);
+  
   // ===== REFS =====
   // Track component mount state
   const isMountedRef = useRef(true);
@@ -108,6 +111,18 @@ function ConversationFormat({
     relationshipChange: 0,
     knowledgeGained: {},
   });
+  
+  // Add state for handling whisper-to-shout pattern
+  const [hoveredAbility, setHoveredAbility] = useState<string | null>(null);
+  
+  // Check ability availability based on player's insight level
+  const abilityAvailability = useMemo(() => {
+    return {
+      tangent: playerInsight >= 25,
+      reframe: playerInsight >= 50,
+      peer_review: playerInsight >= 75
+    };
+  }, [playerInsight]);
   
   // Use the proper dialogue content from imported file
   const dialogueContent = useMemo(() => {
@@ -401,6 +416,47 @@ function ConversationFormat({
     }
   }, [currentStageId, results.journalTier, normalizedCharacterId, storeNodeId, nodeId, onComplete, results, gameStore]);
   
+  // Add a handler for ability activation
+  const handleAbilityActivate = useCallback((abilityType: StrategicActionType) => {
+    if (!currentStage) return;
+    
+    // Check if player has enough insight for this ability
+    const requiredInsight = 
+      abilityType === 'tangent' ? 25 :
+      abilityType === 'reframe' ? 50 :
+      abilityType === 'peer_review' ? 75 : 0;
+    
+    if (playerInsight < requiredInsight) {
+      console.log(`[ConversationFormat] Not enough insight for ${abilityType}. Need ${requiredInsight}, have ${playerInsight}`);
+      return;
+    }
+    
+    // We would implement the actual ability logic here
+    console.log(`[ConversationFormat] Activating ability: ${abilityType}`);
+    
+    // Simple placeholders for the abilities (to be fully implemented)
+    switch(abilityType) {
+      case 'tangent':
+        // Logic for swapping the question content
+        console.log('Swapping to a different concept');
+        // Spend insight
+        updateInsight(-25);
+        break;
+      case 'reframe':
+        // Logic for changing context
+        console.log('Changing problem frame of reference');
+        // Spend insight
+        updateInsight(-50);
+        break;
+      case 'peer_review':
+        // Logic for summoning a mentor
+        console.log('Summoning another mentor for a hint');
+        // Spend insight
+        updateInsight(-75);
+        break;
+    }
+  }, [currentStage, playerInsight, updateInsight]);
+  
   // ===== COMPONENT LIFECYCLE =====
   
   // Handle component mount/unmount
@@ -538,45 +594,134 @@ function ConversationFormat({
             <p className="text-xs text-gray-300">LINAC 2, the Varian TrueBeam used primarily for head and neck treatments.</p>
           </motion.div>
           
-          {/* Insight & Momentum UI at bottom */}
-          <div className="mt-auto">
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className="space-y-4"
-            >
-              <InsightMeter />
-              <MomentumCounter />
-            </motion.div>
-          </div>
+          {/* Empty space to maintain layout */}
+          <div className="mt-auto"></div>
+
         </div>
         
         {/* Main content area - conversation */}
-        <div className="flex-1 h-full flex flex-col justify-center p-8">
-          {/* Top context caption - subtle blue accent */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.9 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="self-end mb-8 px-4 py-3 bg-black/25 border-l border-blue-500/40 rounded-sm max-w-lg"
-          >
-            <p className="text-sm text-blue-300/90 font-pixel italic">
-              Kapoor adjusts the ionization chamber position with methodical precision, not looking up as you enter.
-            </p>
-          </motion.div>
-          
+        <div className="flex-1 h-full flex flex-col justify-center p-8 pt-20">
           {/* Main dialogue section */}
           <div className="flex-1 flex flex-col">
-            {/* Primary dialogue box */}
+            {/* Contextual descriptor - positioned above dialogue */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.9 }}
+              transition={{ duration: 0.7, delay: 0.2 }}
+              className="mb-4 px-5 py-3 bg-[#0a1220]/80 border-l-2 border-blue-500/60 rounded-sm max-w-3xl"
+            >
+              <p className="text-sm text-blue-300/90 font-pixel italic">
+                Kapoor adjusts the ionization chamber position with methodical precision, not looking up as you enter.
+              </p>
+            </motion.div>
+            
+            {/* Primary dialogue box with relative positioning to contain abilities */}
             <motion.div
               ref={dialogueContainerRef}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="w-full max-w-3xl mx-auto mb-4"
+              className="w-full max-w-3xl mb-4 relative"
             >
-              <div className="bg-black/90 border border-[#243455] rounded-sm overflow-hidden">
+              {/* Abilities Panel placed next to dialogue */}
+              <div 
+                className="abilities-panel"
+                style={{
+                  position: 'absolute',
+                  left: '101%', // Position it just outside the dialogue box (reduced to 101%)
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 50
+                }}
+              >
+                <div className="abilities-container">
+                  {/* Tangent Ability */}
+                  <div 
+                    className={`
+                      ability-icon ability-tangent
+                      ${hoveredAbility === 'tangent' ? 'ability-expanded' : ''}
+                      ${abilityAvailability.tangent ? 'ability-available' : ''}
+                      transition-all duration-200 ease-in-out
+                      ${abilityAvailability.tangent ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}
+                      flex items-center
+                      bg-blue-900/90 border ${abilityAvailability.tangent ? 'border-blue-300' : 'border-gray-700/80'}
+                      rounded-full overflow-hidden
+                      w-12 h-12 hover:w-52 hover:h-14
+                      shadow-lg
+                    `}
+                    onMouseEnter={() => setHoveredAbility('tangent')}
+                    onMouseLeave={() => setHoveredAbility(null)}
+                    onClick={() => abilityAvailability.tangent && handleAbilityActivate('tangent')}
+                  >
+                    <div className="flex items-center justify-center w-12 h-12 flex-shrink-0">
+                      <svg width="24" height="24" viewBox="0 0 16 16" className={`${abilityAvailability.tangent ? 'stroke-blue-200' : 'stroke-gray-400'}`} style={{strokeWidth: 2}}>
+                        <path d="M4,5 L12,13 M12,5 L4,13" />
+                      </svg>
+                    </div>
+                    <div className={`whitespace-nowrap px-3 ${abilityAvailability.tangent ? 'text-blue-200' : 'text-gray-400'} font-pixel text-sm`}>
+                      Tangent <span className={`${abilityAvailability.tangent ? 'text-blue-300' : 'text-gray-500'} ml-1`}>25◆</span>
+                    </div>
+                  </div>
+                  
+                  {/* Reframe Ability */}
+                  <div 
+                    className={`
+                      ability-icon ability-reframe
+                      ${hoveredAbility === 'reframe' ? 'ability-expanded' : ''}
+                      ${abilityAvailability.reframe ? 'ability-available' : ''}
+                      transition-all duration-200 ease-in-out
+                      ${abilityAvailability.reframe ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}
+                      flex items-center
+                      bg-purple-900/90 border ${abilityAvailability.reframe ? 'border-purple-300' : 'border-gray-700/80'}
+                      rounded-full overflow-hidden
+                      w-12 h-12 hover:w-52 hover:h-14
+                      shadow-lg
+                    `}
+                    onMouseEnter={() => setHoveredAbility('reframe')}
+                    onMouseLeave={() => setHoveredAbility(null)}
+                    onClick={() => abilityAvailability.reframe && handleAbilityActivate('reframe')}
+                  >
+                    <div className="flex items-center justify-center w-12 h-12 flex-shrink-0">
+                      <svg width="24" height="24" viewBox="0 0 16 16" className={`${abilityAvailability.reframe ? 'stroke-purple-200' : 'stroke-gray-400'}`} style={{strokeWidth: 2}}>
+                        <path d="M4,4 H12 M4,8 H12 M4,12 H10" />
+                      </svg>
+                    </div>
+                    <div className={`whitespace-nowrap px-3 ${abilityAvailability.reframe ? 'text-purple-200' : 'text-gray-400'} font-pixel text-sm`}>
+                      Reframe <span className={`${abilityAvailability.reframe ? 'text-purple-300' : 'text-gray-500'} ml-1`}>50◆</span>
+                    </div>
+                  </div>
+                  
+                  {/* Peer-Review Ability */}
+                  <div 
+                    className={`
+                      ability-icon ability-peer-review
+                      ${hoveredAbility === 'peer_review' ? 'ability-expanded' : ''}
+                      ${abilityAvailability.peer_review ? 'ability-available' : ''}
+                      transition-all duration-200 ease-in-out
+                      ${abilityAvailability.peer_review ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}
+                      flex items-center
+                      bg-green-900/90 border ${abilityAvailability.peer_review ? 'border-green-300' : 'border-gray-700/80'}
+                      rounded-full overflow-hidden
+                      w-12 h-12 hover:w-52 hover:h-14
+                      shadow-lg
+                    `}
+                    onMouseEnter={() => setHoveredAbility('peer_review')}
+                    onMouseLeave={() => setHoveredAbility(null)}
+                    onClick={() => abilityAvailability.peer_review && handleAbilityActivate('peer_review')}
+                  >
+                    <div className="flex items-center justify-center w-12 h-12 flex-shrink-0">
+                      <svg width="24" height="24" viewBox="0 0 16 16" className={`${abilityAvailability.peer_review ? 'stroke-green-200' : 'stroke-gray-400'}`} style={{strokeWidth: 2}}>
+                        <path d="M5,5 L8,3 L11,5 M8,3 V9 M5,11 L8,13 L11,11" />
+                      </svg>
+                    </div>
+                    <div className={`whitespace-nowrap px-3 ${abilityAvailability.peer_review ? 'text-green-200' : 'text-gray-400'} font-pixel text-sm`}>
+                      Peer-Review <span className={`${abilityAvailability.peer_review ? 'text-green-300' : 'text-gray-500'} ml-1`}>75◆</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-black/90 border border-[#243455] rounded-sm overflow-hidden shadow-md">
                 {/* Main dialogue text */}
                 <div className="p-6">
                   <p className="text-lg font-pixel text-white leading-relaxed">
@@ -631,6 +776,119 @@ function ConversationFormat({
           mixBlendMode: 'multiply'
         }}
       ></div>
+
+      {/* Add CSS for the whisper-to-shout pattern with enhanced effects */}
+      <style jsx>{`
+        .abilities-container {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(4px);
+          border-radius: 16px;
+          padding: 14px 10px;
+          border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .ability-icon {
+          position: relative;
+          z-index: 10;
+          opacity: 0.9;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .ability-icon:hover {
+          opacity: 1;
+          z-index: 20;
+        }
+        
+        .ability-expanded {
+          box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+        }
+
+        /* Ultra-enhanced visual effects for available abilities */
+        .ability-available {
+          filter: brightness(1.4) contrast(1.1);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .ability-available:hover {
+          filter: brightness(1.8) contrast(1.2);
+          transform: scale(1.08);
+        }
+        
+        @keyframes intense-pulse-glow {
+          0%, 100% { 
+            box-shadow: 0 0 12px 4px rgba(59, 130, 246, 0.7);
+            filter: brightness(1.2);
+          }
+          50% { 
+            box-shadow: 0 0 25px 8px rgba(59, 130, 246, 0.9); 
+            filter: brightness(1.6);
+          }
+        }
+        
+        @keyframes intense-pulse-size {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+        }
+        
+        .ability-tangent.ability-available {
+          animation: intense-pulse-glow 2.5s infinite;
+          filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.8));
+        }
+        
+        .ability-tangent.ability-available .flex-shrink-0 {
+          animation: intense-pulse-size 2.5s infinite;
+        }
+        
+        .ability-reframe.ability-available {
+          animation: intense-pulse-glow 2.5s infinite;
+          animation-delay: 0.3s;
+          filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.8));
+        }
+        
+        .ability-reframe.ability-available .flex-shrink-0 {
+          animation: intense-pulse-size 2.5s infinite;
+          animation-delay: 0.3s;
+        }
+        
+        .ability-peer-review.ability-available {
+          animation: intense-pulse-glow 2.5s infinite;
+          animation-delay: 0.6s;
+          filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.8));
+        }
+        
+        .ability-peer-review.ability-available .flex-shrink-0 {
+          animation: intense-pulse-size 2.5s infinite;
+          animation-delay: 0.6s;
+        }
+        
+        /* Custom ultra-intense glow colors for each ability */
+        .ability-tangent.ability-available {
+          box-shadow: 0 0 20px 6px rgba(59, 130, 246, 0.9);
+        }
+        
+        .ability-reframe.ability-available {
+          box-shadow: 0 0 20px 6px rgba(168, 85, 247, 0.9);
+        }
+        
+        .ability-peer-review.ability-available {
+          box-shadow: 0 0 20px 6px rgba(16, 185, 129, 0.9);
+        }
+        
+        .ability-tangent.ability-available:hover {
+          box-shadow: 0 0 30px 10px rgba(59, 130, 246, 1);
+        }
+        
+        .ability-reframe.ability-available:hover {
+          box-shadow: 0 0 30px 10px rgba(168, 85, 247, 1);
+        }
+        
+        .ability-peer-review.ability-available:hover {
+          box-shadow: 0 0 30px 10px rgba(16, 185, 129, 1);
+        }
+      `}</style>
     </div>
   );
 }
