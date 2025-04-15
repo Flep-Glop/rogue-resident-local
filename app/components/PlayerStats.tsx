@@ -110,7 +110,7 @@ export default function PlayerStats() {
   };
   
   return (
-    <div className="p-3 h-full flex flex-col space-y-3">
+    <div className="p-3 h-full flex flex-col space-y-3 player-stats-panel">
       {/* 1. Character Identity Block - Always visible, defines player identity */}
       <PixelBox className="p-3 flex items-center">
         <ResidentPortrait 

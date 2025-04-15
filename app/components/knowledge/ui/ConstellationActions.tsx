@@ -1,6 +1,7 @@
 // app/components/knowledge/ui/ConstellationActions.tsx
 import React from 'react';
 import { PixelButton } from '../../PixelThemeProvider';
+import SPMeter from './SPMeter';
 
 interface ConstellationActionsProps {
   enableJournal: boolean;
@@ -19,7 +20,10 @@ export const ConstellationActions: React.FC<ConstellationActionsProps> = ({
   onClose,
 }) => {
   return (
-    <div className="absolute bottom-4 right-4 flex space-x-3 z-10">
+    <div className="absolute bottom-4 right-4 flex items-center space-x-3 z-10">
+      {/* SP Meter */}
+      <SPMeter compact />
+      
       {/* Journal Button (conditional) */}
       {enableJournal && (
         <PixelButton

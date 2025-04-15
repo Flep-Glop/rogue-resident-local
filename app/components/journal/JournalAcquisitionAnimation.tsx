@@ -8,6 +8,7 @@
  * 3. Stable callbacks for event handling
  * 4. Primitive value extraction from store
  * 5. Proper cleanup on unmount
+ * 6. Enhanced debug logging
  */
 import React, { useRef, useEffect } from 'react';
 import { useJournalStore } from '../../store/journalStore';
@@ -17,6 +18,13 @@ import { usePrimitiveStoreValue, useStableCallback } from '../../core/utils/stor
 
 interface JournalAcquisitionAnimationProps {
   onComplete?: () => void;
+}
+
+interface JournalState {
+  hasJournal: boolean;
+  initializeJournal?: (tier: 'base' | 'technical' | 'annotated') => void;
+  toggleJournal: () => void;
+  [key: string]: any;
 }
 
 export default function JournalAcquisitionAnimation({ 
@@ -37,18 +45,24 @@ export default function JournalAcquisitionAnimation({
   // Access journal store with primitive extraction
   const hasJournal = usePrimitiveStoreValue(
     useJournalStore,
-    state => state.hasJournal,
+    (state: JournalState) => state.hasJournal,
     false
   );
   
   const toggleJournal = useStableCallback(() => {
+    console.log('[JournalAnimation] Toggling journal via store');
     const journalStore = useJournalStore.getState();
     journalStore.toggleJournal();
   }, []);
   
   // Stable callback for starting the animation
   const startAnimation = useStableCallback((tier: 'base' | 'technical' | 'annotated' = 'base') => {
-    if (!containerRef.current || !journalRef.current || !isMountedRef.current) return;
+    console.log(`[JournalAnimation] Starting animation with tier: ${tier}`);
+    
+    if (!containerRef.current || !journalRef.current || !isMountedRef.current) {
+      console.warn('[JournalAnimation] Cannot start animation - missing refs or not mounted');
+      return;
+    }
     
     // Set internal state
     journalTierRef.current = tier;
@@ -117,7 +131,12 @@ export default function JournalAcquisitionAnimation({
   
   // Handle animation completion
   const handleClose = useStableCallback(() => {
-    if (!containerRef.current || !isMountedRef.current) return;
+    console.log('[JournalAnimation] Closing animation');
+    
+    if (!containerRef.current || !isMountedRef.current) {
+      console.warn('[JournalAnimation] Cannot close animation - missing refs or not mounted');
+      return;
+    }
     
     animationPhaseRef.current = 'fadeOut';
     
@@ -135,6 +154,7 @@ export default function JournalAcquisitionAnimation({
         containerRef.current.style.display = 'none';
       }
       
+      console.log('[JournalAnimation] Animation completed, calling onComplete');
       if (onComplete) {
         onComplete();
       }
@@ -145,6 +165,7 @@ export default function JournalAcquisitionAnimation({
   
   // Handle journal open button
   const handleOpenJournal = useStableCallback(() => {
+    console.log('[JournalAnimation] Opening journal');
     toggleJournal();
     handleClose();
   }, [toggleJournal, handleClose]);
@@ -153,10 +174,30 @@ export default function JournalAcquisitionAnimation({
   useEventSubscription(
     GameEventType.JOURNAL_ACQUIRED,
     (event) => {
-      if (!isMountedRef.current) return;
+      console.log('[JournalAnimation] Received JOURNAL_ACQUIRED event', event);
+      
+      if (!isMountedRef.current) {
+        console.warn('[JournalAnimation] Ignoring event - component not mounted');
+        return;
+      }
       
       const payload = event.payload as any;
       const tier = payload?.tier || 'base';
+      
+      console.log(`[JournalAnimation] Starting animation with tier: ${tier}, payload:`, payload);
+      
+      // Initialize journal in store if needed
+      if (!hasJournal) {
+        try {
+          const journalStore = useJournalStore.getState();
+          if (journalStore.initializeJournal) {
+            journalStore.initializeJournal(tier);
+            console.log(`[JournalAnimation] Initialized journal with tier: ${tier}`);
+          }
+        } catch (error) {
+          console.error('[JournalAnimation] Error initializing journal:', error);
+        }
+      }
       
       // Start animation with the appropriate tier
       startAnimation(tier);
@@ -167,6 +208,7 @@ export default function JournalAcquisitionAnimation({
   // Setup and cleanup
   useEffect(() => {
     isMountedRef.current = true;
+    console.log('[JournalAnimation] Component mounted');
     
     // Hide container initially to avoid flash
     if (containerRef.current) {
@@ -176,6 +218,7 @@ export default function JournalAcquisitionAnimation({
     // Cleanup function
     return () => {
       isMountedRef.current = false;
+      console.log('[JournalAnimation] Component unmounted');
       
       // Clear all pending timers
       timerRefs.current.forEach(timer => clearTimeout(timer));

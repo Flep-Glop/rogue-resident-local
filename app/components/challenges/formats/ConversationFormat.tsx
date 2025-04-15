@@ -15,6 +15,10 @@ import { StrategicActionsContainer } from '../../gameplay/StrategicActions';
 import { applyStrategicAction, enhanceDialogueOptions } from '../../../core/dialogue/ActionIntegration';
 import { usePrimitiveStoreValue, useStableStoreValue } from '../../../core/utils/storeHooks';
 import { NodeType } from '../../../types/game';
+import { getCharacterData } from '../../../data/characters';
+
+// Import the kapoor dialogue content
+import kapoorCalibrationDialogue from '../../../data/dialogues/calibrations/kapoor-calibration';
 
 // ===== TYPES =====
 
@@ -94,55 +98,28 @@ function ConversationFormat({
   const optionsContainerRef = useRef<HTMLDivElement>(null);
   
   // ===== LOCAL STATE =====
-  // State for Dr. Kapoor's calibration dialogue
-  const [dialogueStage, setDialogueStage] = useState(0);
+  // State for dialogue flow
+  const [currentStageId, setCurrentStageId] = useState<string>('intro');
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null);
   const [showResponse, setShowResponse] = useState(false);
+  const [responseText, setResponseText] = useState<string>('');
   const [results, setResults] = useState<InteractionResults>({
     insightGained: 0,
     relationshipChange: 0,
     knowledgeGained: {},
   });
   
-  // Sample dialogue for Dr. Kapoor's calibration node
-  const kapoorDialogue = useMemo(() => [
-    {
-      text: "Welcome to the calibration lab. Today we'll be checking the linear accelerator output calibration.",
-      options: [
-        { text: "I'm ready to begin, Dr. Kapoor.", type: "neutral" },
-        { text: "What exactly will we be calibrating?", type: "question" }
-      ]
-    },
-    {
-      text: "Excellent. First, what's the standard unit we use to measure absorbed dose?",
-      options: [
-        { text: "Gray (Gy)", type: "technical" },
-        { text: "Sievert (Sv)", type: "technical" },
-        { text: "Becquerel (Bq)", type: "technical" }
-      ]
-    },
-    {
-      text: "Correct! The Gray is our standard unit for absorbed dose. Now, when we calibrate the linac, which device do we primarily use?",
-      options: [
-        { text: "Ionization chamber", type: "technical" },
-        { text: "TLD", type: "technical" },
-        { text: "Film dosimeter", type: "technical" }
-      ]
-    },
-    {
-      text: "Very good. For your records, I've prepared this calibration journal. You should document all your findings in it.",
-      options: [
-        { text: "Thank you, I'll keep detailed notes.", type: "positive" },
-        { text: "Is this part of standard protocol?", type: "question" }
-      ]
-    },
-    {
-      text: "That's all for today's calibration. The equipment is operating within acceptable parameters.",
-      options: [
-        { text: "Return to hospital map", type: "neutral" }
-      ]
-    }
-  ], []);
+  // Use the proper dialogue content from imported file
+  const dialogueContent = useMemo(() => {
+    // For now we're just using kapoor dialogue, but this could be expanded to use dialogueStages prop
+    // or select different dialogues based on character/nodeId
+    return kapoorCalibrationDialogue;
+  }, []);
+  
+  // Get current dialogue stage
+  const currentStage = useMemo(() => {
+    return dialogueContent.find(stage => stage.id === currentStageId) || dialogueContent[0];
+  }, [dialogueContent, currentStageId]);
   
   // Character data
   const charData = useMemo<CharacterData>(() => {
@@ -152,133 +129,277 @@ function ConversationFormat({
   // ===== HANDLERS =====
   // Handle option selection
   const handleOptionClick = useCallback((optionIndex: number) => {
-    const selectedOption = kapoorDialogue[dialogueStage].options[optionIndex];
+    if (!currentStage || !currentStage.options || selectedOptionIndex !== null) return;
+    
+    const selectedOption = currentStage.options[optionIndex];
+    if (!selectedOption) return;
+    
     setSelectedOptionIndex(optionIndex);
     setShowResponse(true);
     
-    // First question - just advance
-    if (dialogueStage === 0) {
-      // Extra insight for asking questions
-      if (selectedOption.type === 'question') {
-        updateInsight(5);
-        setResults(prev => ({
-          ...prev,
-          insightGained: prev.insightGained + 5
-        }));
-      }
-      
-      setTimeout(() => {
-        setDialogueStage(1);
-        setShowResponse(false);
-        setSelectedOptionIndex(null);
-      }, 1000);
+    // Show response text if available
+    if (selectedOption.responseText) {
+      setResponseText(selectedOption.responseText);
     }
-    // Gray (correct answer)
-    else if (dialogueStage === 1 && optionIndex === 0) {
-      incrementMomentum();
-      updateInsight(10);
+    
+    // Track insight/relationship changes
+    let insightGained = selectedOption.insightGain || 0;
+    let relationshipChange = selectedOption.relationshipChange || 0;
+    
+    // Update insight
+    if (insightGained > 0) {
+      updateInsight(insightGained);
       setResults(prev => ({
         ...prev,
-        insightGained: prev.insightGained + 10,
+        insightGained: prev.insightGained + insightGained
+      }));
+    }
+    
+    // Track momentum for correct answers
+    if (selectedOption.isCriticalPath) {
+      incrementMomentum();
+    }
+    
+    // Track knowledge gain
+    if (selectedOption.knowledgeGain) {
+      setResults(prev => ({
+        ...prev,
         knowledgeGained: {
           ...prev.knowledgeGained,
-          'radiation_units': (prev.knowledgeGained['radiation_units'] || 0) + 1
+          [selectedOption.knowledgeGain?.conceptId || 'unknown']: 
+            (prev.knowledgeGained[selectedOption.knowledgeGain?.conceptId || 'unknown'] || 0) + 
+            (selectedOption.knowledgeGain?.amount || 0)
         }
       }));
-      setTimeout(() => {
-        setDialogueStage(2);
-        setShowResponse(false);
-        setSelectedOptionIndex(null);
-      }, 1000);
     }
-    // Wrong answers
-    else if (dialogueStage === 1) {
-      // No momentum gain
-      updateInsight(2); // Small insight for trying
-      setResults(prev => ({
-        ...prev,
-        insightGained: prev.insightGained + 2
-      }));
-      setTimeout(() => {
-        setDialogueStage(2);
-        setShowResponse(false);
-        setSelectedOptionIndex(null);
-      }, 1000);
+    
+    // Handle callbacks
+    if (onOptionSelected) {
+      onOptionSelected(selectedOption, currentStage.id);
     }
-    // Ionization chamber (correct answer)
-    else if (dialogueStage === 2 && optionIndex === 0) {
-      incrementMomentum();
-      updateInsight(10);
-      setResults(prev => ({
-        ...prev,
-        insightGained: prev.insightGained + 10,
-        knowledgeGained: {
-          ...prev.knowledgeGained,
-          'calibration_equipment': (prev.knowledgeGained['calibration_equipment'] || 0) + 1
+    
+    // Move to next stage after delay
+    setTimeout(() => {
+      if (selectedOption.nextStageId) {
+        // Special case for pre-journal-presentation
+        if (selectedOption.nextStageId === 'pre-journal-presentation') {
+          console.log('[ConversationFormat] Pre-journal stage selected, will transition to journal-presentation');
+          
+          // First move to the pre-journal stage
+          setCurrentStageId('pre-journal-presentation');
+          
+          // After a delay, move to journal-presentation
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              console.log('[ConversationFormat] Now transitioning from pre-journal to journal-presentation');
+              setCurrentStageId('journal-presentation');
+            }
+          }, 3000);
+          
+          setShowResponse(false);
+          setResponseText('');
+          setSelectedOptionIndex(null);
+          return;
         }
-      }));
-      setTimeout(() => {
-        setDialogueStage(3);
-        setShowResponse(false);
-        setSelectedOptionIndex(null);
-      }, 1000);
-    }
-    // Wrong answers
-    else if (dialogueStage === 2) {
-      // No momentum gain
-      updateInsight(2);
-      setResults(prev => ({
-        ...prev,
-        insightGained: prev.insightGained + 2
-      }));
-      setTimeout(() => {
-        setDialogueStage(3);
-        setShowResponse(false);
-        setSelectedOptionIndex(null);
-      }, 1000);
-    }
-    // Journal acquisition
-    else if (dialogueStage === 3) {
-      // Extra insight for asking questions
-      if (selectedOption.type === 'question') {
-        updateInsight(5);
-        setResults(prev => ({
-          ...prev,
-          insightGained: prev.insightGained + 5
-        }));
+        
+        // Direct jump to journal presentation - special case
+        if (selectedOption.nextStageId === 'journal-presentation') {
+          console.log('[ConversationFormat] Direct jump to journal presentation detected');
+          // Update the results to include journal tier
+          setResults(prev => ({
+            ...prev,
+            journalTier: 'technical'
+          }));
+          
+          // Special handling for journal acquisition
+          console.log('[ConversationFormat] Triggering journal acquisition');
+          const characterForDispatch = normalizedCharacterId || 'kapoor';
+          console.log(`[ConversationFormat] Using character ID for journal acquisition: ${characterForDispatch}`);
+          
+          safeDispatch(GameEventType.NODE_COMPLETED, {
+            nodeId: storeNodeId,
+            character: characterForDispatch,
+            result: {
+              isJournalAcquisition: true,
+              journalTier: 'technical',
+              relationshipChange: 0
+            }
+          });
+          
+          // Direct dispatch of journal acquired event to trigger animation
+          safeDispatch(GameEventType.JOURNAL_ACQUIRED, {
+            tier: 'technical',
+            character: characterForDispatch,
+            source: 'dialogue_completion',
+            nodeId: storeNodeId
+          });
+          console.log('[ConversationFormat] Directly dispatched JOURNAL_ACQUIRED event');
+          
+          // Transition to the journal presentation stage
+          setCurrentStageId('journal-presentation');
+          
+          // Call onComplete with updated results
+          if (onComplete) {
+            onComplete({
+              ...results,
+              journalTier: 'technical'
+            });
+          }
+          
+          setShowResponse(false);
+          setResponseText('');
+          setSelectedOptionIndex(null);
+          return;
+        }
+        
+        // Check if this is a conclusion (end of dialogue)
+        const nextStage = dialogueContent.find(stage => stage.id === selectedOption.nextStageId);
+        
+        if (nextStage && nextStage.isConclusion) {
+          // Special handling for journal acquisition
+          if (nextStage.id === 'journal-presentation') {
+            console.log('[ConversationFormat] Journal presentation node reached, triggering journal acquisition');
+            // Use 'kapoor' as fallback if normalized character ID is empty
+            const characterForDispatch = normalizedCharacterId || 'kapoor';
+            console.log(`[ConversationFormat] Using character ID for journal acquisition: ${characterForDispatch}`);
+            
+            safeDispatch(GameEventType.NODE_COMPLETED, {
+              nodeId: storeNodeId,
+              character: characterForDispatch,
+              result: {
+                isJournalAcquisition: true,
+                journalTier: 'technical',
+                relationshipChange: 0
+              }
+            });
+            
+            // Direct dispatch of journal acquired event to trigger animation
+            safeDispatch(GameEventType.JOURNAL_ACQUIRED, {
+              tier: 'technical',
+              character: characterForDispatch,
+              source: 'dialogue_completion',
+              nodeId: storeNodeId
+            });
+            console.log('[ConversationFormat] Directly dispatched JOURNAL_ACQUIRED event from conclusion path');
+            
+            setResults(prev => ({
+              ...prev,
+              journalTier: 'technical'
+            }));
+          }
+          
+          // Complete node and call onComplete
+          if (gameStore.completeNode && storeNodeId) {
+            gameStore.completeNode(storeNodeId);
+          }
+          
+          if (onComplete) {
+            onComplete(results);
+          }
+        } else {
+          // Move to next stage
+          setCurrentStageId(selectedOption.nextStageId);
+          if (onStageChange) {
+            onStageChange(selectedOption.nextStageId, currentStage.id);
+          }
+        }
       }
       
-      // Trigger journal acquisition
+      setShowResponse(false);
+      setResponseText('');
+      setSelectedOptionIndex(null);
+    }, 1500);
+  }, [currentStage, selectedOptionIndex, updateInsight, incrementMomentum, gameStore, 
+      storeNodeId, onComplete, results, onOptionSelected, onStageChange, dialogueContent]);
+  
+  // Handle special stages that need automatic transitions
+  useEffect(() => {
+    // Handle pre-journal stage to journal stage transition
+    if (currentStageId === 'pre-journal-presentation' && !selectedOptionIndex) {
+      console.log('[ConversationFormat] Pre-journal stage detected in special stages effect');
+      
+      // Add a delay before transitioning to journal-presentation
+      const timer = setTimeout(() => {
+        if (isMountedRef.current) {
+          console.log('[ConversationFormat] Auto-transitioning from pre-journal to journal-presentation');
+          setCurrentStageId('journal-presentation');
+        }
+      }, 4000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentStageId, selectedOptionIndex]);
+  
+  // Direct journal acquisition when journal-presentation stage is reached
+  useEffect(() => {
+    if (currentStageId === 'journal-presentation' && !results.journalTier) {
+      console.log('[ConversationFormat] Journal presentation stage reached, ensuring acquisition is triggered');
+      
+      // Update results to include journal tier
+      setResults(prev => ({
+        ...prev,
+        journalTier: 'technical'
+      }));
+      
+      // Directly dispatch events to ensure acquisition flow
+      const characterForDispatch = normalizedCharacterId || 'kapoor';
+      
+      // Always use store nodeId if available, fallback to provided nodeId
+      const nodeIdForDispatch = storeNodeId || nodeId || 'start';
+      console.log(`[ConversationFormat] Using nodeId for completion: ${nodeIdForDispatch}`);
+      
+      // Explicitly mark the node as completed both ways
+      try {
+        const gameStore = useGameStore.getState();
+        if (gameStore && gameStore.completeNode) {
+          gameStore.completeNode(nodeIdForDispatch);
+          console.log(`[ConversationFormat] ✅ Explicitly marked node ${nodeIdForDispatch} as completed via gameStore`);
+        }
+        
+        // Also directly mark in state machine for redundancy
+        if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
+          window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState().markNodeCompleted(nodeIdForDispatch);
+          console.log(`[ConversationFormat] ✅ Explicitly marked node ${nodeIdForDispatch} as completed in state machine`);
+        }
+      } catch (err) {
+        console.error('[ConversationFormat] Error marking node as completed:', err);
+      }
+      
       safeDispatch(GameEventType.NODE_COMPLETED, {
-        nodeId: storeNodeId,
+        nodeId: nodeIdForDispatch,
+        character: characterForDispatch,
         result: {
           isJournalAcquisition: true,
-          journalTier: 'technical'
+          journalTier: 'technical',
+          relationshipChange: 0
         }
       });
       
-      setTimeout(() => {
-        setDialogueStage(4);
-        setShowResponse(false);
-        setSelectedOptionIndex(null);
-      }, 1000);
-    }
-    // End conversation
-    else if (dialogueStage === 4) {
-      // Complete the node challenge
-      if (gameStore.completeNode && storeNodeId) {
-        gameStore.completeNode(storeNodeId);
-      }
+      safeDispatch(GameEventType.JOURNAL_ACQUIRED, {
+        tier: 'technical',
+        character: characterForDispatch,
+        source: 'stage_reached',
+        nodeId: nodeIdForDispatch
+      });
+      console.log('[ConversationFormat] Journal presentation stage: Directly dispatched events');
       
-      // Call onComplete if provided
+      // If there's an onComplete callback, call it
       if (onComplete) {
         onComplete({
           ...results,
           journalTier: 'technical'
         });
       }
+      
+      // Return to map after a delay
+      setTimeout(() => {
+        if (gameStore && gameStore.setCurrentNode) {
+          console.log('[ConversationFormat] Returning to map after journal acquisition');
+          gameStore.setCurrentNode(null);
+        }
+      }, 5000); // Use 5 seconds to allow animations to complete
     }
-  }, [dialogueStage, incrementMomentum, updateInsight, storeNodeId, gameStore, onComplete, results, kapoorDialogue]);
+  }, [currentStageId, results.journalTier, normalizedCharacterId, storeNodeId, nodeId, onComplete, results, gameStore]);
   
   // ===== COMPONENT LIFECYCLE =====
   
@@ -286,198 +407,235 @@ function ConversationFormat({
   useEffect(() => {
     isMountedRef.current = true;
     
+    console.log(`[ConversationFormat] Component mounted. Dialogue content length: ${dialogueContent?.length || 0}`);
+    console.log(`[ConversationFormat] Current stage ID: ${currentStageId}, Character ID: ${normalizedCharacterId}`);
+    
+    if (currentStage) {
+      console.log(`[ConversationFormat] Current stage: ${currentStage.id}`, currentStage);
+    } else {
+      console.error('[ConversationFormat] No current stage found!');
+    }
+    
+    if (!dialogueContent || dialogueContent.length === 0) {
+      console.error('[ConversationFormat] No dialogue content loaded!');
+    }
+    
+    // Check if we received the expected props
+    console.log(`[ConversationFormat] nodeId: ${storeNodeId}, character: ${normalizedCharacterId}`);
+    
+    // Check if the character data is loaded correctly
+    console.log(`[ConversationFormat] Character data:`, charData);
+    
+    // Debug props and character ID issue
+    console.log(`[ConversationFormat] DEBUG: Props received - nodeId=${nodeId}, character=${character}, characterId=${characterId}`);
+    
+    // Check if character is properly set in game store
+    try {
+      const gameStoreState = useGameStore.getState();
+      const currentCharFromStore = gameStoreState.currentCharacterId;
+      console.log(`[ConversationFormat] DEBUG: Current character from store: ${currentCharFromStore}`);
+    } catch (err) {
+      console.error('[ConversationFormat] Failed to access game store:', err);
+    }
+    
     return () => {
       isMountedRef.current = false;
+      console.log('[ConversationFormat] Component unmounted');
     };
   }, []);
   
   // ===== RENDER =====
   
-  // Get current dialogue content
-  const currentDialogue = kapoorDialogue[dialogueStage];
-  
   // Render the conversation UI
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-end">
-      {/* Background with grid pattern */}
-      <div className="absolute inset-0 bg-gray-900 z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(25,33,55,0.8)_0%,rgba(10,15,30,1)_100%)]">
-          {/* Grid pattern overlay */}
+    <div className="relative w-full h-full flex flex-col">
+      {/* Deep space background with subtle grid */}
+      <div className="absolute inset-0 bg-[#080d17] z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(20,30,60,0.3)_0%,rgba(8,13,23,0.95)_70%)]">
+          {/* Subtle grid with depth */}
           <div 
-            className="absolute inset-0 opacity-20" 
+            className="absolute inset-0 opacity-8" 
             style={{ 
-              backgroundImage: 'linear-gradient(to right, rgba(30,64,175,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(30,64,175,0.1) 1px, transparent 1px)',
-              backgroundSize: '24px 24px' 
+              backgroundImage: 'linear-gradient(to right, rgba(59,130,246,0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(59,130,246,0.05) 1px, transparent 1px)',
+              backgroundSize: '40px 40px',
+              transform: 'perspective(1000px) rotateX(5deg)',
+              transformOrigin: 'center top' 
             }}
           />
         </div>
       </div>
       
-      {/* Scanline effect overlay */}
-      <div className="absolute inset-0 pointer-events-none z-50 scanlines opacity-10"></div>
-      
-      {/* Subtle ambient particles */}
+      {/* Minimal ambient particles */}
       <div className="absolute inset-0 overflow-hidden z-10 pointer-events-none">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div 
-            key={i}
-            className="absolute w-1 h-1 bg-blue-400/20 rounded-full animate-pulse"
-            style={{ 
-              top: `${Math.random() * 100}%`, 
-              left: `${Math.random() * 100}%`,
-              animationDuration: `${3 + Math.random() * 5}s`,
-              animationDelay: `${Math.random() * 2}s`
-            }}
-          />
-        ))}
+        {Array.from({ length: 15 }).map((_, i) => {
+          const size = 0.7 + Math.random() * 1.3;
+          return (
+            <div 
+              key={i}
+              className="absolute rounded-full animate-pulse-slow"
+              style={{ 
+                top: `${Math.random() * 100}%`, 
+                left: `${Math.random() * 100}%`,
+                width: `${size}px`,
+                height: `${size}px`,
+                backgroundColor: i % 3 === 0 ? 'rgba(59,130,246,0.2)' : 'rgba(96,165,250,0.15)',
+                animationDuration: `${4 + Math.random() * 5}s`,
+                animationDelay: `${Math.random() * 2}s`
+              }}
+            />
+          );
+        })}
       </div>
 
-      {/* Character Portrait - with subtle floating animation */}
-      <div 
-        ref={characterRef}
-        className="absolute left-16 bottom-48 w-64 h-64 z-20"
-      >
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          className="relative w-full h-full animate-float-slow"
-        >
-          <div className="absolute inset-0 flex items-center justify-center">
-            <img
-              src={charData.sprite}
-              alt={charData.name}
-              className="w-full h-full object-contain pixelated"
-              style={{ imageRendering: 'pixelated' }}
-            />
+      {/* Clean two-column layout */}
+      <div className="w-full h-full flex z-10">
+        {/* Left panel - character area */}
+        <div className="w-[28%] py-8 px-6 flex flex-col">
+          {/* Character container */}
+          <div className="relative mb-3">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="bg-[#0f1623]/80 rounded-md overflow-hidden border border-[#243455] pixel-borders"
+            >
+              {/* Character portrait */}
+              <div className="aspect-square w-full flex items-center justify-center overflow-hidden p-3">
+                <img
+                  src={charData.sprite}
+                  alt={charData.name}
+                  className="w-full h-full object-contain pixelated"
+                  style={{ 
+                    imageRendering: 'pixelated'
+                  }}
+                />
+              </div>
+            </motion.div>
+            
+            {/* Character name label - positioned below portrait */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="mt-2 bg-[#1e3a5f] rounded-sm p-2"
+            >
+              <div className="flex items-center">
+                <div className="w-2 h-2 rounded-full bg-blue-400 mr-2"></div>
+                <h3 className={`text-lg font-pixel text-blue-200`}>Dr. Kapoor</h3>
+              </div>
+              <p className="text-xs text-gray-400 font-pixel">Chief Medical Physicist</p>
+            </motion.div>
           </div>
           
-          {/* Subtle glow effect */}
-          <div 
-            className="absolute inset-0 rounded-full blur-lg opacity-30 -z-10"
-            style={{ backgroundColor: charData.primaryColor, transform: 'scale(0.9)' }}
-          />
-        </motion.div>
-      </div>
-
-      {/* Character Name & Title - with pixel border */}
-      <div className="absolute left-16 bottom-36 bg-black/80 p-2 rounded z-20 pixel-borders pixel-borders--clinical">
-        <h3 className={`text-lg font-pixel ${charData.textClass}`}>{charData.name}</h3>
-        <p className="text-sm text-gray-400 font-pixel">{charData.title}</p>
-      </div>
-
-      {/* Main Dialogue Box */}
-      <div 
-        ref={dialogueContainerRef}
-        className="w-full max-w-4xl mb-24 px-6 relative z-20"
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="relative"
-        >
-          <div className="bg-black/80 border border-blue-500/30 rounded p-6 shadow-lg pixel-borders pixel-borders--blue">
-            {/* Dialogue Text - with subtle text effect */}
-            <p className="text-lg font-pixel leading-relaxed text-white mb-6 whitespace-pre-wrap">
-              {kapoorDialogue[dialogueStage].text}
-            </p>
-
-            {/* Options Container - with improved hover effects */}
-            <div 
-              ref={optionsContainerRef}
-              className="space-y-3"
+          {/* LINAC Information Panel */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="mt-4 bg-[#0f1623]/80 border border-[#243455] rounded-sm p-3"
+          >
+            <h4 className="text-sm text-blue-300 font-pixel mb-1">Linear Accelerator</h4>
+            <p className="text-xs text-gray-300">LINAC 2, the Varian TrueBeam used primarily for head and neck treatments.</p>
+          </motion.div>
+          
+          {/* Insight & Momentum UI at bottom */}
+          <div className="mt-auto">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="space-y-4"
             >
-              {kapoorDialogue[dialogueStage].options.map((option, index) => (
-                <motion.button
-                  key={index}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => handleOptionClick(index)}
-                  disabled={selectedOptionIndex !== null}
-                  className={`
-                    w-full text-left px-4 py-2 rounded
-                    font-pixel text-sm leading-relaxed
-                    ${selectedOptionIndex === index 
-                      ? 'bg-blue-500/50 text-white shadow-inner shadow-blue-800/50' 
-                      : 'bg-black/70 text-gray-300 hover:bg-blue-500/20 hover:text-white hover:shadow-inner hover:shadow-blue-700/20'}
-                    ${option.type === 'technical' ? 'text-technical-light border-l-4 border-technical-light/50' : 'border-l-4 border-transparent'}
-                    ${option.type === 'question' ? 'text-educational-light border-l-4 border-educational-light/50' : ''}
-                    ${option.type === 'positive' ? 'text-qa-light border-l-4 border-qa-light/50' : ''}
-                    transition-all duration-200
-                    border border-blue-500/30
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                    flex items-start
-                  `}
-                >
-                  <span className="mr-2 opacity-60">{'>'}</span>
-                  <span className="flex-1">{option.text}</span>
-                </motion.button>
-              ))}
-            </div>
+              <InsightMeter />
+              <MomentumCounter />
+            </motion.div>
           </div>
-        </motion.div>
+        </div>
+        
+        {/* Main content area - conversation */}
+        <div className="flex-1 h-full flex flex-col justify-center p-8">
+          {/* Top context caption - subtle blue accent */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.9 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="self-end mb-8 px-4 py-3 bg-black/25 border-l border-blue-500/40 rounded-sm max-w-lg"
+          >
+            <p className="text-sm text-blue-300/90 font-pixel italic">
+              Kapoor adjusts the ionization chamber position with methodical precision, not looking up as you enter.
+            </p>
+          </motion.div>
+          
+          {/* Main dialogue section */}
+          <div className="flex-1 flex flex-col">
+            {/* Primary dialogue box */}
+            <motion.div
+              ref={dialogueContainerRef}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="w-full max-w-3xl mx-auto mb-4"
+            >
+              <div className="bg-black/90 border border-[#243455] rounded-sm overflow-hidden">
+                {/* Main dialogue text */}
+                <div className="p-6">
+                  <p className="text-lg font-pixel text-white leading-relaxed">
+                    {showResponse && responseText ? responseText : currentStage.text}
+                  </p>
+                </div>
+
+                {/* Response options with clean styling */}
+                {!showResponse && currentStage.options && (
+                  <div 
+                    ref={optionsContainerRef}
+                    className="p-4 border-t border-[#243455] space-y-3 bg-black/70"
+                  >
+                    {currentStage.options.map((option, index) => (
+                      <motion.button
+                        key={index}
+                        initial={{ opacity: 0, x: -5 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 + index * 0.1 }}
+                        onClick={() => handleOptionClick(index)}
+                        disabled={selectedOptionIndex !== null}
+                        className={`
+                          w-full text-left p-3 
+                          font-pixel text-sm leading-relaxed
+                          ${selectedOptionIndex === index 
+                            ? 'bg-blue-900/50 text-white border-l-4 border-blue-400' 
+                            : 'bg-black/60 text-gray-300 hover:bg-[#162642]/80 hover:text-white border-l-4 border-transparent hover:border-blue-500/50'}
+                          transition-all duration-200
+                          flex items-start group
+                        `}
+                      >
+                        <span className="mr-2 opacity-60 group-hover:opacity-100 group-hover:text-blue-400 transition-all duration-300">{'>'}</span>
+                        <span className="flex-1">{option.text}</span>
+                      </motion.button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        </div>
       </div>
 
-      {/* Insight & Momentum UI */}
-      <div className="absolute top-6 right-6 flex flex-col space-y-4 z-20">
-        <InsightMeter />
-        <MomentumCounter />
-      </div>
+      {/* Subtle scanline effect */}
+      <div className="absolute inset-0 pointer-events-none z-50 scanlines opacity-3"></div>
       
-      {/* Scene decoration - lab visual elements */}
-      <div className="absolute top-20 left-20 w-16 h-16 opacity-40 z-10">
-        <div className="w-full h-full rounded-full bg-blue-500/10 animate-pulse-slow border border-blue-500/20"></div>
-      </div>
-      <div className="absolute top-40 right-40 w-24 h-24 opacity-30 z-10">
-        <div className="w-full h-full rounded-full bg-blue-400/10 animate-pulse-slow border border-blue-400/20" 
-            style={{animationDelay: '1s'}}></div>
-      </div>
+      {/* Subtle vignette for focus */}
+      <div 
+        className="absolute inset-0 pointer-events-none z-40" 
+        style={{ 
+          background: 'radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.4) 100%)',
+          mixBlendMode: 'multiply'
+        }}
+      ></div>
     </div>
   );
 }
 
 export default ConversationFormat;
-
-// Helper function to get character data
-function getCharacterData(characterId: string): CharacterData {
-  const characterData: Record<string, CharacterData> = {
-    'kapoor': {
-      name: "Dr. Kapoor",
-      title: "Chief Medical Physicist",
-      sprite: "/characters/kapoor.png",
-      primaryColor: "var(--clinical-color)",
-      textClass: "text-clinical-light",
-      bgClass: "bg-clinical"
-    },
-    'jesse': {
-      name: "Technician Jesse",
-      title: "Equipment Specialist",
-      sprite: "/characters/jesse.png",
-      primaryColor: "var(--qa-color)",
-      textClass: "text-qa-light",
-      bgClass: "bg-qa"
-    },
-    'quinn': {
-      name: "Dr. Zephyr Quinn",
-      title: "Experimental Researcher",
-      sprite: "/characters/quinn.png",
-      primaryColor: "var(--educational-color)",
-      textClass: "text-educational-light",
-      bgClass: "bg-educational"
-    },
-    'garcia': {
-      name: "Dr. Garcia",
-      title: "Radiation Oncologist",
-      sprite: "/characters/garcia.png",
-      primaryColor: "var(--clinical-alt-color)",
-      textClass: "text-clinical-light",
-      bgClass: "bg-clinical"
-    }
-  };
-  return characterData[characterId] || characterData.kapoor;
-}
 
 // Global CSS additions for the animations
 // Add this to your global CSS or use CSS modules

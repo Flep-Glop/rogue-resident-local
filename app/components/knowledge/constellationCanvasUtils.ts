@@ -44,25 +44,50 @@ export const initializeImages = () => {
   // Check if we're in a browser environment
   if (typeof window === 'undefined') return;
   
-  // Add star image
-  try {
+  // Add star image - try multiple paths
+  const starImagePaths = [
+    '/icons/star.png',         // Primary path
+    '/star.png',               // Root fallback
+    '/public/icons/star.png'   // Alternate path
+  ];
+
+  // Try loading the star image from each path
+  const loadStarImage = (pathIndex = 0) => {
+    if (pathIndex >= starImagePaths.length) {
+      console.error('Failed to load star image from all paths');
+      return;
+    }
+
+    const currentPath = starImagePaths[pathIndex];
     const starImage = new window.Image();
-    starImage.src = '/icons/star.png';  // Fix path to use /icons/ directory
-    starImage.crossOrigin = 'anonymous'; // Add cross-origin handling if needed
-    backgroundImages['star'] = starImage;
+    starImage.crossOrigin = 'anonymous';
     
-    // Preload background images
-    backgroundPaths.forEach(path => {
-      const img = new window.Image();
-      img.src = path;
-      backgroundImages[path] = img;
-    });
+    starImage.onload = () => {
+      console.log(`Successfully loaded star image from: ${currentPath}`);
+      console.log(`Star dimensions: ${starImage.width}x${starImage.height}`);
+      backgroundImages['star'] = starImage;
+    };
     
-    // Log successful loading for debugging
-    console.log('Constellation images initialized', Object.keys(backgroundImages));
-  } catch (err) {
-    console.error('Error initializing images:', err);
-  }
+    starImage.onerror = () => {
+      console.error(`Failed to load star image from: ${currentPath}, trying next path...`);
+      loadStarImage(pathIndex + 1);
+    };
+    
+    starImage.src = currentPath;
+  };
+  
+  // Start loading the star image
+  loadStarImage();
+  
+  // Preload background images
+  backgroundPaths.forEach(path => {
+    const img = new window.Image();
+    img.src = path;
+    backgroundImages[path] = img;
+  });
+  
+  // Log successful loading for debugging
+  console.log('Constellation images initialized', Object.keys(backgroundImages));
 };
 
 /**
@@ -77,7 +102,7 @@ export const drawStarryBackground = (ctx: CanvasRenderingContext2D, width: numbe
   ctx.fillRect(0, 0, width, height);
   
   // Draw the layered night sky images
-  const drawImage = (path: string, opacity: number = 1) => {
+  const drawImage = (path: string, opacity: number = 1, scaleMultiplier: number = 1.5) => {
     const img = backgroundImages[path];
     if (img && img.complete && img.naturalHeight !== 0) {
       ctx.globalAlpha = opacity;
@@ -87,14 +112,15 @@ export const drawStarryBackground = (ctx: CanvasRenderingContext2D, width: numbe
       const imgRatio = img.naturalWidth / img.naturalHeight;
       const canvasRatio = width / height;
       
+      // Adjust scale to prevent excessive zooming
       if (canvasRatio > imgRatio) {
         // Canvas is wider than image aspect ratio
-        drawWidth = width;
-        drawHeight = width / imgRatio;
+        drawWidth = width * scaleMultiplier;
+        drawHeight = (width * scaleMultiplier) / imgRatio;
       } else {
         // Canvas is taller than image aspect ratio
-        drawHeight = height;
-        drawWidth = height * imgRatio;
+        drawHeight = height * scaleMultiplier;
+        drawWidth = (height * scaleMultiplier) * imgRatio;
       }
       
       // Center the image
@@ -106,38 +132,50 @@ export const drawStarryBackground = (ctx: CanvasRenderingContext2D, width: numbe
     }
   };
 
-  // Draw the base sky
-  drawImage('/backgrounds/night-sky.png');
+  // Draw the base sky with moderate scale
+  drawImage('/backgrounds/night-sky.png', 1.0, 1.8);
   
-  // Draw the moon with full opacity
-  drawImage('/backgrounds/night-moon.png');
+  // Draw the moon with moderate scale
+  drawImage('/backgrounds/night-moon.png', 1.0, 1.8);
   
-  // Draw the clouds with slight transparency
-  drawImage('/backgrounds/night-clouds.png', 0.8);
-  drawImage('/backgrounds/night-clouds-2.png', 0.7);
+  // Draw the clouds with slightly reduced scale to avoid truncation
+  drawImage('/backgrounds/night-clouds.png', 0.8, 1.9);
+  drawImage('/backgrounds/night-clouds-2.png', 0.7, 1.9);
 
-  // Create distant stars for additional effect
-  for (let i = 0; i < 150; i++) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    const radius = Math.random() * 1.2;
-    const opacity = Math.random() * 0.5 + 0.2;
+  // Fill the entire canvas with stars using buffer zones to ensure full coverage
+  const buffer = Math.max(width, height) * 0.1; // 10% buffer zone
+  for (let i = 0; i < 500; i++) {
+    // Generate stars across the entire canvas plus buffer
+    const x = Math.random() * (width + buffer * 2) - buffer;
+    const y = Math.random() * (height + buffer * 2) - buffer;
+    const radius = Math.random() * 1.5;
+    const opacity = Math.random() * 0.5 + 0.3;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
     ctx.fill();
   }
 
-  // Add subtle nebula effect
-  for (let i = 0; i < 3; i++) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    const radius = Math.random() * 150 + 100;
+  // Add nebula effects with better distribution
+  for (let i = 0; i < 10; i++) {
+    // Distribute nebulae more evenly across the canvas, including edges
+    let x, y;
+    
+    // Divide the canvas into a 3x3 grid and place nebulae in each cell
+    const gridX = i % 3;
+    const gridY = Math.floor(i / 3) % 3;
+    
+    // Ensure coverage at edges with some randomness
+    x = (width * gridX / 2) + (Math.random() * width / 3);
+    y = (height * gridY / 2) + (Math.random() * height / 3);
+    
+    // Vary the nebula sizes
+    const radius = Math.random() * 300 + 200 + (i % 3) * 50;
     const domainKeys = Object.keys(DOMAIN_COLORS);
     const randomDomain = domainKeys[Math.floor(Math.random() * domainKeys.length)] as KnowledgeDomain;
     const color = DOMAIN_COLORS[randomDomain];
     const nebula = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    const colorRgba = hexToRgba(color, 0.05);
+    const colorRgba = hexToRgba(color, 0.07);
     nebula.addColorStop(0, colorRgba);
     nebula.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = nebula;
@@ -202,6 +240,13 @@ export const drawConnections = (
 
 /**
  * Draws the concept nodes on the canvas using star images.
+ * 
+ * Mastery visualization:
+ * 0-25%: Dim, small star (75% size, 40% opacity)
+ * 25-50%: Brighter, medium star (85% size, 60% opacity, faint corona)
+ * 50-75%: Bright star with corona (100% size, 80% opacity, clear corona)
+ * 75-100%: Pulsing brilliant star (110% size, 100% opacity, bright corona, slow pulse)
+ * 100%: Vibrant pulsing star (120% size, 100% opacity, vibrant corona, distinct pulse)
  */
 export const drawNodes = (
   ctx: CanvasRenderingContext2D,
@@ -216,6 +261,10 @@ export const drawNodes = (
   // Ensure image smoothing is disabled for pixel-perfect rendering
   ctx.imageSmoothingEnabled = false;
   
+  // Track current animation time for pulsing effects
+  const now = Date.now();
+  const pulseSpeed = 1500; // 1.5 seconds per pulse cycle
+  
   // First draw all node glows (background layer)
   discoveredNodes.forEach(node => {
     if (!node.position) return;
@@ -228,37 +277,119 @@ export const drawNodes = (
     const isPendingConnection = pendingConnection === node.id;
     const isHighlighted = activeNodes.includes(node.id) || newlyDiscovered.includes(node.id);
 
-    const baseSize = 10 + (node.mastery / 100) * 10;
+    // Calculate mastery-based visual properties
+    let sizePercent, opacityPercent, coronaEffect = 'none', pulseEffect = false;
+    
+    // Set base properties according to mastery level
+    if (node.mastery < 25) {
+      sizePercent = 75;
+      opacityPercent = 40;
+      coronaEffect = 'none';
+      pulseEffect = false;
+    } else if (node.mastery < 50) {
+      sizePercent = 85;
+      opacityPercent = 60;
+      coronaEffect = 'faint';
+      pulseEffect = false;
+    } else if (node.mastery < 75) {
+      sizePercent = 100;
+      opacityPercent = 80;
+      coronaEffect = 'clear';
+      pulseEffect = false;
+    } else if (node.mastery < 100) {
+      sizePercent = 110;
+      opacityPercent = 100;
+      coronaEffect = 'bright';
+      pulseEffect = true;
+    } else {
+      sizePercent = 120;
+      opacityPercent = 100;
+      coronaEffect = 'vibrant';
+      pulseEffect = true;
+    }
+    
+    // Calculate pulse multiplier (1.0 to 1.2) for pulsing nodes
+    const pulseMultiplier = pulseEffect ? 
+      1.0 + 0.2 * (Math.sin(now / pulseSpeed * Math.PI * 2) * 0.5 + 0.5) : 1.0;
+    
+    // Apply pulse to size for pulsing nodes
+    sizePercent = sizePercent * pulseMultiplier;
+    
+    // Calculate final size
+    const baseSize = 10 * (sizePercent / 100) * 0.8;
     const size = isActiveNode || isSelectedNode || isPendingConnection || isHighlighted
       ? baseSize * 1.3
       : baseSize;
 
-    // Draw glow for active/highlighted nodes
-    if (isActiveNode || isSelectedNode || isPendingConnection || isHighlighted) {
+    // Draw glow/corona based on mastery level
+    if (coronaEffect !== 'none' || isActiveNode || isSelectedNode || isPendingConnection || isHighlighted) {
       ctx.beginPath();
-      const glowRadius = isHighlighted ? size * 3.0 : size * 2.0;
+      
+      // Corona radius based on mastery level and interaction state
+      let coronaMultiplier = 1.0;
+      switch(coronaEffect) {
+        case 'faint': coronaMultiplier = 1.5; break;
+        case 'clear': coronaMultiplier = 2.0; break;
+        case 'bright': coronaMultiplier = 2.5; break; 
+        case 'vibrant': coronaMultiplier = 3.0; break;
+        default: coronaMultiplier = 1.0;
+      }
+      
+      // Increase corona for highlighted/interacted nodes
+      if (isHighlighted) coronaMultiplier *= 1.5;
+      if (isActiveNode || isSelectedNode) coronaMultiplier *= 1.2;
+      
+      const glowRadius = size * coronaMultiplier;
       ctx.arc(node.position.x, node.position.y, glowRadius, 0, Math.PI * 2);
+      
       const glow = ctx.createRadialGradient(
         node.position.x, node.position.y, size * 0.5,
         node.position.x, node.position.y, glowRadius
       );
+      
       const color = isHighlighted ? domainLightColor : domainColor;
-      glow.addColorStop(0, color);
+      // Opacity based on mastery
+      const coronaOpacity = opacityPercent / 100;
+      
+      glow.addColorStop(0, hexToRgba(color, coronaOpacity));
       glow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = glow;
       ctx.fill();
 
-      if (isHighlighted) {
+      // Add outer glow for high mastery and highlighted nodes
+      if (coronaEffect === 'bright' || coronaEffect === 'vibrant' || isHighlighted) {
         ctx.beginPath();
         ctx.arc(node.position.x, node.position.y, glowRadius * 1.5, 0, Math.PI * 2);
         const outerGlow = ctx.createRadialGradient(
           node.position.x, node.position.y, glowRadius,
           node.position.x, node.position.y, glowRadius * 1.5
         );
-        outerGlow.addColorStop(0, hexToRgba(domainColor, 0.4));
+        outerGlow.addColorStop(0, hexToRgba(domainColor, coronaOpacity * 0.6));
         outerGlow.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = outerGlow;
         ctx.fill();
+      }
+      
+      // Add animated pulse waves for pulsing stars
+      if (pulseEffect) {
+        // Create 3 expanding pulse rings for visual interest
+        for (let i = 0; i < 3; i++) {
+          // Offset each ring in the pulse cycle
+          const offset = i * (Math.PI * 2 / 3);
+          const pulseProgress = ((now / pulseSpeed + offset) % 1);
+          
+          // Only draw rings at appropriate times in the cycle
+          if (pulseProgress > 0.1 && pulseProgress < 0.9) {
+            const pulseRadius = glowRadius * (0.8 + pulseProgress);
+            const pulseOpacity = 0.3 * (1 - pulseProgress);
+            
+            ctx.beginPath();
+            ctx.arc(node.position.x, node.position.y, pulseRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = hexToRgba(domainLightColor, pulseOpacity);
+            ctx.lineWidth = 2 * (1 - pulseProgress);
+            ctx.stroke();
+          }
+        }
       }
     }
   });
@@ -275,7 +406,36 @@ export const drawNodes = (
     const isPendingConnection = pendingConnection === node.id;
     const isHighlighted = activeNodes.includes(node.id) || newlyDiscovered.includes(node.id);
 
-    const baseSize = 10 + (node.mastery / 100) * 10;
+    // Calculate mastery-based visual properties
+    let sizePercent, opacityPercent, coronaEffect = 'none', pulseEffect = false;
+    
+    // Set base properties according to mastery level
+    if (node.mastery < 25) {
+      sizePercent = 75;
+      opacityPercent = 40;
+    } else if (node.mastery < 50) {
+      sizePercent = 85;
+      opacityPercent = 60;
+    } else if (node.mastery < 75) {
+      sizePercent = 100;
+      opacityPercent = 80;
+    } else if (node.mastery < 100) {
+      sizePercent = 110;
+      opacityPercent = 100;
+    } else {
+      sizePercent = 120;
+      opacityPercent = 100;
+    }
+    
+    // Calculate pulse multiplier for pulsing nodes
+    const pulseMultiplier = node.mastery >= 75 ? 
+      1.0 + 0.2 * (Math.sin(now / pulseSpeed * Math.PI * 2) * 0.5 + 0.5) : 1.0;
+    
+    // Apply pulse to size for pulsing nodes
+    sizePercent = sizePercent * pulseMultiplier;
+    
+    // Calculate final size
+    const baseSize = 10 * (sizePercent / 100) * 0.8;
     const size = isActiveNode || isSelectedNode || isPendingConnection || isHighlighted
       ? baseSize * 1.3
       : baseSize;
@@ -294,20 +454,61 @@ export const drawNodes = (
       
       // Set blending for better color application
       ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = isHighlighted ? 1.0 : 0.9;
+      ctx.globalAlpha = (opacityPercent / 100) * (isHighlighted ? 1.0 : 0.9);
       
-      // Calculate star size and position for center alignment - much larger stars
-      const starSize = size * 6.0; // Significantly increased size
+      // Calculate star size and position for center alignment - reduced by 20%
+      const starSize = size * 4.0 * 0.8;
       const starX = node.position.x - starSize / 2;
       const starY = node.position.y - starSize / 2;
       
-      // Draw the star image
-      ctx.drawImage(starImg, starX, starY, starSize, starSize);
+      // Draw the star glow first (larger than the star itself) - reduced by 20%
+      const glowSize = starSize * 1.8 * 0.8;
+      const glowX = node.position.x - glowSize / 2;
+      const glowY = node.position.y - glowSize / 2;
       
-      // Add color overlay matching the domain
-      ctx.globalCompositeOperation = 'source-atop';
-      ctx.fillStyle = isHighlighted ? domainLightColor : domainColor;
-      ctx.fillRect(starX, starY, starSize, starSize);
+      // Draw the glow with a radial gradient
+      const glowGradient = ctx.createRadialGradient(
+        node.position.x, node.position.y, 0,
+        node.position.x, node.position.y, glowSize / 2
+      );
+      glowGradient.addColorStop(0, hexToRgba(isHighlighted ? domainLightColor : domainColor, 0.9));
+      glowGradient.addColorStop(1, 'rgba(0,0,0,0)');
+      
+      ctx.beginPath();
+      ctx.arc(node.position.x, node.position.y, glowSize / 2, 0, Math.PI * 2);
+      ctx.fillStyle = glowGradient;
+      ctx.fill();
+      
+      // Draw the star image directly without a rectangular overlay
+      ctx.globalAlpha = isHighlighted ? 1.0 : 0.9;
+      
+      // First, draw the star with a color tint
+      // Create a temporary canvas for coloring the star
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      if (tempCtx) {
+        // Size the temp canvas to match the star
+        tempCanvas.width = starSize;
+        tempCanvas.height = starSize;
+        
+        // Ensure smoothing is disabled for pixel-perfect rendering
+        tempCtx.imageSmoothingEnabled = false;
+        
+        // Draw the star onto the temp canvas
+        tempCtx.drawImage(starImg, 0, 0, starSize, starSize);
+        
+        // Apply color tint using source-in to preserve transparency
+        tempCtx.globalCompositeOperation = 'source-in';
+        tempCtx.fillStyle = isHighlighted ? domainLightColor : domainColor;
+        tempCtx.fillRect(0, 0, starSize, starSize);
+        
+        // Draw the colored star onto the main canvas with normal blending
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(tempCanvas, starX, starY);
+      } else {
+        // Fallback if temp canvas creation fails
+        ctx.drawImage(starImg, starX, starY, starSize, starSize);
+      }
       
       // Add mastery indicator ring on top of the star
       if (node.mastery > 0) {
@@ -316,32 +517,62 @@ export const drawNodes = (
         
         ctx.beginPath();
         const ringRadius = starSize / 1.5;
+        // Fixed arc calculation to correctly represent mastery level with proper bounds check
+        const masteryPercentage = Math.max(0, Math.min(100, node.mastery)) / 100;
         ctx.arc(
           node.position.x,
           node.position.y,
           ringRadius,
           -Math.PI / 2,
-          (Math.PI * 2) * (node.mastery / 100) - Math.PI / 2
+          (Math.PI * 2) * masteryPercentage - Math.PI / 2
         );
+        // Make the mastery ring more visible
         ctx.strokeStyle = isHighlighted ? '#FFFFFF' : domainLightColor;
         ctx.lineWidth = 3;
         ctx.stroke();
+        
+        // Show mastery percentage text for better visualization
+        if (size > 15) { // Only show text for larger nodes
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = `${Math.round(size/2)}px Arial`;
+          ctx.fillText(`${Math.round(node.mastery)}%`, node.position.x, node.position.y + ringRadius + 15);
+        }
       }
       
       // Restore context
       ctx.restore();
     } else {
       // Fallback if image isn't loaded yet
-      console.log('Star image not loaded, using fallback circle');
+      console.error('Star image not loaded, using fallback circle. Image status:', 
+        starImg ? `complete: ${starImg.complete}, height: ${starImg.naturalHeight}` : 'null');
+      
+      // Add glow around the fallback circle first
       ctx.beginPath();
-      ctx.arc(node.position.x, node.position.y, size * 1.5, 0, Math.PI * 2);
-      ctx.fillStyle = isHighlighted ? domainLightColor : domainColor;
+      ctx.arc(node.position.x, node.position.y, size * 3.0, 0, Math.PI * 2);
+      const glow = ctx.createRadialGradient(
+        node.position.x, node.position.y, 0,
+        node.position.x, node.position.y, size * 3.0
+      );
+      glow.addColorStop(0, hexToRgba(domainColor, 0.8));
+      glow.addColorStop(0.6, hexToRgba(domainColor, 0.3));
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow;
       ctx.fill();
+      
+      // Draw a more prominent fallback star shape
+      ctx.beginPath();
+      ctx.arc(node.position.x, node.position.y, size * 2.0, 0, Math.PI * 2);
+      ctx.fillStyle = isHighlighted ? domainLightColor : domainColor;
+      ctx.globalAlpha = (opacityPercent / 100) * 1.2; // Slightly increase visibility
+      ctx.fill();
+      ctx.globalAlpha = 1.0;
       
       // Add inner highlight for better visibility in fallback
       ctx.beginPath();
-      ctx.arc(node.position.x - size * 0.3, node.position.y - size * 0.3, size * 0.6, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.arc(node.position.x - size * 0.3, node.position.y - size * 0.3, size * 0.8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       ctx.fill();
       
       // Add mastery indicator ring

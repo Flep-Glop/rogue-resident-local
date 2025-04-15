@@ -20,6 +20,14 @@ declare global {
   }
 }
 
+// Define node status types for visual feedback
+enum NodeStatus {
+  LOCKED = 'locked',
+  AVAILABLE = 'available',
+  CURRENT = 'current',
+  COMPLETED = 'completed'
+}
+
 /**
  * Enhanced SimplifiedKapoorMap Component
  * 
@@ -29,6 +37,7 @@ declare global {
  * 3. Improved node interaction feedback
  * 4. Better visual distinction between node types
  * 5. Added ambient elements for visual interest
+ * 6. Added node status system with visual indicators
  */
 const SimplifiedKapoorMap: React.FC = () => {
   // ===== DOM REFS =====
@@ -69,44 +78,111 @@ const SimplifiedKapoorMap: React.FC = () => {
   const startNodeChallenge = useGameStore(state => state.startNodeChallenge);
   
   // ===== LOCAL COMPONENT STATE =====
-  // Enhanced static map nodes data with more visual metadata
+  // Enhanced static map nodes data with more complex slay-the-spire inspired paths
   const [nodes, setNodes] = useState<MapNode[]>([
-    // Start node
-    { id: 'node-1', x: 500, y: 220, label: 'Start', type: 'calibration', connections: ['node-2-1', 'node-2-2', 'node-2-3'], data: {} },
+    // Starting node (Act 1)
+    { id: 'start', x: 600, y: 120, label: 'Start', type: 'calibration', connections: ['path-a1', 'path-a2', 'path-a3', 'path-a4'], data: {} },
     
-    // Level 2 nodes (3 branches from start)
-    { id: 'node-2-1', x: 300, y: 320, label: 'Branch A', type: 'qa', connections: ['node-3-1', 'node-3-2'], data: {} },
-    { id: 'node-2-2', x: 500, y: 320, label: 'Branch B', type: 'educational', connections: ['node-3-3', 'node-3-4'], data: {} },
-    { id: 'node-2-3', x: 700, y: 320, label: 'Branch C', type: 'qa', connections: ['node-3-5', 'node-3-6'], data: {} },
+    // Act 1 - First row of choices
+    { id: 'path-a1', x: 350, y: 220, label: 'Path A1', type: 'qa', connections: ['enc-1', 'enc-2'], data: {} },
+    { id: 'path-a2', x: 500, y: 220, label: 'Path A2', type: 'educational', connections: ['enc-3', 'enc-4'], data: {} },
+    { id: 'path-a3', x: 700, y: 220, label: 'Path A3', type: 'clinical', connections: ['enc-5', 'enc-6'], data: {} },
+    { id: 'path-a4', x: 850, y: 220, label: 'Path A4', type: 'calibration', connections: ['enc-7', 'enc-8'], data: {} },
     
-    // Level 3 nodes
-    { id: 'node-3-1', x: 200, y: 420, label: 'A1', type: 'educational', connections: ['node-4-1'], data: {} },
-    { id: 'node-3-2', x: 300, y: 420, label: 'A2', type: 'clinical', connections: ['node-4-2'], data: {} },
-    { id: 'node-3-3', x: 400, y: 420, label: 'B1', type: 'qa', connections: ['node-4-3'], data: {} },
-    { id: 'node-3-4', x: 500, y: 420, label: 'B2', type: 'calibration', connections: ['node-4-4'], data: {} },
-    { id: 'node-3-5', x: 600, y: 420, label: 'C1', type: 'educational', connections: ['node-4-5'], data: {} },
-    { id: 'node-3-6', x: 700, y: 420, label: 'C2', type: 'clinical', connections: ['node-4-6'], data: {} },
+    // Act 1 - Second row of encounters
+    { id: 'enc-1', x: 250, y: 320, label: 'Encounter 1', type: 'educational', connections: ['chal-1'], data: {} },
+    { id: 'enc-2', x: 350, y: 320, label: 'Encounter 2', type: 'clinical', connections: ['chal-2'], data: {} },
+    { id: 'enc-3', x: 450, y: 320, label: 'Encounter 3', type: 'qa', connections: ['chal-3'], data: {} },
+    { id: 'enc-4', x: 550, y: 320, label: 'Encounter 4', type: 'calibration', connections: ['chal-4'], data: {} },
+    { id: 'enc-5', x: 650, y: 320, label: 'Encounter 5', type: 'educational', connections: ['chal-5'], data: {} },
+    { id: 'enc-6', x: 750, y: 320, label: 'Encounter 6', type: 'clinical', connections: ['chal-6'], data: {} },
+    { id: 'enc-7', x: 850, y: 320, label: 'Encounter 7', type: 'qa', connections: ['chal-7'], data: {} },
+    { id: 'enc-8', x: 950, y: 320, label: 'Encounter 8', type: 'educational', connections: ['chal-8'], data: {} },
     
-    // Level 4 nodes
-    { id: 'node-4-1', x: 150, y: 520, label: 'A1-1', type: 'qa', connections: ['node-5-1'], data: {} },
-    { id: 'node-4-2', x: 250, y: 520, label: 'A2-1', type: 'clinical', connections: ['node-5-1'], data: {} },
-    { id: 'node-4-3', x: 350, y: 520, label: 'B1-1', type: 'educational', connections: ['node-5-2'], data: {} },
-    { id: 'node-4-4', x: 450, y: 520, label: 'B2-1', type: 'calibration', connections: ['node-5-2'], data: {} },
-    { id: 'node-4-5', x: 550, y: 520, label: 'C1-1', type: 'qa', connections: ['node-5-3'], data: {} },
-    { id: 'node-4-6', x: 650, y: 520, label: 'C2-1', type: 'clinical', connections: ['node-5-3'], data: {} },
+    // Act 1 - Third row of challenges (staggered pattern)
+    { id: 'chal-1', x: 225, y: 420, label: 'Challenge 1', type: 'qa', connections: ['hub-1'], data: {} },
+    { id: 'chal-2', x: 325, y: 420, label: 'Challenge 2', type: 'clinical', connections: ['hub-1'], data: {} },
+    { id: 'chal-3', x: 425, y: 420, label: 'Challenge 3', type: 'educational', connections: ['hub-2'], data: {} },
+    { id: 'chal-4', x: 525, y: 420, label: 'Challenge 4', type: 'calibration', connections: ['hub-2'], data: {} },
+    { id: 'chal-5', x: 625, y: 420, label: 'Challenge 5', type: 'qa', connections: ['hub-3'], data: {} },
+    { id: 'chal-6', x: 725, y: 420, label: 'Challenge 6', type: 'clinical', connections: ['hub-3'], data: {} },
+    { id: 'chal-7', x: 825, y: 420, label: 'Challenge 7', type: 'educational', connections: ['hub-4'], data: {} },
+    { id: 'chal-8', x: 925, y: 420, label: 'Challenge 8', type: 'calibration', connections: ['hub-4'], data: {} },
     
-    // Level 5 nodes (converging paths)
-    { id: 'node-5-1', x: 200, y: 620, label: 'Path A', type: 'educational', connections: ['node-6-1'], data: {} },
-    { id: 'node-5-2', x: 400, y: 620, label: 'Path B', type: 'qa', connections: ['node-6-2'], data: {} },
-    { id: 'node-5-3', x: 600, y: 620, label: 'Path C', type: 'calibration', connections: ['node-6-3'], data: {} },
+    // Mystery encounters branching from regular paths
+    { id: 'mystery-1', x: 300, y: 345, label: 'Mystery 1', type: 'qa', connections: ['side-1'], data: {} },
+    { id: 'mystery-2', x: 400, y: 345, label: 'Mystery 2', type: 'clinical', connections: ['side-2'], data: {} },
+    { id: 'mystery-3', x: 600, y: 345, label: 'Mystery 3', type: 'calibration', connections: ['side-3'], data: {} },
+    { id: 'mystery-4', x: 700, y: 345, label: 'Mystery 4', type: 'educational', connections: ['side-4'], data: {} },
+    { id: 'mystery-5', x: 800, y: 345, label: 'Mystery 5', type: 'qa', connections: ['side-5'], data: {} },
+    { id: 'mystery-6', x: 900, y: 345, label: 'Mystery 6', type: 'clinical', connections: ['side-6'], data: {} },
     
-    // Level 6 nodes (pre-boss)
-    { id: 'node-6-1', x: 300, y: 720, label: 'Pre-Boss A', type: 'clinical', connections: ['node-boss'], data: {} },
-    { id: 'node-6-2', x: 500, y: 720, label: 'Pre-Boss B', type: 'educational', connections: ['node-boss'], data: {} },
-    { id: 'node-6-3', x: 700, y: 720, label: 'Pre-Boss C', type: 'qa', connections: ['node-boss'], data: {} },
+    // Side paths
+    { id: 'side-1', x: 275, y: 445, label: 'Side 1', type: 'educational', connections: ['hub-1'], data: {} },
+    { id: 'side-2', x: 375, y: 445, label: 'Side 2', type: 'qa', connections: ['hub-1'], data: {} },
+    { id: 'side-3', x: 575, y: 445, label: 'Side 3', type: 'clinical', connections: ['hub-2'], data: {} },
+    { id: 'side-4', x: 675, y: 445, label: 'Side 4', type: 'calibration', connections: ['hub-3'], data: {} },
+    { id: 'side-5', x: 775, y: 445, label: 'Side 5', type: 'educational', connections: ['hub-4'], data: {} },
+    { id: 'side-6', x: 875, y: 445, label: 'Side 6', type: 'qa', connections: ['hub-4'], data: {} },
     
-    // Boss node
-    { id: 'node-boss', x: 500, y: 820, label: 'BOSS', type: 'clinical', connections: [], data: {} },
+    // Act 1 - Fourth row (converging paths to hubs)
+    { id: 'hub-1', x: 275, y: 520, label: 'Hub 1', type: 'educational', connections: ['elite-1'], data: {} },
+    { id: 'hub-2', x: 475, y: 520, label: 'Hub 2', type: 'qa', connections: ['elite-2'], data: {} },
+    { id: 'hub-3', x: 675, y: 520, label: 'Hub 3', type: 'calibration', connections: ['elite-3'], data: {} },
+    { id: 'hub-4', x: 875, y: 520, label: 'Hub 4', type: 'clinical', connections: ['elite-4'], data: {} },
+    
+    // Act 1 - Fifth row (elite encounters)
+    { id: 'elite-1', x: 275, y: 620, label: 'Elite 1', type: 'clinical', connections: ['path-final-1'], data: {} },
+    { id: 'elite-2', x: 475, y: 620, label: 'Elite 2', type: 'educational', connections: ['path-final-1'], data: {} },
+    { id: 'elite-3', x: 675, y: 620, label: 'Elite 3', type: 'qa', connections: ['path-final-2'], data: {} },
+    { id: 'elite-4', x: 875, y: 620, label: 'Elite 4', type: 'calibration', connections: ['path-final-2'], data: {} },
+
+    // Act 1 - Sixth row (converging to act boss)
+    { id: 'path-final-1', x: 375, y: 720, label: 'Path Final 1', type: 'educational', connections: ['act1-boss'], data: {} },
+    { id: 'path-final-2', x: 775, y: 720, label: 'Path Final 2', type: 'qa', connections: ['act1-boss'], data: {} },
+    
+    // Act 1 - Boss encounter
+    { id: 'act1-boss', x: 600, y: 820, label: 'Act 1 Boss', type: 'clinical', connections: ['treasure', 'rest', 'recovery'], data: {} },
+    
+    // Special nodes between acts
+    { id: 'treasure', x: 500, y: 870, label: 'Treasure', type: 'calibration', connections: ['path-b1'], data: {} },
+    { id: 'rest', x: 600, y: 870, label: 'Rest', type: 'qa', connections: ['path-b2'], data: {} },
+    { id: 'recovery', x: 700, y: 870, label: 'Recovery', type: 'educational', connections: ['path-b3'], data: {} },
+    
+    // Act 2 - First row (choose path after beating boss)
+    { id: 'path-b1', x: 400, y: 920, label: 'Path B1', type: 'qa', connections: ['b-chal-1', 'b-chal-2'], data: {} },
+    { id: 'path-b2', x: 600, y: 920, label: 'Path B2', type: 'educational', connections: ['b-chal-3', 'b-chal-4'], data: {} },
+    { id: 'path-b3', x: 800, y: 920, label: 'Path B3', type: 'calibration', connections: ['b-chal-5', 'b-chal-6'], data: {} },
+    
+    // Act 2 - Second row of challenges
+    { id: 'b-chal-1', x: 350, y: 1020, label: 'B-Challenge 1', type: 'educational', connections: ['b-hard-1'], data: {} },
+    { id: 'b-chal-2', x: 450, y: 1020, label: 'B-Challenge 2', type: 'clinical', connections: ['b-hard-2'], data: {} },
+    { id: 'b-chal-3', x: 550, y: 1020, label: 'B-Challenge 3', type: 'qa', connections: ['b-hard-3'], data: {} },
+    { id: 'b-chal-4', x: 650, y: 1020, label: 'B-Challenge 4', type: 'educational', connections: ['b-hard-4'], data: {} },
+    { id: 'b-chal-5', x: 750, y: 1020, label: 'B-Challenge 5', type: 'clinical', connections: ['b-hard-5'], data: {} },
+    { id: 'b-chal-6', x: 850, y: 1020, label: 'B-Challenge 6', type: 'calibration', connections: ['b-hard-6'], data: {} },
+    
+    // Act 2 Secret challenges
+    { id: 'b-secret-1', x: 400, y: 1070, label: 'Secret 1', type: 'calibration', connections: ['b-hard-2'], data: {} },
+    { id: 'b-secret-2', x: 500, y: 1070, label: 'Secret 2', type: 'qa', connections: ['b-hard-3'], data: {} },
+    { id: 'b-secret-3', x: 700, y: 1070, label: 'Secret 3', type: 'clinical', connections: ['b-hard-4'], data: {} },
+    { id: 'b-secret-4', x: 800, y: 1070, label: 'Secret 4', type: 'educational', connections: ['b-hard-5'], data: {} },
+    
+    // Act 2 - Third row of hard challenges
+    { id: 'b-hard-1', x: 350, y: 1120, label: 'B-Hard 1', type: 'qa', connections: ['b-elite-1'], data: {} },
+    { id: 'b-hard-2', x: 450, y: 1120, label: 'B-Hard 2', type: 'clinical', connections: ['b-elite-1'], data: {} },
+    { id: 'b-hard-3', x: 550, y: 1120, label: 'B-Hard 3', type: 'educational', connections: ['b-elite-2'], data: {} },
+    { id: 'b-hard-4', x: 650, y: 1120, label: 'B-Hard 4', type: 'calibration', connections: ['b-elite-2'], data: {} },
+    { id: 'b-hard-5', x: 750, y: 1120, label: 'B-Hard 5', type: 'qa', connections: ['b-elite-3'], data: {} },
+    { id: 'b-hard-6', x: 850, y: 1120, label: 'B-Hard 6', type: 'clinical', connections: ['b-elite-3'], data: {} },
+    
+    // Act 2 - Fourth row (converging to final boss elites)
+    { id: 'b-elite-1', x: 400, y: 1220, label: 'B-Elite 1', type: 'educational', connections: ['final-boss'], data: {} },
+    { id: 'b-elite-2', x: 600, y: 1220, label: 'B-Elite 2', type: 'qa', connections: ['final-boss'], data: {} },
+    { id: 'b-elite-3', x: 800, y: 1220, label: 'B-Elite 3', type: 'calibration', connections: ['final-boss'], data: {} },
+    
+    // Final boss node
+    { id: 'final-boss', x: 600, y: 1320, label: 'FINAL BOSS', type: 'clinical', connections: [], data: {} },
   ]);
   
   const [completedNodes, setCompletedNodes] = useState<string[]>([]);
@@ -126,6 +202,34 @@ const SimplifiedKapoorMap: React.FC = () => {
     clinical: '/icons/clinical.png',
     educational: '/icons/educational.png',
     default: '/icons/node-default.png'
+  };
+
+  // Define colors for node status visual feedback
+  const nodeStatusStyles = {
+    [NodeStatus.LOCKED]: {
+      filter: 'grayscale(100%) brightness(40%)',
+      borderColor: 'rgba(100, 100, 100, 0.5)',
+      borderWidth: 1,
+      glowColor: 'rgba(100, 100, 100, 0.3)'
+    },
+    [NodeStatus.AVAILABLE]: {
+      filter: 'brightness(100%)',
+      borderColor: 'rgba(120, 255, 120, 0.8)',
+      borderWidth: 2,
+      glowColor: 'rgba(120, 255, 120, 0.3)'
+    },
+    [NodeStatus.CURRENT]: {
+      filter: 'brightness(130%)',
+      borderColor: 'rgba(120, 160, 255, 0.8)',
+      borderWidth: 3,
+      glowColor: 'rgba(120, 160, 255, 0.5)'
+    },
+    [NodeStatus.COMPLETED]: {
+      filter: 'brightness(100%)',
+      borderColor: 'rgba(255, 215, 0, 0.8)',
+      borderWidth: 2,
+      glowColor: 'rgba(255, 215, 0, 0.4)'
+    }
   };
 
   const getNodeImage = (nodeType: string): string => {
@@ -239,6 +343,20 @@ const SimplifiedKapoorMap: React.FC = () => {
       
       // Add special visual effects when node is selected
       triggerParticleAnimation();
+    } else {
+      // When returning to map (currentNodeId becomes null), refresh completed nodes
+      console.log('[MAP] Returning to map, refreshing completed nodes');
+      try {
+        if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
+          const gameStateMachine = window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState();
+          if (gameStateMachine && gameStateMachine.completedNodeIds) {
+            console.log('[MAP] Found completed nodes:', gameStateMachine.completedNodeIds);
+            setCompletedNodes(gameStateMachine.completedNodeIds);
+          }
+        }
+      } catch (error) {
+        console.warn('[MAP] Error refreshing completed nodes:', error);
+      }
     }
   }, [currentNodeId]);
   
@@ -316,11 +434,51 @@ const SimplifiedKapoorMap: React.FC = () => {
     }
   }, []);
   
+  // ===== NODE STATUS DETERMINATION =====
+  // Get node status (locked, available, current, completed)
+  const getNodeStatus = useCallback((nodeId: string): NodeStatus => {
+    // First check if it's the current node
+    if (nodeId === currentNodeId) {
+      return NodeStatus.CURRENT;
+    }
+    
+    // Check if it's a completed node
+    if (completedNodes.includes(nodeId)) {
+      return NodeStatus.COMPLETED;
+    }
+    
+    // Start node is always available
+    if (nodeId === 'start') {
+      return NodeStatus.AVAILABLE;
+    }
+    
+    // Check if it's available (connected to a completed node)
+    const isAvailable = nodes.some(node => 
+      completedNodes.includes(node.id) && 
+      node.connections.includes(nodeId)
+    );
+    
+    return isAvailable ? NodeStatus.AVAILABLE : NodeStatus.LOCKED;
+  }, [nodes, currentNodeId, completedNodes]);
+
+  // Check if a node is interactive
+  const isNodeInteractive = useCallback((nodeId: string): boolean => {
+    const status = getNodeStatus(nodeId);
+    return status === NodeStatus.AVAILABLE || status === NodeStatus.CURRENT;
+  }, [getNodeStatus]);
+  
   // ===== NODE CLICK HANDLING =====
   // Node click handler
   const handleNodeClick = useCallback((nodeId: string) => {
     // Only proceed if the component is still mounted
     if (!isMountedRef.current) return;
+    
+    // Check if node is interactive
+    if (!isNodeInteractive(nodeId)) {
+      // Show feedback that node is locked
+      console.log(`Node ${nodeId} is locked. Complete connected nodes to unlock it.`);
+      return;
+    }
     
     // Track clicks for debugging
     setClickedNodeId(nodeId);
@@ -377,7 +535,7 @@ const SimplifiedKapoorMap: React.FC = () => {
         }));
       }
     }
-  }, [nodes, triggerSelectionAnimation]);
+  }, [nodes, triggerSelectionAnimation, isNodeInteractive]);
   
   // ===== DEBUG FORCE NODE SELECTION =====
   const forceNodeSelection = useCallback((nodeId: string) => {
@@ -481,8 +639,11 @@ const SimplifiedKapoorMap: React.FC = () => {
         if (!startCoords || !endCoords) return null;
         
         // Enhanced connection styling
+        const startNodeStatus = getNodeStatus(node.id);
+        const endNodeStatus = getNodeStatus(targetId);
         const isActivePath = currentNodeId === node.id || currentNodeId === targetId;
         const isHovered = hoveredNodeId === node.id || hoveredNodeId === targetId;
+        const isAvailablePath = startNodeStatus !== NodeStatus.LOCKED && endNodeStatus !== NodeStatus.LOCKED;
         
         return (
           <g key={`${node.id}-${targetId}`}>
@@ -492,9 +653,13 @@ const SimplifiedKapoorMap: React.FC = () => {
               y1={startCoords.y}
               x2={endCoords.x}
               y2={endCoords.y}
-              stroke={isActivePath ? "rgba(120, 160, 255, 0.8)" : "rgba(100, 100, 255, 0.5)"}
+              stroke={isActivePath 
+                ? "rgba(120, 160, 255, 0.8)" 
+                : isAvailablePath 
+                  ? "rgba(100, 100, 255, 0.5)" 
+                  : "rgba(100, 100, 100, 0.3)"}
               strokeWidth={isActivePath ? 4 : 3}
-              strokeDasharray={isHovered ? "5,5" : "none"}
+              strokeDasharray={isHovered ? "none" : "5,5"}
               className={isActivePath ? "animate-pulse-path" : ""}
               pointerEvents="none"
             />
@@ -516,16 +681,19 @@ const SimplifiedKapoorMap: React.FC = () => {
         );
       })
     );
-  }, [nodes, getNodeCoords, currentNodeId, hoveredNodeId]);
+  }, [nodes, getNodeCoords, currentNodeId, hoveredNodeId, getNodeStatus]);
   
   // Node renderer with enhanced visuals
   const renderNodes = useCallback(() => {
     return nodes.map(node => {
-      const isCurrentNode = node.id === currentNodeId;
+      const nodeStatus = getNodeStatus(node.id);
       const isHovered = node.id === hoveredNodeId;
       const isClicked = node.id === clickedNodeId;
-      const isCompleted = completedNodes.includes(node.id);
-      const size = 45; // 300% larger than original
+      const size = 22; // Reduced by 2x from 45
+      const isInteractive = isNodeInteractive(node.id);
+      
+      // Get styles based on node status
+      const statusStyle = nodeStatusStyles[nodeStatus];
 
       return (
         <g 
@@ -533,45 +701,62 @@ const SimplifiedKapoorMap: React.FC = () => {
           onClick={() => handleNodeClick(node.id)}
           onMouseEnter={() => setHoveredNodeId(node.id)}
           onMouseLeave={() => setHoveredNodeId(null)}
-          style={{ cursor: 'pointer' }}
-          className={`node-group ${isCurrentNode ? 'current-node' : ''} ${isHovered ? 'hovered-node' : ''}`}
+          style={{ 
+            cursor: isInteractive ? 'pointer' : 'not-allowed',
+            opacity: nodeStatus === NodeStatus.LOCKED ? 0.6 : 1
+          }}
+          className={`node-group ${nodeStatus.toLowerCase()}-node ${isHovered ? 'hovered-node' : ''}`}
         >
-          {/* Glow effect for active/hovered nodes */}
-          {(isCurrentNode || isHovered) && (
+          {/* Status circle for better visibility */}
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={size + 2}
+            fill="none"
+            stroke={statusStyle.borderColor}
+            strokeWidth={statusStyle.borderWidth}
+            filter={isHovered ? "drop-shadow(0 0 3px rgba(255,255,255,0.5))" : "none"}
+          />
+
+          {/* Glow effect based on status */}
+          {(nodeStatus === NodeStatus.CURRENT || isHovered) && (
             <circle
               cx={node.x}
               cy={node.y}
               r={size + 5}
               fill="none"
-              stroke={isCurrentNode ? "rgba(120, 160, 255, 0.5)" : "rgba(255, 255, 255, 0.3)"}
+              stroke={statusStyle.glowColor}
               strokeWidth={2}
-              filter="blur(4px)"
+              filter="blur(3px)"
             />
           )}
 
-          {/* Node image */}
+          {/* Node image with status-based filter */}
           <image
             href={getNodeImage(node.type)}
             x={node.x - size}
             y={node.y - size}
             width={size * 2}
             height={size * 2}
-            className={isCurrentNode ? "animate-pulse-slow" : ""}
             style={{
+              filter: statusStyle.filter,
               imageRendering: 'pixelated',
               shapeRendering: 'crispEdges'
             }}
+            className={nodeStatus === NodeStatus.CURRENT ? "animate-pulse-slow" : ""}
           />
 
           {/* Node label */}
           <text
-            x={node.x + size + 10}
+            x={node.x + size + 5}
             y={node.y}
-            fill="white"
-            fontSize={14}
+            fill={nodeStatus === NodeStatus.LOCKED ? "rgba(200,200,200,0.6)" : "white"}
+            fontSize={12}
             className="pixel-text"
             style={{ 
-              filter: isCurrentNode ? "drop-shadow(0 0 2px rgba(255,255,255,0.5))" : "none",
+              filter: nodeStatus === NodeStatus.CURRENT 
+                ? "drop-shadow(0 0 2px rgba(255,255,255,0.5))" 
+                : "none",
               pointerEvents: "none"
             }}
           >
@@ -580,73 +765,99 @@ const SimplifiedKapoorMap: React.FC = () => {
         </g>
       );
     });
-  }, [nodes, currentNodeId, hoveredNodeId, clickedNodeId, completedNodes, handleNodeClick]);
+  }, [nodes, hoveredNodeId, clickedNodeId, handleNodeClick, getNodeStatus, isNodeInteractive]);
+  
+  // ===== LEGEND COMPONENT =====
+  const renderLegend = useMemo(() => {
+    const legendItems = [
+      { status: NodeStatus.CURRENT, label: 'Current' },
+      { status: NodeStatus.COMPLETED, label: 'Completed' },
+      { status: NodeStatus.AVAILABLE, label: 'Available' },
+      { status: NodeStatus.LOCKED, label: 'Locked' }
+    ];
+    
+    return (
+      <div className="fixed top-4 right-4 z-20 bg-gray-900/80 backdrop-blur-sm rounded-md p-3 shadow-lg border border-blue-900">
+        <h3 className="text-white text-sm font-medium mb-2">Map Legend</h3>
+        <div className="space-y-2">
+          {legendItems.map(item => {
+            const style = nodeStatusStyles[item.status];
+            return (
+              <div key={item.status} className="flex items-center gap-2">
+                <div 
+                  className="w-4 h-4 rounded-full"
+                  style={{ 
+                    background: 'transparent',
+                    border: `${style.borderWidth}px solid ${style.borderColor}` 
+                  }}
+                ></div>
+                <span className="text-white text-xs">{item.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }, []);
   
   // ===== MAIN RENDER =====
   return (
     <div 
       ref={containerRef}
-      className="w-full h-full flex items-center justify-center bg-gray-900"
+      className="w-full h-full bg-gray-900 overflow-auto"
       data-testid="kapoor-map-container"
       onClick={handleContainerClick}
     >
-      {/* Enhanced background with parallax stars - creates depth and interest */}
-      <div className="absolute inset-0 starfield-bg animate-stars" />
-      
-      {/* Background gradient overlay with enhanced colors */}
-      <div className="absolute inset-0 bg-gradient-radial from-blue-900/10 via-purple-900/10 to-blue-900/30" />
-      
-      {/* Ambient noise overlay for visual texture */}
-      <div className="absolute inset-0 pixel-noise opacity-10" />
-      
-      {/* Main SVG Map */}
-      <svg 
-        ref={svgRef}
-        width="100%"
-        height="100%"
-        viewBox="0 0 1000 900"
-        preserveAspectRatio="xMidYMid meet"
-        className={`z-10 ${isAnimating ? 'animate-map-click' : ''}`}
-        data-testid="kapoor-map-svg"
-      >
-        {/* Grid pattern definition */}
-        <defs>
-          <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(100, 120, 255, 0.1)" strokeWidth="0.5"/>
-          </pattern>
-          
-          {/* Glow filter for nodes */}
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2.5" result="blur"/>
-            <feMerge>
-              <feMergeNode in="blur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-        </defs>
-        
-        {/* Grid background */}
-        <rect width="100%" height="100%" fill="url(#grid)" pointerEvents="none" />
-        
-        {/* Ambient particles for visual interest */}
-        {renderAmbientParticles}
-        
-        {/* Enhanced connection lines */}
-        {renderConnectionLines()}
-        
-        {/* Visually enhanced nodes */}
-        {renderNodes()}
-      </svg>
-      
-      {/* Action button with enhanced styling */}
-      <div className="fixed bottom-4 right-4 z-10">
-        <button
-          className="px-4 py-2 bg-blue-800/90 hover:bg-blue-700 text-white rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-lg backdrop-blur-sm transition-all duration-200 enhanced-button"
-          onClick={handleMapAction}
-        >
-          Refresh Map Data
-        </button>
+      {/* Background elements */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 starfield-bg" />
+        <div className="absolute inset-0 bg-gradient-radial from-blue-900/10 via-purple-900/10 to-blue-900/30" />
+        <div className="absolute inset-0 pixel-noise opacity-10" />
       </div>
+      
+      {/* Map container with expanded dimensions */}
+      <div className="relative z-10 w-full" style={{ height: "1800px" }}>
+        <svg 
+          ref={svgRef}
+          width="100%" 
+          height="100%" 
+          viewBox="0 0 1200 1800"
+          preserveAspectRatio="xMidYMin slice"
+          className={isAnimating ? 'animate-map-click' : ''}
+          data-testid="kapoor-map-svg"
+        >
+          {/* Grid pattern definition */}
+          <defs>
+            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(100, 120, 255, 0.1)" strokeWidth="0.5"/>
+            </pattern>
+            
+            {/* Glow filter for nodes */}
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2.5" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          
+          {/* Grid background */}
+          <rect width="100%" height="100%" fill="url(#grid)" pointerEvents="none" />
+          
+          {/* Ambient particles for visual interest */}
+          {renderAmbientParticles}
+          
+          {/* Enhanced connection lines */}
+          {renderConnectionLines()}
+          
+          {/* Visually enhanced nodes */}
+          {renderNodes()}
+        </svg>
+      </div>
+      
+      {/* Map Legend */}
+      {renderLegend}
       
       {/* Add global styles for animations and visual effects */}
       <style jsx global>{`
@@ -703,6 +914,15 @@ const SimplifiedKapoorMap: React.FC = () => {
         
         .node-group {
           cursor: pointer;
+        }
+        
+        /* Node status-specific styles */
+        .locked-node {
+          cursor: not-allowed;
+        }
+        
+        .completed-node .node-label {
+          text-decoration: line-through;
         }
         
         /* Enhanced button effect */

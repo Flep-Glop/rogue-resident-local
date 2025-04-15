@@ -2,26 +2,36 @@
 
 import { KnowledgeDomain } from '../store/knowledgeStore'; // Assuming KnowledgeDomain type is exported from here
 
-// Domain color map for direct use
+// Domain color map for direct use - updated to match documentation
 export const DOMAIN_COLORS: Record<KnowledgeDomain, string> = {
-  'radiation-physics': '#3b82f6', // Blue
-  'quality-assurance': '#10b981', // Green
-  'clinical-practice': '#ec4899', // Pink
-  'radiation-protection': '#f59e0b', // Amber
-  'technical': '#6366f1', // Indigo
-  'theoretical': '#8b5cf6', // Violet
-  'general': '#6b7280', // Gray
+  'treatment-planning': '#3b82f6', // Blue
+  'radiation-therapy': '#10b981', // Green
+  'linac-anatomy': '#f59e0b', // Amber
+  'dosimetry': '#ec4899', // Pink
+  'general': '#6b7280', // Gray - keeping for backwards compatibility
+  // Keep these for backward compatibility but they'll be phased out
+  'radiation-physics': '#3b82f6', 
+  'quality-assurance': '#10b981',
+  'clinical-practice': '#ec4899',
+  'radiation-protection': '#f59e0b',
+  'technical': '#6366f1',
+  'theoretical': '#8b5cf6'
 };
 
-// Light variant colors for highlights
+// Light variant colors for highlights - updated to match documentation
 export const DOMAIN_COLORS_LIGHT: Record<KnowledgeDomain, string> = {
-  'radiation-physics': '#93c5fd', // Light blue
-  'quality-assurance': '#5eead4', // Light green
-  'clinical-practice': '#fbcfe8', // Light pink
-  'radiation-protection': '#fcd34d', // Light amber
-  'technical': '#a5b4fc', // Light indigo
-  'theoretical': '#c4b5fd', // Light violet
+  'treatment-planning': '#93c5fd', // Light blue
+  'radiation-therapy': '#5eead4', // Light green
+  'linac-anatomy': '#fcd34d', // Light amber
+  'dosimetry': '#fbcfe8', // Light pink
   'general': '#9ca3af', // Light gray
+  // Keep these for backward compatibility
+  'radiation-physics': '#93c5fd',
+  'quality-assurance': '#5eead4',
+  'clinical-practice': '#fbcfe8',
+  'radiation-protection': '#fcd34d',
+  'technical': '#a5b4fc',
+  'theoretical': '#c4b5fd'
 };
 
 // Panel background colors for darker theme

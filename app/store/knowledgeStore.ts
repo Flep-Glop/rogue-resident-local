@@ -16,55 +16,54 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer'; // Added immer for simpler updates
-import { nanoid } from 'nanoid';
+// Use require for CommonJS compatibility
+const { nanoid } = require('nanoid');
 import { safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { medicalPhysicsConcepts } from '@/app/data/concepts/medicalPhysicsConcepts';
+import { updateNodePositions, buildDomainAngles } from '@/app/components/knowledge/ConstellationLayout';
 
-// Knowledge domains with visual styling properties
+// Define custom event types - now using GameEventType enum for standard events
+const CUSTOM_EVENTS = {
+  KNOWLEDGE_DISCOVERED: GameEventType.KNOWLEDGE_GAINED,
+  CONNECTION_CREATED: GameEventType.KNOWLEDGE_CONNECTION_CREATED,
+  CONNECTION_DISCOVERED: GameEventType.INSIGHT_CONNECTED,
+  CONCEPT_SELECTED: GameEventType.UI_NODE_SELECTED,
+  PATTERN_DISCOVERED: GameEventType.PATTERN_DISCOVERED
+  // Removed KNOWLEDGE_DECAY_APPLIED as decay system is paused
+};
+
+// Knowledge domains with visual styling properties - single source of truth
 export const KNOWLEDGE_DOMAINS = {
-  'radiation-physics': {
-    name: 'Radiation Physics',
+  'treatment-planning': {
+    name: 'Treatment Planning',
     color: '#3b82f6', // Blue
     textClass: 'text-clinical-light',
-    bgClass: 'bg-clinical'
+    bgClass: 'bg-clinical',
+    angle: 45 // Northeast - used for orbital-quadrant layout
   },
-  'quality-assurance': {
-    name: 'Quality Assurance',
+  'radiation-therapy': {
+    name: 'Radiation Therapy',
     color: '#10b981', // Green
     textClass: 'text-qa-light',
-    bgClass: 'bg-qa'
+    bgClass: 'bg-qa',
+    angle: 135 // Southeast
   },
-  'clinical-practice': {
-    name: 'Clinical Practice',
-    color: '#ec4899', // Pink
-    textClass: 'text-clinical-light',
-    bgClass: 'bg-clinical-dark'
-  },
-  'radiation-protection': {
-    name: 'Radiation Protection',
+  'linac-anatomy': {
+    name: 'Linac Anatomy',
     color: '#f59e0b', // Amber
     textClass: 'text-warning',
-    bgClass: 'bg-warning'
+    bgClass: 'bg-warning',
+    angle: 225 // Southwest
   },
-  'technical': {
-    name: 'Technical Expertise',
-    color: '#6366f1', // Indigo
-    textClass: 'text-qa-light',
-    bgClass: 'bg-qa'
-  },
-  'theoretical': {
-    name: 'Theoretical Foundations',
-    color: '#8b5cf6', // Violet
-    textClass: 'text-educational-light',
-    bgClass: 'bg-educational'
-  },
-  'general': {
-    name: 'General Knowledge',
-    color: '#6b7280', // Gray
-    textClass: 'text-text-primary',
-    bgClass: 'bg-surface-dark'
+  'dosimetry': {
+    name: 'Dosimetry',
+    color: '#ec4899', // Pink
+    textClass: 'text-clinical-light',
+    bgClass: 'bg-clinical-dark',
+    angle: 315 // Northwest
   }
+  // Legacy domains removed as requested
 };
 
 // Type Definitions
@@ -81,7 +80,17 @@ export interface ConceptNode {
   connections: string[]; // IDs of connected concepts
   discovered: boolean;
   position?: { x: number; y: number }; // For visual layout
-  lastPracticed?: number; // Timestamp for knowledge decay
+  
+  // Additional fields from documentation
+  orbit: 0 | 1 | 2 | 3; // Specialization level (0=core, 3=specialized) - now required
+  spCost?: number; // Star Points required to unlock
+  maxConnections?: number; // Maximum number of connections allowed
+  prerequisites?: string[]; // Stars that must be unlocked first
+  crossDomainPotential?: 'Low' | 'Medium' | 'High'; // Likelihood of cross-domain connections
+  journalEntryIds?: string[]; // Associated journal entries
+  active?: boolean; // Whether concept is currently "active" in mind
+  
+  // lastPracticed removed as knowledge decay system is paused
 }
 
 export interface ConceptConnection {
@@ -89,6 +98,12 @@ export interface ConceptConnection {
   target: string;
   strength: number; // 0-100%
   discovered: boolean;
+  
+  // Additional fields from documentation
+  id?: string; // Unique identifier
+  type?: 'fundamental' | 'application' | 'theoretical' | 'cross-domain'; // Type of connection
+  description?: string; // Optional description of relationship
+  patternIds?: string[]; // Patterns this connection is part of
 }
 
 export interface JournalEntry {
@@ -111,23 +126,29 @@ export interface KnowledgeState {
   newlyDiscovered: string[]; // Concept IDs for animation
   activeInsight: string | null; // Currently focused insight
   
+  // SP Economy
+  starPoints: number; // Star Points (SP) for unlocking concepts
+  
   // Derived metrics
   domainMastery: Record<KnowledgeDomain, number>; // 0-100%
   totalMastery: number; // 0-100% across all domains
   constellationVisible: boolean; // UI state tracking
   
   // Actions
-  addConcept: (concept: Omit<ConceptNode, 'id' | 'discovered' | 'connections' | 'lastPracticed'>) => string;
+  addConcept: (concept: Omit<ConceptNode, 'id' | 'discovered' | 'connections'>) => string;
   discoverConcept: (conceptId: string) => void;
   updateMastery: (conceptId: string, amount: number) => void;
   createConnection: (sourceId: string, targetId: string) => void;
   discoverConnection: (sourceId: string, targetId: string) => void;
   addJournalEntry: (entry: Omit<JournalEntry, 'id' | 'timestamp'>) => void;
-  applyKnowledgeDecay: () => void;
   transferInsights: () => void;
   resetNewlyDiscovered: () => void;
   setActiveInsight: (conceptId: string | null) => void;
   setConstellationVisibility: (isVisible: boolean) => void;
+  
+  // SP Economy actions - NOTE: SP Economy system will be fully implemented later
+  addStarPoints: (amount: number, source?: string) => void;
+  spendStarPoints: (amount: number, target?: string) => boolean;
   
   // Legacy compatibility
   unlockKnowledge: (knowledgeId: string) => void;
@@ -187,23 +208,18 @@ const calculateDomainMastery = (nodes: ConceptNode[]): Record<KnowledgeDomain, n
   
   // Only consider discovered nodes
   nodes.filter(node => node.discovered).forEach(node => {
-    // Safely access the domain or fall back to 'general'
-    const domain = domainTotals[node.domain] ? node.domain : 'general';
-    
-    if (domain !== node.domain) {
-      console.warn(`Unknown domain "${node.domain}" for node "${node.id}", using "general" instead`);
+    // Safely access the domain
+    if (domainTotals[node.domain]) {
+      domainTotals[node.domain].sum += node.mastery;
+      domainTotals[node.domain].count += 1;
     }
-    
-    domainTotals[domain].sum += node.mastery;
-    domainTotals[domain].count += 1;
   });
   
   // Calculate average mastery for each domain
   const result = {} as Record<KnowledgeDomain, number>;
-  (Object.keys(KNOWLEDGE_DOMAINS) as KnowledgeDomain[]).forEach(domain => {
-    result[domain] = domainTotals[domain].count > 0 
-      ? Math.round(domainTotals[domain].sum / domainTotals[domain].count) 
-      : 0;
+  Object.keys(domainTotals).forEach(domain => {
+    const { sum, count } = domainTotals[domain];
+    result[domain as KnowledgeDomain] = count > 0 ? Math.round(sum / count) : 0;
   });
   
   return result;
@@ -262,27 +278,33 @@ const initialTotalMastery = calculateTotalMastery(initialDomainMastery, medicalP
 export const useKnowledgeStore = create<KnowledgeState>()(
   immer((set, get) => ({
     // Initial state
-    nodes: medicalPhysicsConcepts,
-    connections: initialConnections,
-    journalEntries: [],
+    nodes: medicalPhysicsConcepts, // Nodes for visualization (concepts)
+    connections: initialConnections, // Connections for visualization
+    journalEntries: [], // Journal entries linked to concepts
     pendingInsights: [],
-    domainMastery: initialDomainMastery,
-    totalMastery: initialTotalMastery,
     newlyDiscovered: [],
     activeInsight: null,
     constellationVisible: false,
+    starPoints: 25, // Starting SP
+    domainMastery: {
+      'treatment-planning': 0,
+      'radiation-therapy': 0,
+      'linac-anatomy': 0,
+      'dosimetry': 0
+    },
+    totalMastery: 0,
     
     // Add a new concept to the constellation
     addConcept: (concept) => {
-      const id = nanoid();
+      const id = nanoid(8);
       
-      // Validate domain before adding
-      const validDomain = Object.keys(KNOWLEDGE_DOMAINS).includes(concept.domain as string) 
-        ? concept.domain 
-        : 'general' as KnowledgeDomain;
+      // Validate domain, enforce using only valid domains
+      const validDomain = Object.keys(KNOWLEDGE_DOMAINS).includes(concept.domain)
+        ? concept.domain
+        : 'treatment-planning' as KnowledgeDomain; // Default to treatment-planning
       
       if (validDomain !== concept.domain) {
-        console.warn(`Invalid domain "${concept.domain}" changed to "general" for concept: ${concept.name}`);
+        console.warn(`Invalid domain "${concept.domain}" changed to "treatment-planning" for concept: ${concept.name}`);
       }
       
       set(state => {
@@ -292,7 +314,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
           domain: validDomain,
           connections: [],
           discovered: false,
-          lastPracticed: Date.now()
+          orbit: 0
         };
         
         state.nodes.push(newNode);
@@ -303,125 +325,115 @@ export const useKnowledgeStore = create<KnowledgeState>()(
     
     // Discover a previously unknown concept
     discoverConcept: (conceptId) => {
-      const nodeAlreadyDiscovered = get().nodes.find(n => n.id === conceptId)?.discovered;
+      const node = get().nodes.find(n => n.id === conceptId);
       
-      // Skip if already discovered (avoid unnecessary state updates)
-      if (nodeAlreadyDiscovered) return;
-      
-      set(state => {
-        // Find the node index
-        const nodeIndex = state.nodes.findIndex(n => n.id === conceptId);
-        if (nodeIndex === -1) {
-          console.warn(`Cannot discover unknown concept: ${conceptId}`);
-          return;
-        }
-        
-        // Mark node as discovered
-        state.nodes[nodeIndex].discovered = true;
-        state.nodes[nodeIndex].lastPracticed = Date.now();
-        
-        // Add to newly discovered list
-        if (!state.newlyDiscovered.includes(conceptId)) {
-          state.newlyDiscovered.push(conceptId);
-        }
-        
-        // Recalculate domain mastery
-        state.domainMastery = calculateDomainMastery(state.nodes);
-        state.totalMastery = calculateTotalMastery(state.domainMastery, state.nodes);
-      });
-      
-      // Emit knowledge discovery event
-      try {
-        safeDispatch(
-          GameEventType.KNOWLEDGE_DISCOVERED,
-          { conceptId },
-          'knowledgeStore.discoverConcept'
-        );
-      } catch (e) {
-        console.error('Error dispatching knowledge discovery event:', e);
+      if (!node) {
+        console.warn(`Concept with ID ${conceptId} not found`);
+        return;
       }
-    },
-    
-    // Update mastery level for a concept
-    updateMastery: (conceptId, amount) => {
-      if (amount === 0) return; // Skip no-op updates
+      
+      if (node.discovered) {
+        console.warn(`Concept with ID ${conceptId} already discovered`);
+        return;
+      }
       
       set(state => {
-        // Find the node
+        // First mark the node as discovered
         const nodeIndex = state.nodes.findIndex(n => n.id === conceptId);
-        if (nodeIndex === -1) {
-          console.warn(`Concept not found: ${conceptId}`);
-          return;
-        }
-        
-        const node = state.nodes[nodeIndex];
-        
-        // Calculate new mastery (capped at 0-100%)
-        const newMastery = Math.min(100, Math.max(0, node.mastery + amount));
-        if (newMastery === node.mastery) return; // Skip if no change
-        
-        // Auto-discover node if gaining mastery for the first time
-        const shouldDiscover = !node.discovered && amount > 0;
-        
-        // Update node mastery and timestamp
-        state.nodes[nodeIndex].mastery = newMastery;
-        state.nodes[nodeIndex].lastPracticed = Date.now();
-        
-        // Auto-discover if needed
-        if (shouldDiscover) {
+        if (nodeIndex >= 0) {
           state.nodes[nodeIndex].discovered = true;
           
-          // Track newly discovered concepts for animation
+          // Add to newly discovered for animation
           if (!state.newlyDiscovered.includes(conceptId)) {
             state.newlyDiscovered.push(conceptId);
           }
         }
         
-        // Update connection strengths for all affected connections
-        state.connections = state.connections.map(conn => {
-          if (conn.source === conceptId || conn.target === conceptId) {
-            // Get the other node in the connection
-            const otherNodeId = conn.source === conceptId ? conn.target : conn.source;
-            const otherNode = state.nodes.find(n => n.id === otherNodeId);
-            
-            // Recalculate connection strength based on both nodes' mastery
-            return {
-              ...conn,
-              strength: (newMastery + (otherNode?.mastery || 0)) / 2
-            };
-          }
-          return conn;
-        });
+        // Build domain angles from KNOWLEDGE_DOMAINS
+        const domainAngles = buildDomainAngles(KNOWLEDGE_DOMAINS);
         
-        // Track pending insights for night phase transfer
-        if (amount > 0) {
-          state.pendingInsights.push({
-            conceptId,
-            amount
-          });
-        }
+        // Update positions of all nodes (important for newly discovered nodes)
+        state.nodes = updateNodePositions(state.nodes, domainAngles);
         
-        // Recalculate domain mastery metrics
+        // Update connections based on discovery
+        const updatedConnections = buildInitialConnections(state.nodes);
+        state.connections = updatedConnections;
+        
+        // Recalculate mastery metrics
         state.domainMastery = calculateDomainMastery(state.nodes);
         state.totalMastery = calculateTotalMastery(state.domainMastery, state.nodes);
-        
-        console.log(`Updated mastery for ${conceptId}: ${node.mastery} -> ${newMastery}`);
       });
       
-      // Emit mastery increased event
-      try {
-        safeDispatch(
-          GameEventType.MASTERY_INCREASED,
-          { 
-            conceptId, 
-            amount,
-            domain: get().nodes.find(n => n.id === conceptId)?.domain || 'general'
-          },
-          'knowledgeStore.updateMastery'
-        );
-      } catch (e) {
-        console.error('Error dispatching mastery event:', e);
-      }
+      // Emit discovery event
+      safeDispatch(
+        CUSTOM_EVENTS.KNOWLEDGE_DISCOVERED,
+        { 
+          conceptId, 
+          source: 'knowledgeStore.discoverConcept' 
+        }
+      );
+    },
+    
+    // Update mastery level for a concept
+    updateMastery: (conceptId, amount) => {
+      set(state => {
+        const nodeIndex = state.nodes.findIndex(node => node.id === conceptId);
+        
+        if (nodeIndex === -1) {
+          console.warn(`Cannot update mastery: Concept ${conceptId} not found`);
+          return;
+        }
+        
+        const node = state.nodes[nodeIndex];
+        if (!node.discovered) {
+          console.warn(`Cannot update mastery: Concept ${conceptId} not yet discovered`);
+          return;
+        }
+        
+        // Calculate new mastery value
+        const newMastery = Math.max(0, Math.min(100, node.mastery + amount));
+        
+        // Only update if there's a change
+        if (newMastery !== node.mastery) {
+          // Update node mastery
+          state.nodes[nodeIndex].mastery = newMastery;
+          
+          // Update connection strengths for this node
+          node.connections.forEach(connectedId => {
+            const connectedNode = state.nodes.find(n => n.id === connectedId);
+            if (!connectedNode || !connectedNode.discovered) return;
+            
+            const connIndex = state.connections.findIndex(c => 
+              (c.source === conceptId && c.target === connectedId) ||
+              (c.source === connectedId && c.target === conceptId)
+            );
+            
+            if (connIndex !== -1) {
+              state.connections[connIndex].strength = 
+                (newMastery + connectedNode.mastery) / 2;
+            }
+          });
+          
+          // Recalculate domain mastery
+          state.domainMastery = calculateDomainMastery(state.nodes);
+          state.totalMastery = calculateTotalMastery(state.domainMastery, state.nodes);
+          
+          // Emit mastery increased event
+          try {
+            safeDispatch(
+              GameEventType.MASTERY_INCREASED,
+              {
+                conceptId: conceptId,
+                amount: amount,
+                domain: node.domain
+              },
+              'knowledgeStore.updateMastery'
+            );
+          } catch (e) {
+            console.error('Error dispatching mastery event:', e);
+          }
+        }
+      });
     },
     
     // Create a new connection between concepts
@@ -474,20 +486,18 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         const sourceNodeIndex = state.nodes.findIndex(n => n.id === sourceId);
         if (sourceNodeIndex !== -1 && !state.nodes[sourceNodeIndex].connections.includes(targetId)) {
           state.nodes[sourceNodeIndex].connections.push(targetId);
-          state.nodes[sourceNodeIndex].lastPracticed = Date.now();
         }
         
         const targetNodeIndex = state.nodes.findIndex(n => n.id === targetId);
         if (targetNodeIndex !== -1 && !state.nodes[targetNodeIndex].connections.includes(sourceId)) {
           state.nodes[targetNodeIndex].connections.push(sourceId);
-          state.nodes[targetNodeIndex].lastPracticed = Date.now();
         }
       });
       
       // Emit connection created event
       try {
         safeDispatch(
-          GameEventType.CONNECTION_CREATED,
+          CUSTOM_EVENTS.CONNECTION_CREATED,
           { 
             sourceId, 
             targetId,
@@ -522,7 +532,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
           // Emit discovery event
           try {
             safeDispatch(
-              GameEventType.CONNECTION_DISCOVERED,
+              CUSTOM_EVENTS.CONNECTION_DISCOVERED,
               { sourceId, targetId },
               'knowledgeStore.discoverConnection'
             );
@@ -571,75 +581,6 @@ export const useKnowledgeStore = create<KnowledgeState>()(
       }
     },
     
-    // Apply knowledge decay based on time since last practice
-    // This models how human memory fades without reinforcement
-    applyKnowledgeDecay: () => {
-      const now = Date.now();
-      const decayThresholdDays = 3; // Days before decay begins
-      const decayRatePerDay = 0.7; // % mastery lost per day after threshold
-      
-      set(state => {
-        let needsMetricsUpdate = false;
-        
-        // Apply decay to each node
-        state.nodes.forEach((node, index) => {
-          if (!node.discovered || !node.lastPracticed) return;
-          
-          // Calculate days since last practice
-          const daysSinceLastPractice = (now - node.lastPracticed) / (1000 * 60 * 60 * 24);
-          
-          // Only decay after threshold
-          if (daysSinceLastPractice <= decayThresholdDays) return;
-          
-          // Calculate decay amount
-          const decayDays = daysSinceLastPractice - decayThresholdDays;
-          const decayAmount = decayDays * decayRatePerDay;
-          
-          // Apply decay with diminishing returns (harder to forget mastered concepts)
-          const masteryRetention = 0.75 + (0.25 * (node.mastery / 100)); // 75-100% retention rate
-          const adjustedDecay = decayAmount * (1 - masteryRetention);
-          
-          // Don't decay below 10% (core understanding remains)
-          const newMastery = Math.max(10, node.mastery - adjustedDecay);
-          
-          // Only update if there's a meaningful change
-          if (Math.abs(newMastery - node.mastery) >= 0.5) {
-            needsMetricsUpdate = true;
-            state.nodes[index].mastery = newMastery;
-          }
-        });
-        
-        // Exit early if no changes
-        if (!needsMetricsUpdate) return;
-        
-        // Update connection strengths based on new mastery levels
-        state.connections.forEach((conn, index) => {
-          const sourceNode = state.nodes.find(n => n.id === conn.source);
-          const targetNode = state.nodes.find(n => n.id === conn.target);
-          
-          if (!sourceNode || !targetNode) return;
-          
-          // Recalculate connection strength
-          state.connections[index].strength = (sourceNode.mastery + targetNode.mastery) / 2;
-        });
-        
-        // Recalculate domain mastery
-        state.domainMastery = calculateDomainMastery(state.nodes);
-        state.totalMastery = calculateTotalMastery(state.domainMastery, state.nodes);
-      });
-      
-      // Emit decay event
-      try {
-        safeDispatch(
-          GameEventType.KNOWLEDGE_DECAY_APPLIED,
-          {},
-          'knowledgeStore.applyKnowledgeDecay'
-        );
-      } catch (e) {
-        console.error('Error dispatching decay event:', e);
-      }
-    },
-    
     // Transfer pending insights to the constellation (night phase)
     transferInsights: () => {
       // Skip if no insights to transfer
@@ -678,20 +619,22 @@ export const useKnowledgeStore = create<KnowledgeState>()(
     setActiveInsight: (conceptId: string | null) => {
       set(state => {
         state.activeInsight = conceptId;
-      });
-      
-      // Emit selection event if concept selected
-      if (conceptId) {
-        try {
-          safeDispatch(
-            GameEventType.CONCEPT_SELECTED,
-            { conceptId },
-            'knowledgeStore.setActiveInsight'
-          );
-        } catch (e) {
-          console.error('Error dispatching concept selection event:', e);
+        
+        // Emit node selection event
+        if (conceptId) {
+          try {
+            safeDispatch(
+              GameEventType.UI_NODE_SELECTED,
+              {
+                nodeId: conceptId
+              },
+              'knowledgeStore.setActiveInsight'
+            );
+          } catch (e) {
+            console.error('Error dispatching node selection event:', e);
+          }
         }
-      }
+      });
     },
     
     // Set constellation visualization visibility
@@ -707,76 +650,29 @@ export const useKnowledgeStore = create<KnowledgeState>()(
      */
     unlockKnowledge: (knowledgeId: string) => {
       // Extract the concept ID from the knowledge ID if needed
-      const conceptId = knowledgeId.startsWith('knowledge-') 
-        ? knowledgeId.replace('knowledge-', '') 
+      const conceptId = knowledgeId.includes(':') 
+        ? knowledgeId.split(':')[1]
         : knowledgeId;
-        
-      console.log(`Unlocking knowledge: ${knowledgeId} (Concept ID: ${conceptId})`);
       
-      // First try to discover the concept
-      get().discoverConcept(conceptId);
+      // If conceptId doesn't exist, create a generic one
+      const exists = get().nodes.some(node => node.id === conceptId);
       
-      // If the concept doesn't exist yet, it may need to be created
-      if (!get().nodes.find(n => n.id === conceptId)) {
-        console.warn(`Concept ${conceptId} not found. Creating placeholder.`);
-        // Create a placeholder concept
+      if (!exists) {
         const newConceptId = get().addConcept({
           name: `Unknown (${conceptId})`,
-          domain: 'general',
+          domain: 'treatment-planning',
           description: 'A newly discovered concept.',
-          mastery: 25
+          mastery: 25,
+          orbit: 1
         });
         
-        // Then discover it
         get().discoverConcept(newConceptId);
-        
-        // Dispatch KNOWLEDGE_GAINED event (fixed from undefined)
-        try {
-          safeDispatch(
-            GameEventType.KNOWLEDGE_GAINED, 
-            {
-              conceptId: newConceptId,
-              amount: 25,
-              source: 'map_discovery'
-            }, 
-            'knowledgeStore'
-          );
-        } catch (e) {
-          console.error('Error dispatching knowledge gained event:', e);
-        }
-      } else {
-        // Update existing concept's mastery
-        get().updateMastery(conceptId, 10);
-        
-        // Dispatch KNOWLEDGE_GAINED event (fixed from undefined)
-        try {
-          safeDispatch(
-            GameEventType.KNOWLEDGE_GAINED,
-            {
-              conceptId,
-              amount: 10,
-              source: 'map_discovery'
-            }, 
-            'knowledgeStore'
-          );
-        } catch (e) {
-          console.error('Error dispatching knowledge gained event:', e);
-        }
+        return newConceptId;
       }
       
-      // Also dispatch INSIGHT_REVEALED event for compatibility
-      try {
-        safeDispatch(
-          GameEventType.INSIGHT_REVEALED,
-          { 
-            insightId: conceptId,
-            isNewDiscovery: true
-          },
-          'knowledgeStore'
-        );
-      } catch (e) {
-        console.error('Error dispatching insight revealed event:', e);
-      }
+      // Discover existing concept
+      get().discoverConcept(conceptId);
+      return conceptId;
     },
     
     // Legacy method for backward compatibility
@@ -787,23 +683,38 @@ export const useKnowledgeStore = create<KnowledgeState>()(
     
     // Legacy method for unlocking topic domains
     unlockTopic: (topicId: string) => {
-      // Check if topicId is a valid domain
-      const isValidDomain = Object.keys(KNOWLEDGE_DOMAINS).includes(topicId);
-      if (!isValidDomain) {
-        console.warn(`Invalid domain: ${topicId}`);
-        return;
-      }
+      // Legacy method for backward compatibility
+      console.warn('unlockTopic is deprecated, use discoverConcept instead');
       
-      // Simply emit an event for now - no state change needed
-      try {
-        safeDispatch(
-          GameEventType.DOMAIN_UNLOCKED,
-          { domainId: topicId },
-          'knowledgeStore.unlockTopic'
-        );
-      } catch (e) {
-        console.error('Error dispatching domain unlock event:', e);
-      }
+      const topicToDomain: Record<string, KnowledgeDomain> = {
+        'radiation-physics': 'treatment-planning',
+        'dose-calculation': 'dosimetry',
+        'patient-positioning': 'radiation-therapy',
+        'linac-components': 'linac-anatomy',
+        'physics-fundamentals': 'treatment-planning',
+        'calibration': 'dosimetry'
+      };
+      
+      // Default to treatment-planning if topic not found
+      const domain = Object.keys(topicToDomain).includes(topicId) 
+        ? topicToDomain[topicId] 
+        : 'treatment-planning';
+      
+      // Create a new concept from the topic ID
+      const newConceptId = get().addConcept({
+        name: topicId.split('-').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' '),
+        description: `Legacy topic: ${topicId}`,
+        domain: domain,
+        mastery: 25,
+        orbit: 1
+      });
+      
+      // Discover the new concept
+      get().discoverConcept(newConceptId);
+      
+      return newConceptId;
     },
     
     // Import knowledge data (for development/testing)
@@ -833,18 +744,81 @@ export const useKnowledgeStore = create<KnowledgeState>()(
     // Reset knowledge to initial state
     resetKnowledge: () => {
       set(state => {
-        state.nodes = medicalPhysicsConcepts;
-        state.connections = buildInitialConnections(medicalPhysicsConcepts);
+        state.nodes = [];
+        state.connections = [];
         state.journalEntries = [];
         state.pendingInsights = [];
         state.newlyDiscovered = [];
         state.activeInsight = null;
         state.constellationVisible = false;
+        state.starPoints = 25;
         
         // Recalculate domain mastery
-        state.domainMastery = calculateDomainMastery(state.nodes);
-        state.totalMastery = calculateTotalMastery(state.domainMastery, state.nodes);
+        state.domainMastery = {
+          'treatment-planning': 0,
+          'radiation-therapy': 0,
+          'linac-anatomy': 0,
+          'dosimetry': 0
+        };
+        state.totalMastery = 0;
       });
+    },
+    
+    // SP Economy actions
+    addStarPoints: (amount: number, source?: string) => {
+      set(state => {
+        const previousValue = state.starPoints;
+        state.starPoints += amount;
+        
+        // Emit resource changed event
+        try {
+          safeDispatch(
+            GameEventType.RESOURCE_CHANGED,
+            {
+              resourceType: 'sp',
+              previousValue: previousValue,
+              newValue: state.starPoints,
+              change: amount,
+              source: source || 'system'
+            },
+            'knowledgeStore.addStarPoints'
+          );
+        } catch (e) {
+          console.error('Error dispatching SP gained event:', e);
+        }
+      });
+    },
+    
+    spendStarPoints: (amount: number, target?: string): boolean => {
+      let success = false;
+      
+      set(state => {
+        // Check if we have enough points
+        if (state.starPoints >= amount) {
+          const previousValue = state.starPoints;
+          state.starPoints -= amount;
+          success = true;
+          
+          // Emit resource changed event
+          try {
+            safeDispatch(
+              GameEventType.RESOURCE_CHANGED,
+              {
+                resourceType: 'sp',
+                previousValue: previousValue,
+                newValue: state.starPoints,
+                change: -amount,
+                source: target || 'system'
+              },
+              'knowledgeStore.spendStarPoints'
+            );
+          } catch (e) {
+            console.error('Error dispatching SP spent event:', e);
+          }
+        }
+      });
+      
+      return success;
     }
   }))
 );
@@ -864,6 +838,7 @@ export const selectors = {
   getPendingInsightCount: (state: KnowledgeState) => state.pendingInsights.length,
   getIsConstellationVisible: (state: KnowledgeState) => state.constellationVisible,
   getJournalEntryCount: (state: KnowledgeState) => state.journalEntries.length,
+  getStarPoints: (state: KnowledgeState) => state.starPoints,
   
   // Domain-specific mastery
   getDomainMastery: (domain: KnowledgeDomain) => (state: KnowledgeState) => 

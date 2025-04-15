@@ -16,8 +16,11 @@ import { GameEventType } from '@/app/core/events/EventTypes';
 import { 
   usePrimitiveStoreValue, 
   useStableStoreValue,
-  usePrimitiveValues
+  usePrimitiveValues,
+  useStableCallback
 } from '@/app/core/utils/storeHooks';
+import { ConceptNode } from '@/app/store/knowledgeStore';
+import { useRouter } from 'next/navigation';
 
 // Define props type for component
 interface HillHomeSceneProps {
@@ -176,9 +179,9 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
           console.log('[HillHomeScene] Executing insight transfer');
           
           // Calculate total insight gain
-          const totalInsightGain = pendingInsights.reduce((total, insight) => {
+          const totalInsightGain = pendingInsights?.reduce((total, insight) => {
             return total + (insight.amount || 0);
-          }, 0);
+          }, 0) || 0;
           
           // Grant insight points
           updateInsight(totalInsightGain);
@@ -191,7 +194,7 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
           
           // Log insight transfer for debugging
           console.log('[HillHomeScene] Insight transfer complete:', {
-            insightsTransferred: pendingInsights.length,
+            insightsTransferred: pendingInsights?.length || 0,
             totalGain: totalInsightGain
           });
           
@@ -329,19 +332,15 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
         }}
       />
       
-      {/* Emergency night phase indicator - always visible */}
-      <div className="fixed top-0 left-0 m-4 bg-purple-800 text-white px-3 py-1 z-50 text-sm rounded">
-        Night Phase - Day {currentDay}
-      </div>
-      
-      {/* Emergency continue button - always visible at bottom */}
-      <div className="fixed bottom-8 right-8 z-50">
-        <button
-          className="px-6 py-3 bg-purple-700 hover:bg-purple-600 text-white font-medium rounded-lg shadow-lg"
+      {/* Continue button - moved to bottom center */}
+      <div className="fixed bottom-8 z-50" style={{ left: '50%', transform: 'translateX(-50%)' }}>
+        <PixelButton
           onClick={handleStartDay}
+          className="bg-blue-700 hover:bg-blue-600 text-white font-pixel"
+          size="lg"
         >
           Continue to Day {nextDayNumber} →
-        </button>
+        </PixelButton>
       </div>
       
       {/* Main content area */}
@@ -395,37 +394,6 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
             </div>
           </div>
         </div>
-        
-        {/* Status area */}
-        <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-lg font-pixel text-white">Player Status</h2>
-            <div className="flex space-x-3">
-              <span className="px-2 py-1 bg-red-600 text-white text-sm rounded">
-                Health: {playerHealth}/{playerMaxHealth}
-              </span>
-              <span className="px-2 py-1 bg-blue-600 text-white text-sm rounded">
-                Insight: {playerInsight}
-              </span>
-            </div>
-          </div>
-          
-          <div className="mb-2">
-            <div className="text-gray-400 mb-1 text-sm">Knowledge Mastery</div>
-            <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-purple-600" 
-                style={{ width: `${totalMastery}%` }}
-              />
-            </div>
-          </div>
-          
-          <div className="text-xs text-gray-400 flex justify-between">
-            <span>Clinical: {domainMastery['clinical-practice'] || 0}%</span>
-            <span>Technical: {domainMastery['quality-assurance'] || 0}%</span>
-            <span>Theory: {domainMastery['theoretical'] || 0}%</span>
-          </div>
-        </div>
       </div>
       
       {/* Insight transfer effect - now DOM-based for better performance */}
@@ -433,7 +401,7 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
         ref={insightParticlesRef}
         className={`fixed inset-0 z-20 pointer-events-none ${hasPendingInsights ? 'insight-particles-container' : ''}`}
       >
-        {hasPendingInsights && pendingInsights.map((insight, index) => (
+        {hasPendingInsights && pendingInsights?.map((insight, index) => (
           <div 
             key={`insight-${index}`}
             className="insight-particle absolute w-2 h-2 rounded-full"
@@ -490,21 +458,9 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
             nightMode={true}
             showLabels={true}
             interactive={true}
-            activeNodes={newlyDiscovered}
+            activeNodes={newlyDiscovered || []}
             onClose={handleCloseConstellation}
           />
-        </div>
-      )}
-      
-      {/* Debug info */}
-      {process.env.NODE_ENV !== 'production' && (
-        <div className="fixed bottom-0 left-0 bg-black/80 text-white text-xs font-mono z-50 p-2 max-w-xs">
-          <div>Phase: {gamePhase}</div>
-          <div>Day: {currentDay}</div>
-          <div>Insights: {pendingInsights ? pendingInsights.length : 0}</div>
-          <div>Transferred: {insightTransferred ? 'Yes' : 'No'}</div>
-          <div>New Concepts: {newlyDiscoveredCount}</div>
-          <div>Renders: {renderCountRef.current}</div>
         </div>
       )}
       

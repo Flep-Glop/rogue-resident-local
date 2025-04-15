@@ -14,9 +14,13 @@
 │   │   │   └── formats
 │   │   │       └── ConversationFormat.tsx
 │   │   ├── debug
+│   │   │   ├── BuildInfo.tsx
 │   │   │   ├── ChamberDebugInitializer.tsx
+│   │   │   ├── ClientBuildInfo.tsx
 │   │   │   ├── ClientDashboardWrapper.tsx
+│   │   │   ├── ConstellationDebugControls.tsx
 │   │   │   ├── PerformanceDashboard.tsx
+│   │   │   ├── UnifiedDebugPanel.tsx
 │   │   │   └── VerticalSliceDebugPanel.tsx
 │   │   ├── gameplay
 │   │   │   ├── InsightMeter.tsx
@@ -26,7 +30,11 @@
 │   │   │   ├── Journal.tsx
 │   │   │   └── JournalAcquisitionAnimation.tsx
 │   │   ├── knowledge
+│   │   │   ├── ConstellationLayout.ts
+│   │   │   ├── ConstellationParticleSystem.ts
+│   │   │   ├── ConstellationPatternSystem.ts
 │   │   │   ├── ConstellationView.tsx
+│   │   │   ├── ConstellationVisualizationControl.ts
 │   │   │   ├── KnowledgeUpdate.tsx
 │   │   │   ├── constellationCanvasUtils.ts
 │   │   │   └── ui
@@ -34,9 +42,9 @@
 │   │   │       ├── ConstellationActions.tsx
 │   │   │       ├── ConstellationControls.tsx
 │   │   │       ├── ConstellationInfoPanel.tsx
-│   │   │       ├── ConstellationLegend.tsx
 │   │   │       ├── HelpOverlay.tsx
 │   │   │       ├── JournalOverlay.tsx
+│   │   │       ├── SPMeter.tsx
 │   │   │       └── SelectedNodePanel.tsx
 │   │   └── map
 │   │       └── SimplifiedKapoorMap.tsx
@@ -48,7 +56,8 @@
 │   │   ├── events
 │   │   │   ├── CentralEventBus.ts
 │   │   │   ├── EventSubscriptionHooks.ts
-│   │   │   └── EventTypes.ts
+│   │   │   ├── EventTypes.ts
+│   │   │   └── JournalEventHandler.ts
 │   │   ├── init.ts
 │   │   ├── progression
 │   │   │   └── ProgressionResolver.ts
@@ -57,9 +66,12 @@
 │   │   ├── themeConstants.ts
 │   │   └── utils
 │   │       ├── chamberDebug.ts
+│   │       ├── storageUtils.ts
 │   │       ├── storeAnalyzer.ts
-│   │       └── storeHooks.ts
+│   │       ├── storeHooks.ts
+│   │       └── storeUtils.ts
 │   ├── data
+│   │   ├── characters.ts
 │   │   ├── concepts
 │   │   │   └── medicalPhysicsConcepts.ts
 │   │   ├── dialogues
@@ -73,7 +85,6 @@
 │   │   ├── useDialogueFlow.ts
 │   │   ├── useGameState.ts
 │   │   ├── useGameplayEffects.ts
-│   │   ├── usePrimitiveStoreValue.ts
 │   │   └── useTypewriter.ts
 │   ├── layout.tsx
 │   ├── page.tsx
@@ -82,24 +93,22 @@
 │   │   ├── journalStore.ts
 │   │   ├── knowledgeStore.ts
 │   │   └── resourceStore.ts
+│   ├── styles
+│   │   └── pixel-borders.css
 │   └── types
 │       ├── game.ts
 │       └── player.ts
+├── clear-storage.js
 ├── combined_tsx.txt
 ├── components
 │   └── ui
 │       └── button.tsx
 ├── components.json
+├── deep-reset.sh
 ├── docs
-│   ├── day-night-transition-sequence.mermaid
-│   ├── documentation-review.md
-│   ├── enhanced-architecture-doc.md
-│   ├── knowledge-mastery-progression.mermaid
-│   ├── mentor-personality-matrix.mermaid
-│   ├── mentor-response-system.mermaid
-│   ├── player-satisfaction-loops.mermaid
-│   ├── strategic-action-decision-tree.mermaid
-│   └── systems-integration-diagram.mermaid
+│   ├── chamber-pattern-comprehensive-guide.md
+│   ├── constellation-system-doc (1).md
+│   └── updated-gdd.md
 ├── eslint.config.mjs
 ├── filestructure.txt
 ├── jest-config.js
@@ -110,6 +119,8 @@
 ├── package-lock.json
 ├── package.json
 ├── postcss.config.mjs
+├── reset-dev.sh
+├── summary.md
 ├── tailwind.config.js
 ├── tests
 │   ├── assert.js
@@ -122,4 +133,4 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-28 directories, 94 files
+30 directories, 104 files

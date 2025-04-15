@@ -6,7 +6,7 @@ import { useGameStore } from '@/app/store/gameStore';
 import { useJournalStore } from '@/app/store/journalStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { useResourceStore } from '@/app/store/resourceStore';
-import { useEventSubscription } from '@/app/core/events/CentralEventBus';
+import { useEventSubscription, safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import ConversationFormat from './formats/ConversationFormat';
 import { createKapoorCalibrationFlow } from '@/app/core/dialogue/DialogueStateMachine';
@@ -84,6 +84,7 @@ export default function ChallengeRouter() {
       const gameStore = useGameStore.getState();
       const resourceStore = useResourceStore.getState();
       const knowledgeStore = useKnowledgeStore.getState();
+      const journalStore = useJournalStore.getState();
       
       console.log('Challenge completed with results:', results);
       
@@ -104,17 +105,47 @@ export default function ChallengeRouter() {
       // Journal acquisition logic
       if (results.journalTier && !hasJournal) {
         console.log(`Journal acquisition triggered with tier: ${results.journalTier}`);
+        console.log(`Journal acquisition character check: currentCharacterId=${currentCharacterId}`);
+        
+        // Initialize the journal in the journal store
+        if (journalStore && journalStore.initializeJournal) {
+          journalStore.initializeJournal(results.journalTier);
+          console.log(`✅ Journal initialized with tier: ${results.journalTier}`);
+        }
         
         // Mark node as completed - important for progression
         if (currentNodeId && gameStore && gameStore.completeNode) {
           gameStore.completeNode(currentNodeId);
           console.log(`✅ Marked node ${currentNodeId} as completed`);
+          
+          // Extra assurance to mark the node as completed in the game state machine
+          try {
+            if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
+              window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState().markNodeCompleted(currentNodeId);
+              console.log(`✅ Explicitly marked node ${currentNodeId} as completed in state machine`);
+            }
+          } catch (err) {
+            console.error('[ChallengeRouter] Error marking node completed in state machine', err);
+          }
         }
         
         updateLocalState({ 
           challengeComplete: true,
           journalAcquired: true 
         });
+        
+        // Use a consistent character ID for dispatching the event
+        const characterForDispatch = currentCharacterId || 'kapoor';
+        console.log(`Using character "${characterForDispatch}" for journal acquisition event`);
+        
+        // Explicitly dispatch the JOURNAL_ACQUIRED event to trigger the animation
+        safeDispatch(GameEventType.JOURNAL_ACQUIRED, {
+          tier: results.journalTier,
+          character: characterForDispatch,
+          source: 'node_completion',
+          nodeId: currentNodeId
+        });
+        console.log('✅ Journal acquisition event explicitly dispatched');
         
         // Emit completion event to ensure other systems know
         if (gameStore && gameStore.emit) {
@@ -125,6 +156,15 @@ export default function ChallengeRouter() {
           });
           console.log('✅ Journal challenge completion event emitted');
         }
+        
+        // Return to map after a delay to allow animation to complete
+        // Use longer delay to ensure NODE_COMPLETED event is fully processed
+        setTimeout(() => {
+          if (isMountedRef.current && gameStore && gameStore.setCurrentNode) {
+            console.log('[ChallengeRouter] Returning to map after journal acquisition animation');
+            gameStore.setCurrentNode(null);
+          }
+        }, 6000);
         
         return; // Stop further processing
       }
@@ -159,7 +199,7 @@ export default function ChallengeRouter() {
         error: error instanceof Error ? error.message : 'Unknown error in completion'
       });
     }
-  }, [updateLocalState, hasJournal, currentNodeId]);
+  }, [updateLocalState, hasJournal, currentNodeId, currentCharacterId]);
   
   // ===== LIFECYCLE EFFECTS =====
   // Reset challenge state when node changes
@@ -175,6 +215,22 @@ export default function ChallengeRouter() {
       // Get direct access to game store for debug event
       try {
         const gameStore = useGameStore.getState();
+        
+        // If the character is not set but we have a node ID, set the character based on the node
+        if (!gameStore.currentCharacterId) {
+          let characterToSet = null;
+          
+          // Map nodes to characters
+          if (currentNodeId === 'start') {
+            characterToSet = 'kapoor';
+          }
+          
+          if (characterToSet) {
+            console.log(`[ChallengeRouter] Character should be "${characterToSet}" for node ID "${currentNodeId}", but cannot set directly.`);
+            console.log(`[ChallengeRouter] Will use fallback character ID in render function.`);
+          }
+        }
+        
         if (gameStore && gameStore.emit) {
           gameStore.emit(GameEventType.DEBUG_COMMAND, {
             command: 'challenge:started',
@@ -238,11 +294,14 @@ export default function ChallengeRouter() {
   
   // Render the appropriate challenge type based on node ID
   // For the vertical slice, we just support ConversationFormat
+  console.log(`[ChallengeRouter] Rendering ConversationFormat with nodeId: ${currentNodeId}, characterId: ${currentCharacterId}`);
   return (
-    <ConversationFormat
-      nodeId={currentNodeId}
-      characterId={currentCharacterId}
-      onComplete={handleConversationComplete}
-    />
+    <div className="h-full w-full">
+      <ConversationFormat
+        nodeId={currentNodeId}
+        characterId={currentCharacterId || 'kapoor'}
+        onComplete={handleConversationComplete}
+      />
+    </div>
   );
 }

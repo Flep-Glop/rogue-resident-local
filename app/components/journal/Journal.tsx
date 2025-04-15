@@ -17,6 +17,25 @@ import {
 
 // Define valid page types to ensure type safety across the UI
 export type JournalPageType = 'knowledge' | 'characters' | 'notes' | 'references';
+export type JournalTier = 'base' | 'technical' | 'annotated';
+
+// Type definitions for store states
+interface JournalState {
+  hasJournal: boolean;
+  isJournalOpen: boolean;
+  currentUpgrade: JournalTier;
+  currentPage: JournalPageType;
+  initializeJournal?: (tier: JournalTier) => void;
+  toggleJournal: () => void;
+  setJournalOpen: (isOpen: boolean) => void;
+  setCurrentPage: (page: JournalPageType) => void;
+  [key: string]: any;
+}
+
+interface GameState {
+  gamePhase: string;
+  [key: string]: any;
+}
 
 // Simple placeholder components for the missing journal pages
 const JournalKnowledgePage = () => (
@@ -60,6 +79,7 @@ const JournalReferencesPage = () => (
  * 1. CRITICAL: Using consistent default values to prevent hydration mismatch
  * 2. Improved error handling for missing methods
  * 3. Enhanced stability with better refs tracking
+ * 4. Added explicit logging for debugging
  */
 export default function Journal() {
   // PATTERN: DOM refs for direct manipulation
@@ -80,38 +100,39 @@ export default function Journal() {
   // PATTERN: Extract primitive values with CONSISTENT DEFAULTS to prevent hydration mismatch
   const hasJournal = usePrimitiveStoreValue(
     useJournalStore,
-    state => state.hasJournal,
+    (state: JournalState) => state.hasJournal,
     false
   );
   
   const isJournalOpen = usePrimitiveStoreValue(
     useJournalStore,
-    state => state.isJournalOpen,
+    (state: JournalState) => state.isJournalOpen,
     false
   );
   
   // CRITICAL FIX: Always use 'base' as default for consistent hydration
   const currentUpgrade = usePrimitiveStoreValue(
     useJournalStore,
-    state => state.currentUpgrade,
-    'base'
+    (state: JournalState) => state.currentUpgrade,
+    'base' as JournalTier
   );
   
   const currentPage = usePrimitiveStoreValue(
     useJournalStore,
-    state => state.currentPage, 
+    (state: JournalState) => state.currentPage, 
     'knowledge' as JournalPageType
   );
   
   // PATTERN: Extract game state primitives
   const gamePhase = usePrimitiveStoreValue(
     useGameStore,
-    state => state.gamePhase,
+    (state: GameState) => state.gamePhase,
     'day'
   );
   
   // PATTERN: Safe store actions extraction with fallbacks
   const toggleJournal = useCallback(() => {
+    console.log('[Journal] Toggling journal open/closed');
     try {
       const journalStore = useJournalStore.getState();
       if (journalStore.toggleJournal) {
@@ -120,23 +141,24 @@ export default function Journal() {
         // Fallback if toggleJournal is unavailable
         journalStore.setJournalOpen(!isJournalOpen);
       } else {
-        console.warn('Journal toggle functions not available');
+        console.warn('[Journal] Journal toggle functions not available');
       }
     } catch (e) {
-      console.error('Error toggling journal:', e);
+      console.error('[Journal] Error toggling journal:', e);
     }
   }, [isJournalOpen]);
   
   const setCurrentPage = useCallback((page: JournalPageType) => {
+    console.log(`[Journal] Setting page to: ${page}`);
     try {
       const journalStore = useJournalStore.getState();
       if (journalStore.setCurrentPage) {
         journalStore.setCurrentPage(page);
       } else {
-        console.warn('setCurrentPage function not available');
+        console.warn('[Journal] setCurrentPage function not available');
       }
     } catch (e) {
-      console.error('Error setting journal page:', e);
+      console.error('[Journal] Error setting journal page:', e);
     }
   }, []);
   
@@ -150,7 +172,11 @@ export default function Journal() {
   
   // PATTERN: DOM-based animation helpers
   const startJournalAnimation = useCallback(() => {
-    if (!journalContainerRef.current) return;
+    console.log('[Journal] Starting journal animation');
+    if (!journalContainerRef.current) {
+      console.warn('[Journal] Cannot start animation - container ref is null');
+      return;
+    }
     
     const container = journalContainerRef.current;
     internalStateRef.current.isAnimating = true;
@@ -201,7 +227,11 @@ export default function Journal() {
   }, []);
   
   const showFloatingButton = useCallback(() => {
-    if (!floatingButtonRef.current) return;
+    console.log('[Journal] Showing floating button');
+    if (!floatingButtonRef.current) {
+      console.warn('[Journal] Cannot show floating button - ref is null');
+      return;
+    }
     
     const button = floatingButtonRef.current;
     
@@ -216,6 +246,7 @@ export default function Journal() {
   // PATTERN: Handle body overflow when journal is open
   useEffect(() => {
     if (isJournalOpen) {
+      console.log('[Journal] Journal opened - locking body scroll');
       // Store original overflow
       internalStateRef.current.originalBodyOverflow = document.body.style.overflow;
       
@@ -248,10 +279,22 @@ export default function Journal() {
   useEventSubscription(
     GameEventType.JOURNAL_ACQUIRED,
     useCallback((event) => {
-      if (!isMountedRef.current) return;
+      console.log('[Journal] Received JOURNAL_ACQUIRED event', event);
+      
+      if (!isMountedRef.current) {
+        console.warn('[Journal] Ignoring journal acquired event - component not mounted');
+        return;
+      }
       
       const payload = event.payload as any;
       if (payload) {
+        // Check if journal is already initialized
+        const journalStore = useJournalStore.getState();
+        if (!journalStore.hasJournal && journalStore.initializeJournal) {
+          console.log(`[Journal] Initializing journal with tier: ${payload.tier || 'base'}`);
+          journalStore.initializeJournal(payload.tier || 'base');
+        }
+        
         // Mark journal as animating
         internalStateRef.current.journalAnimating = true;
         
@@ -259,6 +302,7 @@ export default function Journal() {
         if (document.getElementById('journal-acquisition-overlay')) {
           const overlay = document.getElementById('journal-acquisition-overlay');
           if (overlay) {
+            console.log('[Journal] Showing acquisition overlay');
             overlay.style.display = 'flex';
             
             // Add animation class
@@ -269,6 +313,7 @@ export default function Journal() {
         // Show floating button after animation completes
         animationTimersRef.current.journalAcquisition = setTimeout(() => {
           if (isMountedRef.current) {
+            console.log('[Journal] Journal acquisition animation completed');
             // Reset animation state
             internalStateRef.current.journalAnimating = false;
             
@@ -289,10 +334,28 @@ export default function Journal() {
     }, [showFloatingButton])
   );
   
+  // Special effect to ensure floating button shows even if animation was missed
+  useEffect(() => {
+    if (hasJournal && !isJournalOpen && !internalStateRef.current.showFloatingButton) {
+      console.log('[Journal] Journal exists but floating button not shown - showing now');
+      const timer = setTimeout(() => {
+        if (isMountedRef.current) {
+          internalStateRef.current.showFloatingButton = true;
+          if (floatingButtonRef.current) {
+            floatingButtonRef.current.style.display = 'block';
+          }
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [hasJournal, isJournalOpen]);
+  
   // PATTERN: Component lifecycle
   useEffect(() => {
     // Mark as mounted
     isMountedRef.current = true;
+    console.log('[Journal] Component mounted, hasJournal:', hasJournal);
     
     // Add global CSS for animations
     const styleId = 'journal-animations';
@@ -350,23 +413,23 @@ export default function Journal() {
     return () => {
       // Mark as unmounted
       isMountedRef.current = false;
+      console.log('[Journal] Component unmounted');
       
       // Clear all timers
       clearAllTimers();
       
       // Don't remove the style as other components might be using it
     };
-  }, [clearAllTimers]);
+  }, [clearAllTimers, hasJournal]);
   
   // DEBUGGING: Log key states to help track hydration mismatches
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[Journal] Render with tier:', currentUpgrade, 'hasJournal:', hasJournal, 'isOpen:', isJournalOpen);
-    }
+    console.log('[Journal] Render with tier:', currentUpgrade, 'hasJournal:', hasJournal, 'isOpen:', isJournalOpen);
   }, [currentUpgrade, hasJournal, isJournalOpen]);
   
   // Floating journal button when closed
   if (hasJournal && !isJournalOpen && internalStateRef.current.showFloatingButton) {
+    console.log('[Journal] Rendering floating button');
     return (
       <div 
         ref={floatingButtonRef}
@@ -383,7 +446,16 @@ export default function Journal() {
   }
   
   // Don't render anything if player doesn't have journal or it's not open
-  if (!hasJournal || !isJournalOpen) return null;
+  if (!hasJournal || !isJournalOpen) {
+    if (!hasJournal) {
+      console.log('[Journal] Not rendering - player doesn\'t have journal yet');
+    } else if (!isJournalOpen) {
+      console.log('[Journal] Not rendering - journal is not open');
+    }
+    return null;
+  }
+  
+  console.log('[Journal] Rendering open journal');
   
   // Determine journal cover style based on upgrade level
   const getJournalCoverStyle = () => {

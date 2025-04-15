@@ -11,6 +11,7 @@
  * 5. Optimized primitive extraction
  * 6. Added localStorage corruption recovery
  * 7. Added emergency reset capabilities
+ * 8. Added JournalEventHandler for seamless journal acquisition
  */
 import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { useGameStore } from '@/app/store/gameStore';
@@ -25,6 +26,9 @@ import UnifiedDebugPanel from './debug/UnifiedDebugPanel';
 import ChallengeRouter from './challenges/ChallengeRouter';
 import DayNightTransition from './DayNightTransition';
 import FontPreLoader from './FontPreLoader';
+import JournalEventHandler from '@/app/core/events/JournalEventHandler';
+import JournalAcquisitionAnimation from './journal/JournalAcquisitionAnimation';
+import Journal from './journal/Journal';
 
 // Import optimized store hooks
 import { 
@@ -32,6 +36,14 @@ import {
   useStableCallback,
   usePrimitiveValues
 } from '@/app/core/utils/storeHooks';
+
+// Import storage utils
+import { 
+  clearGameData, 
+  performEmergencyReset, 
+  hasInitFailed, 
+  clearInitFailed
+} from '../core/utils/storageUtils';
 
 // Type declarations for window extensions
 declare global {
@@ -120,12 +132,9 @@ export default function GameContainer() {
     
     // Clear all localStorage items for our app
     try {
-      localStorage.removeItem('rogue-resident-journal');
-      localStorage.removeItem('rogue-resident-knowledge');
-      localStorage.removeItem('rogue-resident-game-state');
-      localStorage.removeItem('init-failed');
+      performEmergencyReset();
     } catch (e) {
-      console.warn("[GameContainer] Error clearing localStorage:", e);
+      console.warn("[GameContainer] Error performing emergency reset:", e);
     }
     
     // Mark that we performed an emergency reset
@@ -253,12 +262,10 @@ export default function GameContainer() {
     
     // Clear localStorage if we have init-failed flag
     try {
-      if (localStorage.getItem('init-failed') === 'true' && !clearingLocalStorageRef.current) {
+      if (hasInitFailed() && !clearingLocalStorageRef.current) {
         console.warn('[GameContainer] Found init-failed flag, clearing localStorage');
-        localStorage.removeItem('rogue-resident-journal');
-        localStorage.removeItem('rogue-resident-knowledge');
-        localStorage.removeItem('rogue-resident-game-state');
-        localStorage.removeItem('init-failed');
+        clearGameData();
+        clearInitFailed();
       }
     } catch (e) {
       console.warn('[GameContainer] Error accessing localStorage:', e);
@@ -651,6 +658,12 @@ export default function GameContainer() {
       {/* Preload critical fonts */}
       <FontPreLoader />
       
+      {/* Journal event handler - Connects NODE_COMPLETED events to JOURNAL_ACQUIRED */}
+      <JournalEventHandler />
+      
+      {/* Journal acquisition animation - Shown when journal is acquired */}
+      <JournalAcquisitionAnimation />
+      
       <div className="flex-grow flex overflow-hidden">
         <div className="flex-grow relative overflow-hidden">
           <div className="absolute inset-0 overflow-auto">
@@ -669,6 +682,9 @@ export default function GameContainer() {
 
       {/* Unified Debug Panel - Only in development */}
       {process.env.NODE_ENV !== 'production' && <UnifiedDebugPanel />}
+      
+      {/* Journal - Will show itself when opened */}
+      <Journal />
     </div>
   );
 }

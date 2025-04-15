@@ -71,6 +71,7 @@ export enum GameEventType {
   JOURNAL_ENTRY_ADDED = 'journal:entry:added',
   JOURNAL_OPENED = 'journal:opened',
   JOURNAL_CLOSED = 'journal:closed',
+  PATTERN_DISCOVERED = 'knowledge:pattern:discovered', // Added for constellation pattern system
 
   // ===== Progression Events =====
   KNOWLEDGE_GAINED = 'progression:knowledge:gained',
@@ -275,6 +276,15 @@ export interface KnowledgeConnectionPayload {
   strength?: number;
   domain?: string;
   metadata?: Record<string, any>;
+}
+
+// ===== New Constellation Pattern System Payload =====
+export interface PatternDiscoveredPayload {
+  patternId: string;
+  patternName: string;
+  rewardPending?: boolean;
+  rewardType?: string;
+  rewardValue?: number | string;
 }
 
 // Type guard to check if an event is a specific game event type

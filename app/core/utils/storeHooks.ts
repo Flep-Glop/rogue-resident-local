@@ -13,6 +13,20 @@ import { useCallback, useEffect, useRef, useMemo, useSyncExternalStore } from 'r
 import { useShallow } from 'zustand/react/shallow';
 import { shallow } from 'zustand/shallow';
 
+// TypeScript declaration for window debug object
+declare global {
+  interface Window {
+    __STORE_HOOKS_DEBUG__?: {
+      resetErrorCount: () => void;
+      getErrorStats: () => Record<string, number>;
+      testSelector: <T, V>(store: any, selector: (state: T) => V, fallback: V) => V;
+      config: {
+        setMaxErrors: (max: number) => string;
+      };
+    };
+  }
+}
+
 // ========= ERROR HANDLING CONFIG =========
 
 // Centralized error handling configuration
@@ -221,10 +235,13 @@ function usePrimitiveStoreValue<StoreType, ValueType extends string | number | b
   // Create stable selector reference
   const stableSelector = useCallback(selector, []);
   
-  // Create getSnapshot function for useSyncExternalStore
+  // Use a ref to cache the previous result to avoid infinite loops
+  const previousValueRef = useRef<ValueType>(fallback);
+
+  // Create a single stable snapshot function reference with useCallback
   const getSnapshot = useCallback(() => {
     try {
-      const state = safeGetState<StoreType>(store, null);
+      const state = safeGetState<StoreType>(store, {});
       if (!state) return fallback;
       
       let value: any;
@@ -238,7 +255,12 @@ function usePrimitiveStoreValue<StoreType, ValueType extends string | number | b
       
       // Validate it's a primitive
       if (isPrimitive(value)) {
-        return value ?? fallback;
+        const finalValue = (value ?? fallback) as ValueType;
+        // Only update the ref if the value changed to reduce rerenders
+        if (previousValueRef.current !== finalValue) {
+          previousValueRef.current = finalValue;
+        }
+        return previousValueRef.current;
       }
       
       errorConfig.logError('NON_PRIMITIVE', 'Non-primitive value returned from selector');
@@ -278,7 +300,7 @@ function useStableStoreValue<StoreType, ValueType>(
   // Create getSnapshot function for useSyncExternalStore
   const getSnapshot = useCallback(() => {
     try {
-      const state = safeGetState<StoreType>(store, null);
+      const state = safeGetState<StoreType>(store, {});
       if (!state) return valueRef.current;
       
       try {
@@ -340,7 +362,7 @@ function usePrimitiveValues<
     try {
       if (!store) return resultRef.current;
       
-      const state = safeGetState<StoreType>(store, null);
+      const state = safeGetState<StoreType>(store, {});
       if (!state) return resultRef.current;
       
       let hasChanged = false;
@@ -442,7 +464,7 @@ function useStoreValueObserver<T, U>(
 ) {
   // Store callback and selector in refs
   const onChangeRef = useRef(onChange);
-  const prevValueRef = useRef<U>();
+  const prevValueRef = useRef<U | undefined>(undefined);
   
   // Update refs when dependencies change
   useEffect(() => {

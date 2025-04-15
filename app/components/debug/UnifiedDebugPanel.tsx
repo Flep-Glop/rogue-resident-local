@@ -1,14 +1,18 @@
+// app/components/debug/UnifiedDebugPanel.tsx
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { usePrimitiveStoreValue, useStableCallback } from '@/app/core/utils/storeHooks';
-import useGameStateMachine, { useGameState } from '@/app/core/statemachine/GameStateMachine';
+import useGameStateMachine from '@/app/core/statemachine/GameStateMachine';
 import { useDialogueStateMachine } from '@/app/core/dialogue/DialogueStateMachine';
 import { useGameStore } from '@/app/store/gameStore';
 import { useJournalStore } from '@/app/store/journalStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { useResourceStore } from '@/app/store/resourceStore';
+import ConstellationDebugControls from './ConstellationDebugControls';
+import { safeDispatch } from '@/app/core/events/CentralEventBus';
+import { GameEventType } from '@/app/core/events/EventTypes';
 
 // Type declarations for window extensions
 declare global {
@@ -28,11 +32,12 @@ declare global {
  * - Action debugging tools
  * - System status
  * - Performance metrics
+ * - Constellation visualization controls
  */
 export default function UnifiedDebugPanel() {
   // Panel state
   const [isExpanded, setIsExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState<'game' | 'map' | 'actions' | 'system' | 'events'>('game');
+  const [activeTab, setActiveTab] = useState<'game' | 'map' | 'actions' | 'system' | 'events' | 'constellation'>('game');
   const [clickPending, setClickPending] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{message: string, type: 'success'|'error'|'info'|null}>({
     message: '',
@@ -59,83 +64,53 @@ export default function UnifiedDebugPanel() {
   // Portal state
   const [portalElement, setPortalElement] = useState<HTMLElement | null>(null);
   
-  // Use memoization to prevent re-renders and store data in refs
-  const stateValues = useMemo(() => {
-    // Create a safe accessor function
-    const safeGetState = (store: any, selector: (s: any) => any, defaultValue: any) => {
-      try {
-        if (!store || typeof store.getState !== 'function') return defaultValue;
-        const state = store.getState();
-        return selector(state) ?? defaultValue;
-      } catch (e) {
-        console.error('Error accessing store:', e);
-        return defaultValue;
-      }
-    };
-
-    // Game state
-    const gameStateMachine = useGameStateMachine;
-    const gameStore = useGameStore;
-    const journalStore = useJournalStore;
-    const knowledgeStore = useKnowledgeStore;
-    const resourceStore = useResourceStore;
-    
-    return {
-      // Game state primitives
-      gamePhase: safeGetState(gameStateMachine, state => state?.gamePhase, 'day'),
-      currentDay: safeGetState(gameStateMachine, state => state?.currentDay, 1),
-      currentNodeId: safeGetState(gameStore, state => state?.currentNodeId, null),
-      isTransitioning: safeGetState(gameStore, state => state?.isTransitioning, false),
-      initialized: safeGetState(gameStore, state => state?.initialized, false),
-      renderPhase: safeGetState(gameStore, state => state?.renderPhase, 'idle'),
-      
-      // Journal state
-      hasJournal: safeGetState(journalStore, state => state?.hasJournal, false),
-      journalTier: safeGetState(journalStore, state => state?.currentUpgrade, 'base'),
-      
-      // Knowledge primitives
-      totalMastery: safeGetState(knowledgeStore, state => state?.totalMastery, 0),
-      discoveredNodeCount: safeGetState(knowledgeStore, state => {
-        if (!state || !state.nodes) return 0;
-        return state.nodes.filter((n: any) => n && n.discovered).length;
-      }, 0),
-      
-      // Resource primitives
-      insight: safeGetState(resourceStore, state => state?.insight, 0),
-      momentum: safeGetState(resourceStore, state => state?.momentum, 0),
-      
-      // Player data
-      player: safeGetState(gameStore, state => state?.player, { health: 0, maxHealth: 0 }),
-    };
-  }, []); // Empty dependency array so this only runs once
-  
-  // Create refs for the state values to access without triggering re-renders
-  const stateRef = useRef(stateValues);
-  
-  // Store refs for accessing
-  const storeRefs = useRef({
-    gameStateMachine: useGameStateMachine,
-    gameStore: useGameStore,
-    journalStore: useJournalStore,
-    knowledgeStore: useKnowledgeStore,
-    resourceStore: useResourceStore,
+  // Initialize state reference with safe default values to prevent undefined errors
+  const stateRef = useRef<any>({
+    gamePhase: 'day',
+    currentDay: 1,
+    currentNodeId: null,
+    isTransitioning: false,
+    initialized: false,
+    renderPhase: 'idle',
+    hasJournal: false,
+    journalTier: 'base',
+    totalMastery: 0,
+    discoveredNodeCount: 0,
+    insight: 0,
+    momentum: 0,
+    player: { health: 0, maxHealth: 0 }
   });
   
-  // Manual refresh function for when we need updated state
-  const refreshStateValues = useCallback(() => {
-    if (!mountedRef.current) return;
-    
-    const safeGetState = (store: any, selector: (s: any) => any, defaultValue: any) => {
-      try {
-        if (!store || typeof store.getState !== 'function') return defaultValue;
-        const state = store.getState();
-        return selector(state) ?? defaultValue;
-      } catch (e) {
-        return defaultValue;
-      }
-    };
-    
-    const { gameStateMachine, gameStore, journalStore, knowledgeStore, resourceStore } = storeRefs.current;
+  // Access hooks at the component top level, not inside other hooks
+  // This is safe and follows React rules
+  const gameStateMachine = useGameStateMachine();
+  
+  // SafeGetState helper function with proper typing
+  function safeGetState<T, K>(
+    store: any,
+    selector: (state: any) => T,
+    defaultValue: K
+  ): T | K {
+    try {
+      if (!store) return defaultValue;
+      const state = typeof store.getState === 'function' ? store.getState() : store;
+      if (!state) return defaultValue;
+      return selector(state);
+    } catch (error) {
+      console.warn('Error accessing store state in debug panel:', error);
+      return defaultValue;
+    }
+  }
+  
+  // Don't call hooks inside this function - we pass the states as arguments
+  const refreshStateValues = useCallback((
+    gameStateMachine: any,
+    gameStore: any,
+    journalStore: any,
+    knowledgeStore: any,
+    resourceStore: any
+  ) => {
+    if (!stateRef.current) return;
     
     stateRef.current = {
       // Game state primitives
@@ -164,8 +139,29 @@ export default function UnifiedDebugPanel() {
       // Player data
       player: safeGetState(gameStore, state => state?.player, { health: 0, maxHealth: 0 }),
     };
-    
   }, []);
+  
+  // Get fresh state and call refreshStateValues - must be defined after refreshStateValues
+  const updateStateValues = useCallback(() => {
+    try {
+      // Cache the values in local variables first
+      const gameStore = useGameStore.getState();
+      const journalStore = useJournalStore.getState();  
+      const knowledgeStore = useKnowledgeStore.getState();
+      const resourceStore = useResourceStore.getState();
+      
+      // Then update using the cached values
+      refreshStateValues(
+        gameStateMachine, 
+        gameStore,
+        journalStore,
+        knowledgeStore,
+        resourceStore
+      );
+    } catch (error) {
+      console.error('Error updating state values:', error);
+    }
+  }, [refreshStateValues, gameStateMachine]);
   
   // Initialization effect to run once
   useEffect(() => {
@@ -174,9 +170,9 @@ export default function UnifiedDebugPanel() {
     // Initialize the component once
     console.log('Initializing UnifiedDebugPanel');
     
-    // Subscribe to the game store
+    // Subscribe to the game store for changes
     const unsubscribe = useGameStore.subscribe(() => {
-      // Don't update state directly - just mark that we need a refresh
+      // Just mark that we need a refresh, don't update state directly
       refreshNeededRef.current = true;
     });
     
@@ -232,7 +228,11 @@ export default function UnifiedDebugPanel() {
     };
     
     // Capture initial state values
-    refreshStateValues();
+    try {
+      updateStateValues();
+    } catch (error) {
+      console.error('Error initializing state values:', error);
+    }
     
     // Mark initialization as completed
     initCompletedRef.current = true;
@@ -244,27 +244,58 @@ export default function UnifiedDebugPanel() {
       console.warn = originalConsoleWarn;
       unsubscribe();
     };
-  }, []);
+  }, [updateStateValues]);
   
   // Auto-refresh effect that runs on an interval instead of on every render
   useEffect(() => {
+    // Create a reference to hold the latest state values for stable access
+    const stateCache = {
+      gameStore: null as any,
+      journalStore: null as any,
+      knowledgeStore: null as any,
+      resourceStore: null as any
+    };
+    
+    // Function to update the cache without causing re-renders
+    const updateCache = () => {
+      stateCache.gameStore = useGameStore.getState();
+      stateCache.journalStore = useJournalStore.getState();
+      stateCache.knowledgeStore = useKnowledgeStore.getState();
+      stateCache.resourceStore = useResourceStore.getState();
+    };
+    
+    // Create an interval for background refresh without causing re-renders
     const intervalId = setInterval(() => {
       if (refreshNeededRef.current && mountedRef.current) {
-        refreshStateValues();
-        refreshNeededRef.current = false;
+        try {
+          // Update the cache first
+          updateCache();
+          
+          // Don't trigger React updates here, just update the ref silently
+          refreshStateValues(
+            gameStateMachine,
+            stateCache.gameStore,
+            stateCache.journalStore,
+            stateCache.knowledgeStore,
+            stateCache.resourceStore
+          );
+          refreshNeededRef.current = false;
+        } catch (error) {
+          console.error('Error in auto-refresh:', error);
+        }
       }
     }, 500); // Update every 500ms if needed
     
+    // Do initial cache update
+    updateCache();
+    
     return () => clearInterval(intervalId);
-  }, []);
+  }, [refreshStateValues, gameStateMachine]);
   
-  // Track mounted state
+  // Track mounted state - keep this simple with no dependencies
   useEffect(() => {
     mountedRef.current = true;
-    
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
   
   // Feedback message timeout
@@ -280,14 +311,14 @@ export default function UnifiedDebugPanel() {
     }
   }, [actionFeedback]);
   
-  // Toggle panel expansion
+  // Toggle panel expansion with stable references
   const togglePanel = useCallback(() => {
     setIsExpanded(prev => !prev);
     if (!isExpanded) {
-      // Refresh state when expanding
-      refreshStateValues();
+      // Only refresh when expanding to avoid constant updates
+      updateStateValues();
     }
-  }, [isExpanded, refreshStateValues]);
+  }, [isExpanded, updateStateValues]);
   
   // Show action feedback
   const showFeedback = useCallback((message: string, type: 'success'|'error'|'info') => {
@@ -304,27 +335,35 @@ export default function UnifiedDebugPanel() {
     try {
       action();
       showFeedback(successMessage, 'success');
-      // Refresh state values after action completes
+      
+      // Use a timeout to avoid render loop issues
+      // and ensure state updates are sequential
       setTimeout(() => {
-        refreshStateValues();
+        try {
+          updateStateValues();
+        } catch (error) {
+          console.error('Error updating state after action:', error);
+        }
       }, 100);
     } catch (error) {
       console.error('Action error:', error);
       showFeedback('Error: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
     } finally {
+      // Always clear pending state after a delay
       setTimeout(() => {
         if (mountedRef.current) {
           setClickPending(false);
         }
       }, 500);
     }
-  }, [clickPending, showFeedback, refreshStateValues]);
+  }, [clickPending, showFeedback, updateStateValues]);
   
   // Common actions
   const giveJournal = useCallback(() => {
+    const journalStore = useJournalStore.getState();
+    
     handleAction(
       () => {
-        const journalStore = useJournalStore.getState();
         if (journalStore && journalStore.initializeJournal) {
           journalStore.initializeJournal('technical', 'debug_panel');
         } else {
@@ -336,27 +375,29 @@ export default function UnifiedDebugPanel() {
     );
   }, [handleAction]);
   
-  const togglePhase = useCallback(() => {
+  const handleDayTransition = useCallback(() => {
+    const currentPhase = stateRef.current.gamePhase;
+    
     handleAction(
       () => {
-        const stateMachine = useGameStateMachine.getState();
-        if (stateRef.current.gamePhase === 'day' && stateMachine?.beginDayCompletion) {
-          stateMachine.beginDayCompletion();
-        } else if (stateRef.current.gamePhase === 'night' && stateMachine?.beginNightCompletion) {
-          stateMachine.beginNightCompletion();
+        if (currentPhase === 'day' && gameStateMachine?.beginDayCompletion) {
+          gameStateMachine.beginDayCompletion();
+        } else if (currentPhase === 'night' && gameStateMachine?.beginNightCompletion) {
+          gameStateMachine.beginNightCompletion();
         } else {
-          throw new Error(`Cannot toggle from phase: ${stateRef.current.gamePhase}`);
+          throw new Error('Cannot transition from current phase');
         }
       },
-      `Transitioning to ${stateRef.current.gamePhase === 'day' ? 'night' : 'day'}...`,
-      `Beginning ${stateRef.current.gamePhase === 'day' ? 'night' : 'day'} phase`
+      'Transitioning...',
+      'Phase transition initiated'
     );
-  }, [handleAction]);
+  }, [handleAction, gameStateMachine]);
   
   const addInsight = useCallback(() => {
+    const resourceStore = useResourceStore.getState();
+    
     handleAction(
       () => {
-        const resourceStore = useResourceStore.getState();
         if (resourceStore?.updateInsight) {
           resourceStore.updateInsight(25, 'debug_panel');
         } else {
@@ -369,24 +410,29 @@ export default function UnifiedDebugPanel() {
   }, [handleAction]);
   
   const addMomentum = useCallback(() => {
+    const resourceStore = useResourceStore.getState();
+    const currentMomentum = typeof stateRef.current.momentum === 'number' 
+      ? stateRef.current.momentum 
+      : 0;
+    
     handleAction(
       () => {
-        const resourceStore = useResourceStore.getState();
         if (resourceStore?.setMomentum) {
-          resourceStore.setMomentum(Math.min(3, stateRef.current.momentum + 1));
+          resourceStore.setMomentum(Math.min(3, currentMomentum + 1));
         } else {
           throw new Error('Resource store not available');
         }
       },
       'Adding momentum...',
-      `Momentum set to ${Math.min(3, stateRef.current.momentum + 1)}`
+      `Momentum set to ${Math.min(3, currentMomentum + 1)}`
     );
   }, [handleAction]);
   
   const addKnowledge = useCallback(() => {
+    const knowledgeStore = useKnowledgeStore.getState();
+    
     handleAction(
       () => {
-        const knowledgeStore = useKnowledgeStore.getState();
         if (knowledgeStore?.updateMastery && knowledgeStore?.discoverConcept) {
           knowledgeStore.updateMastery('radiation-dosimetry', 15);
           knowledgeStore.discoverConcept('radiation-dosimetry');
@@ -446,9 +492,10 @@ export default function UnifiedDebugPanel() {
   
   // Node selection actions
   const selectNode = useCallback((nodeId: string) => {
+    const gameStore = useGameStore.getState();
+    
     handleAction(
       () => {
-        const gameStore = useGameStore.getState();
         if (gameStore?.setCurrentNode) {
           gameStore.setCurrentNode(nodeId);
         } else {
@@ -461,13 +508,15 @@ export default function UnifiedDebugPanel() {
   }, [handleAction]);
   
   const clearCurrentNode = useCallback(() => {
+    const gameStore = useGameStore.getState();
+    const currentNodeId = stateRef.current.currentNodeId;
+    
     handleAction(
       () => {
-        if (!stateRef.current.currentNodeId) {
+        if (!currentNodeId) {
           throw new Error('No node currently selected');
         }
         
-        const gameStore = useGameStore.getState();
         if (gameStore?.setCurrentNode) {
           gameStore.setCurrentNode(null);
         } else {
@@ -483,7 +532,8 @@ export default function UnifiedDebugPanel() {
   const renderGameTab = () => {
     // Don't call refreshStateValues during render
     // refreshStateValues();
-    const state = stateRef.current;
+    const state = stateRef.current || {};
+    const player = state.player || { health: 0, maxHealth: 0 };
     
     return (
       <div className="p-3 bg-gray-800/80 rounded-md">
@@ -491,11 +541,11 @@ export default function UnifiedDebugPanel() {
         <div className="bg-black/60 p-2 rounded pixel-borders">
           <div className="flex justify-between mb-1">
             <span>Phase:</span>
-            <span className="text-green-400">{state.gamePhase}</span>
+            <span className="text-green-400">{state.gamePhase || 'day'}</span>
           </div>
           <div className="flex justify-between mb-1">
             <span>Day:</span>
-            <span>{state.currentDay}</span>
+            <span>{state.currentDay || 1}</span>
           </div>
           <div className="flex justify-between mb-1">
             <span>Current Node:</span>
@@ -511,7 +561,7 @@ export default function UnifiedDebugPanel() {
           </div>
           <div className="flex justify-between">
             <span>Mastery:</span>
-            <span>{state.totalMastery}% ({state.discoveredNodeCount} nodes)</span>
+            <span>{state.totalMastery || 0}% ({state.discoveredNodeCount || 0} nodes)</span>
           </div>
         </div>
         
@@ -519,15 +569,15 @@ export default function UnifiedDebugPanel() {
         <div className="bg-black/60 p-2 rounded pixel-borders">
           <div className="flex justify-between mb-1">
             <span>Health:</span>
-            <span className="text-red-400">{state.player.health}/{state.player.maxHealth}</span>
+            <span className="text-red-400">{player.health}/{player.maxHealth}</span>
           </div>
           <div className="flex justify-between mb-1">
             <span>Insight:</span>
-            <span className="text-blue-300">{state.insight}/100</span>
+            <span className="text-blue-300">{state.insight || 0}/100</span>
           </div>
           <div className="flex justify-between">
             <span>Momentum:</span>
-            <span className="text-orange-300">{state.momentum}/3</span>
+            <span className="text-orange-300">{state.momentum || 0}/3</span>
           </div>
         </div>
         
@@ -544,7 +594,7 @@ export default function UnifiedDebugPanel() {
   const renderMapTab = () => {
     // Don't call refreshStateValues during render
     // refreshStateValues();
-    const state = stateRef.current;
+    const state = stateRef.current || {};
     
     return (
       <div className="p-3 bg-gray-800/80 rounded-md">
@@ -568,7 +618,7 @@ export default function UnifiedDebugPanel() {
           </div>
           <div className="flex justify-between">
             <span>Render Phase:</span>
-            <span>{state.renderPhase}</span>
+            <span>{state.renderPhase || 'idle'}</span>
           </div>
         </div>
         
@@ -637,7 +687,7 @@ export default function UnifiedDebugPanel() {
   const renderActionsTab = () => {
     // Don't call refreshStateValues during render
     // refreshStateValues();
-    const state = stateRef.current;
+    const state = stateRef.current || {};
     
     return (
       <div className="p-3 bg-gray-800/80 rounded-md">
@@ -645,7 +695,7 @@ export default function UnifiedDebugPanel() {
         <div className="grid grid-cols-2 gap-2">
           <button
             className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-500 disabled:opacity-50 transition pixel-button"
-            onClick={togglePhase}
+            onClick={handleDayTransition}
             disabled={clickPending}
           >
             {state.gamePhase === 'day' ? 'End Day' : 'Start Day'}
@@ -660,9 +710,37 @@ export default function UnifiedDebugPanel() {
           </button>
           
           <button
+            className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-500 disabled:opacity-50 transition pixel-button"
+            onClick={() => {
+              handleAction(
+                () => {
+                  // Direct localStorage approach to clear journal
+                  localStorage.removeItem('rogue-resident-journal');
+                  
+                  // Refresh state to reflect changes
+                  setStorageStatus(prev => ({
+                    ...prev,
+                    journal: false
+                  }));
+                  
+                  // Force page reload to apply changes
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 500);
+                },
+                'Clearing journal...',
+                'Journal cleared!'
+              );
+            }}
+            disabled={!state.hasJournal || clickPending}
+          >
+            Clear Journal
+          </button>
+          
+          <button
             className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-500 disabled:opacity-50 transition pixel-button"
             onClick={addInsight}
-            disabled={clickPending || state.insight >= 100}
+            disabled={clickPending || (state.insight || 0) >= 100}
           >
             Add Insight
           </button>
@@ -670,7 +748,7 @@ export default function UnifiedDebugPanel() {
           <button
             className="px-2 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-500 disabled:opacity-50 transition pixel-button"
             onClick={addMomentum}
-            disabled={state.momentum >= 3 || clickPending}
+            disabled={(state.momentum || 0) >= 3 || clickPending}
           >
             Add Momentum
           </button>
@@ -690,6 +768,30 @@ export default function UnifiedDebugPanel() {
           >
             Reset Game
           </button>
+          
+          <button
+            className="px-2 py-1 col-span-2 bg-green-600 text-white text-xs rounded hover:bg-green-500 disabled:opacity-50 transition pixel-button"
+            onClick={() => {
+              handleAction(
+                () => {
+                  safeDispatch(
+                    GameEventType.JOURNAL_ACQUIRED,
+                    {
+                      tier: 'technical',
+                      character: 'kapoor',
+                      source: 'debug_panel'
+                    },
+                    'debug_panel'
+                  );
+                },
+                'Triggering journal acquisition...',
+                'Journal acquisition event dispatched'
+              );
+            }}
+            disabled={clickPending}
+          >
+            Manual Journal Acquisition
+          </button>
         </div>
       </div>
     );
@@ -698,7 +800,7 @@ export default function UnifiedDebugPanel() {
   const renderSystemTab = () => {
     // Don't call refreshStateValues during render
     // refreshStateValues();
-    const state = stateRef.current;
+    const state = stateRef.current || {};
     
     return (
       <div className="p-3 bg-gray-800/80 rounded-md">
@@ -712,7 +814,7 @@ export default function UnifiedDebugPanel() {
           </div>
           <div className="flex justify-between mb-1">
             <span>Render Phase:</span>
-            <span>{state.renderPhase}</span>
+            <span>{state.renderPhase || 'idle'}</span>
           </div>
           <div className="flex justify-between mb-1">
             <span>Environment:</span>
@@ -774,6 +876,13 @@ export default function UnifiedDebugPanel() {
     );
   };
   
+  // NEW: Render the constellation tab
+  const renderConstellationTab = () => {
+    return (
+      <ConstellationDebugControls showFeedback={showFeedback} />
+    );
+  };
+  
   // Render active tab content
   const renderTabContent = () => {
     // Don't call refreshStateValues during render
@@ -785,6 +894,7 @@ export default function UnifiedDebugPanel() {
       case 'actions': return renderActionsTab();
       case 'system': return renderSystemTab();
       case 'events': return renderEventsTab();
+      case 'constellation': return renderConstellationTab();
       default: return renderGameTab();
     }
   };
@@ -882,7 +992,7 @@ export default function UnifiedDebugPanel() {
       {isExpanded && (
         <div className="text-white overflow-y-auto" style={{ maxHeight: 'calc(80vh - 40px)' }}>
           {/* Tab navigation */}
-          <div className="flex border-b border-gray-700">
+          <div className="flex border-b border-gray-700 flex-wrap">
             <button
               className={`px-3 py-2 text-xs transition-colors ${activeTab === 'game' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}
               onClick={() => setActiveTab('game')}
@@ -900,6 +1010,12 @@ export default function UnifiedDebugPanel() {
               onClick={() => setActiveTab('actions')}
             >
               Actions
+            </button>
+            <button
+              className={`px-3 py-2 text-xs transition-colors ${activeTab === 'constellation' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}
+              onClick={() => setActiveTab('constellation')}
+            >
+              Constellation
             </button>
             <button
               className={`px-3 py-2 text-xs transition-colors ${activeTab === 'system' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}
@@ -965,4 +1081,4 @@ export default function UnifiedDebugPanel() {
   
   // Return the panel content inside a portal when possible
   return portalElement ? createPortal(panelContent, portalElement) : panelContent;
-} 
+}

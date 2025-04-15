@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from 'next';
 import PixelThemeProvider from './components/PixelThemeProvider';
 import FontPreLoader from './components/FontPreLoader';
 import { Inter } from 'next/font/google';
-import ClientBuildInfo from './components/debug/ClientBuildInfo';
 
 // Optional: Using the Next.js built-in font system
 const inter = Inter({ 
@@ -67,8 +66,7 @@ export default function RootLayout({
             {children}
           </main>
           
-          {/* Development debug component - imported directly as a client component */}
-          {process.env.NODE_ENV === 'development' && <ClientBuildInfo />}
+          {/* Debug components removed - using UnifiedDebugPanel instead */}
         </PixelThemeProvider>
       </body>
     </html>

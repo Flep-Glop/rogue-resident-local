@@ -1,33 +1,46 @@
 // app/core/init.ts
+'use client';
+
 /**
  * Optimized Core Systems Initialization with Enhanced Debugging
  * 
- * Improvements:
- * 1. More reliable initialization sequence
- * 2. Comprehensive logging for each initialization step
- * 3. Global initialization state tracking
- * 4. Detailed error reporting
- * 5. Visual feedback for initialization status
- * 6. Breakage of circular dependencies
+ * Features:
+ * 1. Phased initialization to prevent circular dependencies
+ * 2. Retry and timeout handling with clear error messaging
+ * 3. Debug status tracking via window.__INIT_STATE__
+ * 4. Comprehensive error handling and reporting
+ * 5. Configurable timeouts and retry attempts
+ * 6. Store persistence stabilization
  * 7. Fix for store sequence initialization
  */
 import { useEffect, useState, useRef, useCallback } from 'react';
 
 // Core System Imports - using consistent pattern
-import CentralEventBus, { useEventBus, safeDispatch } from './events/CentralEventBus';
-import useGameStateMachine from './statemachine/GameStateMachine';
-import { progressionResolver } from './progression/ProgressionResolver';
-import DialogueStateMachine, { useDialogueStateMachine } from './dialogue/DialogueStateMachine';
+import { useGameStore } from '../store/gameStore';  
+import { useGameStateMachine } from './statemachine/GameStateMachine';
+import { useJournalStore } from '../store/journalStore';
+import { useKnowledgeStore } from '../store/knowledgeStore';
+import { useResourceStore } from '../store/resourceStore';
+import { useEventBus, safeDispatch } from './events/CentralEventBus';
+import { useDialogueStateMachine } from './dialogue/DialogueStateMachine';
+
+// Specific utilities
+import CentralEventBus from './events/CentralEventBus';
+import { DialogueStateMachine } from './dialogue/DialogueStateMachine';
+import { setupGameStateMachine } from './statemachine/GameStateMachine';
+import { setupProgressionResolver } from './progression/ProgressionResolver';
 import ActionIntegration from './dialogue/ActionIntegration';
+
+// Storage utilities
+import { 
+  hasInitFailed, 
+  clearGameData, 
+  clearInitFailed, 
+  markInitFailed
+} from './utils/storageUtils';
 
 // Chamber Pattern Debugging - only in development
 import { createTrackedStores } from '@/app/core/utils/storeAnalyzer';
-
-// Import stores but DO NOT access them directly during initialization
-import { useGameStore } from '@/app/store/gameStore';
-import { useKnowledgeStore } from '@/app/store/knowledgeStore';
-import { useJournalStore } from '@/app/store/journalStore';
-import { useResourceStore } from '@/app/store/resourceStore';
 
 // Type imports
 import type { GameEventType } from './events/EventTypes';
@@ -41,6 +54,23 @@ interface NodeModule {
     accept(path?: string, callback?: () => void): void;
     dispose(callback: (data: any) => void): void;
   };
+}
+
+// Type extensions for window object
+declare global {
+  interface Window {
+    __FORCE_REINITIALIZE__?: () => void;
+    __TOGGLE_DEBUG_PANEL__?: () => void;
+    __INIT_STATE__?: any;
+    __INIT_LOG__?: Array<{timestamp: number, type: string, message: string}>;
+    __CHAMBER_DEBUG__?: {
+      resetStats: () => void;
+    };
+    __STORE_ANALYZER__?: {
+      reset: () => void;
+    };
+    __CORE_SYSTEMS_DEBUG__?: any;
+  }
 }
 
 declare const module: NodeModule;
@@ -58,7 +88,16 @@ const INIT_CONFIG = {
 };
 
 // Global initialization state tracking - accessible from window
-const INIT_STATE = {
+const INIT_STATE: {
+  inProgress: boolean;
+  completed: boolean;
+  attempts: number;
+  errorCount: number;
+  initSteps: Record<string, boolean>;
+  lastError: string | null;
+  startTime: number;
+  completionTime: number;
+} = {
   inProgress: false,
   completed: false,
   attempts: 0,
@@ -82,12 +121,10 @@ const INIT_STATE = {
 if (typeof window !== 'undefined') {
   try {
     // Only clear if we've failed previous attempts
-    if (localStorage.getItem('init-failed') === 'true') {
+    if (hasInitFailed()) {
       console.warn('[Init] Detected previous initialization failure, clearing localStorage state');
-      localStorage.removeItem('rogue-resident-journal');
-      localStorage.removeItem('rogue-resident-knowledge');
-      localStorage.removeItem('rogue-resident-game-state');
-      localStorage.removeItem('init-failed');
+      clearGameData();
+      clearInitFailed();
     }
   } catch (e) {
     console.warn('[Init] Error accessing localStorage:', e);
@@ -179,7 +216,7 @@ export function useCoreInitialization() {
         // Mark initialization as failed for next page load to clear localStorage
         if (typeof window !== 'undefined') {
           try {
-            localStorage.setItem('init-failed', 'true');
+            markInitFailed();
           } catch (e) {
             console.warn('[Init] Error setting localStorage:', e);
           }
@@ -194,9 +231,7 @@ export function useCoreInitialization() {
         if (typeof window !== 'undefined') {
           console.warn('[Init] Attempting emergency reset of all stores');
           try {
-            localStorage.removeItem('rogue-resident-journal');
-            localStorage.removeItem('rogue-resident-knowledge');
-            localStorage.removeItem('rogue-resident-game-state');
+            clearGameData();
           } catch (e) {
             console.warn('[Init] Error clearing localStorage:', e);
           }
@@ -316,6 +351,8 @@ export function useCoreInitialization() {
       setInitPhase('progression-resolver');
       logInit("Referencing Progression Resolver...");
       
+      const progressionResolver = setupProgressionResolver();
+      
       if (!progressionResolver) {
         throw new Error("Progression Resolver reference failed");
       }
@@ -339,99 +376,144 @@ export function useCoreInitialization() {
     try {
       // 6. Initialize Resource Store
       setInitPhase('resource-store');
-      logInit("Initializing Resource Store...");
+      setInitProgress(50);
       
-      const resourceStore = useResourceStore.getState();
-      if (!resourceStore) {
-        throw new Error("Resource Store initialization failed");
+      logInit("Phase 2: Initializing resource store...");
+      
+      // Allow a short delay to break potential dependency cycles
+      await new Promise(resolve => setTimeout(resolve, INIT_CONFIG.STORE_INIT_DELAY));
+      
+      // Get a reference to the resource store
+      try {
+        useResourceStore.getState();
+        INIT_STATE.initSteps.resourceStore = true;
+        logInit("Resource store initialized", "success");
+      } catch (e) {
+        handleInitError(e); 
+        return;
       }
       
-      // Log resource store properties
-      logInit(`Resource Store properties: ${Object.keys(resourceStore).join(', ')}`);
-      INIT_STATE.initSteps.resourceStore = true;
-      logInit("✅ Resource Store initialized");
-      setInitProgress(70);
-
       // 7. Initialize Game Store
       setInitPhase('game-store');
-      logInit("Initializing Game Store...");
+      setInitProgress(60);
       
-      const gameStore = useGameStore.getState();
+      logInit("Phase 2: Initializing game store...");
       
-      if (!gameStore || !gameStore.initializeGame) {
-        throw new Error("Game Store initialization action missing");
+      try {
+        const gameStore = useGameStore.getState();
+        gameStoreReady.current = true;
+        INIT_STATE.initSteps.gameStore = true;
+        logInit("Game store initialized", "success");
+      } catch (e) {
+        handleInitError(e);
+        return;
       }
       
-      // Initialize game with exploration mode
-      logInit("Calling initializeGameAction with exploration mode...");
-      gameStore.initializeGame({ startingMode: 'exploration' });
+      // 8. Initialize Knowledge Store with discovered concepts
+      setInitPhase('knowledge-store');
+      setInitProgress(70);
       
-      // Verify game store initialized correctly
-      logInit(`Game Store initialized with properties: ${Object.keys(gameStore).join(', ')}`);
-      INIT_STATE.initSteps.gameStore = true;
-      logInit("✅ Game Store initialized");
+      logInit("Phase 2: Initializing knowledge store...");
+      
+      try {
+        const knowledgeStore = useKnowledgeStore.getState();
+        // Discover core concepts as starting points
+        const coreConcepts = ['treatment-planning', 'radiation-therapy', 'linac-anatomy', 'dosimetry'];
+        coreConcepts.forEach(conceptId => {
+          knowledgeStore.discoverConcept(conceptId);
+          // Give some initial mastery
+          knowledgeStore.updateMastery(conceptId, 30);
+        });
+        logInit("Knowledge store initialized with core concepts", "success");
+      } catch (e) {
+        handleInitError(e);
+        return;
+      }
+      
+      // 9. Initialize Chamber Pattern diagnostics in development
+      setInitPhase('chamber-diagnostics');
       setInitProgress(80);
       
-      // 8. Initialize Chamber Pattern diagnostics in development
-      setInitPhase('chamber-diagnostics');
       if (IS_DEV) {
+        logInit("Phase 2: Setting up Chamber Pattern diagnostics...");
         try {
-          logInit("Initializing Chamber Pattern diagnostics...");
+          // Initialize store analyzers for performance monitoring
           createTrackedStores();
+          
+          // Expose diagnostic reset method to window
+          if (typeof window !== 'undefined') {
+            window.__CHAMBER_DEBUG__ = {
+              resetStats: () => {
+                logInit("Resetting Chamber diagnostics", "info");
+                window.__STORE_ANALYZER__?.reset();
+              }
+            };
+          }
+          
           INIT_STATE.initSteps.chamberDiagnostics = true;
-          logInit("✅ Chamber Pattern diagnostics initialized");
+          logInit("Chamber Pattern diagnostics initialized", "success");
         } catch (e) {
-          // Non-critical, just log warning
-          console.warn("⚠️ Chamber Pattern diagnostics initialization failed:", e);
-          logInit(`⚠️ Chamber diagnostics failed: ${e instanceof Error ? e.message : String(e)}`, "warning");
+          logInit(`Chamber diagnostics initialization error: ${e}`, "warning");
+          // Non-critical, continue initialization
         }
       }
       setInitProgress(90);
 
       // Verify all critical systems
-      logInit("Performing final verification of all systems...");
-      const verificationResults = {
-        eventBus: !!CentralEventBus,
-        dialogueStateMachine: !!DialogueStateMachine,
-        gameStateMachine: !!useGameStateMachine.getState(),
-        progressionResolver: !!progressionResolver,
-        resourceStore: !!useResourceStore.getState(),
-        gameStore: !!useGameStore.getState()
-      };
+      setInitPhase('verification');
+      logInit("Phase 2: Verifying all core systems...");
       
-      logInit(`Final verification results: ${JSON.stringify(verificationResults)}`);
+      const criticalSystems = [
+        'eventBus', 
+        'dialogueStateMachine', 
+        'gameStateMachine', 
+        'resourceStore', 
+        'gameStore'
+      ];
       
-      // Success! Mark initialization complete
-      INIT_STATE.completed = true;
-      INIT_STATE.inProgress = false;
-      INIT_STATE.completionTime = Date.now();
-      setInitialized(true);
-      setInitError(null);
-      setInitProgress(100);
-      setInitPhase('completed');
+      const missingSteps = criticalSystems.filter(
+        step => !INIT_STATE.initSteps[step]
+      );
       
-      // Clear failed init flag
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem('init-failed');
-        } catch (e) {
-          // Non-critical
+      if (missingSteps.length > 0) {
+        const errorMsg = `Initialization incomplete. Missing systems: ${missingSteps.join(', ')}`;
+        logInit(errorMsg, "error");
+        setInitError(errorMsg);
+        INIT_STATE.inProgress = false;
+        INIT_STATE.lastError = errorMsg;
+        
+        // Mark as failed for recovery on next load
+        if (typeof window !== 'undefined') {
+          try {
+            markInitFailed();
+          } catch (e) {
+            console.warn('[Init] Error setting localStorage:', e);
+          }
         }
+        
+        return;
       }
       
-      const duration = INIT_STATE.completionTime - INIT_STATE.startTime;
-      logInit(`✅ Core systems initialization complete in ${duration}ms!`, "success");
+      // Successful initialization
+      setInitPhase('completed');
+      setInitProgress(100);
       
-      // Clear max init timer
+      INIT_STATE.inProgress = false;
+      INIT_STATE.completed = true;
+      INIT_STATE.completionTime = Date.now();
+      
+      logInit(`Core systems initialized in ${INIT_STATE.completionTime - INIT_STATE.startTime}ms`, "success");
+      
+      // If we get here, we're successfully initialized
       if (maxInitTimerRef.current) {
         clearTimeout(maxInitTimerRef.current);
         maxInitTimerRef.current = null;
       }
       
-      return true;
-    } catch (error) {
-      handleInitError(error);
-      return false;
+      // Set initialized state to trigger UI updates
+      setInitialized(true);
+    } catch (e) {
+      handleInitError(e);
     }
   };
   
@@ -499,7 +581,7 @@ export function useCoreInitialization() {
       // Mark as failed for next load
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem('init-failed', 'true');
+          markInitFailed();
         } catch (e) {
           // Non-critical
         }
@@ -646,9 +728,7 @@ export function useCoreInitialization() {
         clearLocalStorage: () => {
           try {
             logInit("Clearing localStorage state...", "warning");
-            localStorage.removeItem('rogue-resident-journal');
-            localStorage.removeItem('rogue-resident-knowledge');
-            localStorage.removeItem('rogue-resident-game-state');
+            clearGameData();
             return "LocalStorage cleared";
           } catch (e) {
             return `Error clearing localStorage: ${e}`;
@@ -670,7 +750,7 @@ export function useCoreInitialization() {
           hasEventBus: !!CentralEventBus,
           hasDialogueStateMachine: !!DialogueStateMachine,
           hasStateMachine: !!useGameStateMachine,
-          hasProgressionResolver: !!progressionResolver,
+          hasProgressionResolver: !!setupProgressionResolver(),
           hasActionIntegration: !!ActionIntegration,
           hasResourceStore: !!useResourceStore,
           eventBusState: CentralEventBus?.getInstance()?.getState ? 
