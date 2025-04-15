@@ -16,9 +16,11 @@ import { NodeType } from '../../../types/game';
 import { getCharacterData } from '../../../data/characters';
 import useGameStateMachine from '../../../core/statemachine/GameStateMachine';
 import { useEventBus } from '../../../core/events/CentralEventBus';
+import { withVisualExtender, ConversationExtension, ExtensionData, ExtensionResult } from '../../extensions/VisualExtender';
 
 // Import the kapoor dialogue content
 import kapoorCalibrationDialogue from '../../../data/dialogues/calibrations/kapoor-calibration';
+import kapoorSecondNodeDialogue from '../../../data/dialogues/calibrations/kapoor-second-node';
 
 // ===== TYPES =====
 
@@ -52,10 +54,18 @@ interface ConversationFormatProps {
   onOptionSelected?: (option: DialogueOptionView, stageId: string) => void;
   onStageChange?: (newStageId: string, prevStageId: string) => void;
   stateMachineEnabled?: boolean;
+  
+  // Visual Extension props from HOC
+  extension?: ExtensionData;
+  extensionResult?: ExtensionResult | null;
+  isExtensionActive?: boolean;
+  onExtensionComplete?: (result: ExtensionResult) => void;
+  onExtensionStart?: () => void;
 }
 
 /**
  * ConversationFormat - Optimized with Chamber Pattern
+ * Enhanced with Visual Extension support
  * 
  * This component applies the Chamber Transition Pattern:
  * 1. Uses primitive values instead of objects for rendering
@@ -72,7 +82,14 @@ function ConversationFormat({
   onComplete,
   onOptionSelected,
   onStageChange,
-  stateMachineEnabled = false
+  stateMachineEnabled = false,
+  
+  // Visual Extension props
+  extension,
+  extensionResult,
+  isExtensionActive = false,
+  onExtensionComplete,
+  onExtensionStart
 }: ConversationFormatProps) {
   // Normalize character ID (support both property names for flexibility)
   const normalizedCharacterId = characterId || character || '';
@@ -124,12 +141,40 @@ function ConversationFormat({
     };
   }, [playerInsight]);
   
-  // Use the proper dialogue content from imported file
+  // Use the proper dialogue content based on dialogue ID or node ID
   const dialogueContent = useMemo(() => {
-    // For now we're just using kapoor dialogue, but this could be expanded to use dialogueStages prop
-    // or select different dialogues based on character/nodeId
+    // If dialogueStages were provided as a prop, use those
+    if (dialogueStages && dialogueStages.length > 0) {
+      return dialogueStages;
+    }
+    
+    // If dialogueId is provided, we could add a mapping to specific dialogue content
+    if (dialogueId) {
+      // For future expansion - implement a dialogue registry or mapping here
+      console.log(`[ConversationFormat] Using dialogueId: ${dialogueId}`);
+      // Example: return dialogueRegistry[dialogueId];
+    }
+    
+    // Node-based selection could be implemented here
+    if (nodeId) {
+      console.log(`[ConversationFormat] Using nodeId for dialogue selection: ${nodeId}`);
+      // For now, hardcode the first node to use kapoorCalibrationDialogue
+      if (nodeId === 'start' || nodeId.includes('kapoor-1')) {
+        return kapoorCalibrationDialogue;
+      }
+      
+      // Second node for Kapoor
+      if (nodeId === 'kapoor-2' || nodeId.includes('kapoor_2')) {
+        return kapoorSecondNodeDialogue;
+      }
+      
+      // Future nodes would be added here like:
+      // if (nodeId === 'kapoor-3') return kapoorThirdNodeDialogue;
+    }
+    
+    // Default to kapoor dialogue for backward compatibility
     return kapoorCalibrationDialogue;
-  }, []);
+  }, [dialogueStages, dialogueId, nodeId]);
   
   // Get current dialogue stage
   const currentStage = useMemo(() => {
@@ -140,6 +185,62 @@ function ConversationFormat({
   const charData = useMemo<CharacterData>(() => {
     return getCharacterData(normalizedCharacterId);
   }, [normalizedCharacterId]);
+  
+  // ===== EXTENSION HANDLING =====
+  
+  // Check if the current stage has an extension
+  const currentExtension = useMemo(() => {
+    if (!currentStage) return null;
+    return extension;
+  }, [currentStage, extension]);
+  
+  // Handle extension activation
+  const handleExtensionStart = useCallback(() => {
+    if (onExtensionStart) {
+      onExtensionStart();
+    }
+  }, [onExtensionStart]);
+  
+  // Handle extension completion
+  const handleExtensionComplete = useCallback((result: ExtensionResult) => {
+    if (!isMountedRef.current) return;
+    
+    if (onExtensionComplete) {
+      onExtensionComplete(result);
+    }
+    
+    // Apply results to gameplay systems
+    if (result.success) {
+      // Add insight gain
+      if (result.insightGained > 0) {
+        updateInsight(result.insightGained);
+        setResults(prev => ({
+          ...prev,
+          insightGained: prev.insightGained + result.insightGained
+        }));
+      }
+      
+      // Handle momentum effect
+      if (result.momentumEffect === 'increment') {
+        incrementMomentum();
+      } else if (result.momentumEffect === 'reset') {
+        resetMomentum();
+      }
+      
+      // Track knowledge gain
+      if (result.knowledgeGained) {
+        setResults(prev => ({
+          ...prev,
+          knowledgeGained: {
+            ...prev.knowledgeGained,
+            [result.knowledgeGained?.conceptId || 'unknown']: 
+              (prev.knowledgeGained[result.knowledgeGained?.conceptId || 'unknown'] || 0) + 
+              (result.knowledgeGained?.amount || 0)
+          }
+        }));
+      }
+    }
+  }, [onExtensionComplete, updateInsight, incrementMomentum, resetMomentum]);
   
   // ===== HANDLERS =====
   // Handle option selection
@@ -325,7 +426,7 @@ function ConversationFormat({
       setSelectedOptionIndex(null);
     }, 1500);
   }, [currentStage, selectedOptionIndex, updateInsight, incrementMomentum, gameStore, 
-      storeNodeId, onComplete, results, onOptionSelected, onStageChange, dialogueContent]);
+      storeNodeId, onComplete, results, onOptionSelected, onStageChange, dialogueContent, normalizedCharacterId]);
   
   // Handle special stages that need automatic transitions
   useEffect(() => {
@@ -611,7 +712,7 @@ function ConversationFormat({
               className="mb-4 px-5 py-3 bg-[#0a1220]/80 border-l-2 border-blue-500/60 rounded-sm max-w-3xl"
             >
               <p className="text-sm text-blue-300/90 font-pixel italic">
-                Kapoor adjusts the ionization chamber position with methodical precision, not looking up as you enter.
+                {currentStage?.contextNote || "Kapoor adjusts the ionization chamber position with methodical precision, not looking up as you enter."}
               </p>
             </motion.div>
             
@@ -727,6 +828,20 @@ function ConversationFormat({
                   <p className="text-lg font-pixel text-white leading-relaxed">
                     {showResponse && responseText ? responseText : currentStage.text}
                   </p>
+                  
+                  {/* VISUAL EXTENSION INTEGRATION */}
+                  {currentExtension && (
+                    <div className="mt-4">
+                      <ConversationExtension
+                        extension={currentExtension}
+                        characterId={normalizedCharacterId}
+                        stageId={currentStageId}
+                        isActive={isExtensionActive || false}
+                        className="w-full"
+                        onComplete={handleExtensionComplete}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Response options with clean styling */}
@@ -893,7 +1008,8 @@ function ConversationFormat({
   );
 }
 
-export default ConversationFormat;
+// Export the wrapped component with visual extension capabilities
+export default withVisualExtender(ConversationFormat);
 
 // Global CSS additions for the animations
 // Add this to your global CSS or use CSS modules
@@ -916,4 +1032,3 @@ module.exports = {
   }
 }
 */
-

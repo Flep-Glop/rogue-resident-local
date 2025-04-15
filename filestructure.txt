@@ -22,13 +22,32 @@
 │   │   │   ├── PerformanceDashboard.tsx
 │   │   │   ├── UnifiedDebugPanel.tsx
 │   │   │   └── VerticalSliceDebugPanel.tsx
+│   │   ├── extensions
+│   │   │   ├── ExtensionRenderer.tsx
+│   │   │   ├── VisualExtender.tsx
+│   │   │   ├── content
+│   │   │   │   ├── anatomical.ts
+│   │   │   │   ├── calculations.ts
+│   │   │   │   ├── equipment.ts
+│   │   │   │   └── extensionContentRegistry.ts
+│   │   │   ├── types
+│   │   │   │   ├── AnatomicalIdentification.tsx
+│   │   │   │   ├── CalculationInterface.tsx
+│   │   │   │   ├── EquipmentIdentification.tsx
+│   │   │   │   └── MeasurementReading.tsx
+│   │   │   └── ui
+│   │   │       └── ErrorDisplay.tsx
 │   │   ├── gameplay
 │   │   │   ├── InsightMeter.tsx
 │   │   │   ├── MomentumCounter.tsx
 │   │   │   └── StrategicActions.tsx
 │   │   ├── journal
 │   │   │   ├── Journal.tsx
-│   │   │   └── JournalAcquisitionAnimation.tsx
+│   │   │   ├── JournalAcquisitionAnimation.tsx
+│   │   │   ├── JournalCharactersPage.tsx
+│   │   │   ├── JournalKnowledgePage.tsx
+│   │   │   ├── JournalNotesPage.tsx
+│   │   │   └── JournalReferencesPage.tsx
 │   │   ├── knowledge
 │   │   │   ├── ConstellationLayout.ts
 │   │   │   ├── ConstellationParticleSystem.ts
@@ -66,9 +85,11 @@
 │   │   ├── themeConstants.ts
 │   │   └── utils
 │   │       ├── chamberDebug.ts
+│   │       ├── journalTypes.ts
 │   │       ├── storageUtils.ts
 │   │       ├── storeAnalyzer.ts
 │   │       ├── storeHooks.ts
+│   │       ├── storeHooks.ts.bak
 │   │       └── storeUtils.ts
 │   ├── data
 │   │   ├── characters.ts
@@ -76,7 +97,8 @@
 │   │   │   └── medicalPhysicsConcepts.ts
 │   │   ├── dialogues
 │   │   │   └── calibrations
-│   │   │       └── kapoor-calibration.ts
+│   │   │       ├── kapoor-calibration.ts
+│   │   │       └── kapoor-second-node.ts
 │   │   └── items.ts
 │   ├── favicon.ico
 │   ├── globals.css
@@ -133,4 +155,4 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-30 directories, 104 files
+34 directories, 122 files

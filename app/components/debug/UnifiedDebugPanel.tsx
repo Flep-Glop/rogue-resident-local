@@ -54,12 +54,29 @@ export default function UnifiedDebugPanel() {
   const [criticalEvents, setCriticalEvents] = useState<Array<{event: string, timestamp: number}>>([]);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
   
+  // Store references - use the actual hooks properly
+  // Don't store the hook functions themselves, we need their store objects
+  const gameStoreState = useGameStore();
+  const journalStoreState = useJournalStore();
+  const knowledgeStoreState = useKnowledgeStore();
+  const resourceStoreState = useResourceStore();
+  const gameStateMachineState = useGameStateMachine();
+  
   // Refs
   const mountedRef = useRef(true);
   const panelRef = useRef<HTMLDivElement>(null);
   const eventsEndRef = useRef<HTMLDivElement>(null);
   const initCompletedRef = useRef(false);
   const refreshNeededRef = useRef(false);
+  
+  // Store getState functions for direct access
+  const storeRefs = useRef({
+    gameStore: useGameStore,
+    journalStore: useJournalStore,
+    knowledgeStore: useKnowledgeStore,
+    resourceStore: useResourceStore,
+    gameStateMachine: useGameStateMachine
+  });
   
   // Portal state
   const [portalElement, setPortalElement] = useState<HTMLElement | null>(null);
@@ -78,14 +95,11 @@ export default function UnifiedDebugPanel() {
     discoveredNodeCount: 0,
     insight: 0,
     momentum: 0,
-    player: { health: 0, maxHealth: 0 }
+    player: { health: 0, maxHealth: 0 },
+    completedNodeIds: [] // Add this for tracking completed nodes
   });
   
-  // Access hooks at the component top level, not inside other hooks
-  // This is safe and follows React rules
-  const gameStateMachine = useGameStateMachine();
-  
-  // SafeGetState helper function with proper typing
+  // Helper for safely accessing store state
   function safeGetState<T, K>(
     store: any,
     selector: (state: any) => T,
@@ -93,24 +107,38 @@ export default function UnifiedDebugPanel() {
   ): T | K {
     try {
       if (!store) return defaultValue;
-      const state = typeof store.getState === 'function' ? store.getState() : store;
+      const state = typeof store === 'function' ? store.getState() : store;
       if (!state) return defaultValue;
       return selector(state);
-    } catch (error) {
-      console.warn('Error accessing store state in debug panel:', error);
+    } catch (e) {
+      console.warn('Error accessing store state:', e);
       return defaultValue;
     }
   }
   
-  // Don't call hooks inside this function - we pass the states as arguments
+  // Refresh state values from the various stores
   const refreshStateValues = useCallback((
-    gameStateMachine: any,
-    gameStore: any,
-    journalStore: any,
-    knowledgeStore: any,
-    resourceStore: any
+    options?: { force?: boolean, silent?: boolean } 
   ) => {
-    if (!stateRef.current) return;
+    if (!refreshNeededRef.current && !options?.force) return;
+    
+    // Reset the refresh flag
+    refreshNeededRef.current = false;
+    
+    // Access stores via storeRefs for consistency
+    const { gameStore, journalStore, knowledgeStore, resourceStore, gameStateMachine } = storeRefs.current;
+    
+    let hasChanges = false;
+    const newState = { ...stateRef.current };
+    
+    // Helper to check if a value has changed
+    const checkAndUpdate = <T,>(key: string, newValue: T): boolean => {
+      if (JSON.stringify(newState[key]) !== JSON.stringify(newValue)) {
+        newState[key] = newValue;
+        return true;
+      }
+      return false;
+    };
     
     stateRef.current = {
       // Game state primitives
@@ -138,30 +166,21 @@ export default function UnifiedDebugPanel() {
       
       // Player data
       player: safeGetState(gameStore, state => state?.player, { health: 0, maxHealth: 0 }),
+      
+      // Get completed nodes from state machine
+      completedNodeIds: safeGetState(gameStateMachine, state => state?.completedNodeIds, [])
     };
   }, []);
   
-  // Get fresh state and call refreshStateValues - must be defined after refreshStateValues
+  // Update state values from all stores without causing a re-render
   const updateStateValues = useCallback(() => {
     try {
-      // Cache the values in local variables first
-      const gameStore = useGameStore.getState();
-      const journalStore = useJournalStore.getState();  
-      const knowledgeStore = useKnowledgeStore.getState();
-      const resourceStore = useResourceStore.getState();
-      
-      // Then update using the cached values
-      refreshStateValues(
-        gameStateMachine, 
-        gameStore,
-        journalStore,
-        knowledgeStore,
-        resourceStore
-      );
+      // Call refreshStateValues with the force option
+      refreshStateValues({ force: true });
     } catch (error) {
       console.error('Error updating state values:', error);
     }
-  }, [refreshStateValues, gameStateMachine]);
+  }, [refreshStateValues]);
   
   // Initialization effect to run once
   useEffect(() => {
@@ -272,13 +291,7 @@ export default function UnifiedDebugPanel() {
           updateCache();
           
           // Don't trigger React updates here, just update the ref silently
-          refreshStateValues(
-            gameStateMachine,
-            stateCache.gameStore,
-            stateCache.journalStore,
-            stateCache.knowledgeStore,
-            stateCache.resourceStore
-          );
+          refreshStateValues({ force: true, silent: true });
           refreshNeededRef.current = false;
         } catch (error) {
           console.error('Error in auto-refresh:', error);
@@ -290,7 +303,7 @@ export default function UnifiedDebugPanel() {
     updateCache();
     
     return () => clearInterval(intervalId);
-  }, [refreshStateValues, gameStateMachine]);
+  }, [refreshStateValues]);
   
   // Track mounted state - keep this simple with no dependencies
   useEffect(() => {
@@ -380,10 +393,10 @@ export default function UnifiedDebugPanel() {
     
     handleAction(
       () => {
-        if (currentPhase === 'day' && gameStateMachine?.beginDayCompletion) {
-          gameStateMachine.beginDayCompletion();
-        } else if (currentPhase === 'night' && gameStateMachine?.beginNightCompletion) {
-          gameStateMachine.beginNightCompletion();
+        if (currentPhase === 'day' && gameStateMachineState?.beginDayCompletion) {
+          gameStateMachineState.beginDayCompletion();
+        } else if (currentPhase === 'night' && gameStateMachineState?.beginNightCompletion) {
+          gameStateMachineState.beginNightCompletion();
         } else {
           throw new Error('Cannot transition from current phase');
         }
@@ -391,7 +404,7 @@ export default function UnifiedDebugPanel() {
       'Transitioning...',
       'Phase transition initiated'
     );
-  }, [handleAction, gameStateMachine]);
+  }, [handleAction, gameStateMachineState]);
   
   const addInsight = useCallback(() => {
     const resourceStore = useResourceStore.getState();
@@ -507,6 +520,67 @@ export default function UnifiedDebugPanel() {
     );
   }, [handleAction]);
   
+  // New action to complete current node
+  const completeCurrentNode = useCallback(() => {
+    const gameStore = useGameStore.getState();
+    const currentNodeId = stateRef.current.currentNodeId;
+    
+    handleAction(
+      () => {
+        if (!currentNodeId) {
+          throw new Error('No node currently selected');
+        }
+        
+        if (gameStore?.completeNode) {
+          // Call the game store's complete node function
+          gameStore.completeNode(currentNodeId);
+          
+          // Explicitly mark the node as completed in the state machine
+          try {
+            if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
+              const gameStateMachine = window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState();
+              if (gameStateMachine && typeof gameStateMachine.markNodeCompleted === 'function') {
+                console.log(`[Debug] Marking node ${currentNodeId} as completed in state machine`);
+                gameStateMachine.markNodeCompleted(currentNodeId);
+                
+                // Log the updated completedNodeIds array
+                if (gameStateMachine.completedNodeIds) {
+                  console.log('[Debug] Updated completed nodes:', gameStateMachine.completedNodeIds);
+                }
+              }
+            }
+          } catch (err) {
+            console.error('[Debug] Error updating state machine:', err);
+          }
+          
+          // Dispatch node completed event for listeners
+          safeDispatch(GameEventType.NODE_COMPLETED, { 
+            nodeId: currentNodeId,
+            character: 'kapoor',
+            result: {
+              relationshipChange: 1
+            }
+          });
+          
+          // After completion, return to map
+          setTimeout(() => {
+            if (gameStore?.setCurrentNode) {
+              gameStore.setCurrentNode(null);
+              
+              // Force refresh of the game state to ensure UI updates
+              refreshNeededRef.current = true;
+              updateStateValues();
+            }
+          }, 500);
+        } else {
+          throw new Error('Game store not available');
+        }
+      },
+      'Completing current node...',
+      `Node ${currentNodeId} completed`
+    );
+  }, [handleAction, updateStateValues]);
+  
   const clearCurrentNode = useCallback(() => {
     const gameStore = useGameStore.getState();
     const currentNodeId = stateRef.current.currentNodeId;
@@ -527,6 +601,113 @@ export default function UnifiedDebugPanel() {
       'Node selection cleared'
     );
   }, [handleAction]);
+  
+  // Add a new function to refresh map nodes
+  const refreshMapState = useCallback(() => {
+    handleAction(
+      () => {
+        // Force refresh of the state machine data
+        if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
+          const gameStateMachine = window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState();
+          if (gameStateMachine) {
+            console.log('[Debug] Refreshing map state...');
+            
+            // Refresh available nodes
+            if (typeof gameStateMachine.refreshAvailableNodes === 'function') {
+              gameStateMachine.refreshAvailableNodes();
+              console.log('[Debug] Available nodes refreshed.');
+            }
+            
+            // Log completed nodes for verification
+            if (gameStateMachine.completedNodeIds) {
+              console.log('[Debug] Current completed nodes:', gameStateMachine.completedNodeIds);
+            }
+          }
+        }
+        
+        // Force UI refresh
+        refreshNeededRef.current = true;
+        updateStateValues();
+        
+        // Refresh the map by triggering a state change and then reverting it
+        const gameStore = useGameStore.getState();
+        const currentNodeId = stateRef.current.currentNodeId;
+        
+        if (gameStore?.setCurrentNode) {
+          // If we're on the map (null), briefly set a node and then revert
+          if (currentNodeId === null) {
+            // Simulate a node selection and return to map to force refresh
+            setTimeout(() => {
+              gameStore.setCurrentNode('temp-refresh');
+              setTimeout(() => {
+                gameStore.setCurrentNode(null);
+              }, 50);
+            }, 50);
+          }
+        }
+      },
+      'Refreshing map state...',
+      'Map state refreshed'
+    );
+  }, [handleAction, updateStateValues]);
+  
+  // Add a new function to mark specific nodes as completed
+  const markNodeCompleted = useCallback((nodeId: string) => {
+    handleAction(
+      () => {
+        if (!nodeId) {
+          throw new Error('No node ID provided');
+        }
+        
+        // Update the game store
+        const gameStore = useGameStore.getState();
+        if (gameStore?.completeNode) {
+          gameStore.completeNode(nodeId);
+        }
+        
+        // Explicitly mark the node as completed in the state machine
+        try {
+          if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
+            const gameStateMachine = window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState();
+            if (gameStateMachine && typeof gameStateMachine.markNodeCompleted === 'function') {
+              console.log(`[Debug] Manually marking node ${nodeId} as completed`);
+              gameStateMachine.markNodeCompleted(nodeId);
+              
+              // Refresh available nodes
+              if (typeof gameStateMachine.refreshAvailableNodes === 'function') {
+                gameStateMachine.refreshAvailableNodes();
+              }
+              
+              // Log the updated completedNodeIds array
+              if (gameStateMachine.completedNodeIds) {
+                console.log('[Debug] Updated completed nodes:', gameStateMachine.completedNodeIds);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[Debug] Error updating state machine:', err);
+        }
+        
+        // Dispatch node completed event for listeners
+        safeDispatch(GameEventType.NODE_COMPLETED, { 
+          nodeId: nodeId,
+          character: 'kapoor', 
+          result: {
+            relationshipChange: 1
+          }
+        });
+        
+        // Force UI refresh
+        refreshNeededRef.current = true;
+        updateStateValues();
+        
+        // Use the same refresh technique as refreshMapState
+        setTimeout(() => refreshMapState(), 100);
+      },
+      `Marking node ${nodeId} as completed...`,
+      `Node ${nodeId} marked as completed`
+    );
+  }, [handleAction, updateStateValues, refreshMapState]);
   
   // Tab renderers
   const renderGameTab = () => {
@@ -622,63 +803,258 @@ export default function UnifiedDebugPanel() {
           </div>
         </div>
         
+        {/* Node State Management */}
+        <h3 className="font-pixel text-sm mb-2 text-blue-400">Node State Management</h3>
+        <div className="w-full mb-3 bg-black/60 p-2 rounded pixel-borders">
+          <button 
+            className="w-full px-2 py-1 mb-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
+            onClick={refreshMapState}
+          >
+            Refresh Map State
+          </button>
+          <div className="flex justify-between mb-1">
+            <button 
+              className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
+              onClick={completeCurrentNode}
+              disabled={!state.currentNodeId}
+            >
+              Complete Current Node
+            </button>
+            <button 
+              className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs pixel-button"
+              onClick={clearCurrentNode}
+              disabled={!state.currentNodeId}
+            >
+              Close Node
+            </button>
+          </div>
+          
+          {/* Force Completion Buttons */}
+          <div className="mt-2 pt-2 border-t border-gray-700">
+            <h4 className="text-xs text-yellow-400 mb-1">Force Node Completion:</h4>
+            <div className="flex flex-wrap gap-2">
+              <button 
+                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
+                onClick={() => markNodeCompleted('start')}
+              >
+                Mark Start Completed
+              </button>
+              <button 
+                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
+                onClick={() => markNodeCompleted('path-a1')}
+              >
+                Mark Path A1 Completed
+              </button>
+              <button 
+                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
+                onClick={() => markNodeCompleted('enc-1')}
+              >
+                Mark Enc-1 Completed
+              </button>
+              <button 
+                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
+                onClick={() => markNodeCompleted('chal-1')}
+              >
+                Mark Chal-1 Completed
+              </button>
+              <button 
+                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
+                onClick={() => markNodeCompleted('hub-1')}
+              >
+                Mark Hub-1 Completed
+              </button>
+              <button 
+                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
+                onClick={() => markNodeCompleted('elite-1')}
+              >
+                Mark Elite-1 Completed
+              </button>
+            </div>
+          </div>
+          
+          {/* View Completed Nodes */}
+          <div className="mt-2 pt-2 border-t border-gray-700">
+            <h4 className="text-xs text-yellow-400 mb-1">Completed Nodes:</h4>
+            <div className="text-xs bg-black/50 p-2 rounded max-h-20 overflow-y-auto">
+              {state.completedNodeIds ? (
+                state.completedNodeIds.length > 0 ? 
+                  state.completedNodeIds.map((id: string) => (
+                    <div key={id} className="px-1 py-0.5 bg-green-900/30 rounded mb-1">
+                      {id}
+                    </div>
+                  )) : 
+                  <div className="text-gray-400">No completed nodes</div>
+              ) : (
+                <div className="text-gray-400">Loading...</div>
+              )}
+            </div>
+          </div>
+        </div>
+        
         <h3 className="font-pixel text-sm mb-2 text-blue-400">Node Selection</h3>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button 
-            className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
-            onClick={() => selectNode('node-1')}
-          >
-            Start
-          </button>
-          <button 
-            className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
-            onClick={() => selectNode('node-2-1')}
-          >
-            Branch A
-          </button>
-          <button 
-            className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
-            onClick={() => selectNode('node-2-2')}
-          >
-            Branch B
-          </button>
-          <button 
-            className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
-            onClick={() => selectNode('node-2-3')}
-          >
-            Branch C
-          </button>
-          <button 
-            className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
-            onClick={() => selectNode('node-5-1')}
-          >
-            Path A
-          </button>
-          <button 
-            className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
-            onClick={() => selectNode('node-5-2')}
-          >
-            Path B
-          </button>
-          <button 
-            className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
-            onClick={() => selectNode('node-5-3')}
-          >
-            Path C
-          </button>
-          <button 
-            className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-            onClick={() => selectNode('node-boss')}
-          >
-            Boss Node
-          </button>
-          <button 
-            className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs pixel-button"
-            onClick={clearCurrentNode}
-            disabled={!state.currentNodeId}
-          >
-            Reset Selection
-          </button>
+          {/* Kapoor Map Nodes Section */}
+          <div className="w-full mb-2">
+            <h4 className="text-xs text-yellow-400 mb-1">Map Nodes:</h4>
+            <div className="flex flex-wrap gap-2">
+              <button 
+                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('start')}
+              >
+                Start Node
+              </button>
+              
+              {/* First Row - Paths */}
+              <div className="w-full mt-1 mb-1 border-t border-gray-700"></div>
+              <h5 className="text-xs text-blue-300 w-full">First Row:</h5>
+              <button 
+                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('path-a1')}
+              >
+                Path A1
+              </button>
+              <button 
+                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('path-a2')}
+              >
+                Path A2
+              </button>
+              <button 
+                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('path-a3')}
+              >
+                Path A3
+              </button>
+              <button 
+                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('path-a4')}
+              >
+                Path A4
+              </button>
+              
+              {/* Second Row - Encounters */}
+              <div className="w-full mt-1 mb-1 border-t border-gray-700"></div>
+              <h5 className="text-xs text-blue-300 w-full">Second Row:</h5>
+              <button 
+                className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('enc-1')}
+              >
+                Encounter 1
+              </button>
+              <button 
+                className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('enc-3')}
+              >
+                Encounter 3
+              </button>
+              <button 
+                className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('enc-5')}
+              >
+                Encounter 5
+              </button>
+              <button 
+                className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('enc-6')}
+              >
+                Encounter 6
+              </button>
+              
+              {/* Third Row - Challenges */}
+              <div className="w-full mt-1 mb-1 border-t border-gray-700"></div>
+              <h5 className="text-xs text-blue-300 w-full">Third Row:</h5>
+              <button 
+                className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('chal-1')}
+              >
+                Challenge 1
+              </button>
+              <button 
+                className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('chal-3')}
+              >
+                Challenge 3
+              </button>
+              <button 
+                className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('chal-5')}
+              >
+                Challenge 5
+              </button>
+              <button 
+                className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('chal-6')}
+              >
+                Challenge 6
+              </button>
+              
+              {/* Fourth Row - Hubs */}
+              <div className="w-full mt-1 mb-1 border-t border-gray-700"></div>
+              <h5 className="text-xs text-blue-300 w-full">Fourth Row:</h5>
+              <button 
+                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('hub-1')}
+              >
+                Hub 1
+              </button>
+              <button 
+                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('hub-2')}
+              >
+                Hub 2
+              </button>
+              <button 
+                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('hub-3')}
+              >
+                Hub 3
+              </button>
+              <button 
+                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('hub-4')}
+              >
+                Hub 4
+              </button>
+              
+              {/* Fifth Row - Elites */}
+              <div className="w-full mt-1 mb-1 border-t border-gray-700"></div>
+              <h5 className="text-xs text-blue-300 w-full">Fifth Row:</h5>
+              <button 
+                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('elite-1')}
+              >
+                Elite 1
+              </button>
+              <button 
+                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('elite-2')}
+              >
+                Elite 2
+              </button>
+              <button 
+                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('elite-3')}
+              >
+                Elite 3
+              </button>
+              <button 
+                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
+                onClick={() => selectNode('elite-4')}
+              >
+                Elite 4
+              </button>
+            </div>
+          </div>
+          
+          <div className="w-full mt-2">
+            <button 
+              className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs pixel-button w-full"
+              onClick={clearCurrentNode}
+              disabled={!state.currentNodeId}
+            >
+              Reset Selection
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -707,6 +1083,14 @@ export default function UnifiedDebugPanel() {
             disabled={state.hasJournal || clickPending}
           >
             Give Journal
+          </button>
+          
+          <button
+            className="px-2 py-1 bg-yellow-600 text-white text-xs rounded hover:bg-yellow-500 disabled:opacity-50 transition pixel-button"
+            onClick={completeCurrentNode}
+            disabled={!state.currentNodeId || clickPending}
+          >
+            Complete Node
           </button>
           
           <button

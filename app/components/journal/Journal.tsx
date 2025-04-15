@@ -7,6 +7,12 @@ import { useEventSubscription } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { PixelText } from '../PixelThemeProvider';
 
+// Import actual journal page components
+import JournalKnowledgePage from './JournalKnowledgePage';
+import JournalCharactersPage from './JournalCharactersPage';
+import JournalNotesPage from './JournalNotesPage';
+import JournalReferencesPage from './JournalReferencesPage';
+
 // Import optimized hooks for primitive extractions
 import {
   usePrimitiveStoreValue,
@@ -15,56 +21,22 @@ import {
   useStableCallback
 } from '@/app/core/utils/storeHooks';
 
-// Define valid page types to ensure type safety across the UI
-export type JournalPageType = 'knowledge' | 'characters' | 'notes' | 'references';
-export type JournalTier = 'base' | 'technical' | 'annotated';
+// Import shared journal types
+import { 
+  JournalPageType, 
+  JournalTier,
+  JournalStoreState
+} from '@/app/core/utils/journalTypes';
 
-// Type definitions for store states
-interface JournalState {
-  hasJournal: boolean;
-  isJournalOpen: boolean;
-  currentUpgrade: JournalTier;
-  currentPage: JournalPageType;
-  initializeJournal?: (tier: JournalTier) => void;
-  toggleJournal: () => void;
-  setJournalOpen: (isOpen: boolean) => void;
-  setCurrentPage: (page: JournalPageType) => void;
-  [key: string]: any;
-}
-
+// Type definitions for game store state
 interface GameState {
   gamePhase: string;
   [key: string]: any;
 }
 
-// Simple placeholder components for the missing journal pages
-const JournalKnowledgePage = () => (
-  <div className="p-4">
-    <h2 className="text-2xl mb-4">Knowledge</h2>
-    <p className="text-gray-300">Knowledge entries will appear here as you discover them.</p>
-  </div>
-);
+// Remove the old type definitions that are now in journalTypes.ts
 
-const JournalCharactersPage = () => (
-  <div className="p-4">
-    <h2 className="text-2xl mb-4">Characters</h2>
-    <p className="text-gray-300">Character information will be recorded here.</p>
-  </div>
-);
-
-const JournalNotesPage = () => (
-  <div className="p-4">
-    <h2 className="text-2xl mb-4">Notes</h2>
-    <p className="text-gray-300">Your research notes will be collected here.</p>
-  </div>
-);
-
-const JournalReferencesPage = () => (
-  <div className="p-4">
-    <h2 className="text-2xl mb-4">References</h2>
-    <p className="text-gray-300">Reference materials will be cataloged here.</p>
-  </div>
-);
+// Remove placeholder components since we're importing the real ones
 
 /**
  * Journal Component - Refactored with Chamber Transition Pattern
@@ -100,26 +72,26 @@ export default function Journal() {
   // PATTERN: Extract primitive values with CONSISTENT DEFAULTS to prevent hydration mismatch
   const hasJournal = usePrimitiveStoreValue(
     useJournalStore,
-    (state: JournalState) => state.hasJournal,
+    (state: JournalStoreState) => state.hasJournal,
     false
   );
   
   const isJournalOpen = usePrimitiveStoreValue(
     useJournalStore,
-    (state: JournalState) => state.isJournalOpen,
+    (state: JournalStoreState) => state.isJournalOpen,
     false
   );
   
   // CRITICAL FIX: Always use 'base' as default for consistent hydration
   const currentUpgrade = usePrimitiveStoreValue(
     useJournalStore,
-    (state: JournalState) => state.currentUpgrade,
+    (state: JournalStoreState) => state.currentUpgrade,
     'base' as JournalTier
   );
   
   const currentPage = usePrimitiveStoreValue(
     useJournalStore,
-    (state: JournalState) => state.currentPage, 
+    (state: JournalStoreState) => state.currentPage, 
     'knowledge' as JournalPageType
   );
   
@@ -549,10 +521,10 @@ export default function Journal() {
             className="flex-1 bg-surface overflow-y-auto p-6 relative z-20"
             onClick={(e) => e.stopPropagation()}
           >
-            {currentPage === 'knowledge' && <JournalKnowledgePage />}
-            {currentPage === 'characters' && <JournalCharactersPage />}
-            {currentPage === 'notes' && <JournalNotesPage />}
-            {currentPage === 'references' && <JournalReferencesPage />}
+            {currentPage === 'knowledge' && <JournalKnowledgePage onElementClick={(e) => e.stopPropagation()} />}
+            {currentPage === 'characters' && <JournalCharactersPage onElementClick={(e) => e.stopPropagation()} />}
+            {currentPage === 'notes' && <JournalNotesPage onElementClick={(e) => e.stopPropagation()} />}
+            {currentPage === 'references' && <JournalReferencesPage onElementClick={(e) => e.stopPropagation()} />}
           </div>
         </div>
       </div>

@@ -84,46 +84,26 @@ const SimplifiedKapoorMap: React.FC = () => {
     { id: 'start', x: 600, y: 120, label: 'Start', type: 'calibration', connections: ['path-a1', 'path-a2', 'path-a3', 'path-a4'], data: {} },
     
     // Act 1 - First row of choices
-    { id: 'path-a1', x: 350, y: 220, label: 'Path A1', type: 'qa', connections: ['enc-1', 'enc-2'], data: {} },
-    { id: 'path-a2', x: 500, y: 220, label: 'Path A2', type: 'educational', connections: ['enc-3', 'enc-4'], data: {} },
+    { id: 'path-a1', x: 350, y: 220, label: 'Path A1', type: 'qa', connections: ['enc-1'], data: {} },
+    { id: 'path-a2', x: 500, y: 220, label: 'Path A2', type: 'educational', connections: ['enc-3'], data: {} },
     { id: 'path-a3', x: 700, y: 220, label: 'Path A3', type: 'clinical', connections: ['enc-5', 'enc-6'], data: {} },
     { id: 'path-a4', x: 850, y: 220, label: 'Path A4', type: 'calibration', connections: ['enc-7', 'enc-8'], data: {} },
     
-    // Act 1 - Second row of encounters
+    // Act 1 - Second row of encounters (streamlined)
     { id: 'enc-1', x: 250, y: 320, label: 'Encounter 1', type: 'educational', connections: ['chal-1'], data: {} },
-    { id: 'enc-2', x: 350, y: 320, label: 'Encounter 2', type: 'clinical', connections: ['chal-2'], data: {} },
     { id: 'enc-3', x: 450, y: 320, label: 'Encounter 3', type: 'qa', connections: ['chal-3'], data: {} },
-    { id: 'enc-4', x: 550, y: 320, label: 'Encounter 4', type: 'calibration', connections: ['chal-4'], data: {} },
     { id: 'enc-5', x: 650, y: 320, label: 'Encounter 5', type: 'educational', connections: ['chal-5'], data: {} },
     { id: 'enc-6', x: 750, y: 320, label: 'Encounter 6', type: 'clinical', connections: ['chal-6'], data: {} },
     { id: 'enc-7', x: 850, y: 320, label: 'Encounter 7', type: 'qa', connections: ['chal-7'], data: {} },
     { id: 'enc-8', x: 950, y: 320, label: 'Encounter 8', type: 'educational', connections: ['chal-8'], data: {} },
     
-    // Act 1 - Third row of challenges (staggered pattern)
+    // Act 1 - Third row of challenges (streamlined)
     { id: 'chal-1', x: 225, y: 420, label: 'Challenge 1', type: 'qa', connections: ['hub-1'], data: {} },
-    { id: 'chal-2', x: 325, y: 420, label: 'Challenge 2', type: 'clinical', connections: ['hub-1'], data: {} },
     { id: 'chal-3', x: 425, y: 420, label: 'Challenge 3', type: 'educational', connections: ['hub-2'], data: {} },
-    { id: 'chal-4', x: 525, y: 420, label: 'Challenge 4', type: 'calibration', connections: ['hub-2'], data: {} },
     { id: 'chal-5', x: 625, y: 420, label: 'Challenge 5', type: 'qa', connections: ['hub-3'], data: {} },
     { id: 'chal-6', x: 725, y: 420, label: 'Challenge 6', type: 'clinical', connections: ['hub-3'], data: {} },
     { id: 'chal-7', x: 825, y: 420, label: 'Challenge 7', type: 'educational', connections: ['hub-4'], data: {} },
     { id: 'chal-8', x: 925, y: 420, label: 'Challenge 8', type: 'calibration', connections: ['hub-4'], data: {} },
-    
-    // Mystery encounters branching from regular paths
-    { id: 'mystery-1', x: 300, y: 345, label: 'Mystery 1', type: 'qa', connections: ['side-1'], data: {} },
-    { id: 'mystery-2', x: 400, y: 345, label: 'Mystery 2', type: 'clinical', connections: ['side-2'], data: {} },
-    { id: 'mystery-3', x: 600, y: 345, label: 'Mystery 3', type: 'calibration', connections: ['side-3'], data: {} },
-    { id: 'mystery-4', x: 700, y: 345, label: 'Mystery 4', type: 'educational', connections: ['side-4'], data: {} },
-    { id: 'mystery-5', x: 800, y: 345, label: 'Mystery 5', type: 'qa', connections: ['side-5'], data: {} },
-    { id: 'mystery-6', x: 900, y: 345, label: 'Mystery 6', type: 'clinical', connections: ['side-6'], data: {} },
-    
-    // Side paths
-    { id: 'side-1', x: 275, y: 445, label: 'Side 1', type: 'educational', connections: ['hub-1'], data: {} },
-    { id: 'side-2', x: 375, y: 445, label: 'Side 2', type: 'qa', connections: ['hub-1'], data: {} },
-    { id: 'side-3', x: 575, y: 445, label: 'Side 3', type: 'clinical', connections: ['hub-2'], data: {} },
-    { id: 'side-4', x: 675, y: 445, label: 'Side 4', type: 'calibration', connections: ['hub-3'], data: {} },
-    { id: 'side-5', x: 775, y: 445, label: 'Side 5', type: 'educational', connections: ['hub-4'], data: {} },
-    { id: 'side-6', x: 875, y: 445, label: 'Side 6', type: 'qa', connections: ['hub-4'], data: {} },
     
     // Act 1 - Fourth row (converging paths to hubs)
     { id: 'hub-1', x: 275, y: 520, label: 'Hub 1', type: 'educational', connections: ['elite-1'], data: {} },
@@ -144,37 +124,25 @@ const SimplifiedKapoorMap: React.FC = () => {
     // Act 1 - Boss encounter
     { id: 'act1-boss', x: 600, y: 820, label: 'Act 1 Boss', type: 'clinical', connections: ['treasure', 'rest', 'recovery'], data: {} },
     
-    // Special nodes between acts
+    // Special nodes between acts - restored connections to Act 2
     { id: 'treasure', x: 500, y: 870, label: 'Treasure', type: 'calibration', connections: ['path-b1'], data: {} },
     { id: 'rest', x: 600, y: 870, label: 'Rest', type: 'qa', connections: ['path-b2'], data: {} },
     { id: 'recovery', x: 700, y: 870, label: 'Recovery', type: 'educational', connections: ['path-b3'], data: {} },
     
-    // Act 2 - First row (choose path after beating boss)
-    { id: 'path-b1', x: 400, y: 920, label: 'Path B1', type: 'qa', connections: ['b-chal-1', 'b-chal-2'], data: {} },
-    { id: 'path-b2', x: 600, y: 920, label: 'Path B2', type: 'educational', connections: ['b-chal-3', 'b-chal-4'], data: {} },
-    { id: 'path-b3', x: 800, y: 920, label: 'Path B3', type: 'calibration', connections: ['b-chal-5', 'b-chal-6'], data: {} },
+    // Act 2 - First row (streamlined paths after beating boss)
+    { id: 'path-b1', x: 400, y: 920, label: 'Path B1', type: 'qa', connections: ['b-chal-1'], data: {} },
+    { id: 'path-b2', x: 600, y: 920, label: 'Path B2', type: 'educational', connections: ['b-chal-3'], data: {} },
+    { id: 'path-b3', x: 800, y: 920, label: 'Path B3', type: 'calibration', connections: ['b-chal-5'], data: {} },
     
-    // Act 2 - Second row of challenges
+    // Act 2 - Second row of challenges (reduced number)
     { id: 'b-chal-1', x: 350, y: 1020, label: 'B-Challenge 1', type: 'educational', connections: ['b-hard-1'], data: {} },
-    { id: 'b-chal-2', x: 450, y: 1020, label: 'B-Challenge 2', type: 'clinical', connections: ['b-hard-2'], data: {} },
-    { id: 'b-chal-3', x: 550, y: 1020, label: 'B-Challenge 3', type: 'qa', connections: ['b-hard-3'], data: {} },
-    { id: 'b-chal-4', x: 650, y: 1020, label: 'B-Challenge 4', type: 'educational', connections: ['b-hard-4'], data: {} },
-    { id: 'b-chal-5', x: 750, y: 1020, label: 'B-Challenge 5', type: 'clinical', connections: ['b-hard-5'], data: {} },
-    { id: 'b-chal-6', x: 850, y: 1020, label: 'B-Challenge 6', type: 'calibration', connections: ['b-hard-6'], data: {} },
+    { id: 'b-chal-3', x: 600, y: 1020, label: 'B-Challenge 3', type: 'qa', connections: ['b-hard-3'], data: {} },
+    { id: 'b-chal-5', x: 850, y: 1020, label: 'B-Challenge 5', type: 'clinical', connections: ['b-hard-5'], data: {} },
     
-    // Act 2 Secret challenges
-    { id: 'b-secret-1', x: 400, y: 1070, label: 'Secret 1', type: 'calibration', connections: ['b-hard-2'], data: {} },
-    { id: 'b-secret-2', x: 500, y: 1070, label: 'Secret 2', type: 'qa', connections: ['b-hard-3'], data: {} },
-    { id: 'b-secret-3', x: 700, y: 1070, label: 'Secret 3', type: 'clinical', connections: ['b-hard-4'], data: {} },
-    { id: 'b-secret-4', x: 800, y: 1070, label: 'Secret 4', type: 'educational', connections: ['b-hard-5'], data: {} },
-    
-    // Act 2 - Third row of hard challenges
+    // Act 2 - Third row of hard challenges (reduced and simplified)
     { id: 'b-hard-1', x: 350, y: 1120, label: 'B-Hard 1', type: 'qa', connections: ['b-elite-1'], data: {} },
-    { id: 'b-hard-2', x: 450, y: 1120, label: 'B-Hard 2', type: 'clinical', connections: ['b-elite-1'], data: {} },
-    { id: 'b-hard-3', x: 550, y: 1120, label: 'B-Hard 3', type: 'educational', connections: ['b-elite-2'], data: {} },
-    { id: 'b-hard-4', x: 650, y: 1120, label: 'B-Hard 4', type: 'calibration', connections: ['b-elite-2'], data: {} },
-    { id: 'b-hard-5', x: 750, y: 1120, label: 'B-Hard 5', type: 'qa', connections: ['b-elite-3'], data: {} },
-    { id: 'b-hard-6', x: 850, y: 1120, label: 'B-Hard 6', type: 'clinical', connections: ['b-elite-3'], data: {} },
+    { id: 'b-hard-3', x: 600, y: 1120, label: 'B-Hard 3', type: 'educational', connections: ['b-elite-2'], data: {} },
+    { id: 'b-hard-5', x: 850, y: 1120, label: 'B-Hard 5', type: 'qa', connections: ['b-elite-3'], data: {} },
     
     // Act 2 - Fourth row (converging to final boss elites)
     { id: 'b-elite-1', x: 400, y: 1220, label: 'B-Elite 1', type: 'educational', connections: ['final-boss'], data: {} },
@@ -190,10 +158,6 @@ const SimplifiedKapoorMap: React.FC = () => {
   const [stageSize, setStageSize] = useState({ width: 800, height: 1000 });
   const [isAnimating, setIsAnimating] = useState(false);
   const [clickedNodeId, setClickedNodeId] = useState<string | null>(null);
-  
-  // New visual enhancement states
-  const [showParticles, setShowParticles] = useState(false);
-  const [particleAnimationActive, setParticleAnimationActive] = useState(false);
   
   // Node type to image mapping
   const nodeImages = {
@@ -260,25 +224,62 @@ const SimplifiedKapoorMap: React.FC = () => {
       }));
     }
     
-    isMountedRef.current = true;
-    
-    // Trigger ambient particle animation occasionally
-    const intervalId = setInterval(() => {
-      if (Math.random() > 0.7) {
-        triggerParticleAnimation();
+    // Subscribe to completion events to update map in real-time
+    const unsubscribe = useGameStore.subscribe((state, prevState) => {
+      if (isMountedRef.current) {
+        try {
+          // Check if we need to fetch updated completion status
+          // This happens when returning to the map or when a node is completed
+          if (prevState.currentNodeId !== null && state.currentNodeId === null) {
+            console.log('[MAP] Returning to map from a node, refreshing completed nodes');
+            fetchCompletedNodes();
+          }
+        } catch (err) {
+          console.error('[MAP] Error in store subscription:', err);
+        }
       }
-    }, 5000);
+    });
     
-    // Start with particles to create visual interest
-    setTimeout(() => triggerParticleAnimation(), 1000);
+    // Set up event listener for node completion events
+    const handleNodeCompleted = (event: any) => {
+      if (!isMountedRef.current) return;
+      
+      console.log('[MAP] Received node:completed event:', event);
+      fetchCompletedNodes();
+    };
+    
+    // Add event listener for node completion
+    document.addEventListener('node:completed', handleNodeCompleted);
+    
+    // Initial fetch of completed nodes
+    fetchCompletedNodes();
+    
+    isMountedRef.current = true;
     
     return () => {
       console.log('[MAP] Component unmounted');
       isMountedRef.current = false;
       animationTimeoutRefs.current.forEach(clearTimeout);
       animationTimeoutRefs.current = [];
-      clearInterval(intervalId);
+      unsubscribe();
+      document.removeEventListener('node:completed', handleNodeCompleted);
     };
+  }, []);
+  
+  // Function to fetch completed nodes from game state machine
+  const fetchCompletedNodes = useCallback(() => {
+    try {
+      if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
+        const gameStateMachine = window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState();
+        if (gameStateMachine && gameStateMachine.completedNodeIds) {
+          const updatedCompletedNodes = [...gameStateMachine.completedNodeIds];
+          console.log('[MAP] Found completed nodes:', updatedCompletedNodes);
+          setCompletedNodes(updatedCompletedNodes);
+        }
+      }
+    } catch (error) {
+      console.warn('[MAP] Error getting completed nodes:', error);
+    }
   }, []);
   
   // Calculate and store SVG bounds for click debugging
@@ -294,20 +295,6 @@ const SimplifiedKapoorMap: React.FC = () => {
     window.addEventListener('resize', updateSvgBounds);
     
     return () => window.removeEventListener('resize', updateSvgBounds);
-  }, []);
-  
-  // Fetch completed nodes on mount
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
-        const gameStateMachine = window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState();
-        if (gameStateMachine && gameStateMachine.completedNodeIds) {
-          setCompletedNodes(gameStateMachine.completedNodeIds);
-        }
-      }
-    } catch (error) {
-      console.warn('[MAP] Error getting completed nodes:', error);
-    }
   }, []);
   
   // Update the stage size effect
@@ -340,25 +327,12 @@ const SimplifiedKapoorMap: React.FC = () => {
         ...prev,
         nodeSelectionState: 'success'
       }));
-      
-      // Add special visual effects when node is selected
-      triggerParticleAnimation();
     } else {
       // When returning to map (currentNodeId becomes null), refresh completed nodes
       console.log('[MAP] Returning to map, refreshing completed nodes');
-      try {
-        if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
-          const gameStateMachine = window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState();
-          if (gameStateMachine && gameStateMachine.completedNodeIds) {
-            console.log('[MAP] Found completed nodes:', gameStateMachine.completedNodeIds);
-            setCompletedNodes(gameStateMachine.completedNodeIds);
-          }
-        }
-      } catch (error) {
-        console.warn('[MAP] Error refreshing completed nodes:', error);
-      }
+      fetchCompletedNodes();
     }
-  }, [currentNodeId]);
+  }, [currentNodeId, fetchCompletedNodes]);
   
   // Update debug state handling
   useEffect(() => {
@@ -378,24 +352,35 @@ const SimplifiedKapoorMap: React.FC = () => {
     return () => window.removeEventListener('debug-toggle', handleDebugToggle);
   }, []);
   
-  // ===== VISUAL ENHANCEMENT FUNCTIONS =====
-  
-  // Trigger ambient particle animation
-  const triggerParticleAnimation = () => {
-    if (particleAnimationActive) return;
-    
-    setShowParticles(true);
-    setParticleAnimationActive(true);
-    
-    const timeout = setTimeout(() => {
+  // Subscribe directly to the state machine to catch all node completions
+  useEffect(() => {
+    // Create an interval to periodically check for updates to completed nodes
+    // This ensures we catch updates from the debug panel or other sources
+    const intervalId = setInterval(() => {
       if (isMountedRef.current) {
-        setShowParticles(false);
-        setParticleAnimationActive(false);
+        try {
+          if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
+            const gameStateMachine = window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState();
+            if (gameStateMachine && gameStateMachine.completedNodeIds) {
+              // Compare current completed nodes with what we have
+              const stateCompletedNodes = gameStateMachine.completedNodeIds;
+              if (stateCompletedNodes.length !== completedNodes.length || 
+                  !stateCompletedNodes.every((id: string) => completedNodes.includes(id))) {
+                console.log('[MAP] Detected change in completed nodes from state machine');
+                setCompletedNodes([...stateCompletedNodes]);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('[MAP] Error in state machine monitoring:', error);
+        }
       }
-    }, 3000);
+    }, 1000); // Check every second
     
-    animationTimeoutRefs.current.push(timeout);
-  };
+    return () => clearInterval(intervalId);
+  }, [completedNodes]);
+  
+  // ===== VISUAL ENHANCEMENT FUNCTIONS =====
   
   // Trigger selection animation for visual feedback
   const triggerSelectionAnimation = useCallback(() => {
@@ -452,6 +437,14 @@ const SimplifiedKapoorMap: React.FC = () => {
       return NodeStatus.AVAILABLE;
     }
     
+    // Map node IDs to appropriate dialogue nodes
+    // This mapping helps link map nodes to dialogue content
+    const nodeToDialogueMapping: Record<string, string> = {
+      'start': 'kapoor-1', // Link start node to first Kapoor dialogue
+      'path-a1': 'kapoor-2', // Link path-a1 to second Kapoor dialogue
+      // Add more mappings as needed for other nodes
+    };
+    
     // Check if it's available (connected to a completed node)
     const isAvailable = nodes.some(node => 
       completedNodes.includes(node.id) && 
@@ -502,6 +495,16 @@ const SimplifiedKapoorMap: React.FC = () => {
         return;
       }
       
+      // Map node IDs to dialogue node IDs
+      const nodeToDialogueMapping: Record<string, string> = {
+        'start': 'kapoor-1', // First Kapoor node
+        'path-a1': 'kapoor-2', // Second Kapoor node
+        // Add more mappings as needed
+      };
+      
+      // Use the mapped dialogue ID if available, otherwise use the node ID directly
+      const dialogueNodeId = nodeToDialogueMapping[nodeId] || nodeId;
+      
       // Set the node in the store
       const gameStore = useGameStore.getState();
       if (isMountedRef.current) {
@@ -512,9 +515,15 @@ const SimplifiedKapoorMap: React.FC = () => {
       }
       
       if (gameStore && gameStore.setCurrentNode) {
+        // Pass the map node ID to the store
         gameStore.setCurrentNode(nodeId);
-        // Dispatch centralized event for selection
-        safeDispatch(GameEventType.UI_NODE_SELECTED, { nodeId, source: 'map' });
+        
+        // But include dialogueNodeId in the event dispatch for other listeners
+        safeDispatch(GameEventType.UI_NODE_SELECTED, { 
+          nodeId, 
+          dialogueNodeId,
+          source: 'map' 
+        });
         
         // Trigger visual feedback
         triggerSelectionAnimation();
@@ -581,9 +590,6 @@ const SimplifiedKapoorMap: React.FC = () => {
         lastError: null
       }));
       
-      // Trigger a visual effect to show refresh
-      triggerParticleAnimation();
-      
     } catch (error) {
       console.error('[MAP] Store refresh error:', error);
     }
@@ -597,37 +603,6 @@ const SimplifiedKapoorMap: React.FC = () => {
   }, [nodes]);
   
   // ===== RENDER HELPERS =====
-  // Ambient particles renderer - adds visual interest to the scene
-  const renderAmbientParticles = useMemo(() => {
-    if (!showParticles) return null;
-    
-    // Generate random particles for visual effect
-    const particles = Array.from({ length: 15 }, (_, i) => {
-      const x = Math.random() * stageSize.width;
-      const y = Math.random() * stageSize.height;
-      const size = Math.random() * 3 + 1;
-      const duration = Math.random() * 2 + 1;
-      const delay = Math.random() * 0.5;
-      
-      return (
-        <circle
-          key={`particle-${i}`}
-          cx={x}
-          cy={y}
-          r={size}
-          fill="rgba(255, 255, 255, 0.4)"
-          className="animate-pulse"
-          style={{ 
-            animationDuration: `${duration}s`,
-            animationDelay: `${delay}s`,
-            opacity: Math.random() * 0.5 + 0.2
-          }}
-        />
-      );
-    });
-    
-    return particles;
-  }, [showParticles, stageSize]);
   
   // Connection lines renderer with enhanced styling
   const renderConnectionLines = useCallback(() => {
@@ -645,38 +620,84 @@ const SimplifiedKapoorMap: React.FC = () => {
         const isHovered = hoveredNodeId === node.id || hoveredNodeId === targetId;
         const isAvailablePath = startNodeStatus !== NodeStatus.LOCKED && endNodeStatus !== NodeStatus.LOCKED;
         
+        // Get the source node for coloring
+        const sourceNode = nodes.find(n => n.id === node.id);
+        
+        // Use type-based colors for paths
+        const nodeType = sourceNode?.type || 'default';
+        
+        const pathColor = 
+          nodeType === 'calibration' ? 'rgba(120, 120, 255, 0.8)' :
+          nodeType === 'qa' ? 'rgba(255, 180, 100, 0.8)' :
+          nodeType === 'clinical' ? 'rgba(100, 255, 150, 0.8)' :
+          'rgba(255, 130, 170, 0.8)'; // educational or default
+          
+        const pathGlowColor = 
+          nodeType === 'calibration' ? 'rgba(120, 120, 255, 0.3)' :
+          nodeType === 'qa' ? 'rgba(255, 180, 100, 0.3)' :
+          nodeType === 'clinical' ? 'rgba(100, 255, 150, 0.3)' :
+          'rgba(255, 130, 170, 0.3)'; // educational or default
+        
+        // Calculate a curved path instead of straight line
+        // Control point offset - make it more pronounced for longer lines
+        const dx = endCoords.x - startCoords.x;
+        const dy = endCoords.y - startCoords.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const controlPointOffset = Math.min(distance * 0.3, 50);
+        
+        // Random offset for control point to create variety in paths
+        const randomOffsetX = ((node.id.charCodeAt(0) + targetId.charCodeAt(0)) % 20) - 10;
+        const randomOffsetY = ((node.id.charCodeAt(1) + targetId.charCodeAt(1)) % 10);
+        
+        // Calculate control point
+        const midX = (startCoords.x + endCoords.x) / 2 + randomOffsetX;
+        const midY = (startCoords.y + endCoords.y) / 2 - controlPointOffset - randomOffsetY;
+        
+        // Create path data for curved line
+        const pathData = `M ${startCoords.x} ${startCoords.y} Q ${midX} ${midY} ${endCoords.x} ${endCoords.y}`;
+        
         return (
           <g key={`${node.id}-${targetId}`}>
-            {/* Base line */}
-            <line
-              x1={startCoords.x}
-              y1={startCoords.y}
-              x2={endCoords.x}
-              y2={endCoords.y}
-              stroke={isActivePath 
-                ? "rgba(120, 160, 255, 0.8)" 
-                : isAvailablePath 
-                  ? "rgba(100, 100, 255, 0.5)" 
-                  : "rgba(100, 100, 100, 0.3)"}
-              strokeWidth={isActivePath ? 4 : 3}
-              strokeDasharray={isHovered ? "none" : "5,5"}
-              className={isActivePath ? "animate-pulse-path" : ""}
-              pointerEvents="none"
-            />
-            
-            {/* Glow effect for active connections */}
+            {/* Enhanced glow for active paths */}
             {isActivePath && (
-              <line
-                x1={startCoords.x}
-                y1={startCoords.y}
-                x2={endCoords.x}
-                y2={endCoords.y}
-                stroke="rgba(120, 160, 255, 0.3)"
+              <path
+                d={pathData}
+                stroke={pathGlowColor}
                 strokeWidth={8}
+                fill="none"
                 filter="blur(4px)"
                 pointerEvents="none"
               />
             )}
+            
+            {/* Base path with better styling */}
+            <path
+              d={pathData}
+              stroke={isActivePath 
+                ? pathColor 
+                : isAvailablePath 
+                  ? (pathColor.replace('0.8', '0.5')) 
+                  : "rgba(100, 100, 100, 0.3)"}
+              strokeWidth={isActivePath ? 4 : 3}
+              strokeDasharray={isHovered ? "none" : (isAvailablePath ? "5,5" : "3,8")}
+              fill="none"
+              className={isActivePath ? "animate-pulse-path" : ""}
+              pointerEvents="none"
+            />
+            
+            {/* Direction indicator */}
+            <circle
+              cx={endCoords.x}
+              cy={endCoords.y}
+              r={3}
+              fill={isActivePath 
+                ? pathColor 
+                : isAvailablePath 
+                  ? (pathColor.replace('0.8', '0.5')) 
+                  : "rgba(100, 100, 100, 0.3)"}
+              pointerEvents="none"
+              className={isActivePath ? "animate-pulse-slow" : ""}
+            />
           </g>
         );
       })
@@ -694,6 +715,19 @@ const SimplifiedKapoorMap: React.FC = () => {
       
       // Get styles based on node status
       const statusStyle = nodeStatusStyles[nodeStatus];
+      
+      // Get color based on node type
+      const nodeTypeColor = 
+        node.type === 'calibration' ? 'rgba(120, 120, 255, 0.8)' :
+        node.type === 'qa' ? 'rgba(255, 180, 100, 0.8)' :
+        node.type === 'clinical' ? 'rgba(100, 255, 150, 0.8)' :
+        'rgba(255, 130, 170, 0.8)'; // educational or default
+      
+      const nodeTypeGlowColor = 
+        node.type === 'calibration' ? 'rgba(120, 120, 255, 0.4)' :
+        node.type === 'qa' ? 'rgba(255, 180, 100, 0.4)' :
+        node.type === 'clinical' ? 'rgba(100, 255, 150, 0.4)' :
+        'rgba(255, 130, 170, 0.4)'; // educational or default
 
       return (
         <g 
@@ -707,13 +741,31 @@ const SimplifiedKapoorMap: React.FC = () => {
           }}
           className={`node-group ${nodeStatus.toLowerCase()}-node ${isHovered ? 'hovered-node' : ''}`}
         >
+          {/* Enhanced Node Background for better visibility */}
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={size + 5}
+            fill="rgba(0, 10, 30, 0.7)"
+            stroke="none"
+          />
+          
+          {/* Type-based glow behind node */}
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={size + 3}
+            fill={nodeTypeGlowColor}
+            filter="blur(2px)"
+          />
+        
           {/* Status circle for better visibility */}
           <circle
             cx={node.x}
             cy={node.y}
             r={size + 2}
             fill="none"
-            stroke={statusStyle.borderColor}
+            stroke={nodeStatus === NodeStatus.LOCKED ? statusStyle.borderColor : nodeTypeColor}
             strokeWidth={statusStyle.borderWidth}
             filter={isHovered ? "drop-shadow(0 0 3px rgba(255,255,255,0.5))" : "none"}
           />
@@ -723,15 +775,16 @@ const SimplifiedKapoorMap: React.FC = () => {
             <circle
               cx={node.x}
               cy={node.y}
-              r={size + 5}
+              r={size + 8}
               fill="none"
-              stroke={statusStyle.glowColor}
-              strokeWidth={2}
+              stroke={nodeStatus === NodeStatus.LOCKED ? statusStyle.glowColor : nodeTypeColor}
+              strokeWidth={3}
               filter="blur(3px)"
+              className="animate-pulse-in-place"
             />
           )}
 
-          {/* Node image with status-based filter */}
+          {/* Node image with status-based filter and enhanced shadow */}
           <image
             href={getNodeImage(node.type)}
             x={node.x - size}
@@ -739,24 +792,26 @@ const SimplifiedKapoorMap: React.FC = () => {
             width={size * 2}
             height={size * 2}
             style={{
-              filter: statusStyle.filter,
+              filter: `${statusStyle.filter} drop-shadow(0 0 2px rgba(0,0,0,0.5))`,
               imageRendering: 'pixelated',
               shapeRendering: 'crispEdges'
             }}
             className={nodeStatus === NodeStatus.CURRENT ? "animate-pulse-slow" : ""}
           />
 
-          {/* Node label */}
+          {/* Node label with better typography */}
           <text
             x={node.x + size + 5}
             y={node.y}
             fill={nodeStatus === NodeStatus.LOCKED ? "rgba(200,200,200,0.6)" : "white"}
             fontSize={12}
+            fontWeight={nodeStatus === NodeStatus.CURRENT ? "bold" : "normal"}
             className="pixel-text"
             style={{ 
               filter: nodeStatus === NodeStatus.CURRENT 
                 ? "drop-shadow(0 0 2px rgba(255,255,255,0.5))" 
-                : "none",
+                : "drop-shadow(1px 1px 1px rgba(0,0,0,0.7))",
+              letterSpacing: "0.5px",
               pointerEvents: "none"
             }}
           >
@@ -777,8 +832,8 @@ const SimplifiedKapoorMap: React.FC = () => {
     ];
     
     return (
-      <div className="absolute bottom-8 left-8 z-20 bg-gray-900/80 backdrop-blur-sm rounded-md p-3 shadow-lg border border-blue-900 text-white">
-        <h3 className="text-white text-sm font-medium mb-2">Map Legend</h3>
+      <div className="absolute bottom-8 left-8 z-20 bg-gray-900/90 backdrop-blur-sm rounded-md p-3 shadow-lg border border-blue-900/50 text-white">
+        <h3 className="text-white text-sm font-medium mb-2 tracking-wide">Map Legend</h3>
         <div className="space-y-2">
           {legendItems.map(item => {
             const style = nodeStatusStyles[item.status];
@@ -787,11 +842,12 @@ const SimplifiedKapoorMap: React.FC = () => {
                 <div 
                   className="w-4 h-4 rounded-full"
                   style={{ 
-                    background: 'transparent',
-                    border: `${style.borderWidth}px solid ${style.borderColor}` 
+                    background: 'rgba(0, 10, 30, 0.5)',
+                    border: `${style.borderWidth}px solid ${style.borderColor}`,
+                    boxShadow: '0 0 3px rgba(0, 0, 0, 0.3)'
                   }}
                 ></div>
-                <span className="text-white text-xs">{item.label}</span>
+                <span className="text-white text-xs tracking-wide">{item.label}</span>
               </div>
             );
           })}
@@ -808,20 +864,29 @@ const SimplifiedKapoorMap: React.FC = () => {
       data-testid="kapoor-map-container"
       onClick={handleContainerClick}
     >
-      {/* Background elements */}
+      {/* Enhanced Background with cohesive visual effects */}
       <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 starfield-bg" />
-        <div className="absolute inset-0 bg-gradient-radial from-blue-900/10 via-purple-900/10 to-blue-900/30" />
-        <div className="absolute inset-0 pixel-noise opacity-10" />
+        {/* Deep space background with subtle gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-950 via-blue-950 to-gray-950" />
+        
+        {/* Simplified starfield with fewer stars */}
+        <div className="absolute inset-0 starfield-bg-sparse" />
+        <div className="absolute inset-0 starfield-bg-medium" />
+        
+        {/* Very subtle nebula effect */}
+        <div className="absolute inset-0 nebula-effect-subtle" />
+        
+        {/* Minimal noise texture overlay */}
+        <div className="absolute inset-0 pixel-noise opacity-3" />
       </div>
       
       {/* Map container with expanded dimensions */}
-      <div className="relative z-10 w-full" style={{ height: "1800px" }}>
+      <div className="relative z-10 w-full" style={{ height: "1700px" }}>
         <svg 
           ref={svgRef}
           width="100%" 
           height="100%" 
-          viewBox="0 0 1200 1800"
+          viewBox="0 0 1200 1700"
           preserveAspectRatio="xMidYMin slice"
           className={isAnimating ? 'animate-map-click' : ''}
           data-testid="kapoor-map-svg"
@@ -829,7 +894,13 @@ const SimplifiedKapoorMap: React.FC = () => {
           {/* Grid pattern definition */}
           <defs>
             <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(100, 120, 255, 0.1)" strokeWidth="0.5"/>
+              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(100, 120, 255, 0.05)" strokeWidth="0.5"/>
+            </pattern>
+            
+            {/* Simplified grid */}
+            <pattern id="enhanced-grid" width="100" height="100" patternUnits="userSpaceOnUse">
+              <rect width="100" height="100" fill="transparent"/>
+              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(100, 120, 255, 0.05)" strokeWidth="0.5"/>
             </pattern>
             
             {/* Glow filter for nodes */}
@@ -840,13 +911,19 @@ const SimplifiedKapoorMap: React.FC = () => {
                 <feMergeNode in="SourceGraphic"/>
               </feMerge>
             </filter>
+            
+            {/* More intense glow for active elements */}
+            <filter id="active-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="4" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
           </defs>
           
-          {/* Grid background */}
-          <rect width="100%" height="100%" fill="url(#grid)" pointerEvents="none" />
-          
-          {/* Ambient particles for visual interest */}
-          {renderAmbientParticles}
+          {/* Very subtle grid background */}
+          <rect width="100%" height="100%" fill="url(#enhanced-grid)" pointerEvents="none" fillOpacity="0.7" />
           
           {/* Enhanced connection lines */}
           {renderConnectionLines()}
@@ -880,6 +957,18 @@ const SimplifiedKapoorMap: React.FC = () => {
           50% { transform: scale(1.1); opacity: 1; }
         }
         
+        /* Keyframes for in-place pulse animation */
+        @keyframes pulse-in-place {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; }
+        }
+        
+        /* Keyframes for very slow pulse animation */
+        @keyframes pulse-very-slow {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; }
+        }
+        
         /* Animation classes */
         .pulse-animation {
           animation: pulse 0.6s ease-in-out;
@@ -895,6 +984,14 @@ const SimplifiedKapoorMap: React.FC = () => {
         
         .animate-pulse-slow {
           animation: pulse-slow 3s infinite ease-in-out;
+        }
+        
+        .animate-pulse-in-place {
+          animation: pulse-in-place 2s infinite ease-in-out;
+        }
+        
+        .animate-pulse-very-slow {
+          animation: pulse-very-slow 8s infinite ease-in-out;
         }
         
         .animate-map-click {
@@ -948,14 +1045,33 @@ const SimplifiedKapoorMap: React.FC = () => {
           left: 100%;
         }
         
-        /* Starfield background */
-        .starfield-bg {
+        /* Simplified starfield background */
+        .starfield-bg-sparse {
           background-image: radial-gradient(
             circle at center,
-            rgba(255, 255, 255, 0.1) 1px,
+            rgba(255, 255, 255, 0.3) 1px,
             transparent 1px
           );
-          background-size: 25px 25px;
+          background-size: 80px 80px;
+        }
+        
+        .starfield-bg-medium {
+          background-image: radial-gradient(
+            circle at center,
+            rgba(255, 255, 255, 0.4) 1.5px,
+            transparent 1.5px
+          );
+          background-size: 200px 200px;
+        }
+        
+        /* Subtle nebula effect */
+        .nebula-effect-subtle {
+          background: radial-gradient(
+            circle at 70% 60%,
+            rgba(30, 64, 175, 0.08) 0%,
+            rgba(30, 64, 175, 0.02) 40%,
+            transparent 70%
+          );
         }
         
         /* Pixel noise effect */

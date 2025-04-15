@@ -9,7 +9,7 @@
  * 4. Simplified error handling for development vs production
  */
 
-import { useCallback, useEffect, useRef, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useMemo, useSyncExternalStore, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { shallow } from 'zustand/shallow';
 
@@ -676,16 +676,3 @@ export default {
   useStoreCallback,
   resetStoreHookErrors
 };
-
-/**
- * Journal Store Type Helper
- * 
- * This function helps with TypeScript type coercion when dealing with
- * journal store values extracted with usePrimitiveStoreValue.
- * 
- * @param value The value returned from usePrimitiveStoreValue
- * @returns The same value with the correct type
- */
-export function asJournalValue<T>(value: any): T {
-  return value as T;
-}
