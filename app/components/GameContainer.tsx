@@ -21,7 +21,6 @@ import { GameEventType } from '@/app/core/events/EventTypes';
 import { useCoreInitialization } from '@/app/core/init';
 import SimplifiedKapoorMap from './map/SimplifiedKapoorMap';
 import HillHomeScene from './HillHomeScene';
-import PlayerStats from './PlayerStats';
 import UnifiedDebugPanel from './debug/UnifiedDebugPanel';
 import ChallengeRouter from './challenges/ChallengeRouter';
 import DayNightTransition from './DayNightTransition';
@@ -666,13 +665,8 @@ export default function GameContainer() {
       
       <div className="flex-grow flex overflow-hidden">
         <div className="flex-grow relative overflow-hidden">
-          <div className="absolute inset-0 overflow-auto">
+          <div className="absolute inset-0 overflow-auto flex flex-col items-center justify-center">
             {renderGameContent()}
-          </div>
-        </div>
-        <div className="w-72 flex-shrink-0 border-l border-gray-800 bg-black/90 backdrop-blur-md overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto overflow-x-hidden shadow-lg">
-            <PlayerStats />
           </div>
         </div>
       </div>

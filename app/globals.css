@@ -5,6 +5,47 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Global black backgrounds to prevent flashing */
+html, body, #__next, main, [data-game-container], .transition-container {
+  background-color: black !important;
+}
+
+/* Global transition prevention - now less aggressive */
+.black-transition-active *,
+.transitioning-to-black * {
+  /* Only apply to selected elements instead of all elements */
+  &:is(html, body, main, div[data-game-container], .transition-container) {
+    background-color: black !important;
+  }
+  /* Don't disable all transitions */
+  transition-duration: inherit;
+}
+
+/* Prevent white flash during page transitions */
+@keyframes fadeFromBlack {
+  from { background-color: black !important; }
+  to { background-color: black !important; }
+}
+
+@keyframes preventWhiteFlash {
+  0%, 100% { 
+    background-color: black !important; 
+  }
+}
+
+/* Apply animation only to html, not its children */
+html {
+  animation: fadeFromBlack 0.1s ease-out;
+}
+
+/* Style for the pixel transition */
+.pixel-transition-active {
+  /* This class now only affects specific elements */
+  &:is(html, body) {
+    background-color: black !important;
+  }
+}
+
 /* Pixel font imports */
 @font-face {
   font-family: 'VT323';
@@ -1408,4 +1449,66 @@ img.pixel-art,
 
 .pixel-card {
   /* ... existing code ... */
+}
+
+/* Mentor reaction animations */
+@keyframes mentor-symbol-appear {
+  0% { opacity: 0; transform: translateY(5px) scale(0.7); }
+  20% { opacity: 1; transform: translateY(-5px) scale(1.2); }
+  80% { opacity: 1; transform: translateY(-5px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-15px) scale(0.9); }
+}
+
+@keyframes mentor-oscillate {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes mentor-highlight {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.5); }
+  100% { filter: brightness(1); }
+}
+
+.mentor-reaction-symbol {
+  animation: mentor-symbol-appear 1s forwards;
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 24px;
+  font-weight: bold;
+  z-index: 50;
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+.mentor-oscillate {
+  animation: mentor-oscillate 2s ease-in-out infinite;
+}
+
+.mentor-highlight {
+  animation: mentor-highlight 1s ease-in-out;
+}
+
+/* Character reaction animations */
+@keyframes reaction-enter {
+  0% { opacity: 0; transform: translateY(5px) scale(0.8); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes reaction-exit {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-5px) scale(0.8); }
+}
+
+.reaction-enter {
+  animation: reaction-enter 0.3s forwards ease-out;
+}
+
+.reaction-exit {
+  animation: reaction-exit 0.3s forwards ease-in;
+}
+
+.reaction-active {
+  opacity: 1;
 }

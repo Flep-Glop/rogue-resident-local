@@ -97,6 +97,12 @@ export enum GameEventType {
   PROGRESSION_TRANSACTION_COMPLETED = 'progression:transaction:completed',
   PROGRESSION_TRANSACTION_CANCELLED = 'progression:transaction:cancelled',
   PROGRESSION_TRANSACTION_REPAIRED = 'progression:transaction:repaired',
+  
+  // ===== Visual Extensions Events =====
+  EXTENSION_STARTED = 'extension:started',
+  EXTENSION_COMPLETED = 'extension:completed',
+  EXTENSION_HINT_USED = 'extension:hint:used',
+  EXTENSION_INTERACTION = 'extension:interaction',
 
   // ===== Recovery & Debug Events =====
   DEBUG_COMMAND = 'debug:command',

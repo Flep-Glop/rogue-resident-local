@@ -29,6 +29,7 @@ import { GameEventType } from '@/app/core/events/EventTypes';
 import { useJournalStore } from '@/app/store/journalStore';
 import { usePrimitiveStoreValue } from '@/app/core/utils/storeHooks';
 import { shallow } from 'zustand/shallow';
+import { ExtensionData } from '@/app/components/extensions/VisualExtender';
 
 // ===== CORE TYPES =====
 
@@ -49,6 +50,7 @@ export interface DialogueStage {
   };
   nextStageId?: string;
   responseText?: string;
+  extension?: ExtensionData;
 }
 
 export interface DialogueOption {

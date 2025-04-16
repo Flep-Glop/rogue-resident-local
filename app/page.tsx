@@ -6,6 +6,7 @@ import JournalAcquisitionAnimation from './components/journal/JournalAcquisition
 import { useCoreInitialization } from './core/init';
 import ChamberDebugInitializer from './components/debug/ChamberDebugInitializer';
 import UnifiedDebugPanel from './components/debug/UnifiedDebugPanel';
+import DialogueNodeSelector from './components/tools/DialogueNodeSelector';
 
 // Debug styles for initialization visualization
 const debugStyles = {
@@ -295,6 +296,9 @@ export default function VerticalSlicePage() {
             <JournalAcquisitionAnimation 
               onComplete={() => setJournalAnimationCompleted(true)} 
             />
+            
+            {/* Add the extension test selector in non-production environments */}
+            {process.env.NODE_ENV !== 'production' && <DialogueNodeSelector />}
           </>
         ) : null}
       </div>

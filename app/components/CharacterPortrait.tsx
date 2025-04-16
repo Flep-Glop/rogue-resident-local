@@ -1,108 +1,102 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import useGameStateMachine from '@/app/core/statemachine/GameStateMachine';
-import { useKnowledgeStore, KnowledgeState } from '@/app/store/knowledgeStore';
-import { usePrimitiveStoreValue, createStableSelector } from '@/app/core/utils/storeHooks';
+import { motion } from 'framer-motion';
+import MentorReaction, { ReactionType } from './MentorReaction';
+import { CharacterId, getCharacterData } from '@/app/data/characters';
 import { DialogueMode } from './dialogue/DialogueContainer';
 
-interface ResidentPortraitProps {
-  showFullBody?: boolean;
+interface CharacterPortraitProps {
+  characterId: CharacterId | string;
+  reaction?: ReactionType;
+  shake?: boolean;
+  oscillate?: boolean;
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-  showMasteryGlow?: boolean;
-  dialogueMode?: DialogueMode | null;
+  showTitle?: boolean;
+  dialogueMode?: DialogueMode;
 }
 
 /**
- * ResidentPortrait - Renders the resident character portrait
+ * Character portrait component with integrated reaction system
  * 
- * Dynamically switches between headshot and full-body views based on context
- * and adds visual feedback based on knowledge mastery.
+ * Follows the Chamber Pattern:
+ * - Uses refs for DOM operations
+ * - Minimizes state
+ * - Encapsulates animations
  */
-export default function ResidentPortrait({ 
-  showFullBody = false,
-  className = '',
+const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
+  characterId,
+  reaction = null,
+  shake = false,
+  oscillate = false,
   size = 'md',
-  showMasteryGlow = true,
-  dialogueMode = null
-}: ResidentPortraitProps) {
-  // FIXED: Using primitive selector directly from the source store, with a fallback value
-  // This prevents the object-to-string reference chain that was causing recursive rendering
-  const gamePhase = usePrimitiveStoreValue(
-    useGameStateMachine, 
-    (state: { gamePhase: string }) => state.gamePhase,
-    'day' // Fallback if we get a non-string value somehow
-  );
+  className = '',
+  showTitle = false,
+  dialogueMode = null,
+}) => {
+  // Mounted ref for preventing memory leaks
+  const isMountedRef = useRef(true);
+  const portraitRef = useRef<HTMLDivElement>(null);
   
-  // Use stable selector with explicit property list
-  const { totalMastery, newlyDiscovered } = useKnowledgeStore(
-    createStableSelector<KnowledgeState>(['totalMastery', 'newlyDiscovered'])
-  );
+  // Animation timing refs
+  const animationTimers = useRef<{[key: string]: NodeJS.Timeout | null}>({});
   
-  // Local animation states
-  const [pulseEffect, setPulseEffect] = useState(false);
+  // Get character data
+  const characterData = getCharacterData(characterId);
   
-  // Apply pulse effect when new knowledge is discovered
+  // Visual effect state
+  const [isShaking, setIsShaking] = useState(shake);
+  const [isOscillating, setIsOscillating] = useState(oscillate);
+  
+  // Clear timers on unmount
   useEffect(() => {
-    if (newlyDiscovered && Array.isArray(newlyDiscovered) && newlyDiscovered.length > 0) {
-      setPulseEffect(true);
+    isMountedRef.current = true;
+    
+    return () => {
+      isMountedRef.current = false;
+      // Clean up all timers
+      Object.values(animationTimers.current).forEach(timer => {
+        if (timer) clearTimeout(timer);
+      });
+    };
+  }, []);
+  
+  // Handle shake prop changes
+  useEffect(() => {
+    if (shake && !isShaking) {
+      setIsShaking(true);
       
-      // Clear effect after animation
-      const timer = setTimeout(() => {
-        setPulseEffect(false);
-      }, 3000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [newlyDiscovered]);
-  
-  // Calculate size classes for portrait
-  const sizeClasses = useMemo(() => {
-    if (showFullBody) {
-      return {
-        sm: 'w-32 h-80',
-        md: 'w-40 h-100',
-        lg: 'w-48 h-120',
-        xl: 'w-64 h-160'
-      }[size || 'md'] || 'w-40 h-100';
+      // Auto-stop shake after 500ms
+      animationTimers.current.shake = setTimeout(() => {
+        if (isMountedRef.current) {
+          setIsShaking(false);
+        }
+      }, 500);
+    } else if (!shake && isShaking) {
+      setIsShaking(false);
     }
     
-    return {
-      sm: 'w-24 h-24',
-      md: 'w-28 h-28',
-      lg: 'w-40 h-40',
-      xl: 'w-40 h-40'
-    }[size || 'md'] || 'w-28 h-28';
-  }, [size, showFullBody]);
+    return () => {
+      if (animationTimers.current.shake) {
+        clearTimeout(animationTimers.current.shake);
+      }
+    };
+  }, [shake, isShaking]);
   
-  // Determine which portrait to show
-  const portraitType = showFullBody ? 'full' : 'portrait';
+  // Handle oscillate prop changes
+  useEffect(() => {
+    setIsOscillating(oscillate);
+  }, [oscillate]);
   
-  // Mastery halo color based on total knowledge mastery
-  const getHaloColor = () => {
-    // Safely handle undefined totalMastery
-    const mastery = totalMastery || 0;
-    
-    if (mastery >= 75) return 'rgba(34, 197, 94, 0.4)'; // Green for high mastery
-    if (mastery >= 50) return 'rgba(147, 51, 234, 0.4)'; // Purple for medium mastery
-    if (mastery >= 25) return 'rgba(37, 99, 235, 0.4)'; // Blue for low mastery
-    return 'rgba(37, 99, 235, 0.15)'; // Dim blue for beginning mastery
+  // Size variants for the portrait
+  const sizeClasses = {
+    sm: 'w-24 h-24',
+    md: 'w-32 h-32',
+    lg: 'w-40 h-40'
   };
-  
-  // Mastery halo intensity based on total knowledge mastery
-  const getHaloIntensity = () => {
-    // Safely handle undefined totalMastery
-    const mastery = totalMastery || 0;
-    
-    if (mastery >= 75) return 'lg';
-    if (mastery >= 50) return 'md';
-    if (mastery >= 25) return 'sm';
-    return 'xs';
-  };
-  
-  // Get dialogue mode class name (similar to CharacterPortrait)
+
+  // Get dialogue mode color classes
   const getModeClasses = () => {
     if (!dialogueMode) return '';
     
@@ -118,72 +112,69 @@ export default function ResidentPortrait({
     return modeColorMap[dialogueMode] || '';
   };
   
-  // Defensive logging to track if we're still getting non-string phases
-  // This helps trace any continued issues without breaking the component
-  if (typeof gamePhase !== 'string') {
-    console.warn(`[ResidentPortrait] Received non-string gamePhase: ${gamePhase}, using fallback`);
-  }
-  
   return (
-    <div className={`relative flex items-center justify-center ${className}`}>
-      {/* Knowledge mastery halo */}
-      {showMasteryGlow && (
-        <div 
-          className={`absolute -inset-1 rounded-full blur-${getHaloIntensity()}`}
-          style={{ 
-            backgroundColor: getHaloColor(),
-            opacity: gamePhase === 'night' ? 0.8 : 0.4,
-            zIndex: 0
-          }}
+    <div className={`relative flex flex-col items-center ${className}`}>
+      {/* Mentor reaction indicator - Positioned as a sibling outside the portrait container */}
+      <div className="absolute w-full" style={{ top: '-4rem', zIndex: 100 }}>
+        <MentorReaction 
+          reaction={reaction} 
+          color={characterData.primaryColor}
         />
-      )}
+      </div>
       
-      {/* Character portrait */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={portraitType}
-          className={`relative ${sizeClasses} overflow-hidden ${getModeClasses()}`}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ 
-            opacity: 1, 
-            scale: 1,
-            transition: { type: 'spring', damping: 15 }
-          }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          style={{ 
-            borderRadius: '4px',
-            transition: 'background-color 8s cubic-bezier(0.05, 0.1, 0.3, 1), box-shadow 8s cubic-bezier(0.05, 0.1, 0.3, 1)'
-          }}
+      {/* Portrait container */}
+      <motion.div
+        ref={portraitRef}
+        className={`relative ${sizeClasses[size]} overflow-hidden ${characterData.bgClass} ${getModeClasses()}`}
+        animate={{
+          y: isOscillating ? [0, -5, 0] : 0,
+        }}
+        transition={
+          isOscillating 
+            ? { 
+                y: { 
+                  repeat: Infinity, 
+                  duration: 2, 
+                  ease: 'easeInOut' 
+                }
+              } 
+            : {}
+        }
+        style={{
+          transition: 'background-color 8s cubic-bezier(0.05, 0.1, 0.3, 1), border-color 8s cubic-bezier(0.05, 0.1, 0.3, 1), box-shadow 8s cubic-bezier(0.05, 0.1, 0.3, 1)',
+          borderRadius: '4px'
+        }}
+      >
+        {/* Character image */}
+        <div 
+          className={`w-full h-full relative ${isShaking ? 'character-shake' : ''}`}
         >
           <Image
-            src={`/images/resident-${portraitType}.png`}
-            alt="Medical Physics Resident"
-            fill={true}
+            src={characterData.sprite}
+            alt={characterData.name}
+            fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            style={{ 
-              objectFit: portraitType === 'full' ? 'contain' : 'cover',
-              objectPosition: portraitType === 'full' ? 'center top' : 'center center',
-              imageRendering: 'pixelated'
-            }}
+            style={{ objectFit: 'cover' }}
             className="pixel-art"
           />
-          
-          {/* Pulse effect when new knowledge is gained */}
-          {pulseEffect && (
-            <motion.div
-              className="absolute inset-0 bg-educational"
-              initial={{ opacity: 0 }}
-              animate={{ 
-                opacity: [0, 0.3, 0],
-                transition: { repeat: 2, duration: 1 }
-              }}
-            />
-          )}
-        </motion.div>
-      </AnimatePresence>
+        </div>
+      </motion.div>
       
-      {/* Removed day/night phase indicator */}
-      
+      {/* Character title if requested */}
+      {showTitle && (
+        <div 
+          className={`text-center ${characterData.textClass} font-pixel`}
+          style={{ 
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+            paddingTop: '2rem',
+            marginTop: '2rem'
+          }}
+        >
+          <div className="text-sm font-semibold">{characterData.name}</div>
+          <div className="text-xs opacity-80">{characterData.title}</div>
+        </div>
+      )}
+
       {/* Add animation styles for dialogue modes */}
       {dialogueMode && (
         <style jsx global>{`
@@ -365,4 +356,6 @@ export default function ResidentPortrait({
       )}
     </div>
   );
-}
+};
+
+export default CharacterPortrait; 

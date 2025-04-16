@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable}`}>
+    <html lang="en" className={`${inter.variable} bg-black`}>
       <head>
         {/* Using non-blocking font loading with correct crossOrigin attributes */}
         <link
@@ -55,6 +55,38 @@ export default function RootLayout({
           rel="stylesheet"
           crossOrigin="anonymous"
         />
+        
+        {/* Global styles to prevent white flash during transitions */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          html, body {
+            background-color: #000 !important;
+          }
+          
+          html.black-transition-active body,
+          html.black-transition-active main {
+            background-color: #000 !important;
+            pointer-events: auto !important;
+          }
+          
+          .transitioning-to-black {
+            background-color: #000 !important;
+          }
+          
+          /* Prevent any white flash during page transitions, but don't make everything immediately black */
+          @keyframes fadeInFromBlack {
+            from { background-color: #000; }
+            to { background-color: #000; }
+          }
+          
+          html {
+            animation: fadeInFromBlack 0.1s;
+          }
+          
+          /* More gradual fade for transitions */
+          #map-fade-overlay {
+            transition: opacity 1.5s ease-in-out !important;
+          }
+        `}} />
       </head>
       <body className="bg-black text-white antialiased">
         <PixelThemeProvider>
@@ -62,7 +94,7 @@ export default function RootLayout({
           <FontPreLoader />
           
           {/* Main content */}
-          <main>
+          <main className="bg-black">
             {children}
           </main>
           

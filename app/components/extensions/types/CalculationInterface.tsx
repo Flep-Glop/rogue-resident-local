@@ -4,8 +4,9 @@
 /**
  * Calculation Interface Extension
  * 
- * Provides an interactive calculation interface for physics problems.
+ * Provides an interactive calculation interface for physics problems with character integration.
  * Implements Chamber Pattern for performance optimization.
+ * Enhanced with improved transitions and professional mentor tone.
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
@@ -17,6 +18,7 @@ import { safeDispatch } from '../../../core/events/CentralEventBus';
 import { GameEventType } from '../../../core/events/EventTypes';
 import { useResourceStore } from '../../../store/resourceStore';
 
+// Interface definitions for the calculation system
 interface FormulaVariable {
   id: string;
   label: string;
@@ -29,6 +31,21 @@ interface FormulaVariable {
     min: number;
     max: number;
   };
+}
+
+interface CalculationStep {
+  id: string;
+  type: 'FORMULA_RECOGNITION' | 'PARAMETER_IDENTIFICATION' | 'CALCULATION_EXECUTION' | 'CLINICAL_JUDGMENT';
+  prompt: string;
+  kapoorText?: string; // Character dialogue
+  options?: {
+    text: string;
+    correct: boolean;
+    feedback?: string;
+  }[];
+  hint?: string;
+  answer?: number;
+  tolerance?: number;
 }
 
 interface CalculationContent {
@@ -44,6 +61,7 @@ interface CalculationContent {
       hint?: string;
     }[];
   };
+  educationalSteps?: CalculationStep[];
   conceptId: string;
   difficulty: 'easy' | 'medium' | 'hard';
   domain: string;
@@ -67,7 +85,7 @@ interface CalculationInterfaceProps {
 /**
  * Calculation Interface Component
  * 
- * Provides a physics calculator with formula visualization and step-by-step guidance
+ * Provides physics calculator with simplified, character-driven interaction
  */
 const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
   content,
@@ -80,323 +98,488 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
   const isMountedRef = useRef(true);
   const containerRef = useRef<HTMLDivElement>(null);
   
+  // Get additional scenario props if available
+  const scenarioInfo = additionalProps?.scenario || null;
+  const prefilledValues = additionalProps?.prefilledValues || {};
+  
   // Component state
   const [inputValues, setInputValues] = useState<Record<string, number | null>>(() => {
     const initialValues: Record<string, number | null> = {};
     content.formula.variables.forEach(variable => {
-      initialValues[variable.id] = variable.isInput ? null : variable.value;
+      // Use prefilled values if available, otherwise use the default values
+      if (prefilledValues && prefilledValues[variable.id] !== undefined) {
+        initialValues[variable.id] = prefilledValues[variable.id];
+      } else {
+        initialValues[variable.id] = variable.isInput ? null : variable.value;
+      }
     });
     return initialValues;
   });
   
-  const [calculationResult, setCalculationResult] = useState<number | null>(null);
-  const [showSolution, setShowSolution] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [hintUsed, setHintUsed] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  // Simplified state management for streamlined interface
+  const [currentStage, setCurrentStage] = useState(0);
+  const [showHint, setShowHint] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [userAnswer, setUserAnswer] = useState<string>('');
+  const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [feedbackType, setFeedbackType] = useState<'success' | 'error'>('success');
+  const [stageCompleted, setStageCompleted] = useState<boolean[]>([]);
+  const [submitted, setSubmitted] = useState(false);
+  const [hintUsed, setHintUsed] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   
-  // Get momentum from store as primitive
-  const momentum = usePrimitiveStoreValue(useResourceStore, state => state.momentum, 0);
-  
-  // Track UI animations
+  // Animation states
   const [animating, setAnimating] = useState(false);
+  const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
+  
+  // Get momentum and insight from store as primitives
+  const momentum = usePrimitiveStoreValue(useResourceStore, state => (state as any).momentum, 0);
+  const insight = usePrimitiveStoreValue(useResourceStore, state => (state as any).insight, 0);
+  
+  // Function to highlight elements on success using Chamber Pattern
+  const highlightElements = useCallback(() => {
+    if (!containerRef.current) return;
+    
+    // Add a success class to the container for styling
+    containerRef.current.classList.add('calculation-success');
+    
+    // Remove the class after animation completes
+    setTimeout(() => {
+      if (containerRef.current && isMountedRef.current) {
+        containerRef.current.classList.remove('calculation-success');
+      }
+    }, 1500);
+  }, []);
   
   // Get target variable (the one we're solving for)
   const targetVariable = useMemo(() => {
     return content.formula.variables.find(v => v.isTarget);
   }, [content.formula.variables]);
   
-  // Memoize steps from content
-  const steps = useMemo(() => {
-    return content.formula.steps || [];
-  }, [content.formula.steps]);
-  
-  // Calculate the solution value
-  const calculateSolution = useCallback(() => {
-    // This is a simplified calculator - in a real implementation,
-    // we would use a math evaluation library to calculate based on the formula
+  // Generate character-driven educational steps if not provided
+  const educationalSteps = useMemo(() => {
+    // If content has predefined educational steps, use those
+    if (content.educationalSteps && content.educationalSteps.length > 0) {
+      return content.educationalSteps;
+    }
     
-    // For now, just demonstrate the capability with a mock calculation
+    // Otherwise, generate default educational steps with Dr. Kapoor's character
+    const defaultSteps: CalculationStep[] = [
+      {
+        id: 'formula-recognition',
+        type: 'FORMULA_RECOGNITION',
+        kapoorText: "Let's start with the formula we need for this calculation. Precision in our approach is essential.",
+        prompt: `What's the formula we need for ${targetVariable?.label || 'this calculation'}?`,
+        options: [
+          { 
+            text: content.formula.display.replace(/\$/g, ''),
+            correct: true,
+            feedback: "Correct. A solid foundation is essential for reliable results."
+          },
+          { 
+            text: content.formula.display.replace(/\//g, '×').replace(/\$/g, ''),
+            correct: false,
+            feedback: "That's not correct. Remember that mathematical operations matter. Take another look at how these variables relate."
+          },
+          { 
+            text: content.formula.display.replace(/\×/g, '+').replace(/\$/g, ''),
+            correct: false,
+            feedback: "Incorrect. Addition and multiplication produce fundamentally different results. Let's be precise about how these variables interact."
+          }
+        ],
+        hint: "Consider the units and relationships between the variables. How do they need to combine mathematically?"
+      },
+      {
+        id: 'parameter-identification',
+        type: 'PARAMETER_IDENTIFICATION',
+        kapoorText: "Now, which parameters do we need to measure for this calculation? Identifying the right inputs is crucial.",
+        prompt: "Which measurements are required for this calculation?",
+        options: [
+          { 
+            text: `${content.formula.variables.filter(v => v.isInput).map(v => v.label).join(', ')}`,
+            correct: true,
+            feedback: "Correct. You've identified all the necessary parameters."
+          },
+          { 
+            text: `Just ${content.formula.variables.filter(v => v.isInput).slice(0, 1).map(v => v.label).join(', ')}`,
+            correct: false,
+            feedback: "Incomplete. This calculation requires more parameters than that. Consider all variables in the formula."
+          },
+          { 
+            text: `Everything plus patient demographics`,
+            correct: false,
+            feedback: "Not quite. While patient context is important clinically, this specific calculation only requires the physical parameters in our formula."
+          }
+        ],
+        hint: "Review the formula we established and identify each variable that needs a measured value."
+      },
+      {
+        id: 'calculation-execution',
+        type: 'CALCULATION_EXECUTION',
+        kapoorText: "Let's proceed with the calculation. Precision at this stage directly impacts treatment quality.",
+        prompt: `What's your calculated result? Show your work.`,
+        hint: "Apply the values to the formula we've established. Make sure to maintain proper units throughout your calculation.",
+        answer: content.solutions?.[0]?.value || 0,
+        tolerance: (content.solutions?.[0]?.value || 0) * 0.01 // 1% tolerance
+      },
+      {
+        id: 'clinical-judgment',
+        type: 'CLINICAL_JUDGMENT',
+        kapoorText: "Beyond the mathematics, let's consider the clinical significance. How does this result impact patient care?",
+        prompt: "What's the clinical significance of this calculation?",
+        options: [
+          { 
+            text: `It ensures the precise prescribed dose reaches the tumor while sparing healthy tissue.`,
+            correct: true,
+            feedback: "Excellent. You're thinking like a clinical physicist now, connecting the mathematics to patient outcomes."
+          },
+          { 
+            text: `It helps with treatment efficiency.`,
+            correct: false,
+            feedback: "While efficiency matters, the primary purpose is clinical accuracy and safety. Our calculations directly impact treatment efficacy and patient outcomes."
+          },
+          { 
+            text: `It's mainly for documentation purposes.`,
+            correct: false,
+            feedback: "Documentation is important, but these calculations directly determine treatment parameters. There's a direct line between our work and patient care."
+          }
+        ],
+        hint: "Consider the consequences of calculation errors. What aspects of treatment depend on this value?"
+      }
+    ];
+    
+    return defaultSteps;
+  }, [content.educationalSteps, content.formula.display, content.formula.variables, content.solutions, targetVariable]);
+  
+  // Initialize stage completion tracking
+  useEffect(() => {
+    if (educationalSteps && educationalSteps.length > 0) {
+      setStageCompleted(new Array(educationalSteps.length).fill(false));
+    }
+  }, [educationalSteps]);
+  
+  // Determine current educational step
+  const currentEducationalStep = useMemo(() => {
+    return educationalSteps[currentStage] || null;
+  }, [educationalSteps, currentStage]);
+  
+  // Scenario hints if available
+  const scenarioHints = useMemo(() => {
+    return scenarioInfo?.hints || [];
+  }, [scenarioInfo]);
+  
+  // Get correct calculation solution
+  const getCorrectSolution = useCallback(() => {
+    if (content.solutions && content.solutions.length > 0) {
+      const validSolution = content.solutions.find(s => s.isValid);
+      if (validSolution) {
+        return validSolution.value;
+      }
+    }
+    
+    // Otherwise calculate it based on formula
     try {
-      // Check if we have all required input values
-      const missingInputs = content.formula.variables
-        .filter(v => v.isInput && inputValues[v.id] === null)
-        .map(v => v.label);
-      
-      if (missingInputs.length > 0) {
-        setFeedbackMessage(`Please enter values for: ${missingInputs.join(', ')}`);
-        return null;
-      }
-      
-      // In a real implementation, this would use the formula to calculate
-      // For demonstration, we'll just implement some common formulas
-      
-      // For HVL calculation (common medical physics calculation)
-      if (content.id.includes('hvl')) {
-        const I0 = inputValues['I0'] as number;
-        const I = inputValues['I'] as number;
-        const μ = inputValues['mu'] as number;
-        
-        if (targetVariable?.id === 'x') {
-          // HVL formula: I = I0 * e^(-μx)
-          // Solving for x: x = -ln(I/I0)/μ
-          return -Math.log(I / I0) / μ;
-        }
-      }
-      
-      // For monitor unit calculation
-      if (content.id.includes('monitor_units')) {
+      if (content.id.includes('monitor_units') && targetVariable?.id === 'mu') {
         const dose = inputValues['dose'] as number;
         const calibration = inputValues['calibration'] as number;
         const tpr = inputValues['tpr'] as number;
         const scatter = inputValues['scatter'] as number;
         
-        if (targetVariable?.id === 'mu') {
-          // MU = Dose / (Calibration * TPR * Scatter)
-          return dose / (calibration * tpr * scatter);
-        }
+        // MU = Dose / (Calibration * TPR * Scatter)
+        return dose / (calibration * tpr * scatter);
       }
       
-      // Generic calculation fallback - use the provided solution
-      // In a real implementation, this would evaluate the formula
-      if (targetVariable && content.solutions) {
-        const solution = content.solutions.find(s => s.isValid);
-        return solution?.value || null;
-      }
-      
+      // For other calculation types, implement as needed
       return null;
     } catch (error) {
-      console.error('Calculation error:', error);
-      setFeedbackMessage('Error calculating result');
+      console.error('Error calculating solution:', error);
       return null;
     }
-  }, [content.id, content.formula.variables, content.solutions, inputValues, targetVariable]);
+  }, [content.id, content.solutions, inputValues, targetVariable]);
   
-  // Handle input change
-  const handleInputChange = useCallback((variableId: string, value: string) => {
-    if (!isMountedRef.current) return;
-    
-    // Clear feedback when user starts typing
-    if (feedbackMessage) {
-      setFeedbackMessage(null);
-    }
-    
-    // Parse numeric value
-    const numericValue = value === '' ? null : parseFloat(value);
-    
-    // Update input values
-    setInputValues(prev => ({
-      ...prev,
-      [variableId]: numericValue
-    }));
-  }, [feedbackMessage]);
+  // Handle parameter highlighting
+  const handleParameterHover = useCallback((paramId: string) => {
+    setActiveHighlight(paramId);
+  }, []);
   
-  // Handle calculation attempt
-  const handleCalculate = useCallback(() => {
-    if (!isMountedRef.current) return;
+  const handleParameterLeave = useCallback(() => {
+    setActiveHighlight(null);
+  }, []);
+  
+  // Handle option selection for multiple choice stages
+  const handleOptionSelect = useCallback((option: any, index: number) => {
+    if (!isMountedRef.current || animating || submitted) return;
     
-    const result = calculateSolution();
-    setCalculationResult(result);
+    setAnimating(true);
+    setSelectedAnswer(index);
+    setShowFeedback(true);
+    setFeedbackMessage(option.feedback || (option.correct ? 'Correct!' : 'Incorrect. Try again.'));
+    setFeedbackType(option.correct ? 'success' : 'error');
     
-    if (result !== null) {
-      // Check against target variable range if it exists
-      if (targetVariable?.range) {
-        const { min, max } = targetVariable.range;
-        if (result < min || result > max) {
-          setFeedbackMessage(`The result seems out of the expected range (${min}${targetVariable.unit} to ${max}${targetVariable.unit})`);
+    // Simulate Dr. Kapoor thinking
+    setIsThinking(true);
+    
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        setIsThinking(false);
+        
+        // Update stage completion
+        if (option.correct) {
+          setStageCompleted(prev => {
+            const updated = [...prev];
+            updated[currentStage] = true;
+            return updated;
+          });
+          
+          // Apply momentum effect for correct answer
+          safeDispatch(
+            GameEventType.RESOURCE_CHANGED,
+            {
+              resourceType: 'momentum',
+              changeType: 'increment'
+            },
+            'CalculationInterface'
+          );
+          
+          // Use Chamber Pattern for animation
+          highlightElements();
+          
+          // Proceed to next stage after delay
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              setShowFeedback(false);
+              setSelectedAnswer(null);
+              setAnimating(false);
+              
+              // Move to next stage if this one is completed
+              if (currentStage < educationalSteps.length - 1) {
+                setCurrentStage(prev => prev + 1);
+              } else {
+                // All stages completed
+                handleCompletion();
+              }
+            }
+          }, 1500);
         } else {
-          setFeedbackMessage(null);
+          // Apply momentum effect for incorrect answer
+          safeDispatch(
+            GameEventType.RESOURCE_CHANGED,
+            {
+              resourceType: 'momentum',
+              changeType: 'reset'
+            },
+            'CalculationInterface'
+          );
+          
+          // For incorrect answers, clear after delay
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              setShowFeedback(false);
+              setSelectedAnswer(null);
+              setAnimating(false);
+            }
+          }, 1500);
         }
-      } else {
-        setFeedbackMessage(null);
       }
-    }
-  }, [calculateSolution, targetVariable]);
+    }, 800); // Brief "thinking" delay
+    
+  }, [currentStage, educationalSteps.length, animating, submitted, highlightElements]);
   
-  // Handle submission
-  const handleSubmit = useCallback(() => {
+  // Handle calculation submission
+  const handleCalculationSubmit = useCallback(() => {
+    if (!isMountedRef.current || animating || submitted) return;
+    if (!currentEducationalStep?.answer) return;
+    
+    const numericValue = parseFloat(userAnswer);
+    
+    if (isNaN(numericValue)) {
+      setFeedbackMessage("Please enter a valid numeric value.");
+      setFeedbackType('error');
+      setShowFeedback(true);
+      
+      setTimeout(() => {
+        if (isMountedRef.current) {
+          setShowFeedback(false);
+        }
+      }, 1500);
+      
+      return;
+    }
+    
+    setAnimating(true);
+    setShowFeedback(true);
+    
+    // Simulate Dr. Kapoor checking the work
+    setIsThinking(true);
+    
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        setIsThinking(false);
+        
+        // Check if answer is within tolerance
+        const tolerance = currentEducationalStep.tolerance || 0.01;
+        const correctAnswer = currentEducationalStep.answer || 0;
+        const isCorrect = Math.abs(numericValue - correctAnswer) <= tolerance;
+        
+        setFeedbackMessage(isCorrect 
+          ? "Correct. Your calculation shows good command of the principles involved."
+          : `Incorrect. The answer is ${correctAnswer}. Take care with your calculations as they directly impact treatment parameters.`
+        );
+        setFeedbackType(isCorrect ? 'success' : 'error');
+        
+        // Update stage completion
+        if (isCorrect) {
+          setStageCompleted(prev => {
+            const updated = [...prev];
+            updated[currentStage] = true;
+            return updated;
+          });
+          
+          // Apply momentum effect for correct calculation
+          safeDispatch(
+            GameEventType.RESOURCE_CHANGED,
+            {
+              resourceType: 'momentum',
+              changeType: 'increment'
+            },
+            'CalculationInterface'
+          );
+          
+          // Use Chamber Pattern for animation
+          highlightElements();
+          
+          // Proceed to next stage after delay
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              setShowFeedback(false);
+              setUserAnswer('');
+              setAnimating(false);
+              
+              // Move to next stage if this one is completed
+              if (currentStage < educationalSteps.length - 1) {
+                setCurrentStage(prev => prev + 1);
+              } else {
+                // All stages completed
+                handleCompletion();
+              }
+            }
+          }, 1500);
+        } else {
+          // Apply momentum effect for incorrect calculation
+          safeDispatch(
+            GameEventType.RESOURCE_CHANGED,
+            {
+              resourceType: 'momentum',
+              changeType: 'reset'
+            },
+            'CalculationInterface'
+          );
+          
+          // For incorrect answers, clear after delay
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              setShowFeedback(false);
+              setAnimating(false);
+            }
+          }, 1500);
+        }
+      }
+    }, 800); // Slight delay to simulate checking
+    
+  }, [currentStage, educationalSteps.length, animating, submitted, userAnswer, currentEducationalStep, highlightElements]);
+  
+  // Handle completion of all stages
+  const handleCompletion = useCallback(() => {
     if (!isMountedRef.current || submitted) return;
     
-    try {
-      // Calculate final result
-      const finalResult = calculateSolution();
-      
-      if (finalResult === null) {
-        setFeedbackMessage('Please complete the calculation first');
-        return;
-      }
-      
-      setSubmitted(true);
-      setShowSolution(true);
-      
-      // Find expected solution
-      const targetSolution = content.solutions?.find(s => s.isValid);
-      
-      if (!targetSolution) {
-        console.error('No valid solution found in content');
-        onComplete({
-          success: false,
-          accuracy: 0,
-          insightGained: 0,
-          momentumEffect: 'maintain'
-        });
-        return;
-      }
-      
-      // Calculate accuracy (how close the answer is to the correct one)
-      // For simplicity, we use a basic proximity calculation
-      const result = finalResult;
-      const expected = targetSolution.value;
-      
-      // Calculate accuracy as a percentage difference
-      const percentageDiff = Math.abs((result - expected) / expected) * 100;
-      const accuracyScore = Math.max(0, 1 - (percentageDiff / 20)); // 20% diff = 0 accuracy, 0% diff = 1.0 accuracy
-      
-      // Determine success/failure
-      const isSuccess = accuracyScore > 0.8; // 80% accuracy or higher is success
-      
-      // Calculate insight reward based on difficulty and accuracy
-      const difficultyMultiplier = 
-        content.difficulty === 'easy' ? 1 :
-        content.difficulty === 'medium' ? 1.5 :
-        2; // hard
-      
-      const hintPenalty = hintUsed ? 0.7 : 1;
-      const baseInsight = isSuccess ? targetSolution.insightValue : Math.floor(targetSolution.insightValue * 0.3);
-      const adjustedInsight = Math.floor(baseInsight * accuracyScore * difficultyMultiplier * hintPenalty);
-      
-      // Determine momentum effect based on success/failure
-      const momentumEffect = isSuccess ? 'increment' : 'reset';
-      
-      // Prepare knowledge gained if successful
-      const knowledgeGained = isSuccess ? {
-        conceptId: content.conceptId,
-        amount: Math.ceil(10 * accuracyScore * difficultyMultiplier * hintPenalty)
-      } : undefined;
-      
-      // Set feedback message
-      if (isSuccess) {
-        setFeedbackMessage(`Great! Your calculation of ${result.toFixed(2)}${targetVariable?.unit || ''} is correct.`);
-      } else {
-        setFeedbackMessage(`Not quite right. The expected result is ${expected.toFixed(2)}${targetVariable?.unit || ''}.`);
-      }
-      
-      // Animation and dispatch events before completing
-      setAnimating(true);
-      
-      // Dispatch calculation completion event
-      safeDispatch(
-        GameEventType.EXTENSION_INTERACTION,
-        {
-          type: 'calculation',
-          contentId: content.id,
-          success: isSuccess,
-          accuracy: accuracyScore,
-          difficulty: content.difficulty,
-          hintUsed,
-          characterId,
-          stageId
-        },
-        'CalculationInterface'
-      );
-      
-      // Complete with short delay to allow animation
-      setTimeout(() => {
-        if (!isMountedRef.current) return;
-        
-        onComplete({
-          success: isSuccess,
-          accuracy: accuracyScore,
-          insightGained: adjustedInsight,
-          momentumEffect,
-          knowledgeGained,
-          details: {
-            expected,
-            result,
-            difficulty: content.difficulty,
-            hintUsed
-          }
-        });
-      }, 2000);
-    } catch (error) {
-      console.error('Error submitting calculation:', error);
-      
-      // Fallback completion
+    setSubmitted(true);
+    
+    // Find expected solution
+    const targetSolution = content.solutions?.find(s => s.isValid);
+    
+    if (!targetSolution) {
+      console.error('No valid solution found in content');
       onComplete({
         success: false,
         accuracy: 0,
         insightGained: 0,
         momentumEffect: 'maintain'
       });
-    }
-  }, [
-    calculateSolution, 
-    content.conceptId, 
-    content.difficulty, 
-    content.id, 
-    content.solutions, 
-    hintUsed, 
-    onComplete, 
-    submitted, 
-    targetVariable?.unit,
-    characterId,
-    stageId
-  ]);
-  
-  // Handle showing a hint
-  const handleHint = useCallback(() => {
-    if (!isMountedRef.current || hintUsed) return;
-    
-    setHintUsed(true);
-    
-    // Find hint for current step if available
-    const currentStepHint = steps[currentStep]?.hint;
-    
-    if (currentStepHint) {
-      setFeedbackMessage(currentStepHint);
-    } else if (targetVariable?.hint) {
-      setFeedbackMessage(targetVariable.hint);
-    } else {
-      setFeedbackMessage("Try substituting the known values into the formula and solve for the unknown.");
+      return;
     }
     
-    // Track hint usage
+    // Calculate metrics based on performance
+    const stagesCompleted = stageCompleted.filter(Boolean).length;
+    const totalStages = educationalSteps.length;
+    const accuracy = Math.min(1, stagesCompleted / totalStages);
+    
+    // Base insight multiplied by performance
+    const baseInsight = targetSolution.insightValue || 10;
+    const insightMultiplier = 1 + (momentum * 0.2); // 20% bonus per momentum level
+    const hintPenalty = hintUsed ? 0.8 : 1.0; // 20% reduction if hints used
+    const insightGained = Math.round(baseInsight * accuracy * insightMultiplier * hintPenalty);
+    
+    // Determine momentum effect
+    const momentumEffect = accuracy > 0.7 ? 'increment' : (accuracy > 0.3 ? 'maintain' : 'reset');
+    
+    // Track calculation completion
     safeDispatch(
-      GameEventType.EXTENSION_HINT_USED,
+      GameEventType.EXTENSION_INTERACTION,
       {
         type: 'calculation',
         contentId: content.id,
         characterId,
-        stageId
+        stageId,
+        accuracy,
+        hintUsed
       },
       'CalculationInterface'
     );
+    
+    // Apply final animation before completion
+    highlightElements();
+    setAnimating(true);
+    
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        setAnimating(false);
+        
+        // Call completion callback
+        onComplete({
+          success: accuracy > 0.5,
+          accuracy,
+          insightGained,
+          momentumEffect,
+          knowledgeGained: {
+            conceptId: content.conceptId,
+            amount: Math.max(1, Math.round(accuracy * 10))
+          }
+        });
+      }
+    }, 1500);
   }, [
-    content.id, 
-    currentStep, 
-    hintUsed, 
-    steps, 
-    targetVariable?.hint,
+    submitted,
+    content.solutions,
+    content.id,
+    content.conceptId,
+    stageCompleted,
+    educationalSteps.length,
+    momentum,
+    hintUsed,
     characterId,
-    stageId
+    stageId,
+    onComplete,
+    highlightElements
   ]);
   
-  // Handle next step in calculation
-  const handleNextStep = useCallback(() => {
-    if (!isMountedRef.current || currentStep >= steps.length - 1) return;
+  // Show hint
+  const handleShowHint = useCallback(() => {
+    if (!isMountedRef.current) return;
     
-    setCurrentStep(prev => prev + 1);
-    setFeedbackMessage(null);
-  }, [currentStep, steps.length]);
-  
-  // Handle previous step in calculation
-  const handlePrevStep = useCallback(() => {
-    if (!isMountedRef.current || currentStep === 0) return;
-    
-    setCurrentStep(prev => prev - 1);
-    setFeedbackMessage(null);
-  }, [currentStep]);
+    setHintUsed(true);
+    setShowHint(!showHint);
+  }, [showHint]);
   
   // Cleanup on unmount
   useEffect(() => {
@@ -405,240 +588,222 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
     };
   }, []);
   
-  // DOM-based animation for formula highlighting
-  useEffect(() => {
-    if (!containerRef.current || !isMountedRef.current) return;
+  // Enhanced rendering of variables with color-coded distinct styling
+  const renderRelevantVariables = useCallback(() => {
+    if (!currentEducationalStep) return null;
+    if (currentEducationalStep.type !== 'CALCULATION_EXECUTION') return null;
     
-    // Add highlight class to the selected formula elements
-    const highlightElements = () => {
-      if (!containerRef.current) return;
+    const relevantVariables = content.formula.variables.filter(v => v.isInput && !v.isTarget);
+    
+    // Color mapping for different parameter types
+    const getColorForParam = (paramId: string) => {
+      const colorMap: Record<string, string> = {
+        'dose': 'text-yellow-300',
+        'calibration': 'text-cyan-300',
+        'tpr': 'text-green-300',
+        'scatter': 'text-purple-300',
+        'output_factor': 'text-cyan-300'
+      };
       
-      // Find formula elements
-      const formulaEl = containerRef.current.querySelector('.formula-display');
-      if (!formulaEl) return;
-      
-      // Add highlight animation
-      formulaEl.classList.add('formula-highlight');
-      
-      // Remove after animation completes
-      setTimeout(() => {
-        if (formulaEl && isMountedRef.current) {
-          formulaEl.classList.remove('formula-highlight');
-        }
-      }, 1500);
+      return colorMap[paramId] || 'text-blue-300';
     };
     
-    // Trigger highlight on mount and when current step changes
-    highlightElements();
-    
-    // Cleanup
-    return () => {
-      if (containerRef.current) {
-        const formulaEl = containerRef.current.querySelector('.formula-display');
-        if (formulaEl) {
-          formulaEl.classList.remove('formula-highlight');
-        }
-      }
-    };
-  }, [currentStep]);
-  
-  // Parse and display formula with variable highlighting
-  const renderFormula = useMemo(() => {
-    const formula = content.formula.display;
-    
-    // Simple renderer for now - in a production app, we'd use a proper
-    // math rendering library like KaTeX or MathJax
-    return formula.split(/(\$[a-zA-Z0-9_]+\$)/).map((part, index) => {
-      // Check if this part is a variable (enclosed in $)
-      const variableMatch = part.match(/\$([a-zA-Z0-9_]+)\$/);
-      
-      if (variableMatch) {
-        const varId = variableMatch[1];
-        const variable = content.formula.variables.find(v => v.id === varId);
-        
-        if (variable) {
-          // Highlight the target variable
-          const isTarget = variable.isTarget;
-          // Highlight filled inputs
-          const isFilledInput = variable.isInput && inputValues[variable.id] !== null;
-          
-          return (
-            <span 
-              key={index}
-              className={`formula-variable ${isTarget ? 'formula-target' : ''} ${isFilledInput ? 'formula-filled' : ''}`}
-              data-variable-id={variable.id}
+    return (
+      <div className="my-4 p-3 bg-gradient-to-b from-gray-800/90 to-gray-900/90 rounded-lg border border-blue-900/70 shadow-lg">
+        <div className="mb-3 text-sm font-medium uppercase tracking-wider text-blue-400/90 border-b border-blue-900/50 pb-1">
+          Calculation Parameters
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {relevantVariables.map(variable => (
+            <div 
+              key={variable.id} 
+              className={`
+                flex flex-col justify-center items-center p-2 
+                bg-gray-900/80 rounded-md 
+                border ${activeHighlight === variable.id ? 'border-' + getColorForParam(variable.id).replace('text-', '') : 'border-gray-700/60'} 
+                hover:border-blue-700/60 transition-colors shadow-inner
+                ${activeHighlight === variable.id ? 'ring-2 ring-' + getColorForParam(variable.id).replace('text-', '') + '/50' : ''}
+              `}
+              onMouseEnter={() => handleParameterHover(variable.id)}
+              onMouseLeave={handleParameterLeave}
             >
-              {variable.label}
+              <div className={`text-sm font-medium ${getColorForParam(variable.id)} mb-1`}>{variable.label}</div>
+              <div className="flex items-baseline">
+                <span className={`text-xl font-mono font-semibold ${getColorForParam(variable.id)}`}>
+                  {inputValues[variable.id] !== null ? inputValues[variable.id] : '—'}
+                </span>
+                {variable.unit && (
+                  <span className="ml-1 text-xs text-gray-400 font-normal">
+                    {variable.unit}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="mt-3 pt-2 border-t border-gray-700/40">
+          <div className="text-xs text-gray-400 italic">
+            Use these values in the formula: 
+            <span className="font-mono text-blue-300 font-medium ml-1">
+              MU = Dose / (Cal × TPR × Scatter)
             </span>
-          );
-        }
-      }
-      
-      // Return regular text
-      return <span key={index}>{part}</span>;
-    });
-  }, [content.formula.display, content.formula.variables, inputValues]);
+          </div>
+        </div>
+      </div>
+    );
+  }, [currentEducationalStep, content.formula.variables, inputValues, activeHighlight, handleParameterHover, handleParameterLeave]);
   
+  // Render the conversation-style calculation interface
   return (
     <div 
       ref={containerRef}
-      className="calculation-interface bg-black/80 border border-blue-900/50 rounded-md p-4"
+      className="bg-gray-900/90 text-white rounded-lg overflow-hidden"
     >
-      {/* Title and description */}
-      <div className="mb-4">
-        <h3 className="text-blue-300 text-lg mb-1">{content.title}</h3>
-        <p className="text-gray-300 text-sm">{content.description}</p>
-      </div>
-      
-      {/* Formula display with highlighting */}
-      <div className="formula-display bg-black/70 p-3 rounded border border-blue-800/30 mb-4 text-center">
-        {renderFormula}
-      </div>
-      
-      {/* Step-by-step guidance if available */}
-      {steps.length > 0 && (
-        <div className="step-guidance mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <h4 className="text-blue-200 text-sm">Step {currentStep + 1} of {steps.length}</h4>
-            <div className="flex space-x-2">
-              <button
-                className="text-sm px-2 py-1 bg-blue-900/50 rounded disabled:opacity-50"
-                onClick={handlePrevStep}
-                disabled={currentStep === 0}
-              >
-                Previous
-              </button>
-              <button
-                className="text-sm px-2 py-1 bg-blue-900/50 rounded disabled:opacity-50"
-                onClick={handleNextStep}
-                disabled={currentStep >= steps.length - 1}
-              >
-                Next
-              </button>
-            </div>
+      {/* Main calculation area */}
+      <div className="p-3">
+        {/* Calculation parameters when needed */}
+        {currentEducationalStep && currentEducationalStep.type === 'CALCULATION_EXECUTION' && renderRelevantVariables()}
+        
+        {/* Current question directly without character avatar */}
+        {currentEducationalStep && !showFeedback && !isThinking && (
+          <div className="mb-4">
+            <p className="text-white mb-3">
+              {currentEducationalStep.prompt}
+            </p>
           </div>
-          <div className="bg-blue-900/20 p-2 rounded text-sm text-white">
-            {steps[currentStep]?.description || "Follow the steps to solve the problem."}
+        )}
+        
+        {/* Thinking indicator */}
+        {isThinking && (
+          <div className="text-gray-400 py-3">
+            <span className="inline-block animate-pulse">.</span>
+            <span className="inline-block animate-pulse animation-delay-200">.</span>
+            <span className="inline-block animate-pulse animation-delay-400">.</span>
           </div>
-        </div>
-      )}
-      
-      {/* Input fields for variables */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-        {content.formula.variables.filter(v => v.isInput).map((variable) => (
-          <div key={variable.id} className="input-field">
-            <label className="block text-gray-300 text-sm mb-1">
-              {variable.label} {variable.unit && `(${variable.unit})`}
-            </label>
-            <input
-              type="number"
-              value={inputValues[variable.id] === null ? '' : inputValues[variable.id]}
-              onChange={(e) => handleInputChange(variable.id, e.target.value)}
-              className="w-full bg-black/50 border border-blue-800/50 rounded p-2 text-white"
-              placeholder={`Enter ${variable.label}`}
-              disabled={submitted}
-            />
+        )}
+        
+        {/* Feedback message */}
+        {showFeedback && feedbackMessage && (
+          <div className={`mb-4 py-2 ${
+            feedbackType === 'success'
+              ? 'text-green-300'
+              : 'text-red-300'
+          }`}>
+            {feedbackMessage}
           </div>
-        ))}
-      </div>
-      
-      {/* Target calculation result */}
-      {targetVariable && (
-        <div className="target-result mb-4">
-          <div className="flex justify-between items-center mb-1">
-            <label className="block text-gray-300 text-sm">
-              {targetVariable.label} {targetVariable.unit && `(${targetVariable.unit})`}
-            </label>
+        )}
+        
+        {/* User response area */}
+        {!showFeedback && currentEducationalStep && !isThinking && (
+          <div className="mt-2">
+            {currentEducationalStep.type === 'CALCULATION_EXECUTION' ? (
+              <div className="flex items-center space-x-3">
+                <input
+                  type="number"
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                  className="bg-gray-800 border border-gray-700 rounded-md p-2 flex-1 font-mono text-white"
+                  step="any"
+                  placeholder={`Your answer${targetVariable?.unit ? ` (${targetVariable.unit})` : ''}`}
+                  disabled={animating || submitted}
+                />
+                <button
+                  onClick={handleCalculationSubmit}
+                  className="px-3 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-md transition-colors"
+                  disabled={animating || submitted || !userAnswer}
+                >
+                  Submit
+                </button>
+              </div>
+            ) : currentEducationalStep.options ? (
+              <div className="space-y-2">
+                {currentEducationalStep.options.map((option, index) => (
+                  <button
+                    key={index}
+                    className={`w-full text-left p-2 rounded-md transition-colors ${
+                      selectedAnswer === index 
+                        ? (option.correct ? 'bg-green-900 text-green-100' : 'bg-red-900 text-red-100')
+                        : 'bg-gray-800 hover:bg-gray-700 text-white'
+                    }`}
+                    onClick={() => handleOptionSelect(option, index)}
+                    disabled={animating || submitted}
+                  >
+                    {option.text}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )}
+        
+        {/* Hint section */}
+        {!showFeedback && currentEducationalStep?.hint && !isThinking && (
+          <div className="mt-3 text-right">
             <button
-              className="text-xs px-2 py-1 bg-blue-700 rounded"
-              onClick={handleCalculate}
-              disabled={submitted}
+              onClick={handleShowHint}
+              className="text-gray-400 hover:text-gray-300 text-sm"
+              disabled={animating || submitted}
             >
-              Calculate
+              {showHint ? "Hide hint" : "Need a hint?"}
             </button>
-          </div>
-          <div className="relative">
-            <input
-              type="number"
-              value={calculationResult === null ? '' : calculationResult}
-              readOnly
-              className="w-full bg-black/70 border border-blue-800 rounded p-2 text-white"
-              placeholder={`Calculate ${targetVariable.label}`}
-            />
-            {showSolution && targetVariable.isTarget && content.solutions && (
-              <div className="absolute right-2 top-2 text-xs">
-                {content.solutions.find(s => s.isValid)?.value.toFixed(2) || 'N/A'}
+            
+            {showHint && (
+              <div className="mt-2 p-2 bg-gray-800/80 rounded-md text-sm text-gray-400 italic text-left">
+                {currentEducationalStep.hint}
               </div>
             )}
           </div>
-        </div>
-      )}
-      
-      {/* Feedback message */}
-      <AnimatePresence>
-        {feedbackMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 5 }}
-            className="feedback-message mb-4 p-2 bg-blue-900/30 rounded text-sm text-white"
-          >
-            {feedbackMessage}
-          </motion.div>
         )}
-      </AnimatePresence>
-      
-      {/* Action buttons */}
-      <div className="flex justify-between">
-        <button
-          className="px-3 py-1 bg-blue-800/50 rounded text-white text-sm disabled:opacity-50"
-          onClick={handleHint}
-          disabled={hintUsed || submitted}
-        >
-          Show Hint
-        </button>
-        <button
-          className={`px-4 py-2 rounded text-white ${submitted ? 'bg-green-700' : 'bg-blue-700'}`}
-          onClick={submitted ? () => onComplete({
-            success: true,
-            accuracy: 1,
-            insightGained: 0,
-            momentumEffect: 'maintain'
-          }) : handleSubmit}
-          disabled={animating}
-        >
-          {submitted ? 'Continue' : 'Submit Answer'}
-        </button>
       </div>
       
-      {/* Styled animations */}
+      {/* Subtle progress indicator at the bottom */}
+      <div className="bg-gray-800/50 px-3 py-1 border-t border-gray-700/50 flex justify-between items-center text-xs text-gray-500">
+        <div className="flex space-x-1 items-center">
+          <div className="flex space-x-1">
+            {educationalSteps.map((_, index) => (
+              <div 
+                key={index}
+                className={`h-1 w-3 rounded-sm ${
+                  index === currentStage
+                    ? 'bg-blue-500'
+                    : stageCompleted[index]
+                      ? 'bg-green-500/70'
+                      : 'bg-gray-700'
+                }`}
+              ></div>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Add animations and styles */}
       <style jsx>{`
-        .formula-display {
-          font-family: monospace;
-          font-size: 1.1rem;
-          letter-spacing: 0.05rem;
-          transition: background-color 0.3s ease;
+        .calculation-success {
+          animation: success-pulse 1.5s ease-in-out;
         }
         
-        .formula-highlight {
-          background-color: rgba(30, 64, 175, 0.3);
+        @keyframes success-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+          50% { box-shadow: 0 0 10px 2px rgba(34, 197, 94, 0.2); }
         }
         
-        .formula-variable {
-          color: #90cdf4;
-          padding: 0 2px;
-          border-radius: 3px;
-          transition: all 0.3s ease;
+        .animation-delay-200 {
+          animation-delay: 200ms;
         }
         
-        .formula-target {
-          color: #f6ad55;
-          font-weight: bold;
+        .animation-delay-400 {
+          animation-delay: 400ms;
         }
         
-        .formula-filled {
-          background-color: rgba(49, 130, 206, 0.2);
-          padding: 0 4px;
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        
+        input[type=number] {
+          -moz-appearance: textfield;
         }
       `}</style>
     </div>

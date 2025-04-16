@@ -331,7 +331,23 @@ The player assumes the role of a medical physics resident with:
 - Each mentor relationship is tracked numerically (0/5 scale shown in UI)
 - Relationships develop based on player interaction choices
 - For vertical slice: Mentors provide unique perspectives and hints via Peer-Review ability
-- Future implementation: Deeper relationship system with rapport building
+- Visual feedback system for mentor reactions to player choices
+- Simple emotive indicators (!, ?, *, etc.) and animations display mentor sentiment
+
+**Postponed Features (Not in Vertical Slice):**
+- Higher relationship benefits (special dialogue options, insight bonuses) 
+- Mentor-specific side quests
+- Special abilities for boss encounters from mentors
+- Mentor-specific journal annotations
+- Advanced affinities with teaching styles
+- Guest expert mentors
+
+**Future Relationship System:**
+- Higher relationships will unlock special dialogue options
+- Improved insight gain from that mentor's domain
+- Access to mentor-specific side quests
+- Special abilities for boss encounters
+- Unique journal entries with mentor annotations
 
 ### 2.4 Environmental Storytelling
 
@@ -843,6 +859,16 @@ Relationships with mentor characters form another progression axis:
 - Mentors provide unique perspectives and hints through Peer-Review ability
 - Teaching styles influence dialogue options and feedback
 - Basic relationship tracking implemented but minimal gameplay effects
+- Visual feedback system for mentor reactions to player choices
+- Simple emotive indicators (!, ?, *, etc.) and animations display mentor sentiment
+
+**Postponed Features (Not in Vertical Slice):**
+- Higher relationship benefits (special dialogue options, insight bonuses) 
+- Mentor-specific side quests
+- Special abilities for boss encounters from mentors
+- Mentor-specific journal annotations
+- Advanced affinities with teaching styles
+- Guest expert mentors
 
 **Future Relationship System:**
 - Higher relationships will unlock special dialogue options

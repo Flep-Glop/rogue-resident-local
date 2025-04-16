@@ -16,6 +16,12 @@ interface ContentRegistry {
   };
 }
 
+// Define a generic module type for content imports
+interface ContentModule {
+  default?: Record<string, any>;
+  [key: string]: any;
+}
+
 // Initial registry with empty maps for each extension type
 const contentRegistry: ContentRegistry = {
   'calculation': {},
@@ -48,36 +54,46 @@ export async function getExtensionContent(
     // Try to load content dynamically based on type
     let contentPromise: Promise<any> | null = null;
     
+    // Helper function to get content from a module
+    const getContentFromModule = (module: ContentModule, id: string) => {
+      return module.default?.[id] || module[id] || null;
+    };
+    
     // Each extension type has its own content module
     switch (type) {
       case 'calculation':
-        contentPromise = import('./calculations').then(module => 
-          module.default?.[contentId] || module[contentId]
+        contentPromise = import('./calculations.js').then(module => 
+          getContentFromModule(module as ContentModule, contentId)
         );
         break;
         
       case 'anatomical-identification':
-        contentPromise = import('./anatomical').then(module => 
-          module.default?.[contentId] || module[contentId]
+        contentPromise = import('./anatomical.js').then(module => 
+          getContentFromModule(module as ContentModule, contentId)
         );
         break;
         
       case 'equipment-identification':
-        contentPromise = import('./equipment').then(module => 
-          module.default?.[contentId] || module[contentId]
+        contentPromise = import('./equipment.js').then(module => 
+          getContentFromModule(module as ContentModule, contentId)
         );
         break;
         
       case 'measurement-reading':
-        contentPromise = import('./measurements').then(module => 
-          module.default?.[contentId] || module[contentId]
+        contentPromise = import('./measurements.js').then(module => 
+          getContentFromModule(module as ContentModule, contentId)
+        );
+        break;
+        
+      case 'error-identification':
+        contentPromise = import('./errors.js').then(module => 
+          getContentFromModule(module as ContentModule, contentId)
         );
         break;
         
       // Future extension types will have their own modules
       case 'dosimetric-pattern':
       case 'treatment-plan':
-      case 'error-identification':
         // These are planned but not yet implemented
         console.warn(`Extension type '${type}' is planned but not yet implemented`);
         return null;

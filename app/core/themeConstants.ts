@@ -2,6 +2,47 @@
 
 import { KnowledgeDomain } from '../store/knowledgeStore'; // Assuming KnowledgeDomain type is exported from here
 
+// New theme colors including dialogue modes
+export const THEME_COLORS = {
+  // Dialogue mode colors
+  narrative: {
+    primary: 'rgba(37, 99, 235, 1)', // Primary blue
+    bg: 'rgba(35, 15, 50, 0.95)', // Background
+    bgLight: 'rgba(45, 20, 60, 0.98)', // Light background variant
+    glow: 'rgba(37, 99, 235, 0.7)', // Glow effect
+  },
+  question: {
+    primary: 'rgba(126, 34, 206, 1)', // Primary purple
+    bg: 'rgba(35, 15, 50, 0.95)', // Dark purple background
+    bgLight: 'rgba(45, 20, 60, 0.98)', // Light purple background variant
+    glow: 'rgba(126, 34, 206, 0.7)', // Purple glow effect
+  },
+  challenge: {
+    primary: 'rgba(217, 119, 6, 1)', // Primary amber
+    bg: 'rgba(50, 35, 10, 0.95)', // Background 
+    bgLight: 'rgba(60, 40, 15, 0.98)', // Light background variant
+    glow: 'rgba(217, 119, 6, 0.7)', // Glow effect
+  },
+  instruction: {
+    primary: 'rgba(5, 150, 105, 1)', // Primary green
+    bg: 'rgba(15, 50, 30, 0.95)', // Background
+    bgLight: 'rgba(20, 60, 35, 0.98)', // Light background variant
+    glow: 'rgba(5, 150, 105, 0.7)', // Glow effect
+  },
+  reaction: {
+    primary: 'rgba(219, 39, 119, 1)', // Primary pink
+    bg: 'rgba(50, 15, 35, 0.95)', // Background 
+    bgLight: 'rgba(60, 20, 40, 0.98)', // Light background variant
+    glow: 'rgba(219, 39, 119, 0.7)', // Glow effect
+  },
+  critical: {
+    primary: 'rgba(220, 38, 38, 1)', // Primary red
+    bg: 'rgba(50, 15, 15, 0.95)', // Background
+    bgLight: 'rgba(60, 20, 20, 0.98)', // Light background variant
+    glow: 'rgba(220, 38, 38, 0.7)', // Glow effect
+  }
+};
+
 // Domain color map for direct use - updated to match documentation
 export const DOMAIN_COLORS: Record<KnowledgeDomain, string> = {
   'treatment-planning': '#3b82f6', // Blue

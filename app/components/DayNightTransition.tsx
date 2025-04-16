@@ -205,7 +205,7 @@ const DayNightTransition: React.FC = () => {
   const transitionStyle: React.CSSProperties = {
     position: 'fixed',
     inset: 0,
-    zIndex: 50,
+    zIndex: 20,
     backgroundColor: 'black',
     transition: `opacity ${TRANSITION_DURATION}ms ease-in-out`,
     pointerEvents: 'none', // Ensure it doesn't block interactions

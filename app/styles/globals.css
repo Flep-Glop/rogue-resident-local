@@ -1,0 +1,96 @@
+/* Transition Effects */
+@keyframes glowLineAnimation {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+}
+
+@keyframes radialGlowAnimation {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+.pixel-transition-active body {
+  overflow: hidden;
+}
+
+.transition-glow-line {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--theme-accent), var(--theme-tertiary), var(--theme-secondary), transparent);
+  z-index: 9999;
+  transform-origin: center;
+  animation: glowLineAnimation 750ms ease-in-out forwards;
+}
+
+.transition-glow-line-1 {
+  top: 35%;
+}
+
+.transition-glow-line-2 {
+  top: 50%;
+  animation-delay: 150ms;
+}
+
+.transition-glow-line-3 {
+  top: 65%;
+  animation-delay: 300ms;
+}
+
+.transition-radial-glow {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 40vw;
+  height: 40vh;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, var(--theme-accent-transparent), transparent 70%);
+  z-index: 9998;
+  pointer-events: none;
+  animation: radialGlowAnimation 1000ms ease-in-out forwards;
+}
+
+/* Transition container */
+.transition-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Add this class to the html element during transitions */
+html.pixel-transition-active {
+  cursor: wait;
+}
+
+/* Create container for transition effects */
+.transition-effects-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9990;
+  pointer-events: none;
+  overflow: hidden;
+} 

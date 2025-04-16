@@ -1,7 +1,7 @@
 // app/components/challenges/ChallengeRouter.tsx
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGameStore } from '@/app/store/gameStore';
 import { useJournalStore } from '@/app/store/journalStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
@@ -16,6 +16,7 @@ import {
   usePrimitiveStoreValue, 
   useStableCallback
 } from '@/app/core/utils/storeHooks';
+import { PixelTransition } from '@/app/components/PixelThemeProvider';
 
 /**
  * Challenge Router - Fully Chamber Pattern Compliant
@@ -28,6 +29,19 @@ export default function ChallengeRouter() {
   // Component mount ref to prevent state updates after unmount
   const isMountedRef = useRef(true);
   const initTimeRef = useRef(Date.now());
+  const hasAnimatedRef = useRef(false);
+  
+  // Add ref for tracking transition animation state
+  const transitionCompletedRef = useRef(false);
+  
+  // Add state for tracking the node click position
+  const [nodePosition, setNodePosition] = useState({ x: 50, y: 50 });
+  
+  // Use state for transition control with explicit management
+  const [transitionState, setTransitionState] = useState({
+    isActive: false,
+    isExiting: false
+  });
   
   // ===== PRIMITIVE VALUE EXTRACTION =====
   // Direct primitive value from game store - critical for node selection
@@ -74,6 +88,52 @@ export default function ChallengeRouter() {
       ...prev,
       ...updates
     }));
+  }, []);
+  
+  // ===== TRANSITION HANDLERS =====
+  // Handle transition completion when exiting
+  const handleTransitionComplete = useStableCallback(() => {
+    if (!isMountedRef.current) return;
+    
+    console.log('[ChallengeRouter] Transition animation completed', { 
+      isExiting: transitionState.isExiting,
+      currentNodeId
+    });
+    
+    // Mark transition as completed to hide animations
+    transitionCompletedRef.current = true;
+    
+    if (transitionState.isExiting) {
+      // Navigate back to map
+      const gameStore = useGameStore.getState();
+      if (gameStore && gameStore.setCurrentNode) {
+        console.log('[ChallengeRouter] Transition exit complete - returning to map');
+        gameStore.setCurrentNode(null);
+        console.log('✅ Returning to map after transition animation');
+        
+        // Remove transition classes from body
+        if (typeof document !== 'undefined') {
+          document.documentElement.classList.remove('black-transition-active');
+        }
+      }
+    } else {
+      console.log('[ChallengeRouter] Entrance transition complete - challenge ready');
+    }
+  }, [transitionState.isExiting, currentNodeId]);
+  
+  // Start exit transition
+  const startExitTransition = useStableCallback(() => {
+    if (!isMountedRef.current) return;
+    
+    setTransitionState({
+      isActive: false,
+      isExiting: true
+    });
+    
+    // Set document to black
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.add('black-transition-active');
+    }
   }, []);
   
   // ===== HANDLE COMPLETION =====
@@ -157,12 +217,10 @@ export default function ChallengeRouter() {
           console.log('✅ Journal challenge completion event emitted');
         }
         
-        // Return to map after a delay to allow animation to complete
-        // Use longer delay to ensure NODE_COMPLETED event is fully processed
+        // Exit after a longer delay for journal acquisition
         setTimeout(() => {
-          if (isMountedRef.current && gameStore && gameStore.setCurrentNode) {
-            console.log('[ChallengeRouter] Returning to map after journal acquisition animation');
-            gameStore.setCurrentNode(null);
+          if (isMountedRef.current) {
+            startExitTransition();
           }
         }, 6000);
         
@@ -186,11 +244,10 @@ export default function ChallengeRouter() {
         console.log('✅ Challenge completion event emitted');
       }
       
-      // Return to map after a short delay
+      // Exit after a short delay
       setTimeout(() => {
-        if (isMountedRef.current && gameStore && gameStore.setCurrentNode) {
-          gameStore.setCurrentNode(null);
-          console.log('✅ Returning to map');
+        if (isMountedRef.current) {
+          startExitTransition();
         }
       }, 1500);
     } catch (error) {
@@ -199,22 +256,40 @@ export default function ChallengeRouter() {
         error: error instanceof Error ? error.message : 'Unknown error in completion'
       });
     }
-  }, [updateLocalState, hasJournal, currentNodeId, currentCharacterId]);
+  }, [updateLocalState, hasJournal, currentNodeId, currentCharacterId, startExitTransition]);
   
   // ===== LIFECYCLE EFFECTS =====
   // Reset challenge state when node changes
   useEffect(() => {
     if (currentNodeId) {
-      console.log(`[ChallengeRouter] Node changed to: ${currentNodeId}`);
+      console.log(`[ChallengeRouter] Node changed to: ${currentNodeId}`, { 
+        currentNodeId, 
+        hasJournal
+      });
       updateLocalState({
         challengeComplete: false,
         error: null,
         nodeDetailsFetched: true
       });
       
+      // Reset animation tracking
+      hasAnimatedRef.current = false;
+      
+      // Reset the transition state to inactive first
+      setTransitionState({
+        isActive: false,
+        isExiting: false
+      });
+      
       // Get direct access to game store for debug event
       try {
         const gameStore = useGameStore.getState();
+        console.log('[ChallengeRouter] Game store state:', { 
+          hasCurrentNode: !!gameStore.currentNodeId,
+          currentNodeId: gameStore.currentNodeId,
+          hasCharacter: !!gameStore.currentCharacterId,
+          characterId: gameStore.currentCharacterId
+        });
         
         // If the character is not set but we have a node ID, set the character based on the node
         if (!gameStore.currentCharacterId) {
@@ -242,19 +317,80 @@ export default function ChallengeRouter() {
       }
     } else {
       // Node cleared, reset state
+      console.log('[ChallengeRouter] Node cleared, resetting state');
       updateLocalState({
         nodeDetailsFetched: false
       });
     }
-  }, [currentNodeId, updateLocalState]);
+  }, [currentNodeId, updateLocalState, hasJournal]);
+  
+  // Important: Separate effect to trigger animation AFTER render
+  useEffect(() => {
+    // Only trigger animation when we have a node ID and haven't animated yet
+    if (currentNodeId && localState.nodeDetailsFetched && !hasAnimatedRef.current) {
+      console.log('[ChallengeRouter] Ready for animation, triggering entrance transition');
+      
+      // Reset the transition completed state
+      transitionCompletedRef.current = false;
+      
+      // Use requestAnimationFrame to ensure we're past initial render
+      requestAnimationFrame(() => {
+        if (!isMountedRef.current) return;
+        
+        // Clear any existing fade overlay to ensure we don't get stuck on black
+        const existingOverlay = document.getElementById('map-fade-overlay');
+        if (existingOverlay && existingOverlay.parentNode) {
+          existingOverlay.parentNode.removeChild(existingOverlay);
+        }
+        
+        // Get the node position from global state, if available
+        try {
+          // Check if we have stored click coordinates
+          if (typeof window !== 'undefined' && (window as any).__LAST_NODE_CLICK_POS__) {
+            const lastPos = (window as any).__LAST_NODE_CLICK_POS__;
+            if (lastPos.x && lastPos.y) {
+              setNodePosition({
+                x: lastPos.x,
+                y: lastPos.y
+              });
+              console.log(`[ChallengeRouter] Using click position: x=${lastPos.x}, y=${lastPos.y}`);
+            }
+          }
+        } catch (err) {
+          console.warn('[ChallengeRouter] Error getting node position:', err);
+        }
+        
+        // Trigger animation in the next tick to ensure DOM is ready
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            console.log('[ChallengeRouter] Activating entrance transition');
+            setTransitionState({
+              isActive: true,
+              isExiting: false
+            });
+            hasAnimatedRef.current = true;
+            
+            // Set timeout to remove the transition effects
+            setTimeout(() => {
+              if (isMountedRef.current) {
+                transitionCompletedRef.current = true;
+              }
+            }, 2500); // Slightly less than the 3000ms transition duration
+          }
+        }, 50);
+      });
+    }
+  }, [currentNodeId, localState.nodeDetailsFetched]);
   
   // Mount/unmount tracking
   useEffect(() => {
     isMountedRef.current = true;
     console.log('[ChallengeRouter] Mounted');
     
+    // Clean up refs and timers
     return () => {
       isMountedRef.current = false;
+      hasAnimatedRef.current = false;
       console.log('[ChallengeRouter] Unmounted');
     };
   }, []);
@@ -268,7 +404,7 @@ export default function ChallengeRouter() {
   // Show loading state if node details not fetched
   if (!localState.nodeDetailsFetched) {
     return (
-      <div className="flex items-center justify-center h-full w-full bg-gray-900">
+      <div className="flex items-center justify-center h-full w-full bg-black">
         <div className="text-white">Loading challenge...</div>
       </div>
     );
@@ -277,7 +413,7 @@ export default function ChallengeRouter() {
   // Show error state if there was an error
   if (localState.error) {
     return (
-      <div className="flex items-center justify-center h-full w-full bg-gray-900">
+      <div className="flex items-center justify-center h-full w-full bg-black">
         <div className="text-red-500">
           <h3 className="text-xl mb-2">Error Loading Challenge</h3>
           <p>{String(localState.error)}</p>
@@ -294,14 +430,128 @@ export default function ChallengeRouter() {
   
   // Render the appropriate challenge type based on node ID
   // For the vertical slice, we just support ConversationFormat
-  console.log(`[ChallengeRouter] Rendering ConversationFormat with nodeId: ${currentNodeId}, characterId: ${currentCharacterId}`);
+  console.log(`[ChallengeRouter] Rendering ConversationFormat with nodeId: ${currentNodeId}, characterId: ${currentCharacterId}, transitionActive: ${transitionState.isActive}, hasAnimated: ${hasAnimatedRef.current}`);
+
+  // Map specific nodes to their respective characters if not set
+  let effectiveCharacterId = currentCharacterId;
+  if (!effectiveCharacterId) {
+    // Default character mapping based on node ID
+    const nodeToCharacterMap: Record<string, string> = {
+      'start': 'kapoor',
+      'path-a1': 'kapoor',
+      'path-a2': 'jesse',
+      'path-a3': 'quinn',
+      'path-a4': 'garcia'
+    };
+    
+    effectiveCharacterId = nodeToCharacterMap[currentNodeId as string] || 'kapoor';
+    console.log(`[ChallengeRouter] Using mapped character: ${effectiveCharacterId} for node: ${currentNodeId}`);
+  }
+
   return (
-    <div className="h-full w-full">
-      <ConversationFormat
-        nodeId={currentNodeId}
-        characterId={currentCharacterId || 'kapoor'}
-        onComplete={handleConversationComplete}
-      />
+    <div className="w-full h-full bg-black flex flex-col justify-center items-center">
+      <style jsx global>{`
+        .black-transition-active {
+          background-color: black !important;
+        }
+        .black-transition-active * {
+          background-color: transparent !important;
+        }
+        .gpu-accelerated {
+          transform: translateZ(0);
+          will-change: opacity, background-color;
+          backface-visibility: hidden;
+        }
+        
+        /* Glowing line animation for transitions */
+        @keyframes glowLines {
+          0% { transform: translateX(-100%); opacity: 0.2; }
+          50% { opacity: 0.8; }
+          100% { transform: translateX(100%); opacity: 0.2; }
+        }
+        
+        .transition-glow-line {
+          position: absolute;
+          height: 1px;
+          width: 80%;
+          background: linear-gradient(
+            90deg, 
+            transparent, 
+            rgba(64, 156, 255, 0.4), 
+            rgba(64, 156, 255, 0.8), 
+            rgba(64, 156, 255, 0.4), 
+            transparent
+          );
+          z-index: 999;
+          opacity: 0;
+          left: 10%;
+          transform: translateX(-100%);
+          filter: blur(1px);
+        }
+        
+        .transition-glow-line-1 {
+          top: 30%;
+          animation: glowLines 3s ease-in-out infinite;
+          animation-delay: 0.2s;
+        }
+        
+        .transition-glow-line-2 {
+          top: 60%;
+          animation: glowLines 3s ease-in-out infinite;
+          animation-delay: 0.8s;
+          background: linear-gradient(
+            90deg, 
+            transparent, 
+            rgba(120, 220, 180, 0.4), 
+            rgba(120, 220, 180, 0.8), 
+            rgba(120, 220, 180, 0.4), 
+            transparent
+          );
+        }
+        
+        .transition-glow-line-3 {
+          top: 80%;
+          animation: glowLines 3s ease-in-out infinite;
+          animation-delay: 1.4s;
+          background: linear-gradient(
+            90deg, 
+            transparent, 
+            rgba(255, 160, 100, 0.4), 
+            rgba(255, 160, 100, 0.8), 
+            rgba(255, 160, 100, 0.4), 
+            transparent
+          );
+        }
+        
+        .transition-effects-fade-out {
+          opacity: 0;
+          transition: opacity 1s ease-out;
+        }
+      `}</style>
+      
+      {/* Animated elements for transitions */}
+      <div className={`absolute inset-0 overflow-hidden pointer-events-none ${transitionCompletedRef.current ? 'transition-effects-fade-out' : ''}`}>
+        <div className="transition-glow-line transition-glow-line-1"></div>
+        <div className="transition-glow-line transition-glow-line-2"></div>
+        <div className="transition-glow-line transition-glow-line-3"></div>
+      </div>
+      
+      <PixelTransition
+        isActive={transitionState.isActive}
+        type="fade-black" 
+        duration={3000}
+        onAnimationComplete={handleTransitionComplete}
+        className="absolute inset-0 flex-grow flex flex-col justify-center items-center"
+      >
+        <div className="h-full w-full max-w-6xl bg-transparent flex-grow flex flex-col justify-center" style={{ zIndex: 50, position: 'relative', pointerEvents: 'auto' }}>
+          <ConversationFormat
+            nodeId={currentNodeId}
+            characterId={effectiveCharacterId}
+            stageId={currentNodeId}
+            onComplete={handleConversationComplete}
+          />
+        </div>
+      </PixelTransition>
     </div>
   );
 }

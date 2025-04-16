@@ -11,16 +11,28 @@ import { safeDispatch } from '../../../core/events/CentralEventBus';
 import { GameEventType } from '../../../core/events/EventTypes';
 import { StrategicActionsContainer } from '../../gameplay/StrategicActions';
 import { applyStrategicAction, enhanceDialogueOptions } from '../../../core/dialogue/ActionIntegration';
-import { usePrimitiveStoreValue, useStableStoreValue } from '../../../core/utils/storeHooks';
+import { usePrimitiveStoreValue, useStableStoreValue, createStableSelector } from '../../../core/utils/storeHooks';
 import { NodeType } from '../../../types/game';
 import { getCharacterData } from '../../../data/characters';
 import useGameStateMachine from '../../../core/statemachine/GameStateMachine';
 import { useEventBus } from '../../../core/events/CentralEventBus';
 import { withVisualExtender, ConversationExtension, ExtensionData, ExtensionResult } from '../../extensions/VisualExtender';
+import DialogueContainer, { DialogueMode } from '../../dialogue/DialogueContainer';
+import { getDialogueModeForStage, getStageTitle } from '../../../core/dialogue/DialogueModeHelper';
+import CharacterPortrait from '../../CharacterPortrait';
+import { ReactionType } from '../../MentorReaction';
+import ResidentPortrait from '../../ResidentPortrait';
+import InsightMeter from '../../gameplay/InsightMeter';
+import MomentumCounter from '../../gameplay/MomentumCounter';
+import { useKnowledgeStore } from '../../../store/knowledgeStore';
+import { useJournalStore } from '../../../store/journalStore';
+import Image from 'next/image';
 
-// Import the kapoor dialogue content
+// Import the dialogue registry instead of individual dialogues
+import { getDialogueById, getDialogueByNodeId } from '../../../data/dialogueRegistry';
+
+// For backward compatibility, keep direct imports as fallbacks
 import kapoorCalibrationDialogue from '../../../data/dialogues/calibrations/kapoor-calibration';
-import kapoorSecondNodeDialogue from '../../../data/dialogues/calibrations/kapoor-second-node';
 
 // ===== TYPES =====
 
@@ -43,17 +55,24 @@ interface CharacterData {
   bgClass: string;
 }
 
+// Add dialogueMode to DialogueStage interface or create an extended version
+export interface EnhancedDialogueStage extends DialogueStage {
+  dialogueMode?: DialogueMode;
+  title?: string;
+}
+
 // Component props
 interface ConversationFormatProps {
   character?: string;
   characterId?: string; // Alternative prop name
   nodeId?: string;
-  dialogueStages?: DialogueStage[];
+  dialogueStages?: EnhancedDialogueStage[];
   dialogueId?: string;
   onComplete?: (results: InteractionResults) => void;
   onOptionSelected?: (option: DialogueOptionView, stageId: string) => void;
   onStageChange?: (newStageId: string, prevStageId: string) => void;
   stateMachineEnabled?: boolean;
+  defaultDialogueMode?: DialogueMode;
   
   // Visual Extension props from HOC
   extension?: ExtensionData;
@@ -83,6 +102,7 @@ function ConversationFormat({
   onOptionSelected,
   onStageChange,
   stateMachineEnabled = false,
+  defaultDialogueMode = DialogueMode.NARRATIVE,
   
   // Visual Extension props
   extension,
@@ -92,7 +112,54 @@ function ConversationFormat({
   onExtensionStart
 }: ConversationFormatProps) {
   // Normalize character ID (support both property names for flexibility)
-  const normalizedCharacterId = characterId || character || '';
+  const normalizedCharacterId = characterId || character || 'kapoor';
+  
+  // Player state for player stats panel
+  const player = useStableStoreValue(
+    useGameStore, 
+    (state: any) => state.player || { insight: 0, momentum: 0, maxMomentum: 3 }
+  );
+  
+  // Game phase
+  const gamePhase = usePrimitiveStoreValue(
+    useGameStateMachine, 
+    (state: any) => state.gamePhase,
+    'day'
+  );
+  
+  // Journal functionality
+  const { hasJournal, currentUpgrade, setJournalOpen } = useJournalStore(
+    createStableSelector(['hasJournal', 'currentUpgrade', 'setJournalOpen'])
+  );
+  
+  // Knowledge store
+  const { totalMastery, newlyDiscovered } = useKnowledgeStore(
+    createStableSelector(['totalMastery', 'newlyDiscovered'])
+  );
+  
+  // State for player UI animations
+  const [showInsightAnimation, setShowInsightAnimation] = useState(false);
+  
+  // Animate insight changes
+  useEffect(() => {
+    if (player?.insight > 50 && !showInsightAnimation) {
+      setShowInsightAnimation(true);
+      
+      // Reset animation after delay
+      const timer = setTimeout(() => {
+        setShowInsightAnimation(false);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [player?.insight, showInsightAnimation]);
+  
+  // Function to toggle journal
+  const toggleJournal = () => {
+    if (setJournalOpen) {
+      setJournalOpen(true);
+    }
+  };
   
   // Get game state
   const gameStore = useGameStore();
@@ -132,6 +199,14 @@ function ConversationFormat({
   // Add state for handling whisper-to-shout pattern
   const [hoveredAbility, setHoveredAbility] = useState<string | null>(null);
   
+  // Character reaction state
+  const [mentorReaction, setMentorReaction] = useState<ReactionType>(null);
+  const [isShaking, setIsShaking] = useState(false);
+  const [isOscillating, setIsOscillating] = useState(false);
+  
+  // Track timeouts with refs for cleanup
+  const reactionTimersRef = useRef<{[key: string]: NodeJS.Timeout | null}>({});
+  
   // Check ability availability based on player's insight level
   const abilityAvailability = useMemo(() => {
     return {
@@ -148,37 +223,36 @@ function ConversationFormat({
       return dialogueStages;
     }
     
-    // If dialogueId is provided, we could add a mapping to specific dialogue content
+    // Try to get content from registry using dialogueId
     if (dialogueId) {
-      // For future expansion - implement a dialogue registry or mapping here
       console.log(`[ConversationFormat] Using dialogueId: ${dialogueId}`);
-      // Example: return dialogueRegistry[dialogueId];
+      const registryContent = getDialogueById(dialogueId);
+      if (registryContent) {
+        return registryContent;
+      }
     }
     
-    // Node-based selection could be implemented here
+    // Try to get content from registry using nodeId
     if (nodeId) {
       console.log(`[ConversationFormat] Using nodeId for dialogue selection: ${nodeId}`);
-      // For now, hardcode the first node to use kapoorCalibrationDialogue
+      const registryContent = getDialogueByNodeId(nodeId);
+      if (registryContent) {
+        return registryContent;
+      }
+      
+      // Fallbacks for backward compatibility
       if (nodeId === 'start' || nodeId.includes('kapoor-1')) {
         return kapoorCalibrationDialogue;
       }
-      
-      // Second node for Kapoor
-      if (nodeId === 'kapoor-2' || nodeId.includes('kapoor_2')) {
-        return kapoorSecondNodeDialogue;
-      }
-      
-      // Future nodes would be added here like:
-      // if (nodeId === 'kapoor-3') return kapoorThirdNodeDialogue;
     }
     
     // Default to kapoor dialogue for backward compatibility
     return kapoorCalibrationDialogue;
   }, [dialogueStages, dialogueId, nodeId]);
   
-  // Get current dialogue stage
+  // Get current dialogue stage with type safety
   const currentStage = useMemo(() => {
-    return dialogueContent.find(stage => stage.id === currentStageId) || dialogueContent[0];
+    return (dialogueContent.find((stage: EnhancedDialogueStage) => stage.id === currentStageId) || dialogueContent[0]) as EnhancedDialogueStage;
   }, [dialogueContent, currentStageId]);
   
   // Character data
@@ -186,12 +260,17 @@ function ConversationFormat({
     return getCharacterData(normalizedCharacterId);
   }, [normalizedCharacterId]);
   
+  // Determine dialogue mode for current stage
+  const currentDialogueMode = useMemo(() => {
+    return getDialogueModeForStage(currentStage, defaultDialogueMode);
+  }, [currentStage, defaultDialogueMode]);
+  
   // ===== EXTENSION HANDLING =====
   
   // Check if the current stage has an extension
   const currentExtension = useMemo(() => {
     if (!currentStage) return null;
-    return extension;
+    return currentStage.extension || extension;
   }, [currentStage, extension]);
   
   // Handle extension activation
@@ -200,6 +279,20 @@ function ConversationFormat({
       onExtensionStart();
     }
   }, [onExtensionStart]);
+  
+  // Auto-activate extensions when they appear
+  useEffect(() => {
+    if (currentExtension && handleExtensionStart) {
+      // Slight delay to ensure everything is rendered
+      const timer = setTimeout(() => {
+        if (isMountedRef.current) {
+          handleExtensionStart();
+        }
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentExtension, handleExtensionStart]);
   
   // Handle extension completion
   const handleExtensionComplete = useCallback((result: ExtensionResult) => {
@@ -242,25 +335,57 @@ function ConversationFormat({
     }
   }, [onExtensionComplete, updateInsight, incrementMomentum, resetMomentum]);
   
+  // ===== TEXT FORMATTING =====
+  // Process text with custom bracket notation for colored values
+  const processFormattedText = useCallback((text: string) => {
+    if (!text) return '';
+    
+    // Replace bracket notation with styled spans
+    // Format: [color:text] -> <span className="text-color-value">text</span>
+    return text.replace(/\[(\w+):(.*?)\]/g, (match, color, content) => {
+      const colorMap: Record<string, string> = {
+        yellow: 'text-yellow-300 font-medium',
+        cyan: 'text-cyan-300 font-medium',
+        green: 'text-green-300 font-medium',
+        purple: 'text-purple-300 font-medium',
+        red: 'text-red-400 font-medium',
+        blue: 'text-blue-300 font-medium'
+      };
+      
+      const colorClass = colorMap[color] || 'text-white';
+      return `<span class="${colorClass}">${content}</span>`;
+    });
+  }, []);
+  
+  // Function to safely render HTML content
+  const renderFormattedText = useCallback((text: string) => {
+    const processedText = processFormattedText(text);
+    return { __html: processedText };
+  }, [processFormattedText]);
+  
   // ===== HANDLERS =====
-  // Handle option selection
-  const handleOptionClick = useCallback((optionIndex: number) => {
-    if (!currentStage || !currentStage.options || selectedOptionIndex !== null) return;
+  // Handle option selection with enhanced character reactions
+  const handleOptionClick = (index: number) => {
+    if (selectedOptionIndex !== null || !currentStage?.options) return;
     
-    const selectedOption = currentStage.options[optionIndex];
-    if (!selectedOption) return;
+    // Get the selected option
+    const option = currentStage.options[index];
     
-    setSelectedOptionIndex(optionIndex);
+    // Record the selection
+    setSelectedOptionIndex(index);
     setShowResponse(true);
     
     // Show response text if available
-    if (selectedOption.responseText) {
-      setResponseText(selectedOption.responseText);
+    if (option.responseText) {
+      setResponseText(option.responseText);
     }
     
+    // Check if option has relationship change or approach
+    const relationshipChange = (option as any).relationshipChange || 0;
+    const approach = (option as any).approach || null;
+    
     // Track insight/relationship changes
-    let insightGained = selectedOption.insightGain || 0;
-    let relationshipChange = selectedOption.relationshipChange || 0;
+    let insightGained = (option as any).insightGain || 0;
     
     // Update insight
     if (insightGained > 0) {
@@ -272,252 +397,96 @@ function ConversationFormat({
     }
     
     // Track momentum for correct answers
-    if (selectedOption.isCriticalPath) {
+    if ((option as any).isCriticalPath) {
       incrementMomentum();
     }
     
     // Track knowledge gain
-    if (selectedOption.knowledgeGain) {
+    if ((option as any).knowledgeGain) {
       setResults(prev => ({
         ...prev,
         knowledgeGained: {
           ...prev.knowledgeGained,
-          [selectedOption.knowledgeGain?.conceptId || 'unknown']: 
-            (prev.knowledgeGained[selectedOption.knowledgeGain?.conceptId || 'unknown'] || 0) + 
-            (selectedOption.knowledgeGain?.amount || 0)
+          [(option as any).knowledgeGain?.conceptId || 'unknown']: 
+            (prev.knowledgeGained[(option as any).knowledgeGain?.conceptId || 'unknown'] || 0) + 
+            ((option as any).knowledgeGain?.amount || 0)
         }
       }));
     }
     
-    // Handle callbacks
-    if (onOptionSelected) {
-      onOptionSelected(selectedOption, currentStage.id);
+    // Determine character reaction based on option
+    if (relationshipChange > 0) {
+      // Positive reaction
+      triggerMentorReaction('positive', 3000);
+    } else if (relationshipChange < 0) {
+      // Negative reaction
+      triggerMentorReaction('negative', 3000);
+      setIsShaking(true);
+    } else if (approach === 'question') {
+      // Question reaction
+      triggerMentorReaction('question', 3000);
+    } else if (approach === 'creative') {
+      // Surprise reaction
+      triggerMentorReaction('surprise', 3000);
+    } else if (approach === 'humble') {
+      // Positive reaction
+      triggerMentorReaction('positive', 3000);
+    } else if (Math.random() < 0.3) {
+      // Random occasional reaction for options without specific type
+      const randomReactions: ReactionType[] = ['thinking', 'question', null];
+      triggerMentorReaction(randomReactions[Math.floor(Math.random() * randomReactions.length)], 3000);
     }
     
-    // Move to next stage after delay
-    setTimeout(() => {
-      if (selectedOption.nextStageId) {
-        // Special case for pre-journal-presentation
-        if (selectedOption.nextStageId === 'pre-journal-presentation') {
-          console.log('[ConversationFormat] Pre-journal stage selected, will transition to journal-presentation');
-          
-          // First move to the pre-journal stage
-          setCurrentStageId('pre-journal-presentation');
-          
-          // After a delay, move to journal-presentation
-          setTimeout(() => {
-            if (isMountedRef.current) {
-              console.log('[ConversationFormat] Now transitioning from pre-journal to journal-presentation');
-              setCurrentStageId('journal-presentation');
-            }
-          }, 3000);
-          
-          setShowResponse(false);
-          setResponseText('');
-          setSelectedOptionIndex(null);
-          return;
-        }
-        
-        // Direct jump to journal presentation - special case
-        if (selectedOption.nextStageId === 'journal-presentation') {
-          console.log('[ConversationFormat] Direct jump to journal presentation detected');
-          // Update the results to include journal tier
-          setResults(prev => ({
-            ...prev,
-            journalTier: 'technical'
-          }));
-          
-          // Special handling for journal acquisition
-          console.log('[ConversationFormat] Triggering journal acquisition');
-          const characterForDispatch = normalizedCharacterId || 'kapoor';
-          console.log(`[ConversationFormat] Using character ID for journal acquisition: ${characterForDispatch}`);
-          
-          safeDispatch(GameEventType.NODE_COMPLETED, {
-            nodeId: storeNodeId,
-            character: characterForDispatch,
-            result: {
-              isJournalAcquisition: true,
-              journalTier: 'technical',
-              relationshipChange: 0
-            }
-          });
-          
-          // Direct dispatch of journal acquired event to trigger animation
-          safeDispatch(GameEventType.JOURNAL_ACQUIRED, {
-            tier: 'technical',
-            character: characterForDispatch,
-            source: 'dialogue_completion',
-            nodeId: storeNodeId
-          });
-          console.log('[ConversationFormat] Directly dispatched JOURNAL_ACQUIRED event');
-          
-          // Transition to the journal presentation stage
-          setCurrentStageId('journal-presentation');
-          
-          // Call onComplete with updated results
-          if (onComplete) {
-            onComplete({
-              ...results,
-              journalTier: 'technical'
-            });
-          }
-          
-          setShowResponse(false);
-          setResponseText('');
-          setSelectedOptionIndex(null);
-          return;
-        }
-        
-        // Check if this is a conclusion (end of dialogue)
-        const nextStage = dialogueContent.find(stage => stage.id === selectedOption.nextStageId);
-        
-        if (nextStage && nextStage.isConclusion) {
-          // Special handling for journal acquisition
-          if (nextStage.id === 'journal-presentation') {
-            console.log('[ConversationFormat] Journal presentation node reached, triggering journal acquisition');
-            // Use 'kapoor' as fallback if normalized character ID is empty
-            const characterForDispatch = normalizedCharacterId || 'kapoor';
-            console.log(`[ConversationFormat] Using character ID for journal acquisition: ${characterForDispatch}`);
-            
-            safeDispatch(GameEventType.NODE_COMPLETED, {
-              nodeId: storeNodeId,
-              character: characterForDispatch,
-              result: {
-                isJournalAcquisition: true,
-                journalTier: 'technical',
-                relationshipChange: 0
-              }
-            });
-            
-            // Direct dispatch of journal acquired event to trigger animation
-            safeDispatch(GameEventType.JOURNAL_ACQUIRED, {
-              tier: 'technical',
-              character: characterForDispatch,
-              source: 'dialogue_completion',
-              nodeId: storeNodeId
-            });
-            console.log('[ConversationFormat] Directly dispatched JOURNAL_ACQUIRED event from conclusion path');
-            
-            setResults(prev => ({
-              ...prev,
-              journalTier: 'technical'
-            }));
-          }
-          
-          // Complete node and call onComplete
-          if (gameStore.completeNode && storeNodeId) {
-            gameStore.completeNode(storeNodeId);
-          }
-          
-          if (onComplete) {
-            onComplete(results);
-          }
-        } else {
-          // Move to next stage
-          setCurrentStageId(selectedOption.nextStageId);
-          if (onStageChange) {
-            onStageChange(selectedOption.nextStageId, currentStage.id);
-          }
-        }
+    // Pass to the dialogue handler
+    if (onOptionSelected) {
+      onOptionSelected(option, currentStage.id);
+    }
+    
+    // Store the next stage ID for the continue button to use
+    if (option.nextStageId) {
+      // Check for special stage transitions like journal-presentation
+      if (option.nextStageId === 'journal-presentation') {
+        console.log('[ConversationFormat] Will move to journal presentation stage on continue');
+        // Update the results to include journal tier
+        setResults(prev => ({
+          ...prev,
+          journalTier: 'technical'
+        }));
       }
-      
-      setShowResponse(false);
-      setResponseText('');
-      setSelectedOptionIndex(null);
-    }, 1500);
-  }, [currentStage, selectedOptionIndex, updateInsight, incrementMomentum, gameStore, 
-      storeNodeId, onComplete, results, onOptionSelected, onStageChange, dialogueContent, normalizedCharacterId]);
+    }
+  };
   
-  // Handle special stages that need automatic transitions
+  // Trigger mentor reaction with automatic clearing
+  const triggerMentorReaction = useCallback((reaction: ReactionType, duration = 3000) => {
+    // Clear any existing reaction timer
+    if (reactionTimersRef.current.reaction) {
+      clearTimeout(reactionTimersRef.current.reaction);
+      reactionTimersRef.current.reaction = null;
+    }
+    
+    // Set the reaction
+    setMentorReaction(reaction);
+    
+    // Clear reaction after duration
+    reactionTimersRef.current.reaction = setTimeout(() => {
+      if (isMountedRef.current) {
+        setMentorReaction(null);
+      }
+    }, duration);
+  }, [setMentorReaction]);
+  
+  // Reset shake after animation completes
   useEffect(() => {
-    // Handle pre-journal stage to journal stage transition
-    if (currentStageId === 'pre-journal-presentation' && !selectedOptionIndex) {
-      console.log('[ConversationFormat] Pre-journal stage detected in special stages effect');
-      
-      // Add a delay before transitioning to journal-presentation
+    if (isShaking) {
       const timer = setTimeout(() => {
-        if (isMountedRef.current) {
-          console.log('[ConversationFormat] Auto-transitioning from pre-journal to journal-presentation');
-          setCurrentStageId('journal-presentation');
-        }
-      }, 4000);
+        setIsShaking(false);
+      }, 500);
       
       return () => clearTimeout(timer);
     }
-  }, [currentStageId, selectedOptionIndex]);
+  }, [isShaking]);
   
-  // Direct journal acquisition when journal-presentation stage is reached
-  useEffect(() => {
-    if (currentStageId === 'journal-presentation' && !results.journalTier) {
-      console.log('[ConversationFormat] Journal presentation stage reached, ensuring acquisition is triggered');
-      
-      // Update results to include journal tier
-      setResults(prev => ({
-        ...prev,
-        journalTier: 'technical'
-      }));
-      
-      // Directly dispatch events to ensure acquisition flow
-      const characterForDispatch = normalizedCharacterId || 'kapoor';
-      
-      // Always use store nodeId if available, fallback to provided nodeId
-      const nodeIdForDispatch = storeNodeId || nodeId || 'start';
-      console.log(`[ConversationFormat] Using nodeId for completion: ${nodeIdForDispatch}`);
-      
-      // Explicitly mark the node as completed both ways
-      try {
-        const gameStore = useGameStore.getState();
-        if (gameStore && gameStore.completeNode) {
-          gameStore.completeNode(nodeIdForDispatch);
-          console.log(`[ConversationFormat] ✅ Explicitly marked node ${nodeIdForDispatch} as completed via gameStore`);
-        }
-        
-        // Also directly mark in state machine for redundancy
-        if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
-          window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState().markNodeCompleted(nodeIdForDispatch);
-          console.log(`[ConversationFormat] ✅ Explicitly marked node ${nodeIdForDispatch} as completed in state machine`);
-        }
-      } catch (err) {
-        console.error('[ConversationFormat] Error marking node as completed:', err);
-      }
-      
-      safeDispatch(GameEventType.NODE_COMPLETED, {
-        nodeId: nodeIdForDispatch,
-        character: characterForDispatch,
-        result: {
-          isJournalAcquisition: true,
-          journalTier: 'technical',
-          relationshipChange: 0
-        }
-      });
-      
-      safeDispatch(GameEventType.JOURNAL_ACQUIRED, {
-        tier: 'technical',
-        character: characterForDispatch,
-        source: 'stage_reached',
-        nodeId: nodeIdForDispatch
-      });
-      console.log('[ConversationFormat] Journal presentation stage: Directly dispatched events');
-      
-      // If there's an onComplete callback, call it
-      if (onComplete) {
-        onComplete({
-          ...results,
-          journalTier: 'technical'
-        });
-      }
-      
-      // Return to map after a delay
-      setTimeout(() => {
-        if (gameStore && gameStore.setCurrentNode) {
-          console.log('[ConversationFormat] Returning to map after journal acquisition');
-          gameStore.setCurrentNode(null);
-        }
-      }, 5000); // Use 5 seconds to allow animations to complete
-    }
-  }, [currentStageId, results.journalTier, normalizedCharacterId, storeNodeId, nodeId, onComplete, results, gameStore]);
-  
-  // Add a handler for ability activation
+  // Handle strategic action activation with character reactions
   const handleAbilityActivate = useCallback((abilityType: StrategicActionType) => {
     if (!currentStage) return;
     
@@ -535,28 +504,163 @@ function ConversationFormat({
     // We would implement the actual ability logic here
     console.log(`[ConversationFormat] Activating ability: ${abilityType}`);
     
-    // Simple placeholders for the abilities (to be fully implemented)
+    // Trigger different character reactions based on ability
     switch(abilityType) {
       case 'tangent':
         // Logic for swapping the question content
         console.log('Swapping to a different concept');
+        // Show thinking reaction
+        triggerMentorReaction('thinking', 1200);
         // Spend insight
         updateInsight(-25);
         break;
       case 'reframe':
         // Logic for changing context
         console.log('Changing problem frame of reference');
+        // Show idea reaction
+        triggerMentorReaction('idea', 1500);
+        setIsOscillating(true);
+        setTimeout(() => setIsOscillating(false), 1500);
         // Spend insight
         updateInsight(-50);
         break;
       case 'peer_review':
         // Logic for summoning a mentor
         console.log('Summoning another mentor for a hint');
+        // Show surprise reaction
+        triggerMentorReaction('surprise', 1500);
         // Spend insight
         updateInsight(-75);
         break;
     }
-  }, [currentStage, playerInsight, updateInsight]);
+  }, [currentStage, playerInsight, updateInsight, triggerMentorReaction, setIsOscillating]);
+  
+  // Clean up timers on component unmount
+  useEffect(() => {
+    return () => {
+      // Clear all reaction timers
+      Object.values(reactionTimersRef.current).forEach(timer => {
+        if (timer) clearTimeout(timer);
+      });
+    };
+  }, []);
+  
+  // Handle continue button click
+  const handleContinue = useCallback(() => {
+    if (!currentStage) return;
+    
+    // If we're showing a response, move to the nextStageId based on the selected option
+    if (showResponse && selectedOptionIndex !== null && currentStage.options) {
+      const selectedOption = currentStage.options[selectedOptionIndex];
+      
+      if (selectedOption.nextStageId) {
+        // Check for special stage transitions
+        if (selectedOption.nextStageId === 'journal-presentation') {
+          console.log('[ConversationFormat] Moving to journal presentation stage');
+          
+          // Special handling for journal acquisition
+          const characterForDispatch = normalizedCharacterId || 'kapoor';
+          
+          safeDispatch(GameEventType.NODE_COMPLETED, {
+            nodeId: storeNodeId,
+            character: characterForDispatch,
+            result: {
+              isJournalAcquisition: true,
+              journalTier: 'technical',
+              relationshipChange: 0
+            }
+          });
+          
+          safeDispatch(GameEventType.JOURNAL_ACQUIRED, {
+            tier: 'technical',
+            character: characterForDispatch,
+            source: 'dialogue_completion',
+            nodeId: storeNodeId
+          });
+        }
+        
+        // Check if next stage is a conclusion
+        const nextStage = dialogueContent.find((stage: EnhancedDialogueStage) => 
+          stage.id === selectedOption.nextStageId
+        );
+        
+        if (nextStage && nextStage.isConclusion) {
+          // Complete node and call onComplete
+          if (gameStore && gameStore.completeNode && storeNodeId) {
+            gameStore.completeNode(storeNodeId);
+          }
+          
+          if (onComplete) {
+            onComplete(results);
+          }
+        }
+        
+        // Move to next stage
+        setCurrentStageId(selectedOption.nextStageId);
+        if (onStageChange) {
+          onStageChange(selectedOption.nextStageId, currentStage.id);
+        }
+      }
+      
+      setShowResponse(false);
+      setResponseText('');
+      setSelectedOptionIndex(null);
+      return;
+    }
+    
+    // If this is a conclusion, complete the node
+    if (currentStage.isConclusion) {
+      // Complete node and call onComplete
+      if (gameStore && gameStore.completeNode && storeNodeId) {
+        gameStore.completeNode(storeNodeId);
+      }
+      
+      if (onComplete) {
+        onComplete(results);
+      }
+      return;
+    }
+    
+    // Handle regular stage transitions
+    if (currentStage.nextStageId) {
+      setCurrentStageId(currentStage.nextStageId);
+      if (onStageChange) {
+        onStageChange(currentStage.nextStageId, currentStage.id);
+      }
+      return;
+    }
+    
+    // If no nextStageId is present but we're at end of dialogue, show a random reaction
+    if (!currentStage.nextStageId && !currentStage.options) {
+      const randomReactions: ReactionType[] = ['thinking', 'positive', 'question'];
+      triggerMentorReaction(randomReactions[Math.floor(Math.random() * randomReactions.length)], 3000);
+      
+      // Complete node and call onComplete
+      if (gameStore && gameStore.completeNode && storeNodeId) {
+        gameStore.completeNode(storeNodeId);
+      }
+      
+      if (onComplete) {
+        onComplete(results);
+      }
+    }
+  }, [
+    currentStage, 
+    showResponse,
+    selectedOptionIndex,
+    storeNodeId, 
+    normalizedCharacterId,
+    onStageChange, 
+    onComplete, 
+    results, 
+    gameStore, 
+    triggerMentorReaction,
+    setShowResponse,
+    setResponseText,
+    setSelectedOptionIndex,
+    setCurrentStageId,
+    dialogueContent
+  ]);
   
   // ===== COMPONENT LIFECYCLE =====
   
@@ -566,6 +670,14 @@ function ConversationFormat({
     
     console.log(`[ConversationFormat] Component mounted. Dialogue content length: ${dialogueContent?.length || 0}`);
     console.log(`[ConversationFormat] Current stage ID: ${currentStageId}, Character ID: ${normalizedCharacterId}`);
+    
+    // Debug: Trigger a test reaction
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        triggerMentorReaction('idea', 3000);
+        console.log('[ConversationFormat] Test reaction triggered');
+      }
+    }, 1000);
     
     if (currentStage) {
       console.log(`[ConversationFormat] Current stage: ${currentStage.id}`, currentStage);
@@ -605,22 +717,9 @@ function ConversationFormat({
   
   // Render the conversation UI
   return (
-    <div className="relative w-full h-full flex flex-col">
-      {/* Deep space background with subtle grid */}
-      <div className="absolute inset-0 bg-[#080d17] z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(20,30,60,0.3)_0%,rgba(8,13,23,0.95)_70%)]">
-          {/* Subtle grid with depth */}
-          <div 
-            className="absolute inset-0 opacity-8" 
-            style={{ 
-              backgroundImage: 'linear-gradient(to right, rgba(59,130,246,0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(59,130,246,0.05) 1px, transparent 1px)',
-              backgroundSize: '40px 40px',
-              transform: 'perspective(1000px) rotateX(5deg)',
-              transformOrigin: 'center top' 
-            }}
-          />
-        </div>
-      </div>
+    <div className="relative w-full h-full flex flex-col justify-center items-center overflow-hidden py-4">
+      {/* Simple black background */}
+      <div className="absolute inset-0 bg-black z-0"></div>
       
       {/* Minimal ambient particles */}
       <div className="absolute inset-0 overflow-hidden z-10 pointer-events-none">
@@ -644,213 +743,181 @@ function ConversationFormat({
         })}
       </div>
 
-      {/* Clean two-column layout */}
-      <div className="w-full h-full flex z-10">
-        {/* Left panel - character area */}
-        <div className="w-[28%] py-8 px-6 flex flex-col">
-          {/* Character container */}
-          <div className="relative mb-3">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="bg-[#0f1623]/80 rounded-md overflow-hidden border border-[#243455] pixel-borders"
-            >
-              {/* Character portrait */}
-              <div className="aspect-square w-full flex items-center justify-center overflow-hidden p-3">
-                <img
-                  src={charData.sprite}
-                  alt={charData.name}
-                  className="w-full h-full object-contain pixelated"
-                  style={{ 
-                    imageRendering: 'pixelated'
-                  }}
-                />
-              </div>
-            </motion.div>
-            
-            {/* Character name label - positioned below portrait */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="mt-2 bg-[#1e3a5f] rounded-sm p-2"
-            >
-              <div className="flex items-center">
-                <div className="w-2 h-2 rounded-full bg-blue-400 mr-2"></div>
-                <h3 className={`text-lg font-pixel text-blue-200`}>Dr. Kapoor</h3>
-              </div>
-              <p className="text-xs text-gray-400 font-pixel">Chief Medical Physicist</p>
-            </motion.div>
+      {/* Clean two-column layout - centered content */}
+      <div 
+        className="w-full max-w-5xl flex flex-col lg:flex-row p-0"
+        style={{ position: 'relative', zIndex: 45 }}
+      >
+        {/* Left side - character portrait - collapsed container */}
+        <div className="w-full lg:w-1/5 flex flex-col items-center overflow-visible relative">
+          {/* Character portrait container with animations - collapsed height */}
+          <div 
+            ref={characterRef}
+            className={`relative ${isShaking ? 'shake-animation' : ''} ${isOscillating ? 'oscillate-animation' : ''}`}
+            style={{ width: '180px', height: '150px', overflow: 'visible' }}
+          >
+            {/* Character Portrait Component */}
+            <div className="flex justify-center items-center w-full h-full">
+              <CharacterPortrait
+                characterId={normalizedCharacterId}
+                size="lg"
+                reaction={mentorReaction}
+                className="transform"
+                dialogueMode={currentDialogueMode}
+              />
+            </div>
           </div>
           
-          {/* LINAC Information Panel */}
+          {/* Character name label - simplified positioning */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="mt-4 bg-[#0f1623]/80 border border-[#243455] rounded-sm p-3"
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="w-full max-w-[180px] relative z-10 mt-2"
           >
-            <h4 className="text-sm text-blue-300 font-pixel mb-1">Linear Accelerator</h4>
-            <p className="text-xs text-gray-300">LINAC 2, the Varian TrueBeam used primarily for head and neck treatments.</p>
+            <div className={`rounded-md p-2 shadow-lg ${
+              currentDialogueMode === DialogueMode.NARRATIVE ? 'bg-gradient-to-r from-blue-900/40 to-blue-950/60 border-l-4 border-blue-500' :
+              currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'bg-gradient-to-r from-amber-900/40 to-amber-950/60 border-l-4 border-amber-500' :
+              currentDialogueMode === DialogueMode.QUESTION ? 'bg-gradient-to-r from-purple-900/40 to-purple-950/60 border-l-4 border-purple-500' :
+              currentDialogueMode === DialogueMode.INSTRUCTION ? 'bg-gradient-to-r from-green-900/40 to-green-950/60 border-l-4 border-green-500' :
+              currentDialogueMode === DialogueMode.REACTION ? 'bg-gradient-to-r from-pink-900/40 to-pink-950/60 border-l-4 border-pink-500' :
+              currentDialogueMode === DialogueMode.CRITICAL ? 'bg-gradient-to-r from-red-900/40 to-red-950/60 border-l-4 border-red-500' :
+              'bg-gradient-to-r from-blue-900/40 to-blue-950/60 border-l-4 border-blue-500'
+            }`}>
+              <div className="flex items-center">
+                <div className={`w-1 h-5 rounded-sm mr-2 ${
+                  currentDialogueMode === DialogueMode.NARRATIVE ? 'bg-blue-400' :
+                  currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'bg-amber-400' :
+                  currentDialogueMode === DialogueMode.QUESTION ? 'bg-purple-400' :
+                  currentDialogueMode === DialogueMode.INSTRUCTION ? 'bg-green-400' :
+                  currentDialogueMode === DialogueMode.REACTION ? 'bg-pink-400' :
+                  currentDialogueMode === DialogueMode.CRITICAL ? 'bg-red-400' :
+                  'bg-blue-400'
+                }`}></div>
+                <div>
+                  <h3 className={`text-sm font-pixel tracking-wide ${
+                    currentDialogueMode === DialogueMode.NARRATIVE ? 'text-blue-100' :
+                    currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'text-amber-100' :
+                    currentDialogueMode === DialogueMode.QUESTION ? 'text-purple-100' :
+                    currentDialogueMode === DialogueMode.INSTRUCTION ? 'text-green-100' :
+                    currentDialogueMode === DialogueMode.REACTION ? 'text-pink-100' :
+                    currentDialogueMode === DialogueMode.CRITICAL ? 'text-red-100' :
+                    'text-blue-100'
+                  }`}>{charData.name}</h3>
+                  <p className={`text-xs font-pixel ${
+                    currentDialogueMode === DialogueMode.NARRATIVE ? 'text-blue-300/70' :
+                    currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'text-amber-300/70' :
+                    currentDialogueMode === DialogueMode.QUESTION ? 'text-purple-300/70' :
+                    currentDialogueMode === DialogueMode.INSTRUCTION ? 'text-green-300/70' :
+                    currentDialogueMode === DialogueMode.REACTION ? 'text-pink-300/70' :
+                    currentDialogueMode === DialogueMode.CRITICAL ? 'text-red-300/70' :
+                    'text-blue-300/70'
+                  }`}>{charData.title}</p>
+                </div>
+              </div>
+            </div>
           </motion.div>
           
-          {/* Empty space to maintain layout */}
-          <div className="mt-auto"></div>
-
-        </div>
-        
-        {/* Main content area - conversation */}
-        <div className="flex-1 h-full flex flex-col justify-center p-8 pt-20">
-          {/* Main dialogue section */}
-          <div className="flex-1 flex flex-col">
-            {/* Contextual descriptor - positioned above dialogue */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.9 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="mb-4 px-5 py-3 bg-[#0a1220]/80 border-l-2 border-blue-500/60 rounded-sm max-w-3xl"
-            >
-              <p className="text-sm text-blue-300/90 font-pixel italic">
+          {/* Contextual descriptor - moved under dialogue mode */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.9 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="w-full max-w-[180px] mt-2"
+          >
+            <div className={`rounded-sm p-2 shadow-md ${
+              currentDialogueMode === DialogueMode.NARRATIVE ? 'bg-[#0a1220]/80 border-l-2 border-blue-500/60' :
+              currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'bg-[#1f1707]/80 border-l-2 border-amber-500/60' :
+              currentDialogueMode === DialogueMode.QUESTION ? 'bg-[#150a1f]/80 border-l-2 border-purple-500/60' :
+              currentDialogueMode === DialogueMode.INSTRUCTION ? 'bg-[#071b11]/80 border-l-2 border-green-500/60' :
+              currentDialogueMode === DialogueMode.REACTION ? 'bg-[#1b0a13]/80 border-l-2 border-pink-500/60' :
+              currentDialogueMode === DialogueMode.CRITICAL ? 'bg-[#1b0a0a]/80 border-l-2 border-red-500/60' :
+              'bg-[#0a1220]/80 border-l-2 border-blue-500/60'
+            }`}>
+              <p className={`text-xs font-pixel italic leading-tight ${
+                currentDialogueMode === DialogueMode.NARRATIVE ? 'text-blue-300/90' :
+                currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'text-amber-300/90' :
+                currentDialogueMode === DialogueMode.QUESTION ? 'text-purple-300/90' :
+                currentDialogueMode === DialogueMode.INSTRUCTION ? 'text-green-300/90' :
+                currentDialogueMode === DialogueMode.REACTION ? 'text-pink-300/90' :
+                currentDialogueMode === DialogueMode.CRITICAL ? 'text-red-300/90' :
+                'text-blue-300/90'
+              }`}>
                 {currentStage?.contextNote || "Kapoor adjusts the ionization chamber position with methodical precision, not looking up as you enter."}
               </p>
-            </motion.div>
-            
+            </div>
+          </motion.div>
+        </div>
+        
+        {/* Main content area */}
+        <div className="flex-1 flex flex-col justify-center p-0 lg:p-0 lg:pl-4" 
+             style={{ position: 'relative', zIndex: 45 }}>
+          {/* New dialogue mode indicator */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="mb-2 ml-1 self-start"
+          >
+            <div className={`font-pixel text-sm ${
+              currentDialogueMode === DialogueMode.NARRATIVE ? 'text-blue-400' :
+              currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'text-amber-400' :
+              currentDialogueMode === DialogueMode.QUESTION ? 'text-purple-400' :
+              currentDialogueMode === DialogueMode.INSTRUCTION ? 'text-green-400' :
+              currentDialogueMode === DialogueMode.REACTION ? 'text-pink-400' :
+              currentDialogueMode === DialogueMode.CRITICAL ? 'text-red-400' :
+              'text-blue-400'
+            }`}>
+              {currentDialogueMode}
+            </div>
+          </motion.div>
+          
+          {/* Main dialogue section */}
+          <div className="flex-1 flex flex-col">
             {/* Primary dialogue box with relative positioning to contain abilities */}
             <motion.div
               ref={dialogueContainerRef}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="w-full max-w-3xl mb-4 relative"
+              className="w-full max-w-3xl mb-1 relative"
             >
-              {/* Abilities Panel placed next to dialogue */}
-              <div 
-                className="abilities-panel"
-                style={{
-                  position: 'absolute',
-                  left: '101%', // Position it just outside the dialogue box (reduced to 101%)
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  zIndex: 50
-                }}
+              {/* Replace the old dialogue box with DialogueContainer */}
+              <DialogueContainer 
+                mode={currentDialogueMode}
+                title={getStageTitle(currentStage)}
+                className="w-full max-w-4xl"
               >
-                <div className="abilities-container">
-                  {/* Tangent Ability */}
-                  <div 
-                    className={`
-                      ability-icon ability-tangent
-                      ${hoveredAbility === 'tangent' ? 'ability-expanded' : ''}
-                      ${abilityAvailability.tangent ? 'ability-available' : ''}
-                      transition-all duration-200 ease-in-out
-                      ${abilityAvailability.tangent ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}
-                      flex items-center
-                      bg-blue-900/90 border ${abilityAvailability.tangent ? 'border-blue-300' : 'border-gray-700/80'}
-                      rounded-full overflow-hidden
-                      w-12 h-12 hover:w-52 hover:h-14
-                      shadow-lg
-                    `}
-                    onMouseEnter={() => setHoveredAbility('tangent')}
-                    onMouseLeave={() => setHoveredAbility(null)}
-                    onClick={() => abilityAvailability.tangent && handleAbilityActivate('tangent')}
-                  >
-                    <div className="flex items-center justify-center w-12 h-12 flex-shrink-0">
-                      <svg width="24" height="24" viewBox="0 0 16 16" className={`${abilityAvailability.tangent ? 'stroke-blue-200' : 'stroke-gray-400'}`} style={{strokeWidth: 2}}>
-                        <path d="M4,5 L12,13 M12,5 L4,13" />
-                      </svg>
-                    </div>
-                    <div className={`whitespace-nowrap px-3 ${abilityAvailability.tangent ? 'text-blue-200' : 'text-gray-400'} font-pixel text-sm`}>
-                      Tangent <span className={`${abilityAvailability.tangent ? 'text-blue-300' : 'text-gray-500'} ml-1`}>25◆</span>
-                    </div>
+                {showResponse && responseText ? (
+                  <p className="text-base font-pixel text-white leading-relaxed" 
+                     dangerouslySetInnerHTML={renderFormattedText(responseText)} />
+                ) : (
+                  <p className={`text-base font-pixel text-white leading-relaxed ${isExtensionActive ? 'opacity-0 transition-opacity duration-500' : ''}`} 
+                     dangerouslySetInnerHTML={renderFormattedText(currentStage.text)} />
+                )}
+                
+                {/* VISUAL EXTENSION INTEGRATION */}
+                {currentExtension && (
+                  <div className="mt-3">
+                    <ConversationExtension
+                      extension={currentExtension}
+                      characterId={normalizedCharacterId}
+                      stageId={currentStageId}
+                      isActive={isExtensionActive || false}
+                      className="w-full"
+                      onComplete={handleExtensionComplete}
+                    />
                   </div>
-                  
-                  {/* Reframe Ability */}
-                  <div 
-                    className={`
-                      ability-icon ability-reframe
-                      ${hoveredAbility === 'reframe' ? 'ability-expanded' : ''}
-                      ${abilityAvailability.reframe ? 'ability-available' : ''}
-                      transition-all duration-200 ease-in-out
-                      ${abilityAvailability.reframe ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}
-                      flex items-center
-                      bg-purple-900/90 border ${abilityAvailability.reframe ? 'border-purple-300' : 'border-gray-700/80'}
-                      rounded-full overflow-hidden
-                      w-12 h-12 hover:w-52 hover:h-14
-                      shadow-lg
-                    `}
-                    onMouseEnter={() => setHoveredAbility('reframe')}
-                    onMouseLeave={() => setHoveredAbility(null)}
-                    onClick={() => abilityAvailability.reframe && handleAbilityActivate('reframe')}
-                  >
-                    <div className="flex items-center justify-center w-12 h-12 flex-shrink-0">
-                      <svg width="24" height="24" viewBox="0 0 16 16" className={`${abilityAvailability.reframe ? 'stroke-purple-200' : 'stroke-gray-400'}`} style={{strokeWidth: 2}}>
-                        <path d="M4,4 H12 M4,8 H12 M4,12 H10" />
-                      </svg>
-                    </div>
-                    <div className={`whitespace-nowrap px-3 ${abilityAvailability.reframe ? 'text-purple-200' : 'text-gray-400'} font-pixel text-sm`}>
-                      Reframe <span className={`${abilityAvailability.reframe ? 'text-purple-300' : 'text-gray-500'} ml-1`}>50◆</span>
-                    </div>
-                  </div>
-                  
-                  {/* Peer-Review Ability */}
-                  <div 
-                    className={`
-                      ability-icon ability-peer-review
-                      ${hoveredAbility === 'peer_review' ? 'ability-expanded' : ''}
-                      ${abilityAvailability.peer_review ? 'ability-available' : ''}
-                      transition-all duration-200 ease-in-out
-                      ${abilityAvailability.peer_review ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}
-                      flex items-center
-                      bg-green-900/90 border ${abilityAvailability.peer_review ? 'border-green-300' : 'border-gray-700/80'}
-                      rounded-full overflow-hidden
-                      w-12 h-12 hover:w-52 hover:h-14
-                      shadow-lg
-                    `}
-                    onMouseEnter={() => setHoveredAbility('peer_review')}
-                    onMouseLeave={() => setHoveredAbility(null)}
-                    onClick={() => abilityAvailability.peer_review && handleAbilityActivate('peer_review')}
-                  >
-                    <div className="flex items-center justify-center w-12 h-12 flex-shrink-0">
-                      <svg width="24" height="24" viewBox="0 0 16 16" className={`${abilityAvailability.peer_review ? 'stroke-green-200' : 'stroke-gray-400'}`} style={{strokeWidth: 2}}>
-                        <path d="M5,5 L8,3 L11,5 M8,3 V9 M5,11 L8,13 L11,11" />
-                      </svg>
-                    </div>
-                    <div className={`whitespace-nowrap px-3 ${abilityAvailability.peer_review ? 'text-green-200' : 'text-gray-400'} font-pixel text-sm`}>
-                      Peer-Review <span className={`${abilityAvailability.peer_review ? 'text-green-300' : 'text-gray-500'} ml-1`}>75◆</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-black/90 border border-[#243455] rounded-sm overflow-hidden shadow-md">
-                {/* Main dialogue text */}
-                <div className="p-6">
-                  <p className="text-lg font-pixel text-white leading-relaxed">
-                    {showResponse && responseText ? responseText : currentStage.text}
-                  </p>
-                  
-                  {/* VISUAL EXTENSION INTEGRATION */}
-                  {currentExtension && (
-                    <div className="mt-4">
-                      <ConversationExtension
-                        extension={currentExtension}
-                        characterId={normalizedCharacterId}
-                        stageId={currentStageId}
-                        isActive={isExtensionActive || false}
-                        className="w-full"
-                        onComplete={handleExtensionComplete}
-                      />
-                    </div>
-                  )}
-                </div>
-
+                )}
+                
                 {/* Response options with clean styling */}
-                {!showResponse && currentStage.options && (
+                {!showResponse && currentStage.options && currentStage.options.length > 0 ? (
                   <div 
                     ref={optionsContainerRef}
-                    className="p-4 border-t border-[#243455] space-y-3 bg-black/70"
+                    className="space-y-1 mt-3"
+                    style={{ position: 'relative', zIndex: 50 }}
                   >
-                    {currentStage.options.map((option, index) => (
+                    {currentStage.options.map((option: DialogueOptionView, index: number) => (
                       <motion.button
                         key={index}
                         initial={{ opacity: 0, x: -5 }}
@@ -859,7 +926,7 @@ function ConversationFormat({
                         onClick={() => handleOptionClick(index)}
                         disabled={selectedOptionIndex !== null}
                         className={`
-                          w-full text-left p-3 
+                          w-full text-left p-2 
                           font-pixel text-sm leading-relaxed
                           ${selectedOptionIndex === index 
                             ? 'bg-blue-900/50 text-white border-l-4 border-blue-400' 
@@ -873,26 +940,202 @@ function ConversationFormat({
                       </motion.button>
                     ))}
                   </div>
+                ) : (
+                  /* Continue button for response view or when no options available */
+                  (showResponse || (!currentStage.options || currentStage.options.length === 0)) && (
+                    <motion.button
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      onClick={handleContinue}
+                      className="mt-1 px-4 py-1 bg-blue-900/60 hover:bg-blue-800/80 border border-blue-500/40 rounded-sm font-pixel text-sm text-blue-200 transition-all duration-200 self-end flex items-center"
+                      style={{ position: 'relative', zIndex: 50 }}
+                    >
+                      <span>Continue</span>
+                      <span className="ml-2 opacity-70">&raquo;</span>
+                    </motion.button>
+                  )
                 )}
-              </div>
+              </DialogueContainer>
             </motion.div>
+          </div>
+        </div>
+        
+        {/* Right side - Player stats panel */}
+        <div className="w-full lg:w-1/5 flex flex-col items-center overflow-visible relative">
+          {/* Player Portrait */}
+          <div 
+            ref={characterRef}
+            className={`relative ${isShaking ? 'shake-animation' : ''} ${isOscillating ? 'oscillate-animation' : ''}`}
+            style={{ width: '180px', height: '150px', overflow: 'visible' }}
+          >
+            {/* Resident portrait */}
+            <div className="flex justify-center items-center w-full h-full relative">
+              {/* Momentum blips positioned correctly in the portrait */}
+              <div className="absolute top-1 right-4 flex space-x-1 z-10">
+                {[...Array(3)].map((_, i) => (
+                  <div 
+                    key={`momentum-blip-${i}`}
+                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                      (player?.momentum || 0) > i 
+                        ? 'bg-orange-500 animate-pulse-slow shadow-glow-orange' 
+                        : 'bg-black border border-gray-800/50'
+                    }`}
+                  ></div>
+                ))}
+              </div>
+              
+              <ResidentPortrait
+                size="lg"
+                className="transform"
+                showMasteryGlow={false}
+                dialogueMode={currentDialogueMode}
+              />
+            </div>
+          </div>
+          
+          {/* Player name label */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="w-full max-w-[180px] relative z-10 mt-2"
+          >
+            <div className={`rounded-md p-2 shadow-lg ${
+              currentDialogueMode === DialogueMode.NARRATIVE ? 'bg-gradient-to-r from-blue-900/40 to-blue-950/60 border-r-4 border-blue-500' :
+              currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'bg-gradient-to-r from-amber-900/40 to-amber-950/60 border-r-4 border-amber-500' :
+              currentDialogueMode === DialogueMode.QUESTION ? 'bg-gradient-to-r from-purple-900/40 to-purple-950/60 border-r-4 border-purple-500' :
+              currentDialogueMode === DialogueMode.INSTRUCTION ? 'bg-gradient-to-r from-green-900/40 to-green-950/60 border-r-4 border-green-500' :
+              currentDialogueMode === DialogueMode.REACTION ? 'bg-gradient-to-r from-pink-900/40 to-pink-950/60 border-r-4 border-pink-500' :
+              currentDialogueMode === DialogueMode.CRITICAL ? 'bg-gradient-to-r from-red-900/40 to-red-950/60 border-r-4 border-red-500' :
+              'bg-gradient-to-r from-blue-900/40 to-blue-950/60 border-r-4 border-blue-500'
+            }`}>
+              <div className="flex items-center justify-end">
+                <div>
+                  <h3 className={`text-sm font-pixel tracking-wide ${
+                    currentDialogueMode === DialogueMode.NARRATIVE ? 'text-blue-100' :
+                    currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'text-amber-100' :
+                    currentDialogueMode === DialogueMode.QUESTION ? 'text-purple-100' :
+                    currentDialogueMode === DialogueMode.INSTRUCTION ? 'text-green-100' :
+                    currentDialogueMode === DialogueMode.REACTION ? 'text-pink-100' :
+                    currentDialogueMode === DialogueMode.CRITICAL ? 'text-red-100' :
+                    'text-blue-100'
+                  }`}>Medical Physics</h3>
+                  <p className={`text-xs font-pixel ${
+                    currentDialogueMode === DialogueMode.NARRATIVE ? 'text-blue-300/70' :
+                    currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'text-amber-300/70' :
+                    currentDialogueMode === DialogueMode.QUESTION ? 'text-purple-300/70' :
+                    currentDialogueMode === DialogueMode.INSTRUCTION ? 'text-green-300/70' :
+                    currentDialogueMode === DialogueMode.REACTION ? 'text-pink-300/70' :
+                    currentDialogueMode === DialogueMode.CRITICAL ? 'text-red-300/70' :
+                    'text-blue-300/70'
+                  }`}>Resident</p>
+                </div>
+                <div className={`w-1 h-5 rounded-sm ml-2 ${
+                  currentDialogueMode === DialogueMode.NARRATIVE ? 'bg-blue-400' :
+                  currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'bg-amber-400' :
+                  currentDialogueMode === DialogueMode.QUESTION ? 'bg-purple-400' :
+                  currentDialogueMode === DialogueMode.INSTRUCTION ? 'bg-green-400' :
+                  currentDialogueMode === DialogueMode.REACTION ? 'bg-pink-400' :
+                  currentDialogueMode === DialogueMode.CRITICAL ? 'bg-red-400' :
+                  'bg-blue-400'
+                }`}></div>
+              </div>
+            </div>
+          </motion.div>
+          
+          {/* Player abilities section - moved below name */}
+          <div className="w-full max-w-[180px] mt-4">
+            <div className="bg-black/60 backdrop-blur-sm rounded-md p-2">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-col items-center">
+                  <div 
+                    className={`w-9 h-9 rounded-full flex items-center justify-center ability-icon ${player?.insight >= 25 ? 'bg-blue-900/70 text-blue-300 ability-available' : 'bg-gray-900/70 text-gray-500'}`}
+                    onClick={() => player?.insight >= 25 && handleAbilityActivate('tangent')}
+                  >
+                    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M3,8 H13 M13,8 L10,5 M13,8 L10,11" />
+                    </svg>
+                  </div>
+                  <span className="text-xs mt-1 font-pixel text-blue-300/80">25◆</span>
+                </div>
+                
+                <div className="flex flex-col items-center">
+                  <div 
+                    className={`w-9 h-9 rounded-full flex items-center justify-center ability-icon ${player?.insight >= 50 ? 'bg-purple-900/70 text-purple-300 ability-available' : 'bg-gray-900/70 text-gray-500'}`}
+                    onClick={() => player?.insight >= 50 && handleAbilityActivate('reframe')}
+                  >
+                    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M3,3 H13 V13 H3 V3 Z M3,7 H13 M7,3 V13" />
+                    </svg>
+                  </div>
+                  <span className="text-xs mt-1 font-pixel text-purple-300/80">50◆</span>
+                </div>
+                
+                <div className="flex flex-col items-center">
+                  <div 
+                    className={`w-9 h-9 rounded-full flex items-center justify-center ability-icon ${player?.insight >= 75 ? 'bg-green-900/70 text-green-300 ability-available' : 'bg-gray-900/70 text-gray-500'}`}
+                    onClick={() => player?.insight >= 75 && handleAbilityActivate('peer_review')}
+                  >
+                    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M5,5 L8,3 L11,5 M8,3 V9 M5,11 L8,13 L11,11" />
+                    </svg>
+                  </div>
+                  <span className="text-xs mt-1 font-pixel text-green-300/80">75◆</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Player stats - compact for dialogue interface */}
+          <div className="w-full max-w-[180px] space-y-3 mt-4">
+            {/* Insight meter */}
+            <PixelBox 
+              className="p-2" 
+              variant="clinical"
+            >
+              <div className="font-pixel text-xs text-text-secondary mb-1">INSIGHT</div>
+              <InsightMeter 
+                className=""
+                size="sm"
+                showLabel={false}
+                showAnimation={showInsightAnimation}
+              />
+            </PixelBox>
+            
+            {/* Journal button - Only shown if journal is acquired */}
+            {hasJournal && (
+              <div className="flex justify-center mt-2">
+                <div 
+                  className="w-10 h-10 cursor-pointer transition-transform hover:scale-110"
+                  onClick={toggleJournal}
+                  title={`${currentUpgrade === 'base' ? 'Basic Notebook' : currentUpgrade === 'technical' ? 'Technical Journal' : 'Annotated Journal'}`}
+                >
+                  <div className="w-full h-full relative">
+                    <img 
+                      src="/icons/educational.png"
+                      alt="Journal"
+                      className="w-full h-full object-contain"
+                      style={{ 
+                        imageRendering: 'pixelated',
+                        filter: 'brightness(1.2) contrast(1.1)' 
+                      }}
+                    />
+                    {/* Visual indicator for journal upgrades */}
+                    {currentUpgrade !== 'base' && (
+                      <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full ${
+                        currentUpgrade === 'technical' ? 'bg-clinical-light' : 'bg-educational-light'
+                      }`}></div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Subtle scanline effect */}
-      <div className="absolute inset-0 pointer-events-none z-50 scanlines opacity-3"></div>
-      
-      {/* Subtle vignette for focus */}
-      <div 
-        className="absolute inset-0 pointer-events-none z-40" 
-        style={{ 
-          background: 'radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.4) 100%)',
-          mixBlendMode: 'multiply'
-        }}
-      ></div>
-
-      {/* Add CSS for the whisper-to-shout pattern with enhanced effects */}
+      {/* CSS styles for abilities */}
       <style jsx>{`
         .abilities-container {
           display: flex;
@@ -905,103 +1148,62 @@ function ConversationFormat({
           border: 1px solid rgba(59, 130, 246, 0.3);
         }
         
+        .abilities-container-mobile {
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(4px);
+          border-radius: 16px;
+          padding: 8px;
+          border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        
         .ability-icon {
-          position: relative;
-          z-index: 10;
-          opacity: 0.9;
-          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          cursor: default;
+          transition: all 0.2s;
+          opacity: 0.7;
+          transform: scale(0.95);
         }
         
-        .ability-icon:hover {
-          opacity: 1;
-          z-index: 20;
-        }
-        
-        .ability-expanded {
-          box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
-        }
-
-        /* Ultra-enhanced visual effects for available abilities */
         .ability-available {
-          filter: brightness(1.4) contrast(1.1);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          opacity: 1;
+          cursor: pointer;
+          transform: scale(1);
         }
         
         .ability-available:hover {
-          filter: brightness(1.8) contrast(1.2);
-          transform: scale(1.08);
+          transform: scale(1.1);
+          filter: brightness(1.2);
         }
         
-        @keyframes intense-pulse-glow {
-          0%, 100% { 
-            box-shadow: 0 0 12px 4px rgba(59, 130, 246, 0.7);
-            filter: brightness(1.2);
-          }
-          50% { 
-            box-shadow: 0 0 25px 8px rgba(59, 130, 246, 0.9); 
-            filter: brightness(1.6);
-          }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+          20%, 40%, 60%, 80% { transform: translateX(2px); }
         }
         
-        @keyframes intense-pulse-size {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.15); }
+        .shake-animation {
+          animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
         }
         
-        .ability-tangent.ability-available {
-          animation: intense-pulse-glow 2.5s infinite;
-          filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.8));
+        @keyframes oscillate {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
         }
         
-        .ability-tangent.ability-available .flex-shrink-0 {
-          animation: intense-pulse-size 2.5s infinite;
+        .oscillate-animation {
+          animation: oscillate 2s ease-in-out infinite;
         }
         
-        .ability-reframe.ability-available {
-          animation: intense-pulse-glow 2.5s infinite;
-          animation-delay: 0.3s;
-          filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.8));
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
         }
         
-        .ability-reframe.ability-available .flex-shrink-0 {
-          animation: intense-pulse-size 2.5s infinite;
-          animation-delay: 0.3s;
+        .animate-pulse-slow {
+          animation: pulse-slow 2s ease-in-out infinite;
         }
         
-        .ability-peer-review.ability-available {
-          animation: intense-pulse-glow 2.5s infinite;
-          animation-delay: 0.6s;
-          filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.8));
-        }
-        
-        .ability-peer-review.ability-available .flex-shrink-0 {
-          animation: intense-pulse-size 2.5s infinite;
-          animation-delay: 0.6s;
-        }
-        
-        /* Custom ultra-intense glow colors for each ability */
-        .ability-tangent.ability-available {
-          box-shadow: 0 0 20px 6px rgba(59, 130, 246, 0.9);
-        }
-        
-        .ability-reframe.ability-available {
-          box-shadow: 0 0 20px 6px rgba(168, 85, 247, 0.9);
-        }
-        
-        .ability-peer-review.ability-available {
-          box-shadow: 0 0 20px 6px rgba(16, 185, 129, 0.9);
-        }
-        
-        .ability-tangent.ability-available:hover {
-          box-shadow: 0 0 30px 10px rgba(59, 130, 246, 1);
-        }
-        
-        .ability-reframe.ability-available:hover {
-          box-shadow: 0 0 30px 10px rgba(168, 85, 247, 1);
-        }
-        
-        .ability-peer-review.ability-available:hover {
-          box-shadow: 0 0 30px 10px rgba(16, 185, 129, 1);
+        .shadow-glow-orange {
+          box-shadow: 0 0 4px 1px rgba(249, 115, 22, 0.6);
         }
       `}</style>
     </div>
@@ -1032,3 +1234,15 @@ module.exports = {
   }
 }
 */
+/**
+ * Simple dialogue box component for basic styling
+ */
+const SimpleDialogueBox = ({ children, className = '' }: { children: React.ReactNode, className?: string }) => {
+  return (
+    <div className={`bg-black/70 border border-gray-800/70 p-5 rounded-sm relative overflow-hidden ${className}`}
+         style={{ position: 'relative', zIndex: 45 }}>
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 to-black/10 pointer-events-none"></div>
+      {children}
+    </div>
+  );
+};

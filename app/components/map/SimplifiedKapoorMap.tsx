@@ -461,19 +461,23 @@ const SimplifiedKapoorMap: React.FC = () => {
   }, [getNodeStatus]);
   
   // ===== NODE CLICK HANDLING =====
-  // Node click handler
-  const handleNodeClick = useCallback((nodeId: string) => {
-    // Only proceed if the component is still mounted
-    if (!isMountedRef.current) return;
+  // Add these refs for animation control
+  const nodeAnimationTimerRef = useRef<number | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Enhance node click handler with animation
+  const handleNodeClick = useStableCallback((nodeId: string) => {
+    console.log(`[MAP] Starting node selection process for: ${nodeId}`);
     
-    // Check if node is interactive
+    // Only proceed if node is interactive
     if (!isNodeInteractive(nodeId)) {
-      // Show feedback that node is locked
-      console.log(`Node ${nodeId} is locked. Complete connected nodes to unlock it.`);
+      console.log(`Node ${nodeId} is locked or not interactive`);
       return;
     }
     
-    // Track clicks for debugging
+    console.log(`[MAP] Node ${nodeId} clicked and is interactive`);
+    
+    // Track click for debugging
     setClickedNodeId(nodeId);
     setDebugInfo(prev => ({
       ...prev,
@@ -481,70 +485,177 @@ const SimplifiedKapoorMap: React.FC = () => {
       nodeSelectionState: 'pending'
     }));
     
-    try {
-      // Validate node data is available
-      const nodeData = nodes.find(n => n.id === nodeId);
-      if (!nodeData) {
-        if (isMountedRef.current) {
+    // Clear any existing animations
+    if (nodeAnimationTimerRef.current) {
+      clearTimeout(nodeAnimationTimerRef.current);
+      nodeAnimationTimerRef.current = null;
+    }
+    
+    // Play selection sound
+    if (typeof window !== 'undefined') {
+      const audio = new Audio('/sounds/node-select.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(e => console.warn('Audio play failed:', e));
+    }
+    
+    // Instead, create a more gentle fade overlay directly in this component
+    const fadeOverlay = document.createElement('div');
+    fadeOverlay.id = 'map-fade-overlay';
+    fadeOverlay.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background-color: black;
+      opacity: 0;
+      transition: opacity 1.5s ease-in;
+      pointer-events: none;
+      z-index: 5000;
+    `;
+    document.body.appendChild(fadeOverlay);
+    
+    // Force reflow
+    fadeOverlay.offsetHeight;
+    
+    // Fade in gradually - not immediately
+    setTimeout(() => {
+      if (fadeOverlay) {
+        fadeOverlay.style.opacity = '0.4';
+      }
+    }, 100);
+    
+    setTimeout(() => {
+      if (fadeOverlay) {
+        fadeOverlay.style.opacity = '0.7';
+      }
+    }, 600);
+    
+    setTimeout(() => {
+      if (fadeOverlay) {
+        fadeOverlay.style.opacity = '1';
+      }
+    }, 1600);
+    
+    // Clean up when done
+    setTimeout(() => {
+      if (fadeOverlay && fadeOverlay.parentNode) {
+        fadeOverlay.parentNode.removeChild(fadeOverlay);
+      }
+    }, 3000);
+    
+    // Find the clicked node element
+    const nodeElement = document.getElementById(`node-${nodeId}`);
+    if (nodeElement) {
+      // Add enhanced glow effect to the node
+      nodeElement.classList.add('node-enhanced-glow-animation');
+      
+      // Add vignette and radial animations
+      document.querySelector('.map-vignette')?.classList.add('map-vignette-active');
+      
+      // Replace the immediate black overlay with a gradual fade
+      const overlay = document.querySelector('.black-overlay');
+      if (overlay) {
+        overlay.classList.add('black-overlay-fade');
+      }
+      
+      // Limit the number of node animations for better performance
+      // Only dim nearby nodes and avoid expensive operations on far-away nodes
+      const clickedRect = nodeElement.getBoundingClientRect();
+      document.querySelectorAll('.node-group').forEach(node => {
+        if (node.id !== `node-${nodeId}`) {
+          const rect = node.getBoundingClientRect();
+          const distance = Math.sqrt(
+            Math.pow(rect.left - clickedRect.left, 2) + 
+            Math.pow(rect.top - clickedRect.top, 2)
+          );
+          
+          // Only animate nearby nodes for better performance
+          if (distance < 500) {
+            node.classList.add('node-dim-animation');
+          } else {
+            // Just hide far nodes immediately without animation
+            (node as HTMLElement).style.opacity = '0.1';
+          }
+        }
+      });
+    }
+    
+    // Step 1: Add zoom/blur effect to the entire map container with longer duration
+    if (mapContainerRef.current) {
+      console.log('[MAP] Adding map transition effect');
+      mapContainerRef.current.classList.add('map-transition-out-extended');
+      mapContainerRef.current.style.willChange = 'transform, opacity';
+    }
+    
+    // Map node IDs to dialogue node IDs if needed
+    const nodeToDialogueMapping: Record<string, string> = {
+      'start': 'kapoor-1', // First Kapoor node
+      'path-a1': 'kapoor-2', // Second Kapoor node
+      // Add more mappings as needed
+    };
+    
+    // Use the mapped dialogue ID if available, otherwise use the node ID directly
+    const dialogueNodeId = nodeToDialogueMapping[nodeId] || nodeId;
+    
+    console.log(`[MAP] Node ${nodeId} mapped to dialogue ID ${dialogueNodeId}`);
+    
+    // Step 2: After animation completes, navigate to node
+    nodeAnimationTimerRef.current = window.setTimeout(() => {
+      if (!isMountedRef.current) return;
+      
+      // Get store for state updates
+      try {
+        console.log(`[MAP] Animation complete, now setting current node to ${nodeId}`);
+        
+        // Actually set the current node
+        const gameStore = useGameStore.getState();
+        if (gameStore && gameStore.setCurrentNode) {
+          console.log(`[MAP] Setting current node to ${nodeId}`);
+          gameStore.setCurrentNode(nodeId);
+          
+          // But include dialogueNodeId in the event dispatch for other listeners
+          safeDispatch(GameEventType.UI_NODE_SELECTED, { 
+            nodeId, 
+            dialogueNodeId,
+            source: 'map' 
+          });
+          
+          setDebugInfo(prev => ({ 
+            ...prev, 
+            nodeSelectionState: 'success' 
+          }));
+        } else {
+          console.error('[MAP] Game store not available for node selection');
           setDebugInfo(prev => ({
             ...prev,
-            lastError: `Invalid node ID: ${nodeId}`,
+            lastError: 'Game store not available',
             nodeSelectionState: 'error'
           }));
         }
-        return;
-      }
-      
-      // Map node IDs to dialogue node IDs
-      const nodeToDialogueMapping: Record<string, string> = {
-        'start': 'kapoor-1', // First Kapoor node
-        'path-a1': 'kapoor-2', // Second Kapoor node
-        // Add more mappings as needed
-      };
-      
-      // Use the mapped dialogue ID if available, otherwise use the node ID directly
-      const dialogueNodeId = nodeToDialogueMapping[nodeId] || nodeId;
-      
-      // Set the node in the store
-      const gameStore = useGameStore.getState();
-      if (isMountedRef.current) {
-        setDebugInfo(prev => ({ 
-          ...prev, 
-          storeAvailable: !!gameStore 
-        }));
-      }
-      
-      if (gameStore && gameStore.setCurrentNode) {
-        // Pass the map node ID to the store
-        gameStore.setCurrentNode(nodeId);
-        
-        // But include dialogueNodeId in the event dispatch for other listeners
-        safeDispatch(GameEventType.UI_NODE_SELECTED, { 
-          nodeId, 
-          dialogueNodeId,
-          source: 'map' 
-        });
-        
-        // Trigger visual feedback
-        triggerSelectionAnimation();
-      } else if (isMountedRef.current) {
-        setDebugInfo(prev => ({
-          ...prev,
-          lastError: 'Game store not available',
-          nodeSelectionState: 'error'
-        }));
-      }
-    } catch (error) {
-      console.error('Error in node click:', error);
-      if (isMountedRef.current) {
+      } catch (error) {
+        console.error('[MAP] Error in node selection:', error);
         setDebugInfo(prev => ({
           ...prev,
           lastError: error instanceof Error ? error.message : 'Unknown error',
           nodeSelectionState: 'error'
         }));
       }
+    }, 2500); // Slightly shorter to ensure transition completes before node change
+
+    // Store the click position relative to viewport size
+    // This will help us animate from the node position
+    if (typeof window !== 'undefined') {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Store click position as percentage of viewport
+      // Store directly on window for simplicity (avoid complex state management)
+      (window as any).__LAST_NODE_CLICK_POS__ = {
+        x: (event as MouseEvent).clientX / viewportWidth * 100,
+        y: (event as MouseEvent).clientY / viewportHeight * 100,
+      };
+      
+      console.log(`[SimplifiedKapoorMap] Node ${nodeId} clicked at:`, (window as any).__LAST_NODE_CLICK_POS__);
     }
-  }, [nodes, triggerSelectionAnimation, isNodeInteractive]);
+  });
   
   // ===== DEBUG FORCE NODE SELECTION =====
   const forceNodeSelection = useCallback((nodeId: string) => {
@@ -704,14 +815,45 @@ const SimplifiedKapoorMap: React.FC = () => {
     );
   }, [nodes, getNodeCoords, currentNodeId, hoveredNodeId, getNodeStatus]);
   
+  // Create a new direct node click function for extremely reliable selection
+  const handleDirectNodeClick = useStableCallback((nodeId: string) => {
+    console.log(`[MAP] Direct node click on ${nodeId}`);
+    
+    if (!isNodeInteractive(nodeId)) {
+      console.log(`[MAP] Node ${nodeId} is not interactive, ignoring click`);
+      return;
+    }
+    
+    // Skip animations and directly set the node
+    try {
+      console.log(`[MAP] Setting current node directly to ${nodeId}`);
+      const gameStore = useGameStore.getState();
+      if (gameStore && gameStore.setCurrentNode) {
+        gameStore.setCurrentNode(nodeId);
+        console.log(`[MAP] Successfully set current node to ${nodeId}`);
+      } else {
+        console.error(`[MAP] Game store not available`);
+      }
+    } catch (error) {
+      console.error(`[MAP] Error setting node:`, error);
+    }
+  });
+  
   // Node renderer with enhanced visuals
   const renderNodes = useCallback(() => {
+    console.log(`[MAP] Rendering ${nodes.length} nodes`);
+    
     return nodes.map(node => {
       const nodeStatus = getNodeStatus(node.id);
       const isHovered = node.id === hoveredNodeId;
       const isClicked = node.id === clickedNodeId;
       const size = 22; // Reduced by 2x from 45
       const isInteractive = isNodeInteractive(node.id);
+      
+      // Debug log when rendering the start node
+      if (node.id === 'start') {
+        console.log(`[MAP] Rendering start node: status=${nodeStatus}, interactive=${isInteractive}`);
+      }
       
       // Get styles based on node status
       const statusStyle = nodeStatusStyles[nodeStatus];
@@ -732,7 +874,24 @@ const SimplifiedKapoorMap: React.FC = () => {
       return (
         <g 
           key={node.id}
-          onClick={() => handleNodeClick(node.id)}
+          id={`node-${node.id}`} 
+          data-node-id={node.id}
+          data-node-type={node.type}
+          data-node-status={nodeStatus}
+          onClick={() => {
+            // Try animated transition first
+            handleNodeClick(node.id);
+            
+            // Set a backup timer to directly set the node if animation fails
+            setTimeout(() => {
+              const gameStore = useGameStore.getState();
+              // If node hasn't changed, try direct selection
+              if (gameStore && gameStore.currentNodeId !== node.id && isNodeInteractive(node.id)) {
+                console.log(`[MAP] Animation may have failed, attempting direct selection of ${node.id}`);
+                handleDirectNodeClick(node.id);
+              }
+            }, 3500);
+          }}
           onMouseEnter={() => setHoveredNodeId(node.id)}
           onMouseLeave={() => setHoveredNodeId(null)}
           style={{ 
@@ -750,13 +909,71 @@ const SimplifiedKapoorMap: React.FC = () => {
             stroke="none"
           />
           
-          {/* Type-based glow behind node */}
+          {/* Intense glow for clicked node - initially invisible but activated by CSS */}
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={size + 3}
+            className="node-glow-ring"
+            fill="none"
+            stroke={nodeTypeColor}
+            strokeWidth="0"
+            opacity="0"
+          />
+          
+          {/* Outer glow ring - for growing animation */}
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={size + 3}
+            className="node-outer-glow-ring"
+            fill="none"
+            stroke={nodeTypeColor}
+            strokeWidth="0"
+            opacity="0"
+          />
+
+          {/* Additional radial glow rings - will be animated when node is clicked */}
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={size + 3}
+            className="node-radial-ring-1"
+            fill="none"
+            stroke={nodeTypeColor}
+            strokeWidth="0"
+            opacity="0"
+          />
+          
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={size + 3}
+            className="node-radial-ring-2"
+            fill="none"
+            stroke={nodeTypeColor}
+            strokeWidth="0"
+            opacity="0"
+          />
+          
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={size + 3}
+            className="node-radial-ring-3"
+            fill="none"
+            stroke={nodeTypeColor}
+            strokeWidth="0"
+            opacity="0"
+          />
+          
+          {/* Type-based glow behind node - use opacity instead of filter for better performance */}
           <circle
             cx={node.x}
             cy={node.y}
             r={size + 3}
             fill={nodeTypeGlowColor}
-            filter="blur(2px)"
+            opacity={0.8}
           />
         
           {/* Status circle for better visibility */}
@@ -859,10 +1076,8 @@ const SimplifiedKapoorMap: React.FC = () => {
   // ===== MAIN RENDER =====
   return (
     <div 
-      ref={containerRef}
-      className="w-full h-full bg-gray-900 overflow-auto"
-      data-testid="kapoor-map-container"
-      onClick={handleContainerClick}
+      ref={mapContainerRef} 
+      className="relative w-full h-full overflow-hidden bg-black"
     >
       {/* Enhanced Background with cohesive visual effects */}
       <div className="fixed inset-0 z-0">
@@ -878,6 +1093,25 @@ const SimplifiedKapoorMap: React.FC = () => {
         
         {/* Minimal noise texture overlay */}
         <div className="absolute inset-0 pixel-noise opacity-3" />
+        
+        {/* Vignette effect container that will be activated on node selection */}
+        <div className="absolute inset-0 map-vignette" />
+        
+        {/* Additional black overlay for transitions */}
+        <div className="absolute inset-0 black-overlay opacity-0 z-50" />
+      </div>
+      
+      {/* Emergency start node button - for debugging */}
+      <div className="absolute top-4 right-4 z-50">
+        <button 
+          className="px-4 py-2 bg-blue-700 text-white font-pixel text-sm rounded shadow-md hover:bg-blue-600 transition-colors"
+          onClick={() => {
+            console.log("[MAP] Emergency start node button clicked");
+            handleDirectNodeClick('start');
+          }}
+        >
+          Start Node
+        </button>
       </div>
       
       {/* Map container with expanded dimensions */}
@@ -1004,6 +1238,147 @@ const SimplifiedKapoorMap: React.FC = () => {
           100% { transform: scale(1); }
         }
         
+        /* Enhanced Node Glow Animation - optimized for performance */
+        @keyframes nodeEnhancedGlow {
+          0% { 
+            r: 26;
+            stroke-width: 2;
+            opacity: 0.3;
+          }
+          50% {
+            r: 45;
+            stroke-width: 5;
+            opacity: 0.7;
+          }
+          100% {
+            r: 90;
+            stroke-width: 8;
+            opacity: 0.2;
+          }
+        }
+        
+        /* Outer Glow Ring Animation - simplified for performance */
+        @keyframes nodeOuterGlowRing {
+          0% { 
+            r: 28;
+            stroke-width: 1;
+            opacity: 0;
+          }
+          30% {
+            r: 70;
+            stroke-width: 3;
+            opacity: 0.4;
+          }
+          100% {
+            r: 150;
+            stroke-width: 1;
+            opacity: 0;
+          }
+        }
+        
+        /* Additional Radial Ring Animations - reduced for performance */
+        @keyframes nodeRadialRing1 {
+          0% { 
+            r: 30;
+            stroke-width: 1;
+            opacity: 0;
+          }
+          20% {
+            r: 75;
+            stroke-width: 2;
+            opacity: 0.3;
+          }
+          100% {
+            r: 200;
+            stroke-width: 1;
+            opacity: 0;
+          }
+        }
+        
+        @keyframes nodeRadialRing2 {
+          0% { 
+            r: 30;
+            stroke-width: 1;
+            opacity: 0;
+          }
+          10% {
+            opacity: 0;
+          }
+          30% {
+            r: 50;
+            stroke-width: 3;
+            opacity: 0.4;
+          }
+          100% {
+            r: 230;
+            stroke-width: 1;
+            opacity: 0;
+          }
+        }
+        
+        @keyframes nodeRadialRing3 {
+          0% { 
+            r: 30;
+            stroke-width: 1;
+            opacity: 0;
+          }
+          20% {
+            opacity: 0;
+          }
+          40% {
+            r: 60;
+            stroke-width: 4;
+            opacity: 0.5;
+          }
+          100% {
+            r: 260;
+            stroke-width: 1;
+            opacity: 0;
+          }
+        }
+        
+        /* Vignette effect animation - simplified for better performance */
+        @keyframes vignetteAnimation {
+          0% {
+            box-shadow: inset 0 0 0px rgba(0,0,0,0);
+          }
+          100% {
+            box-shadow: inset 0 0 150px rgba(0,0,0,0.7);
+          }
+        }
+        
+        /* Map vignette setup */
+        .map-vignette {
+          pointer-events: none;
+          transition: all 0.5s ease;
+          box-shadow: inset 0 0 0px rgba(0,0,0,0);
+          background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0) 70%);
+        }
+        
+        .map-vignette-active {
+          animation: vignetteAnimation 2s forwards;
+        }
+        
+        .node-enhanced-glow-animation .node-glow-ring {
+          animation: nodeEnhancedGlow 3s ease-in forwards;
+        }
+        
+        .node-enhanced-glow-animation .node-outer-glow-ring {
+          animation: nodeOuterGlowRing 3s ease-in forwards;
+        }
+        
+        .node-enhanced-glow-animation .node-radial-ring-1 {
+          animation: nodeRadialRing1 2.5s ease-out forwards;
+        }
+        
+        .node-enhanced-glow-animation .node-radial-ring-2 {
+          animation: nodeRadialRing2 2.8s ease-out forwards;
+        }
+        
+        .node-enhanced-glow-animation .node-radial-ring-3 {
+          animation: nodeRadialRing3 3s ease-out forwards;
+        }
+        
         /* Improved cursor styles */
         .node-circle {
           cursor: pointer;
@@ -1079,6 +1454,118 @@ const SimplifiedKapoorMap: React.FC = () => {
           background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADi0lEQVR4nO2ZW2hcVRSGv3WdJgaCaGtFCtJe4oNSLwWtNVPrQy/2SUUFvfhSgjVtKRF8UBIQpeAlPimK1hegT1pTJdCKMVIhVE2jiEgRRIMoFYtWG6KmXpJMlsw0M1mz59hMmMuZZM6ZSOYPCzKXvda/1z5777XXiXCDQXrDh/3BXgE2As0WNZeBS8DCQOfgKFPEpBzpD75qYHMNbvYXtD59cOgkJcJvI/ZsNLLLom5XfvnmJ/q3kCJs2IiIyHwDO4HVFnUvqsomFV2nqutVdLuBH4GfRdjiT3TtcWlTbRsxIm0G3gZWTzVHVS/PmrH+LxF5GdinyiIDNBT0PBvoGhxxYVdtGxGpNbAXaJnqVaH/vWwuP+OTJzz41KXeRkp9JNQevBtYUjI8IsJr6RXpNxu/7DtfmxVVQF0jBvbXlU1m40cGJPVAOvXJJ8K9C0N7Oj91aWfFHjEibQb6gcbikRHg3cbujoOFjXn3zr7Hc/nZr9YflXOVGv2/9YjBvshbAOkLbQ8Xj6uqL3Np7Lv0/JZE8c8n9C6ufhVpqFiPiLSp6rdAT9FQRoRNmf3DHUxC0KjXwCPFQ4ocrM3KKqMcj3iB0jrBV0o2EeyxuL0U3lvCkw40lUelHolJPDKd5xMi34nIMyZwxyoKDhbTcqvF4Vkgbh7KlzJDFdtbBqo93Tc2ySRFMJcMdNRmZZVR9WHIiMSFCT0CkJjTGGw00DMTXEeXVm5W5kwReQ/YP1/GVUQmKfIAcNSB3KpR0Teegf0O5FaNetrIiScGtwCP2dblAtWsiV4Dj1vW5AS29YinRE89C3jTYVE5QvGm5rHs99vC3yTwPgMR8QzhKtlU5Dv92jRpvjswrTfnG5jtddGkYkG7gf0Vur0A3G0p+98c5d6xGG84rmZKYVOP+P4adCjYlehNrL7YCWBgM7Ciagsds9rD7uHSPgtHZ2bqkSQbRn8H3gRmWdQ9AYwCl1VkGPgs0DX4m1Mr67F4frUQkYYZK55g4O4ZKnXoEeX5tdlOq+E5RLUe8crlpNIARETkhWnmVOSRLRHO4BHReaoyPtvIOtqZpKcMtAEpYA4wF1iqwuMK7zYuePDFdw9MlqhrzU1SZEGkH8B6h+hb0TvKE+5H+rZ7+eSvwBJVfSiQTJ6zwBaIjSM1RI39E3yDmjc3/bxUAAAAAElFTkSuQmCC");
           background-size: 4px 4px;
           image-rendering: pixelated;
+        }
+        
+        .node-pulse-animation {
+          animation: nodePulse 0.75s ease-out;
+          z-index: 10;
+          filter: drop-shadow(0 0 10px #fff);
+        }
+        
+        .node-dim-animation {
+          animation: nodeDim 1.5s forwards;
+        }
+        
+        .map-transition-out {
+          animation: mapZoomBlur 0.75s forwards;
+        }
+        
+        /* Extended transition */
+        .map-transition-out-extended {
+          animation: mapZoomBlurExtended 3s forwards;
+        }
+        
+        @keyframes nodePulse {
+          0% { transform: scale(1); filter: brightness(1); }
+          50% { transform: scale(1.5); filter: brightness(1.5) drop-shadow(0 0 15px #fff); }
+          100% { transform: scale(1.3); filter: brightness(1.2) drop-shadow(0 0 10px #fff); }
+        }
+        
+        @keyframes nodeDim {
+          to { opacity: 0.1; }
+        }
+        
+        /* Style for body during transition */
+        .transitioning-to-black {
+          background-color: black !important;
+        }
+        
+        /* Performance optimizations */
+        .node-group {
+          will-change: opacity, transform;
+        }
+        
+        /* Use transform instead of filter for better performance */
+        .map-transition-out-extended {
+          animation: mapZoomBlurExtended 2.8s forwards;
+          will-change: transform, opacity, background-color;
+        }
+        
+        /* Prevent repaints by using opacity instead of filter for animations */
+        .node-dim-animation {
+          animation: nodeDim 1s forwards;
+          will-change: opacity;
+        }
+        
+        /* Force GPU acceleration for all animations */
+        .animate-pulse-path,
+        .animate-pulse-slow,
+        .animate-pulse-in-place,
+        .node-glow-ring,
+        .node-outer-glow-ring,
+        .node-radial-ring-1,
+        .node-radial-ring-2,
+        .node-radial-ring-3 {
+          transform: translateZ(0);
+          will-change: opacity, r, stroke-width;
+        }
+        
+        /* Optimize the black overlay - use gradual fade instead of immediate */
+        .black-overlay {
+          background-color: #000;
+          opacity: 0;
+          transition: opacity 1.5s ease-in;
+          pointer-events: none;
+          will-change: opacity;
+          z-index: 1000;
+        }
+        
+        .black-overlay-fade {
+          opacity: 0.85; /* Not 1, to keep some visibility */
+        }
+        
+        /* Extended zoom blur animation - optimized for performance and gradual fade */
+        @keyframes mapZoomBlurExtended {
+          0% { 
+            transform: translate3d(0,0,0) scale(1); 
+            background-color: rgba(0,0,0,0); 
+            opacity: 1;
+          }
+          20% { 
+            transform: translate3d(0,0,0) scale(1.02); 
+            background-color: rgba(0,0,0,0.2); 
+            opacity: 0.95;
+          }
+          60% { 
+            transform: translate3d(0,0,0) scale(1.05); 
+            background-color: rgba(0,0,0,0.4); 
+            opacity: 0.85;
+          }
+          100% { 
+            transform: translate3d(0,0,0) scale(1.08); 
+            background-color: rgba(0,0,0,0.8); 
+            opacity: 0.7;
+          }
+        }
+        
+        /* Vignette effect animation - more gradual */
+        @keyframes vignetteAnimation {
+          0% {
+            box-shadow: inset 0 0 0px rgba(0,0,0,0);
+          }
+          100% {
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
+          }
         }
       `}</style>
     </div>
