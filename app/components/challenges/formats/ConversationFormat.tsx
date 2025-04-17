@@ -59,6 +59,7 @@ interface CharacterData {
 export interface EnhancedDialogueStage extends DialogueStage {
   dialogueMode?: DialogueMode;
   title?: string;
+  shouldImmediatelyShowExtension?: boolean;
 }
 
 // Component props
@@ -273,6 +274,11 @@ function ConversationFormat({
     return currentStage.extension || extension;
   }, [currentStage, extension]);
   
+  // Check if we should immediately show the extension
+  const shouldImmediatelyShowExtension = useMemo(() => {
+    return currentStage?.shouldImmediatelyShowExtension === true;
+  }, [currentStage]);
+  
   // Handle extension activation
   const handleExtensionStart = useCallback(() => {
     if (onExtensionStart) {
@@ -283,16 +289,16 @@ function ConversationFormat({
   // Auto-activate extensions when they appear
   useEffect(() => {
     if (currentExtension && handleExtensionStart) {
-      // Slight delay to ensure everything is rendered
+      // If shouldImmediatelyShowExtension is true, show it with minimal delay
       const timer = setTimeout(() => {
         if (isMountedRef.current) {
           handleExtensionStart();
         }
-      }, 300);
+      }, shouldImmediatelyShowExtension ? 50 : 300);
       
       return () => clearTimeout(timer);
     }
-  }, [currentExtension, handleExtensionStart]);
+  }, [currentExtension, handleExtensionStart, shouldImmediatelyShowExtension]);
   
   // Handle extension completion
   const handleExtensionComplete = useCallback((result: ExtensionResult) => {
@@ -888,10 +894,7 @@ function ConversationFormat({
                 title={getStageTitle(currentStage)}
                 className="w-full max-w-4xl"
               >
-                {showResponse && responseText ? (
-                  <p className="text-base font-pixel text-white leading-relaxed" 
-                     dangerouslySetInnerHTML={renderFormattedText(responseText)} />
-                ) : (
+                {!shouldImmediatelyShowExtension && (
                   <p className={`text-base font-pixel text-white leading-relaxed ${isExtensionActive ? 'opacity-0 transition-opacity duration-500' : ''}`} 
                      dangerouslySetInnerHTML={renderFormattedText(currentStage.text)} />
                 )}
@@ -929,26 +932,59 @@ function ConversationFormat({
                           w-full text-left p-2 
                           font-pixel text-sm leading-relaxed
                           ${selectedOptionIndex === index 
-                            ? 'bg-blue-900/50 text-white border-l-4 border-blue-400' 
-                            : 'bg-black/60 text-gray-300 hover:bg-[#162642]/80 hover:text-white border-l-4 border-transparent hover:border-blue-500/50'}
+                            ? `${
+                                currentDialogueMode === DialogueMode.NARRATIVE ? 'bg-blue-900/50 text-white border-l-4 border-blue-400' :
+                                currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'bg-amber-900/50 text-white border-l-4 border-amber-400' :
+                                currentDialogueMode === DialogueMode.QUESTION ? 'bg-purple-900/50 text-white border-l-4 border-purple-400' :
+                                currentDialogueMode === DialogueMode.INSTRUCTION ? 'bg-green-900/50 text-white border-l-4 border-green-400' :
+                                currentDialogueMode === DialogueMode.REACTION ? 'bg-pink-900/50 text-white border-l-4 border-pink-400' :
+                                currentDialogueMode === DialogueMode.CRITICAL ? 'bg-red-900/50 text-white border-l-4 border-red-400' :
+                                'bg-blue-900/50 text-white border-l-4 border-blue-400'
+                              }`
+                            : `bg-black/60 text-gray-300 hover:${
+                                currentDialogueMode === DialogueMode.NARRATIVE ? 'bg-blue-900/50 hover:text-white border-l-4 border-transparent hover:border-blue-400' :
+                                currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'bg-amber-900/50 hover:text-white border-l-4 border-transparent hover:border-amber-400' :
+                                currentDialogueMode === DialogueMode.QUESTION ? 'bg-purple-900/50 hover:text-white border-l-4 border-transparent hover:border-purple-400' :
+                                currentDialogueMode === DialogueMode.INSTRUCTION ? 'bg-green-900/50 hover:text-white border-l-4 border-transparent hover:border-green-400' :
+                                currentDialogueMode === DialogueMode.REACTION ? 'bg-pink-900/50 hover:text-white border-l-4 border-transparent hover:border-pink-400' :
+                                currentDialogueMode === DialogueMode.CRITICAL ? 'bg-red-900/50 hover:text-white border-l-4 border-transparent hover:border-red-400' :
+                                'bg-blue-900/50 hover:text-white border-l-4 border-transparent hover:border-blue-400'
+                              }`}
                           transition-all duration-200
                           flex items-start group
                         `}
                       >
-                        <span className="mr-2 opacity-60 group-hover:opacity-100 group-hover:text-blue-400 transition-all duration-300">{'>'}</span>
+                        <span className={`mr-2 opacity-60 group-hover:opacity-100 ${
+                          currentDialogueMode === DialogueMode.NARRATIVE ? 'group-hover:text-blue-400' :
+                          currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'group-hover:text-amber-400' :
+                          currentDialogueMode === DialogueMode.QUESTION ? 'group-hover:text-purple-400' :
+                          currentDialogueMode === DialogueMode.INSTRUCTION ? 'group-hover:text-green-400' :
+                          currentDialogueMode === DialogueMode.REACTION ? 'group-hover:text-pink-400' :
+                          currentDialogueMode === DialogueMode.CRITICAL ? 'group-hover:text-red-400' :
+                          'group-hover:text-blue-400'
+                        } transition-all duration-300`}>{'>'}</span>
                         <span className="flex-1">{option.text}</span>
                       </motion.button>
                     ))}
                   </div>
                 ) : (
                   /* Continue button for response view or when no options available */
-                  (showResponse || (!currentStage.options || currentStage.options.length === 0)) && (
+                  (showResponse || (!currentStage.options || currentStage.options.length === 0)) && 
+                  (!isExtensionActive || extensionResult) && (  // Only show if no active extension or extension is completed
                     <motion.button
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.3 }}
                       onClick={handleContinue}
-                      className="mt-1 px-4 py-1 bg-blue-900/60 hover:bg-blue-800/80 border border-blue-500/40 rounded-sm font-pixel text-sm text-blue-200 transition-all duration-200 self-end flex items-center"
+                      className={`mt-1 px-4 py-1 ${
+                        currentDialogueMode === DialogueMode.NARRATIVE ? 'bg-blue-900/60 hover:bg-blue-800/80 border border-blue-500/40 text-blue-200' :
+                        currentDialogueMode === DialogueMode.CHALLENGE_INTRO ? 'bg-amber-900/60 hover:bg-amber-800/80 border border-amber-500/40 text-amber-200' :
+                        currentDialogueMode === DialogueMode.QUESTION ? 'bg-purple-900/60 hover:bg-purple-800/80 border border-purple-500/40 text-purple-200' :
+                        currentDialogueMode === DialogueMode.INSTRUCTION ? 'bg-green-900/60 hover:bg-green-800/80 border border-green-500/40 text-green-200' :
+                        currentDialogueMode === DialogueMode.REACTION ? 'bg-pink-900/60 hover:bg-pink-800/80 border border-pink-500/40 text-pink-200' :
+                        currentDialogueMode === DialogueMode.CRITICAL ? 'bg-red-900/60 hover:bg-red-800/80 border border-red-500/40 text-red-200' :
+                        'bg-blue-900/60 hover:bg-blue-800/80 border border-blue-500/40 text-blue-200'
+                      } rounded-sm font-pixel text-sm transition-all duration-200 self-end flex items-center`}
                       style={{ position: 'relative', zIndex: 50 }}
                     >
                       <span>Continue</span>

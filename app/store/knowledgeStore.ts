@@ -20,7 +20,7 @@ import { immer } from 'zustand/middleware/immer'; // Added immer for simpler upd
 const { nanoid } = require('nanoid');
 import { safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
-import { medicalPhysicsConcepts } from '@/app/data/concepts/medicalPhysicsConcepts';
+import { allConcepts } from '@/app/data/concepts/medicalPhysicsConcepts';
 import { updateNodePositions, buildDomainAngles } from '@/app/components/knowledge/ConstellationLayout';
 
 // Define custom event types - now using GameEventType enum for standard events
@@ -270,15 +270,15 @@ export const getMasteryLevel = (mastery: number): MasteryLevel => {
 };
 
 // Initial state preparation
-const initialConnections = buildInitialConnections(medicalPhysicsConcepts);
-const initialDomainMastery = calculateDomainMastery(medicalPhysicsConcepts);
-const initialTotalMastery = calculateTotalMastery(initialDomainMastery, medicalPhysicsConcepts);
+const initialConnections = buildInitialConnections(allConcepts);
+const initialDomainMastery = calculateDomainMastery(allConcepts);
+const initialTotalMastery = calculateTotalMastery(initialDomainMastery, allConcepts);
 
 // Create the knowledge store with Zustand and Immer
 export const useKnowledgeStore = create<KnowledgeState>()(
   immer((set, get) => ({
     // Initial state
-    nodes: medicalPhysicsConcepts, // Nodes for visualization (concepts)
+    nodes: allConcepts, // Nodes for visualization (concepts)
     connections: initialConnections, // Connections for visualization
     journalEntries: [], // Journal entries linked to concepts
     pendingInsights: [],

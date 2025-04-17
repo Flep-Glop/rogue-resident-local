@@ -8,15 +8,12 @@
 
 import { ConceptNode, KnowledgeDomain } from '@/app/store/knowledgeStore';
 
-// Domain constants - matching domains from the hybrid orbital-quadrant layout
-export const KNOWLEDGE_DOMAINS: Record<string, KnowledgeDomain> = {
-  TREATMENT_PLANNING: 'clinical-practice',
-  RADIATION_THERAPY: 'radiation-physics',
-  LINAC_ANATOMY: 'technical',
-  DOSIMETRY: 'quality-assurance',
-  RADIATION_PROTECTION: 'radiation-protection',
-  THEORETICAL: 'theoretical',
-  GENERAL: 'general'
+// Domain constants - matching domains from the knowledge store
+export const KNOWLEDGE_DOMAINS = {
+  TREATMENT_PLANNING: 'treatment-planning' as KnowledgeDomain,
+  RADIATION_THERAPY: 'radiation-therapy' as KnowledgeDomain,
+  LINAC_ANATOMY: 'linac-anatomy' as KnowledgeDomain,
+  DOSIMETRY: 'dosimetry' as KnowledgeDomain
 };
 
 // Calculate position using orbital-quadrant layout
@@ -45,9 +42,6 @@ function calculatePosition(
     RADIATION_THERAPY: Math.PI * 0.75, // Southeast
     LINAC_ANATOMY: Math.PI * 1.25, // Southwest
     DOSIMETRY: Math.PI * 1.75, // Northwest
-    RADIATION_PROTECTION: Math.PI * 0.5, // East
-    THEORETICAL: Math.PI * 1.0, // South
-    GENERAL: Math.PI * 1.5  // West
   };
   
   // Get base angle for domain
@@ -83,7 +77,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     ],
     discovered: false,
     position: calculatePosition(0, 'TREATMENT_PLANNING'),
-    lastPracticed: Date.now()
+    orbit: 0
   },
 
   // Radiation Therapy Core
@@ -99,7 +93,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     ],
     discovered: false,
     position: calculatePosition(0, 'RADIATION_THERAPY'),
-    lastPracticed: Date.now()
+    orbit: 0
   },
 
   // Linac Anatomy Core
@@ -115,7 +109,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     ],
     discovered: false,
     position: calculatePosition(0, 'LINAC_ANATOMY'),
-    lastPracticed: Date.now()
+    orbit: 0
   },
 
   // Dosimetry Core
@@ -131,7 +125,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     ],
     discovered: false,
     position: calculatePosition(0, 'DOSIMETRY'),
-    lastPracticed: Date.now()
+    orbit: 0
   },
 
   // =================================================================================
@@ -150,7 +144,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['treatment-planning', 'organs-at-risk', 'prescription', 'contour-analysis'],
     discovered: false,
     position: calculatePosition(1, 'TREATMENT_PLANNING', -1),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // Prescription
@@ -163,7 +157,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['treatment-planning', 'target-volumes', 'fractionation', 'clinical-dose'],
     discovered: false,
     position: calculatePosition(1, 'TREATMENT_PLANNING', 0),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // Plan Evaluation
@@ -176,7 +170,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['treatment-planning', 'dvh-analysis', 'plan-qa'],
     discovered: false,
     position: calculatePosition(1, 'TREATMENT_PLANNING', 1),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // === ORBIT 2: ADVANCED CONCEPTS ===
@@ -191,7 +185,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['target-volumes', 'auto-segmentation'],
     discovered: false,
     position: calculatePosition(2, 'TREATMENT_PLANNING', -2),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Organs at Risk (OARs)
@@ -204,7 +198,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['treatment-planning', 'target-volumes', 'dose-constraints', 'oar-prioritization'],
     discovered: false,
     position: calculatePosition(2, 'TREATMENT_PLANNING', -1),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Dose Constraints
@@ -217,7 +211,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['organs-at-risk', 'biological-modeling', 'dvh-analysis'],
     discovered: false,
     position: calculatePosition(2, 'TREATMENT_PLANNING', 0),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Fractionation
@@ -230,7 +224,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['prescription', 'adaptive-planning'],
     discovered: false,
     position: calculatePosition(2, 'TREATMENT_PLANNING', 1),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // DVH Analysis
@@ -243,7 +237,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['plan-evaluation', 'multi-criteria-optimization', 'dose-constraints'],
     discovered: false,
     position: calculatePosition(2, 'TREATMENT_PLANNING', 2),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Plan QA
@@ -256,7 +250,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['plan-evaluation', 'robust-planning', 'patient-qa'],
     discovered: false,
     position: calculatePosition(2, 'TREATMENT_PLANNING', 3),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // === ORBIT 3: SPECIALIZED CONCEPTS ===
@@ -271,7 +265,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['contour-analysis'],
     discovered: false,
     position: calculatePosition(3, 'TREATMENT_PLANNING', -2),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // OAR Prioritization
@@ -284,7 +278,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['organs-at-risk'],
     discovered: false,
     position: calculatePosition(3, 'TREATMENT_PLANNING', -1),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // Biological Modeling
@@ -297,7 +291,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['dose-constraints'],
     discovered: false,
     position: calculatePosition(3, 'TREATMENT_PLANNING', 0),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // Adaptive Planning
@@ -310,7 +304,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['fractionation'],
     discovered: false,
     position: calculatePosition(3, 'TREATMENT_PLANNING', 1),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // Multi-Criteria Optimization
@@ -323,7 +317,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['dvh-analysis'],
     discovered: false,
     position: calculatePosition(3, 'TREATMENT_PLANNING', 2),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // Robust Planning
@@ -336,7 +330,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['plan-qa'],
     discovered: false,
     position: calculatePosition(3, 'TREATMENT_PLANNING', 3),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // =================================================================================
@@ -355,7 +349,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['radiation-therapy', 'imrt', 'vmat'],
     discovered: false,
     position: calculatePosition(1, 'RADIATION_THERAPY', -1),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // Patient Positioning
@@ -368,7 +362,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['radiation-therapy', 'imaging-guidance'],
     discovered: false,
     position: calculatePosition(1, 'RADIATION_THERAPY', 0),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // Treatment Protocols
@@ -381,7 +375,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['radiation-therapy', 'site-specific-protocols'],
     discovered: false,
     position: calculatePosition(1, 'RADIATION_THERAPY', 1),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // === ORBIT 2: ADVANCED CONCEPTS ===
@@ -396,7 +390,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['delivery-techniques', 'single-fraction', 'mlc'],
     discovered: false,
     position: calculatePosition(2, 'RADIATION_THERAPY', -1.5),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // VMAT Delivery
@@ -409,7 +403,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['delivery-techniques', 'motion-management'],
     discovered: false,
     position: calculatePosition(2, 'RADIATION_THERAPY', -0.5),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Imaging Guidance
@@ -422,7 +416,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['patient-positioning', 'six-dof-setup'],
     discovered: false,
     position: calculatePosition(2, 'RADIATION_THERAPY', 0.5),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Site-Specific Protocols
@@ -435,7 +429,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['treatment-protocols', 'flash-rt'],
     discovered: false,
     position: calculatePosition(2, 'RADIATION_THERAPY', 1.5),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // === ORBIT 3: SPECIALIZED CONCEPTS ===
@@ -450,7 +444,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['imrt'],
     discovered: false,
     position: calculatePosition(3, 'RADIATION_THERAPY', -1.5),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // Motion Management
@@ -463,7 +457,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['vmat'],
     discovered: false,
     position: calculatePosition(3, 'RADIATION_THERAPY', -0.5),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // 6DOF Setup
@@ -476,7 +470,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['imaging-guidance'],
     discovered: false,
     position: calculatePosition(3, 'RADIATION_THERAPY', 0.5),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // FLASH RT
@@ -489,7 +483,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['site-specific-protocols'],
     discovered: false,
     position: calculatePosition(3, 'RADIATION_THERAPY', 1.5),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // =================================================================================
@@ -508,7 +502,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['linac-anatomy', 'target-foil'],
     discovered: false,
     position: calculatePosition(1, 'LINAC_ANATOMY', -1),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // Beam Modification
@@ -521,7 +515,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['linac-anatomy', 'mlc'],
     discovered: false,
     position: calculatePosition(1, 'LINAC_ANATOMY', 0),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // Imaging Systems
@@ -534,7 +528,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['linac-anatomy', 'kv-imaging'],
     discovered: false,
     position: calculatePosition(1, 'LINAC_ANATOMY', 1),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // === ORBIT 2: ADVANCED CONCEPTS ===
@@ -549,7 +543,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['beam-generation', 'electron-scatter'],
     discovered: false,
     position: calculatePosition(2, 'LINAC_ANATOMY', -1),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Multi-Leaf Collimator
@@ -562,7 +556,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['beam-modification', 'leaf-design', 'imrt'],
     discovered: false,
     position: calculatePosition(2, 'LINAC_ANATOMY', 0),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // kV Imaging
@@ -575,7 +569,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['imaging-systems', 'cone-beam-ct'],
     discovered: false,
     position: calculatePosition(2, 'LINAC_ANATOMY', 1),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // === ORBIT 3: SPECIALIZED CONCEPTS ===
@@ -590,7 +584,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['target-foil'],
     discovered: false,
     position: calculatePosition(3, 'LINAC_ANATOMY', -1),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // Leaf Design
@@ -603,7 +597,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['mlc'],
     discovered: false,
     position: calculatePosition(3, 'LINAC_ANATOMY', 0),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // Cone Beam CT
@@ -616,7 +610,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['kv-imaging'],
     discovered: false,
     position: calculatePosition(3, 'LINAC_ANATOMY', 1),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // =================================================================================
@@ -635,7 +629,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['dosimetry', 'ionization-chambers', 'calibration-factors'],
     discovered: false,
     position: calculatePosition(1, 'DOSIMETRY', -1),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // Relative Dosimetry
@@ -648,7 +642,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['dosimetry', 'small-field-dosimetry'],
     discovered: false,
     position: calculatePosition(1, 'DOSIMETRY', 0),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // Patient-Specific QA
@@ -661,7 +655,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['dosimetry', 'gamma-analysis', 'plan-qa'],
     discovered: false,
     position: calculatePosition(1, 'DOSIMETRY', 1),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // === ORBIT 2: ADVANCED CONCEPTS ===
@@ -676,7 +670,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['output-calibration', 'pulse-dependence'],
     discovered: false,
     position: calculatePosition(2, 'DOSIMETRY', -1),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Small Field Dosimetry
@@ -689,7 +683,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['relative-dosimetry', 'detector-effects'],
     discovered: false,
     position: calculatePosition(2, 'DOSIMETRY', 0),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Gamma Analysis
@@ -702,7 +696,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['patient-qa', 'dose-reconstruction'],
     discovered: false,
     position: calculatePosition(2, 'DOSIMETRY', 1),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Calibration Factors
@@ -715,7 +709,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['output-calibration', 'ptp-correction'],
     discovered: false,
     position: calculatePosition(2, 'DOSIMETRY', 2),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Temperature & Pressure Correction
@@ -728,7 +722,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['calibration-factors'],
     discovered: false,
     position: calculatePosition(2, 'DOSIMETRY', 3),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // === ORBIT 3: SPECIALIZED CONCEPTS ===
@@ -743,7 +737,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['ionization-chambers'],
     discovered: false,
     position: calculatePosition(3, 'DOSIMETRY', -1),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // Detector Effects
@@ -756,7 +750,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['small-field-dosimetry'],
     discovered: false,
     position: calculatePosition(3, 'DOSIMETRY', 0),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // Dose Reconstruction
@@ -769,7 +763,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['gamma-analysis'],
     discovered: false,
     position: calculatePosition(3, 'DOSIMETRY', 1),
-    lastPracticed: Date.now()
+    orbit: 3
   },
   
   // =================================================================================
@@ -782,13 +776,13 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
   {
     id: 'radiation-safety',
     name: 'Radiation Safety',
-    domain: KNOWLEDGE_DOMAINS.RADIATION_PROTECTION,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'Principles and practices for minimizing radiation exposure.',
     mastery: 0,
     connections: ['alara-principle', 'inverse-square-law'],
     discovered: false,
-    position: calculatePosition(1, 'RADIATION_PROTECTION', 0),
-    lastPracticed: Date.now()
+    position: calculatePosition(1, 'DOSIMETRY', 0),
+    orbit: 1
   },
   
   // === ORBIT 2: ADVANCED CONCEPTS ===
@@ -797,39 +791,39 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
   {
     id: 'alara-principle',
     name: 'ALARA Principle',
-    domain: KNOWLEDGE_DOMAINS.RADIATION_PROTECTION,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'The principle that radiation exposure should be kept "As Low As Reasonably Achievable".',
     mastery: 0,
     connections: ['radiation-safety', 'dose-limits', 'personal-dosimetry'],
     discovered: false,
-    position: calculatePosition(2, 'RADIATION_PROTECTION', -1),
-    lastPracticed: Date.now()
+    position: calculatePosition(2, 'DOSIMETRY', -1),
+    orbit: 2
   },
   
   // Dose Limits
   {
     id: 'dose-limits',
     name: 'Dose Limits',
-    domain: KNOWLEDGE_DOMAINS.RADIATION_PROTECTION,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'Regulatory restrictions on radiation dose for workers and the public.',
     mastery: 0,
     connections: ['alara-principle'],
     discovered: false,
-    position: calculatePosition(2, 'RADIATION_PROTECTION', 0),
-    lastPracticed: Date.now()
+    position: calculatePosition(2, 'DOSIMETRY', 0),
+    orbit: 2
   },
   
   // Shielding
   {
     id: 'shielding',
     name: 'Shielding',
-    domain: KNOWLEDGE_DOMAINS.RADIATION_PROTECTION,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'Materials used to reduce radiation exposure.',
     mastery: 0,
     connections: ['attenuation', 'half-value-layer', 'alara-principle'],
     discovered: false,
-    position: calculatePosition(2, 'RADIATION_PROTECTION', 1),
-    lastPracticed: Date.now()
+    position: calculatePosition(2, 'DOSIMETRY', 1),
+    orbit: 2
   },
   
   // === ORBIT 3: SPECIALIZED CONCEPTS ===
@@ -838,13 +832,13 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
   {
     id: 'personal-dosimetry',
     name: 'Personal Dosimetry',
-    domain: KNOWLEDGE_DOMAINS.RADIATION_PROTECTION,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'Monitoring of radiation dose received by individuals.',
     mastery: 0,
     connections: ['alara-principle'],
     discovered: false,
-    position: calculatePosition(3, 'RADIATION_PROTECTION', 0),
-    lastPracticed: Date.now()
+    position: calculatePosition(3, 'DOSIMETRY', 0),
+    orbit: 3
   },
   
   // =================================================================================
@@ -857,13 +851,13 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
   {
     id: 'radiation-interactions',
     name: 'Radiation Interactions',
-    domain: KNOWLEDGE_DOMAINS.THEORETICAL,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'Fundamental interactions between radiation and matter.',
     mastery: 0,
     connections: ['attenuation', 'linear-energy-transfer'],
     discovered: false,
-    position: calculatePosition(1, 'THEORETICAL', 0),
-    lastPracticed: Date.now()
+    position: calculatePosition(1, 'DOSIMETRY', 0),
+    orbit: 1
   },
   
   // === ORBIT 2: ADVANCED CONCEPTS ===
@@ -872,39 +866,39 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
   {
     id: 'inverse-square-law',
     name: 'Inverse Square Law',
-    domain: KNOWLEDGE_DOMAINS.THEORETICAL,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'The principle that radiation intensity is inversely proportional to the square of the distance from the source.',
     mastery: 0,
     connections: ['radiation-safety'],
     discovered: false,
-    position: calculatePosition(2, 'THEORETICAL', -1),
-    lastPracticed: Date.now()
+    position: calculatePosition(2, 'DOSIMETRY', -1),
+    orbit: 2
   },
   
   // Attenuation
   {
     id: 'attenuation',
     name: 'Attenuation',
-    domain: KNOWLEDGE_DOMAINS.THEORETICAL,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'The reduction in intensity of a radiation beam as it passes through matter.',
     mastery: 0,
     connections: ['half-value-layer', 'shielding', 'radiation-interactions'],
     discovered: false,
-    position: calculatePosition(2, 'THEORETICAL', 0),
-    lastPracticed: Date.now()
+    position: calculatePosition(2, 'DOSIMETRY', 0),
+    orbit: 2
   },
   
   // Linear Energy Transfer
   {
     id: 'linear-energy-transfer',
     name: 'Linear Energy Transfer',
-    domain: KNOWLEDGE_DOMAINS.THEORETICAL,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'The amount of energy that an ionizing particle transfers to the material traversed per unit distance.',
     mastery: 0,
     connections: ['radiation-interactions', 'radiation-dosimetry'],
     discovered: false,
-    position: calculatePosition(2, 'THEORETICAL', 1),
-    lastPracticed: Date.now()
+    position: calculatePosition(2, 'DOSIMETRY', 1),
+    orbit: 2
   },
   
   // === ORBIT 3: SPECIALIZED CONCEPTS ===
@@ -913,13 +907,13 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
   {
     id: 'half-value-layer',
     name: 'Half-Value Layer',
-    domain: KNOWLEDGE_DOMAINS.THEORETICAL,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'The thickness of a specified material that reduces the intensity of radiation to one-half its original value.',
     mastery: 0,
     connections: ['attenuation', 'shielding'],
     discovered: false,
-    position: calculatePosition(3, 'THEORETICAL', 0),
-    lastPracticed: Date.now()
+    position: calculatePosition(3, 'DOSIMETRY', 0),
+    orbit: 3
   },
   
   // =================================================================================
@@ -936,7 +930,7 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['prescription', 'output-calibration'],
     discovered: false,
     position: calculatePosition(2, 'TREATMENT_PLANNING', -3),
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Treatment Delivery
@@ -949,20 +943,20 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     connections: ['treatment-planning', 'radiation-therapy'],
     discovered: false,
     position: calculatePosition(1, 'RADIATION_THERAPY', -2),
-    lastPracticed: Date.now()
+    orbit: 1
   },
   
   // Radiation Dosimetry
   {
     id: 'radiation-dosimetry',
     name: 'Radiation Dosimetry',
-    domain: KNOWLEDGE_DOMAINS.THEORETICAL,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'The measurement of absorbed dose delivered by ionizing radiation.',
     mastery: 25, // Initially discovered concept
     connections: ['linear-energy-transfer', 'dosimetry'],
     discovered: true, // Initially discovered
-    position: calculatePosition(1, 'THEORETICAL', -1),
-    lastPracticed: Date.now()
+    position: calculatePosition(1, 'DOSIMETRY', -1),
+    orbit: 1
   },
   
   // =================================================================================
@@ -973,27 +967,245 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
   {
     id: 'ionix-anomaly',
     name: 'Ionix Anomaly',
-    domain: KNOWLEDGE_DOMAINS.THEORETICAL,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'Unusual quantum behavior observed in experimental ion chambers.',
     mastery: 0,
     connections: ['quantum-effects'],
     discovered: false,
     position: { x: 500, y: 400 }, // Special position for boss-related concept
-    lastPracticed: Date.now()
+    orbit: 2
   },
   
   // Quantum Effects
   {
     id: 'quantum-effects',
     name: 'Quantum Effects',
-    domain: KNOWLEDGE_DOMAINS.THEORETICAL,
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'Quantum mechanical phenomena affecting radiation interactions and detection.',
     mastery: 0,
     connections: ['ionix-anomaly'],
     discovered: false,
     position: { x: 450, y: 450 }, // Special position for boss-related concept
-    lastPracticed: Date.now()
+    orbit: 2
+  },
+  
+  // Update domains for concepts using removed domains
+  // Change all RADIATION_PROTECTION domain concepts to DOSIMETRY
+  {
+    id: 'radiation-protection-principles',
+    name: 'Radiation Protection Principles',
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
+    description: 'Fundamental principles for safely working with ionizing radiation.',
+    mastery: 0,
+    connections: ['radiation-therapy', 'alara-principle', 'radiation-monitoring'],
+    discovered: false,
+    position: calculatePosition(1, 'DOSIMETRY', 0),
+    orbit: 1
+  },
+  
+  // ALARA Principle
+  {
+    id: 'alara-principle',
+    name: 'ALARA Principle',
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
+    description: 'As Low As Reasonably Achievable - A principle for minimizing radiation exposure.',
+    mastery: 0,
+    connections: ['radiation-protection-principles', 'shielding', 'dose-limits'],
+    discovered: false,
+    position: calculatePosition(2, 'DOSIMETRY', -1),
+    orbit: 2
+  },
+  
+  // Radiation Monitoring
+  {
+    id: 'radiation-monitoring',
+    name: 'Radiation Monitoring',
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
+    description: 'Methods and devices for monitoring radiation levels and exposure.',
+    mastery: 0,
+    connections: ['radiation-protection-principles', 'dosimetry', 'dose-limits'],
+    discovered: false,
+    position: calculatePosition(2, 'DOSIMETRY', 0),
+    orbit: 2
+  },
+  
+  // Dose Limits
+  {
+    id: 'dose-limits',
+    name: 'Dose Limits',
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
+    description: 'Regulatory limits on radiation exposure for workers and the public.',
+    mastery: 0,
+    connections: ['alara-principle', 'radiation-monitoring', 'radiation-regulations'],
+    discovered: false,
+    position: calculatePosition(2, 'DOSIMETRY', 1),
+    orbit: 2
+  },
+  
+  // Radiation Regulations
+  {
+    id: 'radiation-regulations',
+    name: 'Radiation Regulations',
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
+    description: 'Legal framework governing the use of radiation in medicine.',
+    mastery: 0,
+    connections: ['dose-limits', 'radiation-protection-principles'],
+    discovered: false,
+    position: calculatePosition(3, 'DOSIMETRY', 0),
+    orbit: 3
+  },
+  
+  // Quantum Mechanics - THEORETICAL domain changed to LINAC_ANATOMY
+  {
+    id: 'quantum-mechanics',
+    name: 'Quantum Mechanics',
+    domain: KNOWLEDGE_DOMAINS.LINAC_ANATOMY,
+    description: 'Fundamental theory describing behavior of matter and light at atomic scales.',
+    mastery: 0,
+    connections: ['radiation-physics', 'particle-theory'],
+    discovered: false,
+    position: calculatePosition(1, 'DOSIMETRY', 0),
+    orbit: 1
+  },
+  
+  // Particle Theory
+  {
+    id: 'particle-theory',
+    name: 'Particle Theory',
+    domain: KNOWLEDGE_DOMAINS.LINAC_ANATOMY,
+    description: 'Theoretical framework for understanding the behavior of subatomic particles.',
+    mastery: 0,
+    connections: ['quantum-mechanics', 'radiation-physics', 'wave-particle-duality'],
+    discovered: false,
+    position: calculatePosition(2, 'DOSIMETRY', -1),
+    orbit: 2
+  },
+  
+  // Wave-Particle Duality
+  {
+    id: 'wave-particle-duality',
+    name: 'Wave-Particle Duality',
+    domain: KNOWLEDGE_DOMAINS.LINAC_ANATOMY,
+    description: 'Concept that every particle exhibits both wave and particle properties.',
+    mastery: 0,
+    connections: ['particle-theory', 'quantum-mechanics'],
+    discovered: false,
+    position: calculatePosition(2, 'DOSIMETRY', 0),
+    orbit: 2
+  },
+  
+  // Radiation Models
+  {
+    id: 'radiation-models',
+    name: 'Radiation Models',
+    domain: KNOWLEDGE_DOMAINS.LINAC_ANATOMY,
+    description: 'Theoretical models describing radiation interaction with matter.',
+    mastery: 0,
+    connections: ['quantum-mechanics', 'radiation-physics', 'biological-modeling'],
+    discovered: false,
+    position: calculatePosition(2, 'DOSIMETRY', 1),
+    orbit: 2
+  },
+  
+  // Advanced Quantum Effects
+  {
+    id: 'advanced-quantum-effects',
+    name: 'Advanced Quantum Effects',
+    domain: KNOWLEDGE_DOMAINS.LINAC_ANATOMY,
+    description: 'Complex quantum phenomena relevant to radiation physics.',
+    mastery: 0,
+    connections: ['quantum-mechanics', 'wave-particle-duality'],
+    discovered: false,
+    position: calculatePosition(3, 'DOSIMETRY', 0),
+    orbit: 3
   }
 ];
 
-export default medicalPhysicsConcepts;
+// Additional concepts for calibration task dialogue
+// These are referenced in app/data/dialogues/calibrations/kapoor-calibration.ts
+// Adding here to prevent "Cannot update mastery: Concept X not found" errors
+
+export const additionalConcepts: ConceptNode[] = [
+  {
+    id: 'electron_equilibrium_understood',
+    name: 'Electron Equilibrium',
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
+    description: 'Understanding of electron equilibrium principles in radiation dosimetry.',
+    mastery: 0,
+    connections: ['output-calibration', 'radiation-interactions'],
+    discovered: false,
+    position: calculatePosition(2, 'DOSIMETRY', 1),
+    orbit: 2
+  },
+  {
+    id: 'ptp_correction_understood',
+    name: 'Pressure Temperature Corrections',
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
+    description: 'Understanding of pressure and temperature corrections for ionization chamber measurements.',
+    mastery: 0,
+    connections: ['output-calibration', 'absolute-dosimetry'],
+    discovered: false,
+    position: calculatePosition(2, 'DOSIMETRY', 2),
+    orbit: 2
+  },
+  {
+    id: 'output_calibration_tolerance',
+    name: 'Output Calibration Tolerance',
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
+    description: 'Acceptable limits for output calibration measurements in radiotherapy.',
+    mastery: 0,
+    connections: ['output-calibration', 'quality-assurance-protocols'],
+    discovered: false,
+    position: calculatePosition(2, 'DOSIMETRY', 3),
+    orbit: 2
+  },
+  {
+    id: 'clinical_dose_significance',
+    name: 'Clinical Dose Significance',
+    domain: KNOWLEDGE_DOMAINS.TREATMENT_PLANNING,
+    description: 'Understanding the clinical significance of dose variations in patient treatment.',
+    mastery: 0,
+    connections: ['dose-constraints', 'clinical-dose'],
+    discovered: false,
+    position: calculatePosition(2, 'TREATMENT_PLANNING', 3),
+    orbit: 2
+  },
+  {
+    id: 'beam_quality_factors',
+    name: 'Beam Quality Factors',
+    domain: KNOWLEDGE_DOMAINS.RADIATION_THERAPY,
+    description: 'Parameters that characterize radiation beam quality for dosimetry purposes.',
+    mastery: 0,
+    connections: ['quality-assurance-protocols', 'beam-modification'],
+    discovered: false,
+    position: calculatePosition(2, 'RADIATION_THERAPY', 2),
+    orbit: 2
+  },
+  {
+    id: 'research_collaboration',
+    name: 'Research Collaboration',
+    domain: KNOWLEDGE_DOMAINS.TREATMENT_PLANNING,
+    description: 'Collaborative efforts in research to advance medical physics and radiation therapy.',
+    mastery: 0,
+    connections: ['professional-development', 'evidence-based-practice'],
+    discovered: false,
+    position: calculatePosition(2, 'TREATMENT_PLANNING', 0),
+    orbit: 2
+  },
+  {
+    id: 'calibration_frequency',
+    name: 'Calibration Frequency',
+    domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
+    description: 'Recommended schedule for performing routine calibration of radiotherapy equipment.',
+    mastery: 0,
+    connections: ['output-calibration', 'quality-assurance-protocols'],
+    discovered: false,
+    position: calculatePosition(2, 'DOSIMETRY', 4),
+    orbit: 2
+  }
+];
+
+// Combine all concepts
+export const allConcepts = [...medicalPhysicsConcepts, ...additionalConcepts];
+
+export default allConcepts;

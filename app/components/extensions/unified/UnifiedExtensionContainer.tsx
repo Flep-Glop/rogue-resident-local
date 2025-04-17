@@ -1,112 +1,210 @@
-// app/components/extensions/types/CalculationInterface.tsx
 'use client';
 
 /**
- * Calculation Interface Extension
+ * UnifiedExtensionContainer
  * 
- * Provides an interactive calculation interface for physics problems with character integration.
- * Implements Chamber Pattern for performance optimization.
- * Enhanced with improved transitions and professional mentor tone.
+ * A single cohesive component for extensions that eliminates nested structure.
+ * Implements Chamber Pattern principles with optimized rendering and animations.
+ * Combines DialogueContainer and extension content into a unified structure.
+ * 
+ * Implements Chamber Pattern:
+ * 1. Uses primitive values for state
+ * 2. Stable function references
+ * 3. DOM-based animations via refs
+ * 4. Atomic state updates
+ * 5. Defensive unmount handling
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PixelText, PixelButton, PixelBox } from '../../PixelThemeProvider';
-import { usePrimitiveStoreValue, useStableCallback } from '../../../core/utils/storeHooks';
-import { ExtensionResult } from '../VisualExtender';
+import { usePrimitiveStoreValue } from '../../../core/utils/storeHooks';
+import { ExtensionResult, ExtensionType } from '../VisualExtender';
 import { safeDispatch } from '../../../core/events/CentralEventBus';
 import { GameEventType } from '../../../core/events/EventTypes';
 import { useResourceStore } from '../../../store/resourceStore';
 import { getExtensionClasses } from '../../../utils/themeUtils';
+import { DialogueMode } from '../../dialogue/DialogueContainer';
 
-// Interface definitions for the calculation system
-interface FormulaVariable {
-  id: string;
-  label: string;
-  value: number | null;
-  unit: string;
-  isInput: boolean;
-  isTarget: boolean;
-  hint?: string;
-  range?: {
-    min: number;
-    max: number;
-  };
-}
-
-interface CalculationStep {
-  id: string;
-  type: 'FORMULA_RECOGNITION' | 'PARAMETER_IDENTIFICATION' | 'CALCULATION_EXECUTION' | 'CLINICAL_JUDGMENT';
-  prompt: string;
-  kapoorText?: string; // Character dialogue
-  options?: {
-    text: string;
-    correct: boolean;
-    feedback?: string;
-  }[];
-  hint?: string;
-  answer?: number;
-  tolerance?: number;
-}
-
-interface CalculationContent {
-  id: string;
-  title: string;
-  description: string;
-  formula: {
-    display: string;
-    variables: FormulaVariable[];
-    steps?: {
-      id: string;
-      description: string;
-      hint?: string;
-    }[];
-  };
-  educationalSteps?: CalculationStep[];
-  conceptId: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  domain: string;
-  solutions?: {
-    label: string;
-    value: number;
-    unit: string;
-    isValid: boolean;
-    insightValue: number;
-  }[];
-}
-
-interface CalculationInterfaceProps {
-  content: CalculationContent;
+// Basic interfaces for extension content
+interface ExtensionContainerProps {
+  extensionType: ExtensionType;
+  title?: string;
   characterId: string;
   stageId: string;
+  content: any;
   additionalProps?: Record<string, any>;
   onComplete: (result: ExtensionResult) => void;
 }
 
-/**
- * Calculation Interface Component
- * 
- * Provides physics calculator with simplified, character-driven interaction
- */
-const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
+// Header component for the extension
+const ExtensionHeader: React.FC<{
+  title: string;
+  extensionType: ExtensionType;
+  characterId: string;
+  hideTitle?: boolean;
+}> = ({ title, extensionType, characterId, hideTitle }) => {
+  // Get theme classes for the extension type
+  const themeClasses = getExtensionClasses(extensionType);
+
+  // Return null if title should be hidden
+  if (hideTitle) return null;
+
+  return (
+    <div 
+      className={`px-4 py-2 flex items-center bg-amber-900/40 text-amber-300 border-b border-amber-700/50`}
+    >
+      <h3 className="text-sm font-pixel">{title}</h3>
+    </div>
+  );
+};
+
+// Footer component for the extension
+const ExtensionFooter: React.FC<{
+  extensionType: ExtensionType;
+  children?: React.ReactNode;
+}> = ({ extensionType, children }) => {
+  // Get theme classes for the extension type
+  const themeClasses = getExtensionClasses(extensionType);
+
+  return (
+    <div className={`bg-amber-950/50 px-3 py-1 border-t border-amber-900/50 flex justify-between items-center text-xs text-amber-600`}>
+      {children}
+    </div>
+  );
+};
+
+// Unified container for all extensions
+const UnifiedExtensionContainer: React.FC<ExtensionContainerProps> = ({
+  extensionType,
+  title = 'Challenge',
+  characterId,
+  stageId,
+  content,
+  additionalProps,
+  onComplete
+}) => {
+  // Mount tracking ref - Chamber Pattern principle #5
+  const isMountedRef = useRef(true);
+  // Type assertion to fix the ref type
+  const containerRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
+  
+  // Get theme classes for the extension type
+  const themeClasses = getExtensionClasses(extensionType);
+  
+  // Animation state
+  const [animating, setAnimating] = useState(false);
+  
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  
+  // Function to highlight elements on success - Chamber Pattern principle #3
+  const highlightElements = useCallback(() => {
+    if (!containerRef.current) return;
+    
+    // Add a success class to the container for styling
+    containerRef.current.classList.add('extension-success');
+    
+    // Remove the class after animation completes
+    setTimeout(() => {
+      if (containerRef.current && isMountedRef.current) {
+        containerRef.current.classList.remove('extension-success');
+      }
+    }, 1500);
+  }, []);
+  
+  // Main render for calculation interface
+  if (extensionType === 'calculation') {
+    return <UnifiedCalculationInterface 
+      content={content}
+      characterId={characterId}
+      stageId={stageId}
+      additionalProps={additionalProps}
+      onComplete={onComplete}
+      title={title}
+      containerRef={containerRef}
+      highlightElements={highlightElements}
+      isMountedRef={isMountedRef}
+    />;
+  }
+  
+  // Fallback for other types (can be expanded later)
+  return (
+    <motion.div
+      ref={containerRef}
+      initial={{ opacity: 0, y: 0 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className={`border-amber-700/70 bg-black/90 border-2 rounded-md overflow-hidden`}
+    >
+      <ExtensionHeader 
+        title={title} 
+        extensionType={extensionType}
+        characterId={characterId}
+      />
+      
+      <div className="p-0 m-0">
+        <PixelText className="p-4">
+          This extension type is not yet implemented in the unified container.
+        </PixelText>
+      </div>
+      
+      <ExtensionFooter extensionType={extensionType}>
+        <div>&nbsp;</div>
+      </ExtensionFooter>
+      
+      <style jsx>{`
+        .extension-success {
+          animation: success-pulse 1.5s ease-in-out;
+        }
+        
+        @keyframes success-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+          50% { box-shadow: 0 0 10px 2px rgba(34, 197, 94, 0.2); }
+        }
+      `}</style>
+    </motion.div>
+  );
+};
+
+// The unified calculation interface implementation
+const UnifiedCalculationInterface: React.FC<{
+  content: any;
+  characterId: string;
+  stageId: string;
+  additionalProps?: Record<string, any>;
+  onComplete: (result: ExtensionResult) => void;
+  title: string;
+  containerRef: React.RefObject<HTMLDivElement>;
+  highlightElements: () => void;
+  isMountedRef: React.RefObject<boolean>;
+}> = ({
   content,
   characterId,
   stageId,
   additionalProps,
-  onComplete
+  onComplete,
+  title,
+  containerRef,
+  highlightElements,
+  isMountedRef
 }) => {
-  // Mount tracking ref
-  const isMountedRef = useRef(true);
-  const containerRef = useRef<HTMLDivElement>(null);
-  
   // Get additional scenario props if available
   const scenarioInfo = additionalProps?.scenario || null;
   const prefilledValues = additionalProps?.prefilledValues || {};
   
-  // Component state
+  // Get theme classes
+  const themeClasses = getExtensionClasses('calculation');
+  
+  // Component state - Chamber Pattern principle #1
   const [inputValues, setInputValues] = useState<Record<string, number | null>>(() => {
     const initialValues: Record<string, number | null> = {};
-    content.formula.variables.forEach(variable => {
+    content.formula.variables.forEach((variable: any) => {
       // Use prefilled values if available, otherwise use the default values
       if (prefilledValues && prefilledValues[variable.id] !== undefined) {
         initialValues[variable.id] = prefilledValues[variable.id];
@@ -117,7 +215,7 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
     return initialValues;
   });
   
-  // Simplified state management for streamlined interface
+  // Educational steps state
   const [currentStage, setCurrentStage] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -129,47 +227,26 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
   const [submitted, setSubmitted] = useState(false);
   const [hintUsed, setHintUsed] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
-  
-  // Animation states
-  const [animating, setAnimating] = useState(false);
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   
-  // Get theming classes
-  const themeClasses = getExtensionClasses('calculation');
-  
-  // Get momentum and insight from store as primitives
+  // Get momentum and insight from store as primitives - Chamber Pattern principle #1
   const momentum = usePrimitiveStoreValue(useResourceStore, state => (state as any).momentum, 0);
   const insight = usePrimitiveStoreValue(useResourceStore, state => (state as any).insight, 0);
   
-  // Function to highlight elements on success using Chamber Pattern
-  const highlightElements = useCallback(() => {
-    if (!containerRef.current) return;
-    
-    // Add a success class to the container for styling
-    containerRef.current.classList.add('calculation-success');
-    
-    // Remove the class after animation completes
-    setTimeout(() => {
-      if (containerRef.current && isMountedRef.current) {
-        containerRef.current.classList.remove('calculation-success');
-      }
-    }, 1500);
-  }, []);
-  
-  // Get target variable (the one we're solving for)
+  // Get target variable (the one we're solving for) - Chamber Pattern principle #2
   const targetVariable = useMemo(() => {
-    return content.formula.variables.find(v => v.isTarget);
+    return content.formula.variables.find((v: any) => v.isTarget);
   }, [content.formula.variables]);
   
-  // Generate character-driven educational steps if not provided
+  // Generate character-driven educational steps if not provided - Chamber Pattern principle #2
   const educationalSteps = useMemo(() => {
     // If content has predefined educational steps, use those
     if (content.educationalSteps && content.educationalSteps.length > 0) {
       return content.educationalSteps;
     }
     
-    // Otherwise, generate default educational steps with Dr. Kapoor's character
-    const defaultSteps: CalculationStep[] = [
+    // Otherwise, generate default educational steps
+    const defaultSteps = [
       {
         id: 'formula-recognition',
         type: 'FORMULA_RECOGNITION',
@@ -201,12 +278,12 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
         prompt: "Which measurements are required for this calculation?",
         options: [
           { 
-            text: `${content.formula.variables.filter(v => v.isInput).map(v => v.label).join(', ')}`,
+            text: `${content.formula.variables.filter((v: any) => v.isInput).map((v: any) => v.label).join(', ')}`,
             correct: true,
             feedback: "Correct. You've identified all the necessary parameters."
           },
           { 
-            text: `Just ${content.formula.variables.filter(v => v.isInput).slice(0, 1).map(v => v.label).join(', ')}`,
+            text: `Just ${content.formula.variables.filter((v: any) => v.isInput).slice(0, 1).map((v: any) => v.label).join(', ')}`,
             correct: false,
             feedback: "Incomplete. This calculation requires more parameters than that. Consider all variables in the formula."
           },
@@ -268,41 +345,7 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
     return educationalSteps[currentStage] || null;
   }, [educationalSteps, currentStage]);
   
-  // Scenario hints if available
-  const scenarioHints = useMemo(() => {
-    return scenarioInfo?.hints || [];
-  }, [scenarioInfo]);
-  
-  // Get correct calculation solution
-  const getCorrectSolution = useCallback(() => {
-    if (content.solutions && content.solutions.length > 0) {
-      const validSolution = content.solutions.find(s => s.isValid);
-      if (validSolution) {
-        return validSolution.value;
-      }
-    }
-    
-    // Otherwise calculate it based on formula
-    try {
-      if (content.id.includes('monitor_units') && targetVariable?.id === 'mu') {
-        const dose = inputValues['dose'] as number;
-        const calibration = inputValues['calibration'] as number;
-        const tpr = inputValues['tpr'] as number;
-        const scatter = inputValues['scatter'] as number;
-        
-        // MU = Dose / (Calibration * TPR * Scatter)
-        return dose / (calibration * tpr * scatter);
-      }
-      
-      // For other calculation types, implement as needed
-      return null;
-    } catch (error) {
-      console.error('Error calculating solution:', error);
-      return null;
-    }
-  }, [content.id, content.solutions, inputValues, targetVariable]);
-  
-  // Handle parameter highlighting
+  // Handle parameter highlighting - Chamber Pattern principle #2
   const handleParameterHover = useCallback((paramId: string) => {
     setActiveHighlight(paramId);
   }, []);
@@ -311,17 +354,16 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
     setActiveHighlight(null);
   }, []);
   
-  // Handle option selection for multiple choice stages
+  // Handle option selection for multiple choice stages - Chamber Pattern principle #2
   const handleOptionSelect = useCallback((option: any, index: number) => {
-    if (!isMountedRef.current || animating || submitted) return;
+    if (!isMountedRef.current || submitted) return;
     
-    setAnimating(true);
     setSelectedAnswer(index);
     setShowFeedback(true);
     setFeedbackMessage(option.feedback || (option.correct ? 'Correct!' : 'Incorrect. Try again.'));
     setFeedbackType(option.correct ? 'success' : 'error');
     
-    // Simulate Dr. Kapoor thinking
+    // Simulate thinking
     setIsThinking(true);
     
     setTimeout(() => {
@@ -343,7 +385,7 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
               resourceType: 'momentum',
               changeType: 'increment'
             },
-            'CalculationInterface'
+            'UnifiedCalculationInterface'
           );
           
           // Use Chamber Pattern for animation
@@ -354,7 +396,6 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
             if (isMountedRef.current) {
               setShowFeedback(false);
               setSelectedAnswer(null);
-              setAnimating(false);
               
               // Move to next stage if this one is completed
               if (currentStage < educationalSteps.length - 1) {
@@ -373,7 +414,7 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
               resourceType: 'momentum',
               changeType: 'reset'
             },
-            'CalculationInterface'
+            'UnifiedCalculationInterface'
           );
           
           // For incorrect answers, clear after delay
@@ -381,18 +422,17 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
             if (isMountedRef.current) {
               setShowFeedback(false);
               setSelectedAnswer(null);
-              setAnimating(false);
             }
           }, 1500);
         }
       }
     }, 800); // Brief "thinking" delay
     
-  }, [currentStage, educationalSteps.length, animating, submitted, highlightElements]);
+  }, [currentStage, educationalSteps.length, submitted, highlightElements, isMountedRef]);
   
-  // Handle calculation submission
+  // Handle calculation submission - Chamber Pattern principle #2
   const handleCalculationSubmit = useCallback(() => {
-    if (!isMountedRef.current || animating || submitted) return;
+    if (!isMountedRef.current || submitted) return;
     if (!currentEducationalStep?.answer) return;
     
     const numericValue = parseFloat(userAnswer);
@@ -411,10 +451,9 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
       return;
     }
     
-    setAnimating(true);
     setShowFeedback(true);
     
-    // Simulate Dr. Kapoor checking the work
+    // Simulate checking the work
     setIsThinking(true);
     
     setTimeout(() => {
@@ -447,7 +486,7 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
               resourceType: 'momentum',
               changeType: 'increment'
             },
-            'CalculationInterface'
+            'UnifiedCalculationInterface'
           );
           
           // Use Chamber Pattern for animation
@@ -458,7 +497,6 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
             if (isMountedRef.current) {
               setShowFeedback(false);
               setUserAnswer('');
-              setAnimating(false);
               
               // Move to next stage if this one is completed
               if (currentStage < educationalSteps.length - 1) {
@@ -477,30 +515,29 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
               resourceType: 'momentum',
               changeType: 'reset'
             },
-            'CalculationInterface'
+            'UnifiedCalculationInterface'
           );
           
           // For incorrect answers, clear after delay
           setTimeout(() => {
             if (isMountedRef.current) {
               setShowFeedback(false);
-              setAnimating(false);
             }
           }, 1500);
         }
       }
     }, 800); // Slight delay to simulate checking
     
-  }, [currentStage, educationalSteps.length, animating, submitted, userAnswer, currentEducationalStep, highlightElements]);
+  }, [currentStage, educationalSteps.length, submitted, userAnswer, currentEducationalStep, highlightElements, isMountedRef]);
   
-  // Handle completion of all stages
+  // Handle completion of all stages - Chamber Pattern principle #2
   const handleCompletion = useCallback(() => {
     if (!isMountedRef.current || submitted) return;
     
     setSubmitted(true);
     
     // Find expected solution
-    const targetSolution = content.solutions?.find(s => s.isValid);
+    const targetSolution = content.solutions?.find((s: any) => s.isValid);
     
     if (!targetSolution) {
       console.error('No valid solution found in content');
@@ -538,17 +575,14 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
         accuracy,
         hintUsed
       },
-      'CalculationInterface'
+      'UnifiedCalculationInterface'
     );
     
     // Apply final animation before completion
     highlightElements();
-    setAnimating(true);
     
     setTimeout(() => {
       if (isMountedRef.current) {
-        setAnimating(false);
-        
         // Call completion callback
         onComplete({
           success: accuracy > 0.5,
@@ -563,18 +597,9 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
       }
     }, 1500);
   }, [
-    submitted,
-    content.solutions,
-    content.id,
-    content.conceptId,
-    stageCompleted,
-    educationalSteps.length,
-    momentum,
-    hintUsed,
-    characterId,
-    stageId,
-    onComplete,
-    highlightElements
+    content.solutions, content.id, content.conceptId, 
+    stageCompleted, educationalSteps.length, momentum, hintUsed,
+    characterId, stageId, onComplete, highlightElements, submitted, isMountedRef
   ]);
   
   // Show hint
@@ -583,21 +608,14 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
     
     setHintUsed(true);
     setShowHint(!showHint);
-  }, [showHint]);
+  }, [showHint, isMountedRef]);
   
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-  
-  // Enhanced rendering of variables with color-coded distinct styling
+  // Enhanced rendering of variables with color-coded distinct styling - Chamber Pattern principle #2
   const renderRelevantVariables = useCallback(() => {
     if (!currentEducationalStep) return null;
     if (currentEducationalStep.type !== 'CALCULATION_EXECUTION') return null;
     
-    const relevantVariables = content.formula.variables.filter(v => v.isInput && !v.isTarget);
+    const relevantVariables = content.formula.variables.filter((v: any) => v.isInput && !v.isTarget);
     
     // Color mapping for different parameter types
     const getColorForParam = (paramId: string) => {
@@ -613,16 +631,12 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
     };
     
     return (
-      <PixelBox 
-        variant="dark" 
-        className="my-4 p-3 bg-amber-950/30 border-amber-800/60"
-        bordered
-      >
+      <div className="my-4 p-3 bg-amber-950/30 border border-amber-800/60 rounded">
         <PixelText className="mb-3 text-sm font-medium uppercase tracking-wider text-amber-400 border-b border-amber-900/50 pb-1">
           Calculation Parameters
         </PixelText>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {relevantVariables.map(variable => (
+          {relevantVariables.map((variable: any) => (
             <div 
               key={variable.id} 
               className={`
@@ -660,158 +674,169 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
             </span>
           </PixelText>
         </div>
-      </PixelBox>
+      </div>
     );
-  }, [currentEducationalStep, content.formula.variables, inputValues, activeHighlight, handleParameterHover, handleParameterLeave]);
+  }, [
+    currentEducationalStep, content.formula.variables, inputValues, 
+    activeHighlight, handleParameterHover, handleParameterLeave
+  ]);
   
-  // Render the conversation-style calculation interface
+  // Progress indicators for bottom of interface
+  const ProgressIndicators = () => (
+    <div className="flex space-x-1 items-center">
+      <div className="flex space-x-1">
+        {educationalSteps.map((step: any, index: number) => (
+          <div 
+            key={index}
+            className={`h-1 w-3 rounded-sm ${
+              index === currentStage
+                ? themeClasses.text
+                : stageCompleted[index]
+                  ? 'bg-green-500/70'
+                  : 'bg-amber-800/30'
+            }`}
+            style={index === currentStage ? { backgroundColor: themeClasses.accent } : undefined}
+          ></div>
+        ))}
+      </div>
+    </div>
+  );
+  
+  // Render the unified calculation interface
   return (
-    <div ref={containerRef} className="calculation-container">
-      <PixelBox
-        variant={themeClasses.variant as any}
-        className="text-white overflow-hidden"
-        bordered
-      >
-        {/* Main calculation area */}
-        <div className="p-3">
-          {/* Calculation parameters when needed */}
-          {currentEducationalStep && currentEducationalStep.type === 'CALCULATION_EXECUTION' && renderRelevantVariables()}
-          
-          {/* Current question directly without character avatar */}
-          {currentEducationalStep && !showFeedback && !isThinking && (
-            <div className="mb-4">
-              <PixelText className="text-amber-50">
-                {currentEducationalStep.prompt}
-              </PixelText>
-            </div>
-          )}
-          
-          {/* Thinking indicator */}
-          {isThinking && (
-            <div className="text-amber-400 py-3">
-              <span className="inline-block animate-pulse">.</span>
-              <span className="inline-block animate-pulse animation-delay-200">.</span>
-              <span className="inline-block animate-pulse animation-delay-400">.</span>
-            </div>
-          )}
-          
-          {/* Feedback message */}
-          {showFeedback && feedbackMessage && (
-            <div className={`mb-4 py-2 ${
-              feedbackType === 'success'
-                ? 'text-green-300'
-                : 'text-red-300'
-            }`}>
-              <PixelText>
-                {feedbackMessage}
-              </PixelText>
-            </div>
-          )}
-          
-          {/* User response area */}
-          {!showFeedback && currentEducationalStep && !isThinking && (
-            <div className="mt-2">
-              {currentEducationalStep.type === 'CALCULATION_EXECUTION' ? (
-                <div className="flex items-center space-x-3">
-                  <input
-                    type="number"
-                    value={userAnswer}
-                    onChange={(e) => setUserAnswer(e.target.value)}
-                    className="bg-amber-950/60 border border-amber-800/70 rounded-md p-2 flex-1 font-mono text-white"
-                    step="any"
-                    placeholder={`Your answer${targetVariable?.unit ? ` (${targetVariable.unit})` : ''}`}
-                    disabled={animating || submitted}
-                  />
-                  <PixelButton
-                    onClick={handleCalculationSubmit}
-                    variant="primary"
-                    disabled={animating || submitted || !userAnswer}
-                  >
-                    Submit
-                  </PixelButton>
-                </div>
-              ) : currentEducationalStep.options ? (
-                <div className="space-y-2">
-                  {currentEducationalStep.options.map((option, index) => (
-                    <div 
-                      key={index}
-                      onClick={() => !animating && !submitted && handleOptionSelect(option, index)}
-                      className="cursor-pointer"
-                    >
-                      <PixelBox
-                        variant="dark"
-                        className={`w-full p-2 transition-colors ${
-                          selectedAnswer === index 
-                            ? (option.correct ? 'bg-green-900/80 border-green-800' : 'bg-red-900/80 border-red-800')
-                            : 'bg-amber-950/60 border-amber-800/50 hover:bg-amber-900/70 hover:border-amber-700'
-                        }`}
-                        bordered
-                      >
-                        <PixelText className={selectedAnswer === index 
-                            ? (option.correct ? 'text-green-100' : 'text-red-100')
-                            : 'text-amber-100'
-                          }>
-                          {option.text}
-                        </PixelText>
-                      </PixelBox>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          )}
-          
-          {/* Hint section */}
-          {!showFeedback && currentEducationalStep?.hint && !isThinking && (
-            <div className="mt-3 text-right">
-              <PixelButton
-                onClick={handleShowHint}
-                variant="default"
-                className="text-sm text-amber-400 hover:text-amber-300"
-                disabled={animating || submitted}
-              >
-                {showHint ? "Hide hint" : "Need a hint?"}
-              </PixelButton>
-              
-              {showHint && (
-                <PixelBox variant="dark" className="mt-2 p-2 text-sm text-amber-400 italic text-left bg-amber-950/30 border-amber-900/40">
-                  {currentEducationalStep.hint}
-                </PixelBox>
-              )}
-            </div>
-          )}
-        </div>
+    <motion.div
+      ref={containerRef}
+      initial={{ opacity: 0, y: 0 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="border-amber-700/70 bg-black/90 border-2 rounded-md overflow-hidden"
+      style={{ marginTop: -1 }}
+    >
+      {/* Extension header - only show if we have a meaningful title */}
+      <ExtensionHeader 
+        title={title || "Calculation"} 
+        extensionType="calculation"
+        characterId={characterId}
+        hideTitle={!title || title === "Calculation" || title === "Challenge"}
+      />
+      
+      {/* Main calculation area */}
+      <div className="p-3">
+        {/* Calculation parameters */}
+        {currentEducationalStep && currentEducationalStep.type === 'CALCULATION_EXECUTION' && renderRelevantVariables()}
         
-        {/* Subtle progress indicator at the bottom */}
-        <div className="bg-amber-950/50 px-3 py-1 border-t border-amber-900/50 flex justify-between items-center text-xs text-amber-600">
-          <div className="flex space-x-1 items-center">
-            <div className="flex space-x-1">
-              {educationalSteps.map((_, index) => (
-                <div 
-                  key={index}
-                  className={`h-1 w-3 rounded-sm ${
-                    index === currentStage
-                      ? themeClasses.text
-                      : stageCompleted[index]
-                        ? 'bg-green-500/70'
-                        : 'bg-amber-800/30'
-                  }`}
-                  style={index === currentStage ? { backgroundColor: themeClasses.accent } : undefined}
-                ></div>
-              ))}
-            </div>
+        {/* Current question */}
+        {currentEducationalStep && !showFeedback && !isThinking && (
+          <div className="mb-4">
+            <PixelText className="text-amber-50">
+              {currentEducationalStep.prompt}
+            </PixelText>
           </div>
-        </div>
-      </PixelBox>
+        )}
         
+        {/* Thinking indicator */}
+        {isThinking && (
+          <div className="text-amber-400 py-3">
+            <span className="inline-block animate-pulse">.</span>
+            <span className="inline-block animate-pulse animation-delay-200">.</span>
+            <span className="inline-block animate-pulse animation-delay-400">.</span>
+          </div>
+        )}
+        
+        {/* Feedback message */}
+        {showFeedback && feedbackMessage && (
+          <div className={`mb-4 py-2 ${
+            feedbackType === 'success'
+              ? 'text-green-300'
+              : 'text-red-300'
+          }`}>
+            <PixelText>
+              {feedbackMessage}
+            </PixelText>
+          </div>
+        )}
+        
+        {/* User response area */}
+        {!showFeedback && currentEducationalStep && !isThinking && (
+          <div className="mt-2">
+            {currentEducationalStep.type === 'CALCULATION_EXECUTION' ? (
+              <div className="flex items-center space-x-3">
+                <input
+                  type="number"
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                  className="bg-amber-950/60 border border-amber-800/70 rounded-md p-2 flex-1 font-mono text-white"
+                  step="any"
+                  placeholder={`Your answer${targetVariable?.unit ? ` (${targetVariable.unit})` : ''}`}
+                  disabled={submitted}
+                />
+                <PixelButton
+                  onClick={handleCalculationSubmit}
+                  variant="primary"
+                  disabled={submitted || !userAnswer}
+                >
+                  Submit
+                </PixelButton>
+              </div>
+            ) : currentEducationalStep.options ? (
+              <div className="space-y-2">
+                {currentEducationalStep.options.map((option: any, index: number) => (
+                  <div 
+                    key={index}
+                    onClick={() => !submitted && handleOptionSelect(option, index)}
+                    className="cursor-pointer"
+                  >
+                    <div
+                      className={`w-full p-2 transition-colors rounded-md ${
+                        selectedAnswer === index 
+                          ? (option.correct ? 'bg-green-900/80 border border-green-800' : 'bg-red-900/80 border border-red-800')
+                          : 'bg-amber-950/60 border border-amber-800/50 hover:bg-amber-900/70 hover:border-amber-700'
+                      }`}
+                    >
+                      <PixelText className={selectedAnswer === index 
+                          ? (option.correct ? 'text-green-100' : 'text-red-100')
+                          : 'text-amber-100'
+                        }>
+                        {option.text}
+                      </PixelText>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )}
+        
+        {/* Hint section */}
+        {!showFeedback && currentEducationalStep?.hint && !isThinking && (
+          <div className="mt-3 text-right">
+            <PixelButton
+              onClick={handleShowHint}
+              variant="default"
+              className="text-sm text-amber-400 hover:text-amber-300"
+              disabled={submitted}
+            >
+              {showHint ? "Hide hint" : "Need a hint?"}
+            </PixelButton>
+            
+            {showHint && (
+              <div className="mt-2 p-2 text-sm text-amber-400 italic text-left bg-amber-950/30 border border-amber-900/40 rounded">
+                {currentEducationalStep.hint}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      
+      {/* Extension footer with progress indicators */}
+      <ExtensionFooter extensionType="calculation">
+        <ProgressIndicators />
+      </ExtensionFooter>
+      
       {/* Add animations and styles */}
       <style jsx>{`
-        .calculation-container {
-          margin: 0;
-          padding: 0;
-        }
-        
-        .calculation-success {
+        .extension-success {
           animation: success-pulse 1.5s ease-in-out;
         }
         
@@ -838,8 +863,8 @@ const CalculationInterface: React.FC<CalculationInterfaceProps> = ({
           -moz-appearance: textfield;
         }
       `}</style>
-    </div>
+    </motion.div>
   );
 };
 
-export default CalculationInterface;
+export default UnifiedExtensionContainer; 

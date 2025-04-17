@@ -21,9 +21,14 @@ import { ExtensionData, ExtensionResult } from './VisualExtender';
 import { motion, AnimatePresence } from 'framer-motion';
 import { shallow } from 'zustand/shallow';
 import DialogueContainer, { DialogueMode } from '../dialogue/DialogueContainer';
+// Import theme components
+import { PixelBox, PixelButton, PixelText } from '../PixelThemeProvider';
+// Import theme utilities
+import { getExtensionClasses, extensionTypeToTheme } from '@/app/utils/themeUtils';
 
 // Import extension components
 import CalculationInterface from './types/CalculationInterface';
+import UnifiedExtensionContainer from './unified/UnifiedExtensionContainer';
 import AnatomicalIdentification from './types/AnatomicalIdentification';
 import EquipmentIdentification from './types/EquipmentIdentification';
 import MeasurementReading from './types/MeasurementReading';
@@ -78,6 +83,9 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
   
   // Extract ceremony text from content if available
   const [ceremonyText, setCeremonyText] = useState<string>('');
+  
+  // Get extension theme classes
+  const themeClasses = getExtensionClasses(extension.type);
   
   // Stable onComplete reference
   const onCompleteRef = useRef(onComplete);
@@ -260,20 +268,24 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
       <DialogueContainer 
         mode={DialogueMode.INSTRUCTION}
         title="Loading Extension"
-        className="w-full h-32 overflow-hidden"
+        className="w-full overflow-hidden"
+        containsExtension={true}
       >
-        <div className="flex flex-col items-center justify-center">
+        <PixelBox variant="dark" className="flex flex-col items-center justify-center p-4">
           <div className="relative w-64 h-2 bg-gray-800 rounded-full mb-3 overflow-hidden">
             <div 
-              className="absolute left-0 top-0 bottom-0 bg-blue-500 rounded-full transition-all duration-300 ease-out"
-              style={{ width: `${loadingProgress}%` }}
+              className={`absolute left-0 top-0 bottom-0 ${themeClasses.text} rounded-full transition-all duration-300 ease-out`}
+              style={{ width: `${loadingProgress}%`, backgroundColor: themeClasses.accent }}
             />
           </div>
           <div className="flex items-center">
-            <div className="loading-spinner w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
-            <p className="text-sm text-gray-300 font-pixel">Loading {extension.type.replace('-', ' ')}...</p>
+            <div className="loading-spinner w-5 h-5 border-2 border-t-transparent rounded-full animate-spin mr-2"
+                 style={{ borderColor: `${themeClasses.accent} transparent transparent` }} />
+            <PixelText className="text-sm text-gray-300">
+              Loading {extension.type.replace('-', ' ')}...
+            </PixelText>
           </div>
-        </div>
+        </PixelBox>
       </DialogueContainer>
     );
   }
@@ -285,6 +297,7 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
         mode={DialogueMode.CRITICAL}
         title="Extension Error"
         className="w-full overflow-hidden"
+        containsExtension={true}
       >
         <ErrorDisplay 
           message={error} 
@@ -307,19 +320,25 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
         mode={DialogueMode.NARRATIVE}
         title="Extension Unavailable"
         className="w-full overflow-hidden"
+        containsExtension={true}
       >
-        <p>{extension.fallbackText || "Extension content not available."}</p>
-        <button 
-          className="mt-2 px-3 py-1 bg-blue-700 rounded-sm text-white"
-          onClick={() => handleComplete({
-            success: false,
-            accuracy: 0,
-            insightGained: 0,
-            momentumEffect: 'maintain'
-          })}
-        >
-          Continue
-        </button>
+        <PixelBox variant="dark" className="p-4">
+          <PixelText>
+            {extension.fallbackText || "Extension content not available."}
+          </PixelText>
+          <PixelButton 
+            className="mt-2"
+            variant="primary"
+            onClick={() => handleComplete({
+              success: false,
+              accuracy: 0,
+              insightGained: 0,
+              momentumEffect: 'maintain'
+            })}
+          >
+            Continue
+          </PixelButton>
+        </PixelBox>
       </DialogueContainer>
     );
   }
@@ -332,7 +351,7 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
         challengeType={extension.type}
         ceremonyText={ceremonyText}
         onCeremonyComplete={handleCeremonyComplete}
-        domainColor={content.domain && extension.type === 'calculation' ? getDomainColor(content.domain) : undefined}
+        domainColor={content.domain ? extensionTypeToTheme[extension.type]?.accentColor : undefined}
       />
     );
   }
@@ -341,7 +360,8 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
   if (ceremonialState === CeremonialState.CeremonyComplete) {
     return (
       <div className="w-full h-32 flex items-center justify-center">
-        <div className="loading-spinner w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="loading-spinner w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
+             style={{ borderColor: `${themeClasses.accent} transparent transparent` }} />
       </div>
     );
   }
@@ -350,7 +370,9 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
   switch (extension.type) {
     case 'calculation':
       return (
-        <CalculationInterface
+        <UnifiedExtensionContainer
+          extensionType="calculation"
+          title={content.title || "Calculation"}
           content={content}
           characterId={characterId}
           stageId={stageId}
@@ -398,19 +420,25 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
           mode={DialogueMode.INSTRUCTION}
           title="Dosimetric Pattern Recognition"
           className="w-full overflow-hidden"
+          containsExtension={true}
         >
-          <p>This extension is planned for future implementation. It will allow you to recognize characteristic patterns in dose distributions.</p>
-          <button 
-            className="mt-3 px-3 py-1 bg-blue-700 rounded-sm text-white"
-            onClick={() => handleComplete({
-              success: false,
-              accuracy: 0,
-              insightGained: 0,
-              momentumEffect: 'maintain'
-            })}
-          >
-            Continue
-          </button>
+          <PixelBox variant="dark" className="p-4">
+            <PixelText>
+              This extension is planned for future implementation. It will allow you to recognize characteristic patterns in dose distributions.
+            </PixelText>
+            <PixelButton 
+              className="mt-3"
+              variant="primary"
+              onClick={() => handleComplete({
+                success: false,
+                accuracy: 0,
+                insightGained: 0,
+                momentumEffect: 'maintain'
+              })}
+            >
+              Continue
+            </PixelButton>
+          </PixelBox>
         </DialogueContainer>
       );
       
@@ -420,19 +448,25 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
           mode={DialogueMode.INSTRUCTION}
           title="Treatment Plan Optimization"
           className="w-full overflow-hidden"
+          containsExtension={true}
         >
-          <p>This extension is planned for future implementation. It will allow you to balance target coverage with healthy tissue sparing.</p>
-          <button 
-            className="mt-3 px-3 py-1 bg-blue-700 rounded-sm text-white"
-            onClick={() => handleComplete({
-              success: false,
-              accuracy: 0,
-              insightGained: 0,
-              momentumEffect: 'maintain'
-            })}
-          >
-            Continue
-          </button>
+          <PixelBox variant="dark" className="p-4">
+            <PixelText>
+              This extension is planned for future implementation. It will allow you to balance target coverage with healthy tissue sparing.
+            </PixelText>
+            <PixelButton 
+              className="mt-3"
+              variant="primary"
+              onClick={() => handleComplete({
+                success: false,
+                accuracy: 0,
+                insightGained: 0,
+                momentumEffect: 'maintain'
+              })}
+            >
+              Continue
+            </PixelButton>
+          </PixelBox>
         </DialogueContainer>
       );
       
@@ -454,37 +488,27 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
           mode={DialogueMode.CRITICAL}
           title="Unknown Extension Type"
           className="w-full overflow-hidden"
+          containsExtension={true}
         >
-          <p className="mb-2">Extension type '{extension.type}' not recognized.</p>
-          <p>{extension.fallbackText || "Please continue with text-based interaction."}</p>
-          <button 
-            className="mt-3 px-3 py-1 bg-blue-700 rounded-sm text-white"
-            onClick={() => handleComplete({
-              success: false,
-              accuracy: 0,
-              insightGained: 0,
-              momentumEffect: 'maintain'
-            })}
-          >
-            Continue
-          </button>
+          <PixelBox variant="dark" className="p-4">
+            <PixelText className="mb-2">Extension type '{extension.type}' not recognized.</PixelText>
+            <PixelText>{extension.fallbackText || "Please continue with text-based interaction."}</PixelText>
+            <PixelButton 
+              className="mt-3"
+              variant="primary"
+              onClick={() => handleComplete({
+                success: false,
+                accuracy: 0,
+                insightGained: 0,
+                momentumEffect: 'maintain'
+              })}
+            >
+              Continue
+            </PixelButton>
+          </PixelBox>
         </DialogueContainer>
       );
   }
 };
-
-/**
- * Helper function to get domain color
- */
-function getDomainColor(domain: string): string {
-  const domainColors: Record<string, string> = {
-    'treatment-planning': '#3b82f6', // Blue
-    'radiation-therapy': '#10b981', // Green
-    'linac-anatomy': '#f59e0b', // Amber
-    'dosimetry': '#ec4899', // Pink
-  };
-  
-  return domainColors[domain] || '#3b82f6';
-}
 
 export default ExtensionRenderer;

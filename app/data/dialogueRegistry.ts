@@ -77,6 +77,18 @@ const dialogueRegistry: Record<DialogueId, DialogueRegistryItem> = {
     characterId: 'kapoor',
     tags: ['calculation', 'basic']
   },
+  // Add a new dialogue for direct calculation challenge without intro
+  'direct-calculation-challenge': {
+    dialogueId: 'direct-calculation-challenge',
+    // Only include the calculation interface stage, skipping the intro
+    content: exampleExtensionsDialogue.filter(stage => 
+      stage.id === 'calculation-interface' ||
+      stage.id === 'calculation-followup'
+    ),
+    description: 'Direct calculation challenge that skips dialogue and starts with the challenge ceremony',
+    characterId: 'kapoor',
+    tags: ['calculation', 'basic', 'direct']
+  },
   'dialogue-mode-example': {
     dialogueId: 'dialogue-mode-example',
     content: dialogueModeExample,
@@ -106,8 +118,8 @@ const nodeToDialogueMap: NodeDialogueMapping[] = [
   },
   {
     nodeId: 'path-a1',
-    dialogueId: 'basic-calculation',
-    description: 'Path A1 node for testing basic calculation extension'
+    dialogueId: 'direct-calculation-challenge',
+    description: 'Path A1 node with direct calculation challenge'
   },
   {
     nodeId: 'dialogue-mode-demo',

@@ -26,6 +26,10 @@ import { safeDispatch } from '../../core/events/CentralEventBus';
 import { GameEventType } from '../../core/events/EventTypes';
 import ExtensionRenderer from './ExtensionRenderer';
 import DialogueContainer, { DialogueMode } from '../dialogue/DialogueContainer';
+// Import theme components
+import { PixelBox, PixelButton, PixelText } from '../PixelThemeProvider'; 
+// Import theme utilities
+import { getExtensionClasses } from '@/app/utils/themeUtils';
 
 // Types for the extension data
 export interface ExtensionData {
@@ -36,6 +40,7 @@ export interface ExtensionData {
   additionalProps?: Record<string, any>;
   conversationText?: string; // The conversation text to display in the ceremony
   dialogueMode?: DialogueMode; // Add support for DialogueMode
+  onCompleteStageId?: string; // Stage ID to navigate to when extension completes
 }
 
 // Extension types
@@ -172,6 +177,19 @@ export const withVisualExtender = <P extends object>(
         );
       }
 
+      // Check if we need to auto-navigate to the next stage
+      const extension = (props as any).extension;
+      if (extension && extension.onCompleteStageId) {
+        // Use the dialogue state machine to navigate
+        const dialogueStateMachine = require('../../core/dialogue/DialogueStateMachine');
+        if (dialogueStateMachine && dialogueStateMachine.useDialogueFunctions) {
+          const { navigateToState } = dialogueStateMachine.useDialogueFunctions.getState();
+          if (typeof navigateToState === 'function') {
+            navigateToState(extension.onCompleteStageId);
+          }
+        }
+      }
+
       // Call provided callback if exists
       if (onCompleteRef.current) {
         onCompleteRef.current(result);
@@ -270,6 +288,9 @@ export const ConversationExtension: React.FC<ConversationExtensionProps> = ({
   const isMountedRef = useRef(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Get extension theme classes
+  const themeClasses = getExtensionClasses(extension.type);
+
   // Get the appropriate DialogueMode for the extension
   const dialogueMode = extension.dialogueMode || extensionTypeToDialogueMode[extension.type] || DialogueMode.CHALLENGE_INTRO;
 
@@ -306,11 +327,17 @@ export const ConversationExtension: React.FC<ConversationExtensionProps> = ({
       {isActive && (
         <motion.div
           ref={containerRef}
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 10 }}
+          exit={{ opacity: 0, y: 0 }}
           transition={{ duration: 0.3 }}
-          className={`extension-container ${className}`}
+          className={`extension-container p-0 m-0 ${className}`}
+          style={{ 
+            marginTop: -10, // Increase negative margin to eliminate the space
+            paddingTop: 0,
+            position: 'relative',
+            zIndex: 20
+          }}
         >
           <ExtensionRenderer
             extension={extension}
@@ -320,14 +347,21 @@ export const ConversationExtension: React.FC<ConversationExtensionProps> = ({
           />
           
           <style jsx>{`
-            @keyframes pulse-border {
-              0%, 100% { border-color: rgba(59,130,246,0.3); }
-              50% { border-color: rgba(59,130,246,0.8); }
+            .extension-container {
+              background: transparent;
+              position: relative;
+              transition: all 0.3s ease;
+              margin: 0;
+              padding: 0;
             }
             
             .extension-entrance {
               animation: pulse-border 1.5s ease-in-out;
-              box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+            }
+            
+            @keyframes pulse-border {
+              0%, 100% { box-shadow: 0 0 0 0 ${themeClasses.accent}00; }
+              50% { box-shadow: 0 0 20px 2px ${themeClasses.accent}30; }
             }
           `}</style>
         </motion.div>
@@ -350,75 +384,8 @@ export const AttentionIndicator: React.FC<AttentionIndicatorProps> = ({
   onClick,
   active
 }) => {
-  // Type-specific styling
-  const typeStyles: Record<ExtensionType, { color: string, icon: React.ReactNode }> = {
-    'calculation': {
-      color: 'bg-pink-500', // Dosimetry (Pink)
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M4 7h16M4 12h16M4 17h10" strokeLinecap="round" />
-        </svg>
-      )
-    },
-    'anatomical-identification': {
-      color: 'bg-blue-500', // Treatment Planning (Blue)
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 4v16M20 12H4" strokeLinecap="round" />
-          <circle cx="12" cy="12" r="8" strokeDasharray="50.26" strokeDashoffset="25.13" />
-        </svg>
-      )
-    },
-    'equipment-identification': {
-      color: 'bg-amber-500', // Linac Anatomy (Amber)
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="4" y="4" width="16" height="16" rx="2" />
-          <path d="M9 9h6v6H9z" />
-          <path d="M4 12h3M17 12h3M12 4v3M12 17v3" strokeLinecap="round" />
-        </svg>
-      )
-    },
-    'measurement-reading': {
-      color: 'bg-pink-500', // Dosimetry (Pink)
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M2 12h20M12 2v20" strokeDasharray="2" />
-          <circle cx="12" cy="12" r="8" />
-          <path d="M12 8v4l2 2" strokeLinecap="round" />
-        </svg>
-      )
-    },
-    'dosimetric-pattern': {
-      color: 'bg-pink-500', // Dosimetry (Pink)
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M4 4v16h16" strokeLinecap="round" />
-          <path d="M7 15c1.5-3 3-4 4-4s2.5 1 4 4c1.5 3 3 4 4 4" strokeLinecap="round" />
-        </svg>
-      )
-    },
-    'treatment-plan': {
-      color: 'bg-blue-500', // Treatment Planning (Blue)
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M5 7a4 4 0 014-4h6a4 4 0 014 4v10a4 4 0 01-4 4H9a4 4 0 01-4-4V7z" />
-          <path d="M8 12h8M8 8h8M8 16h6" strokeLinecap="round" />
-        </svg>
-      )
-    },
-    'error-identification': {
-      color: 'bg-green-500', // Radiation Therapy (Green)
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 8v4M12 16h.01" strokeLinecap="round" />
-        </svg>
-      )
-    }
-  };
-  
-  const style = typeStyles[extensionType] || typeStyles.calculation;
+  // Get theme classes for styling the indicator
+  const themeClasses = getExtensionClasses(extensionType);
   
   return (
     <button 
@@ -426,13 +393,13 @@ export const AttentionIndicator: React.FC<AttentionIndicatorProps> = ({
       className={`
         flex items-center justify-center
         w-9 h-9 rounded-full
-        ${style.color} text-white
+        ${themeClasses.bgColor} text-white
         ${active ? 'animate-pulse' : ''}
         shadow-lg transition-all duration-300
         hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
       `}
+      style={{ backgroundColor: themeClasses.accent }}
     >
-      {style.icon}
       <span className="sr-only">Interactive Challenge Available</span>
     </button>
   );

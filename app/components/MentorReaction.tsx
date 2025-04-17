@@ -181,9 +181,9 @@ const MentorReaction: React.FC<MentorReactionProps> = ({
         <motion.div
           className={`absolute pointer-events-none font-pixel text-3xl font-bold z-[999] ${getReactionColor()} ${className}`}
           style={{ 
-            top: 0,
+            top: '10px',
             left: '65%', 
-            transform: 'translateX(-50%) translateY(-100%)',
+            transform: 'translateX(-50%) translateY(-50%)',
             textShadow: '0 0 8px rgba(0,0,0,1), 0 0 12px rgba(0,0,0,0.8)',
             padding: '0.25rem 0.5rem',
             background: 'rgba(0,0,0,0.9)',

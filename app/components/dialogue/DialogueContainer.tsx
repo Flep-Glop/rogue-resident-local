@@ -87,6 +87,7 @@ interface DialogueContainerProps {
   className?: string;
   showIcon?: boolean;
   animationEnabled?: boolean;
+  containsExtension?: boolean;
 }
 
 /**
@@ -100,7 +101,8 @@ const DialogueContainer: React.FC<DialogueContainerProps> = ({
   children,
   className = '',
   showIcon = true,
-  animationEnabled = true
+  animationEnabled = true,
+  containsExtension = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const style = modeStyles[mode] || modeStyles[DialogueMode.NARRATIVE];
@@ -124,18 +126,18 @@ const DialogueContainer: React.FC<DialogueContainerProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 10 }}
       transition={{ duration: 0.3 }}
-      className={`${style.container} border-2 rounded-md overflow-hidden shadow-lg mb-4 ${className}`}
+      className={`${style.container} border-2 rounded-md overflow-hidden ${containsExtension ? 'mb-0 pb-0' : 'mb-4'} ${className}`}
       style={{ 
         transition: 'background-color 8s cubic-bezier(0.05, 0.1, 0.3, 1), border-color 8s cubic-bezier(0.05, 0.1, 0.3, 1), box-shadow 8s cubic-bezier(0.05, 0.1, 0.3, 1)'
       }}
     >
-      {title && (
+      {title && !containsExtension && (
         <div className={`${style.header} px-4 py-2 flex items-center`} style={{ transition: 'background-color 8s cubic-bezier(0.05, 0.1, 0.3, 1)' }}>
           {showIcon && <div className="mr-2">{style.icon}</div>}
           <h3 className="text-sm font-pixel">{title}</h3>
         </div>
       )}
-      <div className="p-4">
+      <div className={containsExtension ? 'p-0 m-0 overflow-visible' : 'p-4'}>
         {children}
       </div>
 

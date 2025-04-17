@@ -13,6 +13,7 @@ import { ExtensionData } from '../../../components/extensions/VisualExtender';
 // Define a custom type that extends DialogueStage with extension property
 interface ExtendedDialogueStage extends DialogueStage {
   extension?: ExtensionData;
+  shouldImmediatelyShowExtension?: boolean;
 }
 
 // Create the dialogue content with the extended type
@@ -149,22 +150,18 @@ const exampleExtensionsDialogue: ExtendedDialogueStage[] = [
       type: 'calculation',
       contentId: 'monitor_units_basic',
       interactionRequired: true,
-      conversationText: "Calculate the monitor units required to deliver the prescribed dose to a patient. This is one of the most fundamental calculations in radiation therapy planning.",
+      conversationText: "Let's start with a basic calculation scenario. For a recent patient treatment, we need to calculate the required monitor units based on these parameters. This should be trivial for someone with your background.",
       additionalProps: {
         prefilledValues: {
           dose: 2.0,
           output_factor: 0.01
-        }
-      }
+        },
+        skipInitialDialogue: true
+      },
+      onCompleteStageId: 'calculation-followup'
     },
-    options: [
-      { 
-        id: "calculation-complete",
-        text: "I've completed the calculation.", 
-        nextStageId: 'calculation-followup',
-        isCriticalPath: true
-      }
-    ]
+    // Flag to indicate that this stage should immediately show the extension
+    shouldImmediatelyShowExtension: true
   },
   
   // Followup to calculation

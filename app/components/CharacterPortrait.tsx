@@ -115,7 +115,7 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
   return (
     <div className={`relative flex flex-col items-center ${className}`}>
       {/* Mentor reaction indicator - Positioned as a sibling outside the portrait container */}
-      <div className="absolute w-full" style={{ top: '-4rem', zIndex: 100 }}>
+      <div className="absolute w-full" style={{ right: '-1.5rem', top: '-2rem', zIndex: 100 }}>
         <MentorReaction 
           reaction={reaction} 
           color={characterData.primaryColor}

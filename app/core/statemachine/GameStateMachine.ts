@@ -95,6 +95,7 @@ interface GameStateMachineState {
   
   // Node completion tracking
   markNodeCompleted: (nodeId: string) => void;
+  refreshAvailableNodes: () => void;
   
   // Recovery and utility methods
   checkForStuckTransitions: () => boolean;
@@ -429,6 +430,30 @@ export const useGameStateMachine = create<GameStateMachineState>((set, get) => {
       });
     },
     
+    /**
+     * Refresh available nodes
+     * Forces an update of available node information
+     */
+    refreshAvailableNodes: (): void => {
+      // No need to modify state, just emit event to trigger listeners
+      try {
+        const completedNodeIds = get().completedNodeIds;
+        console.log(`[GameStateMachine] Refreshing node availability, ${completedNodeIds.length} completed nodes`);
+        
+        // Emit map refresh event
+        safeDispatch(
+          GameEventType.NODE_UNLOCKED, 
+          { 
+            completedNodeIds: [...completedNodeIds],
+            timestamp: Date.now()
+          }, 
+          'gameStateMachine.refreshAvailableNodes'
+        );
+      } catch (e) {
+        console.error('[GameStateMachine] Error refreshing available nodes:', e);
+      }
+    },
+    
     // ============================
     // RECOVERY AND UTILITY METHODS
     // ============================
@@ -680,6 +705,10 @@ export class GameStateMachine {
   
   markNodeCompleted(nodeId: string): void {
     useGameStateMachine.getState().markNodeCompleted(nodeId);
+  }
+  
+  refreshAvailableNodes(): void {
+    useGameStateMachine.getState().refreshAvailableNodes();
   }
   
   resetState(preserveMeta: boolean = false): void {
