@@ -32,6 +32,7 @@ const DEBUG_LOGGING = process.env.NODE_ENV !== 'production';
 // ======== TYPE DEFINITIONS ========
 
 export type ResourceType = 'insight' | 'momentum';
+export type EffectIntensity = 'low' | 'medium' | 'high';
 
 export type StrategicActionType =
   | 'tangent'
@@ -51,7 +52,7 @@ interface ActionHistoryRecord {
 
 interface ResourceEffectState {
   active: boolean;
-  intensity: 'low' | 'medium' | 'high';
+  intensity: EffectIntensity;
   startTime: number;
   duration: number;
   triggeredBy?: StrategicActionType | 'dialogue_choice' | 'system';
@@ -95,7 +96,7 @@ interface ResourceState {
   cancelAction: (actionType: StrategicActionType) => void;
   triggerEffect: (
     resourceType: ResourceType, 
-    intensity: 'low' | 'medium' | 'high', 
+    intensity: EffectIntensity, 
     source?: string, 
     duration?: number
   ) => void;
@@ -109,6 +110,28 @@ interface ResourceState {
   
   // Batch processing
   processPendingUpdates: () => void;
+}
+
+// Define Resource Changed Payload for events
+export interface ResourceChangedPayload {
+  resourceType: 'insight' | 'momentum';
+  previousValue: number;
+  newValue: number;
+  change: number;
+  source?: string;
+  consecutive?: number;
+  thresholdProximity?: Record<string, number>;
+}
+
+// ======== HELPER FUNCTIONS ========
+
+/**
+ * Get effect intensity based on the amount of change
+ */
+function getEffectIntensity(changeAmount: number): EffectIntensity {
+  if (changeAmount >= 15) return 'high';
+  if (changeAmount >= 5) return 'medium';
+  return 'low';
 }
 
 // Define initial state separately for clarity
@@ -171,97 +194,157 @@ export const useResourceStore = create<ResourceState>()(
       // ======== ACTION IMPLEMENTATIONS ========
       
       /**
-       * Update insight value with batched event dispatching
+       * Update insight value by a specific amount
        */
-      updateInsight: (amount: number, source = 'dialogue_choice') => {
-        if (amount === 0) return; // Skip no-op updates
+      updateInsight: (value: number, source: string = 'unknown') => set((state) => {
+        const currentValue = state.insight;
+        const newValue = Math.max(0, Math.min(state.insightMax, currentValue + value));
+        const actualChange = newValue - currentValue;
         
-        const { insight, insightMax } = get();
-        const newValue = Math.max(0, Math.min(insightMax, insight + amount));
-        const change = newValue - insight;
+        // If no actual change, don't trigger side effects
+        if (actualChange === 0) return state;
         
-        if (change === 0) return; // Skip no-op changes
+        // Dispatch event to allow other systems to respond
+        const eventPayload: ResourceChangedPayload = {
+          resourceType: 'insight',
+          previousValue: currentValue,
+          newValue,
+          change: actualChange,
+          source
+        };
         
-        // Update state atomically
-        set((state: ResourceState) => {
-          // Update insight value
-          state.insight = newValue;
-          
-          // Set effect state if change is significant
-          if (Math.abs(change) >= 2) {
-            let intensity: 'low' | 'medium' | 'high' = 'low';
-            if (Math.abs(change) >= 15) intensity = 'high';
-            else if (Math.abs(change) >= 5) intensity = 'medium';
-            
-            state.insightEffect = {
-              active: true, 
-              intensity, 
-              startTime: Date.now(),
-              duration: Math.abs(change) >= 15 ? 3000 : 2000,
-              triggeredBy: source as any
-            };
-          }
-          
-          // Mark updates as pending and store last change
-          state.pendingResourceUpdates = true;
-          state.lastResourceChange = {
-            type: 'insight',
-            amount: change,
-            timestamp: Date.now()
-          };
-          
-          // Update threshold proximity and available actions
-          updateThresholdProximity(state);
-          updateAvailableActions(state);
-        });
+        if (DEBUG_LOGGING) {
+          console.log(`[ResourceStore] Insight ${actualChange > 0 ? 'gained' : 'lost'}: ${Math.abs(actualChange)} (new: ${newValue})`);
+        }
         
-        // Schedule batch update processing
-        scheduleBatchUpdate();
-      },
+        // Dispatch appropriate event based on gain or loss
+        if (actualChange > 0) {
+          safeDispatch(GameEventType.INSIGHT_GAINED, eventPayload, 'resourceStore');
+        } else {
+          safeDispatch(GameEventType.INSIGHT_SPENT, eventPayload, 'resourceStore');
+        }
+        
+        // Change effect intensity based on amount value
+        // Only trigger effect if change is significant
+        if (Math.abs(actualChange) >= 3) {
+          const intensity = getEffectIntensity(Math.abs(actualChange));
+          get().triggerEffect('insight', intensity, source);
+        }
+        
+        // Update last resource change for feedback
+        state.lastResourceChange = {
+          type: 'insight',
+          amount: actualChange,
+          timestamp: Date.now()
+        };
+        
+        // Set the new insight value
+        state.insight = newValue;
+        
+        // Calculate threshold proximity
+        updateThresholdProximity(state);
+        
+        // Update available actions
+        updateAvailableActions(state);
+        
+        // Mark updates as pending for potential batch processing
+        state.pendingResourceUpdates = true;
+        
+        return state;
+      }),
       
       /**
-       * Set momentum level with batched event dispatching
+       * Set momentum to a specific value
        */
-      setMomentum: (level: number, consecutive?: number) => {
-        const newLevel = Math.max(0, Math.min(MAX_MOMENTUM_LEVEL, level));
-        const currentLevel = get().momentum;
-        const currentConsecutive = get().consecutiveCorrect;
-        const newConsecutive = consecutive !== undefined ? consecutive : currentConsecutive;
+      setMomentum: (value: number, consecutive: number | null = null) => set((state) => {
+        // Clamp to valid range
+        const validValue = Math.max(0, Math.min(MAX_MOMENTUM_LEVEL, value));
+        // Only proceed if there's a change
+        if (validValue === state.momentum) return state;
         
-        // Skip no-op updates
-        if (newLevel === currentLevel && newConsecutive === currentConsecutive) return;
+        const previousValue = state.momentum;
+        const changeAmount = validValue - previousValue;
+        const changeType = changeAmount > 0 ? 'gain' : 'loss';
+        const consecValue = consecutive !== null ? consecutive : 
+          (changeAmount > 0 ? state.consecutiveCorrect + 1 : 0);
         
-        // Update state atomically
-        set((state: ResourceState) => {
-          state.momentum = newLevel;
-          state.consecutiveCorrect = newConsecutive;
+        // Set new values
+        state.momentum = validValue;
+        state.consecutiveCorrect = consecValue;
+        
+        // Update available actions
+        updateAvailableActions(state);
+        
+        // Update last resource change for feedback
+        state.lastResourceChange = {
+          type: 'momentum',
+          amount: Math.abs(changeAmount),
+          timestamp: Date.now()
+        };
+        
+        // Trigger appropriate effect
+        let effectIntensity: EffectIntensity = 'low';
+        
+        // Determine effect intensity based on momentum level and change
+        if (validValue === 0 && previousValue > 0) {
+          // Reset case - most intense
+          effectIntensity = previousValue >= 2 ? 'high' : 'medium';
+          get().triggerEffect('momentum', effectIntensity, 'momentum_reset');
           
-          // Set effect if momentum level changed
-          if (newLevel !== currentLevel) {
-            state.momentumEffect = {
-              active: true,
-              intensity: newLevel > currentLevel ? 'medium' : 'high',
-              startTime: Date.now(),
-              duration: newLevel === MAX_MOMENTUM_LEVEL ? 3000 : 2000,
-              triggeredBy: newLevel > currentLevel ? 'dialogue_choice' : 'system'
-            };
+          // Dispatch reset event
+          safeDispatch(
+            GameEventType.MOMENTUM_RESET,
+            {
+              resourceType: 'momentum',
+              previousValue,
+              newValue: 0,
+              change: -previousValue,
+              consecutive: 0
+            },
+            'resourceStore'
+          );
+          
+          if (DEBUG_LOGGING) {
+            console.log(`[ResourceStore] Momentum RESET from ${previousValue} to 0`);
           }
+        } else if (changeAmount > 0) {
+          // Gain case
+          effectIntensity = validValue === MAX_MOMENTUM_LEVEL ? 'high' : 'medium';
+          get().triggerEffect('momentum', effectIntensity, 'momentum_gain');
           
-          // Mark updates as pending and store last change
-          state.pendingResourceUpdates = true;
-          state.lastResourceChange = {
-            type: 'momentum',
-            amount: newLevel - currentLevel,
-            timestamp: Date.now()
-          };
+          // Dispatch increase event
+          safeDispatch(
+            GameEventType.MOMENTUM_INCREASED,
+            {
+              resourceType: 'momentum',
+              previousValue,
+              newValue: validValue,
+              change: changeAmount,
+              consecutive: consecValue
+            },
+            'resourceStore'
+          );
           
-          // Update available actions
-          updateAvailableActions(state);
-        });
+          if (DEBUG_LOGGING) {
+            console.log(`[ResourceStore] Momentum increased from ${previousValue} to ${validValue}`);
+          }
+        }
         
-        // Schedule batch update processing
-        scheduleBatchUpdate();
-      },
+        // Check for strategic action unlock
+        if (validValue === MAX_MOMENTUM_LEVEL && previousValue < MAX_MOMENTUM_LEVEL) {
+          // Dispatch action available event for boast
+          safeDispatch(
+            GameEventType.STRATEGIC_ACTION_AVAILABLE,
+            {
+              actionType: 'boast',
+              resourceType: 'momentum'
+            },
+            'resourceStore'
+          );
+        }
+        
+        return state;
+      }),
       
       /**
        * Increment momentum (convenience method)
@@ -471,8 +554,12 @@ export const useResourceStore = create<ResourceState>()(
         
         // Dispatch cancel event immediately (no batching for actions)
         safeDispatch(
-          GameEventType.STRATEGIC_ACTION_CANCELLED,
-          { actionType, insightRefunded: insightCost > 0 ? insightCost : undefined },
+          GameEventType.STRATEGIC_ACTION_FAILED,
+          { 
+            actionType, 
+            insightRefunded: insightCost > 0 ? insightCost : undefined,
+            reason: 'cancelled_by_user'
+          },
           'resourceStore.cancelAction'
         );
       },
@@ -482,7 +569,7 @@ export const useResourceStore = create<ResourceState>()(
        */
       triggerEffect: (
         resourceType: ResourceType, 
-        intensity: 'low' | 'medium' | 'high' = 'medium', 
+        intensity: EffectIntensity, 
         source: string = 'system', 
         duration: number = 2000 
       ) => {
@@ -824,6 +911,20 @@ export const selectors = {
     };
   }
 };
+
+// Extend the Window interface for our debug tool
+declare global {
+  interface Window {
+    __RESOURCE_STORE_DEBUG__?: {
+      getState: () => ResourceState;
+      resetResources: () => void;
+      simulateInsightGain: (amount: number) => void;
+      simulateMomentumChange: (level: number) => void;
+      forceProcessUpdates: () => void;
+      triggerEffect: (resourceType: ResourceType, intensity: EffectIntensity) => void;
+    };
+  }
+}
 
 // ======== DEBUG UTILITIES ========
 

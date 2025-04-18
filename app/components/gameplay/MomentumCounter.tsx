@@ -1,9 +1,11 @@
 // app/components/gameplay/MomentumCounter.tsx
 'use client';
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useResourceStore } from '../../store/resourceStore';
 import { usePrimitiveStoreValue } from '../../core/utils/storeHooks';
+import { useEventSubscription } from '../../core/events/CentralEventBus';
+import { GameEventType, MomentumEffectPayload } from '../../core/events/EventTypes';
 
 interface MomentumCounterProps {
   showLabel?: boolean;
@@ -22,6 +24,8 @@ interface MomentumCounterProps {
  * - Primitive value extraction 
  * - CSS-driven animations
  * - DOM manipulation with refs
+ * 
+ * Updated to work with the Resource Tier System
  */
 export default function MomentumCounter({
   showLabel = true,
@@ -56,15 +60,152 @@ export default function MomentumCounter({
   const previousMomentumRef = useRef(momentum);
   const timeoutRefs = useRef<NodeJS.Timeout[]>([]);
   
+  // Force re-render on momentum changes
+  const [forceUpdate, setForceUpdate] = useState(0);
+  
+  // Cleanup function to clear all timeout references
+  const clearAllTimeouts = useCallback(() => {
+    timeoutRefs.current.forEach(clearTimeout);
+    timeoutRefs.current = [];
+  }, []);
+  
+  // Listen for momentum effect events from resource tier system
+  useEventSubscription<MomentumEffectPayload>(
+    GameEventType.MOMENTUM_EFFECT,
+    (event) => {
+      if (!event.payload) return;
+      
+      const effectType = event.payload.effect;
+      const intensity = event.payload.intensity || 'medium';
+      
+      console.log(`[MomentumCounter] Received momentum effect: ${effectType}, intensity: ${intensity}`);
+      
+      // Force component to update
+      setForceUpdate(prev => prev + 1);
+      
+      // Clear existing timeouts for clean animation
+      clearAllTimeouts();
+      
+      // Apply appropriate animation based on effect type
+      if (containerRef.current) {
+        if (effectType === 'increment') {
+          // Show increment effects
+          const pips = containerRef.current.querySelectorAll('.momentum-pip');
+          
+          // Pulse all filled pips
+          containerRef.current.querySelectorAll('.momentum-pip-filled').forEach(pip => {
+            pip.classList.add('momentum-pip-pulse');
+            
+            const clearTimer = setTimeout(() => {
+              pip.classList.remove('momentum-pip-pulse');
+            }, intensity === 'high' ? 1600 : 800);
+            timeoutRefs.current.push(clearTimer);
+          });
+          
+          // Add special effect for newest pip
+          if (momentum > 0) {
+            const gainedPip = pips[momentum - 1];
+            if (gainedPip) {
+              gainedPip.classList.add('momentum-pip-gained');
+              
+              const clearTimer = setTimeout(() => {
+                gainedPip.classList.remove('momentum-pip-gained');
+              }, 500);
+              timeoutRefs.current.push(clearTimer);
+            }
+          }
+        } else if (effectType === 'reset') {
+          // Show reset effects
+          containerRef.current.classList.add('momentum-reset-effect');
+          
+          // Create momentum break overlay
+          const overlay = document.createElement('div');
+          overlay.className = 'momentum-break-overlay';
+          overlay.innerHTML = '<div class="momentum-break-text">MOMENTUM BROKEN!</div>';
+          document.body.appendChild(overlay);
+          
+          const clearTimer = setTimeout(() => {
+            containerRef.current?.classList.remove('momentum-reset-effect');
+            if (document.body.contains(overlay)) {
+              document.body.removeChild(overlay);
+            }
+          }, 800);
+          timeoutRefs.current.push(clearTimer);
+        }
+      }
+    },
+    [momentum, clearAllTimeouts]
+  );
+  
+  // Also subscribe to momentum increased event directly for immediate visual feedback
+  useEventSubscription(
+    GameEventType.MOMENTUM_INCREASED,
+    (event) => {
+      if (!event.payload) return;
+      
+      console.log("[MomentumCounter] MOMENTUM_INCREASED event received:", event.payload);
+      
+      // Force update visual state
+      setForceUpdate(prev => prev + 1);
+      
+      // Clear existing animations
+      clearAllTimeouts();
+      
+      // Apply animations directly on blips
+      if (containerRef.current) {
+        setTimeout(() => {
+          const pips = containerRef.current?.querySelectorAll('.momentum-pip');
+          const newLevel = event.payload.newValue;
+          
+          // Find the newly increased pip
+          if (pips && newLevel > 0 && newLevel <= pips.length) {
+            const newPip = pips[newLevel - 1] as HTMLElement;
+            if (newPip) {
+              newPip.classList.add('momentum-pip-gained');
+              
+              const clearTimer = setTimeout(() => {
+                newPip.classList.remove('momentum-pip-gained');
+              }, 500);
+              timeoutRefs.current.push(clearTimer);
+            }
+          }
+        }, 0);
+      }
+    },
+    [clearAllTimeouts]
+  );
+  
+  // Also subscribe to momentum reset event directly for immediate visual feedback
+  useEventSubscription(
+    GameEventType.MOMENTUM_RESET,
+    () => {
+      console.log("[MomentumCounter] MOMENTUM_RESET event received");
+      
+      // Force update visual state
+      setForceUpdate(prev => prev + 1);
+      
+      // Apply reset animation
+      if (containerRef.current) {
+        containerRef.current.classList.add('momentum-reset-effect');
+        
+        const clearTimer = setTimeout(() => {
+          containerRef.current?.classList.remove('momentum-reset-effect');
+        }, 800);
+        timeoutRefs.current.push(clearTimer);
+      }
+    },
+    [clearAllTimeouts]
+  );
+  
   // PATTERN: Detect momentum changes via refs and effects
   useEffect(() => {
     const prevMomentum = previousMomentumRef.current;
     
     // Clear existing timeouts
-    timeoutRefs.current.forEach(clearTimeout);
-    timeoutRefs.current = [];
+    clearAllTimeouts();
     
     if (momentum !== prevMomentum) {
+      console.log(`[MomentumCounter] Momentum changed from ${prevMomentum} to ${momentum}`);
       const momentumChange = momentum > prevMomentum ? 'gain' : 'loss';
       
       // Apply appropriate animation classes
@@ -72,7 +213,7 @@ export default function MomentumCounter({
         containerRef.current.setAttribute('data-momentum-change', momentumChange);
         
         // Get all momentum pips
-        const pips = document.querySelectorAll('.momentum-pip');
+        const pips = containerRef.current.querySelectorAll('.momentum-pip');
         
         if (momentumChange === 'gain') {
           // Animate the newly gained pip
@@ -96,17 +237,6 @@ export default function MomentumCounter({
             }, 500);
             timeoutRefs.current.push(clearTimer);
           }
-          
-          // Show momentum break overlay
-          const overlay = document.createElement('div');
-          overlay.className = 'momentum-break-overlay';
-          overlay.innerHTML = '<div class="momentum-break-text">MOMENTUM BROKEN!</div>';
-          document.body.appendChild(overlay);
-          
-          const clearOverlay = setTimeout(() => {
-            document.body.removeChild(overlay);
-          }, 800);
-          timeoutRefs.current.push(clearOverlay);
         }
         
         // Reset change attribute after animation
@@ -123,42 +253,44 @@ export default function MomentumCounter({
     previousMomentumRef.current = momentum;
     
     // Cleanup
-    return () => {
-      timeoutRefs.current.forEach(clearTimeout);
-      timeoutRefs.current = [];
-    };
-  }, [momentum]);
+    return clearAllTimeouts;
+  }, [momentum, clearAllTimeouts]);
   
   // PATTERN: Handle effect animations with DOM manipulation
   useEffect(() => {
     if (momentumEffect) {
       // Add pulse effect to all filled pips
-      document.querySelectorAll('.momentum-pip-filled').forEach(pip => {
-        pip.classList.add('momentum-pip-pulse');
-        
-        const clearTimer = setTimeout(() => {
-          pip.classList.remove('momentum-pip-pulse');
-        }, effectIntensity === 'high' ? 1600 : 800);
-        timeoutRefs.current.push(clearTimer);
-      });
+      if (containerRef.current) {
+        const filledPips = containerRef.current.querySelectorAll('.momentum-pip-filled');
+        filledPips.forEach(pip => {
+          pip.classList.add('momentum-pip-pulse');
+          
+          const clearTimer = setTimeout(() => {
+            pip.classList.remove('momentum-pip-pulse');
+          }, effectIntensity === 'high' ? 1600 : 800);
+          timeoutRefs.current.push(clearTimer);
+        });
+      }
     }
     
-    return () => {
-      timeoutRefs.current.forEach(clearTimeout);
-      timeoutRefs.current = [];
-    };
-  }, [momentumEffect, effectIntensity]);
+    return clearAllTimeouts;
+  }, [momentumEffect, effectIntensity, clearAllTimeouts]);
+  
+  // Clean up any timeouts when component unmounts
+  useEffect(() => {
+    return clearAllTimeouts;
+  }, [clearAllTimeouts]);
   
   // PATTERN: Create momentum pips array once per render
   const momentumPips = useMemo(() => 
     Array.from({ length: maxMomentum }, (_, i) => i < momentum),
-  [momentum, maxMomentum]);
+  [momentum, maxMomentum, forceUpdate]); // Add forceUpdate to ensure re-calculation
   
   // PATTERN: Calculate progress to next level once per render
   const progressToNextLevel = useMemo(() => {
     const nextLevelThreshold = momentum < maxMomentum ? (momentum + 1) * 2 : Infinity;
     return momentum < maxMomentum ? (consecutiveCorrect % 2) / 2 : 0; // 0 or 0.5
-  }, [momentum, maxMomentum, consecutiveCorrect]);
+  }, [momentum, maxMomentum, consecutiveCorrect, forceUpdate]); // Add forceUpdate
   
   // PATTERN: Memoize color generation function
   const getMomentumColor = useMemo(() => (level: number) => {
@@ -169,7 +301,7 @@ export default function MomentumCounter({
   }, []);
   
   return (
-    <div className={`${className} relative`} ref={containerRef}>
+    <div className={`${className} relative momentum-counter`} ref={containerRef} data-testid="momentum-counter">
       <div className="flex items-center justify-between mb-1">
         {showLabel && (
           <div className={`font-pixel ${compact ? 'text-sm' : 'text-base'} text-orange-300`}>
@@ -219,6 +351,7 @@ export default function MomentumCounter({
               style={{
                 boxShadow: filled ? `0 0 8px ${colors.pulse}` : 'none',
               }}
+              data-level={index + 1}
             >
               {/* Inner texture for filled pips */}
               {filled && (

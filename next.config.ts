@@ -10,6 +10,13 @@ const nextConfig = {
     pagesBufferLength: 5,
   },
   
+  // Configure Next.js Image Optimization
+  images: {
+    domains: [],
+    remotePatterns: [],
+    unoptimized: true, // Disable image optimization to ensure exact dimensions are preserved
+  },
+  
   // Make webpack more verbose for debugging and more stable
   webpack: (config, { dev, isServer }) => {
     if (dev) {
@@ -31,6 +38,15 @@ const nextConfig = {
       };
     }
     return config;
+  },
+  
+  // Configure Turbopack
+  experimental: {
+    turbo: {
+      rules: {
+        // Add Turbopack-specific rules as needed
+      },
+    },
   },
   
   // Improve caching and reduce rebuilds

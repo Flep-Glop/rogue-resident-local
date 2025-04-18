@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import MentorReaction, { ReactionType } from './MentorReaction';
 import { CharacterId, getCharacterData } from '@/app/data/characters';
 import { DialogueMode } from './dialogue/DialogueContainer';
@@ -49,9 +49,17 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
   const [isShaking, setIsShaking] = useState(shake);
   const [isOscillating, setIsOscillating] = useState(oscillate);
   
+  // Track initial load to prevent reaction at startup
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
   // Clear timers on unmount
   useEffect(() => {
     isMountedRef.current = true;
+    
+    // Mark initial load complete after a short delay
+    const initialLoadTimer = setTimeout(() => {
+      setIsInitialLoad(false);
+    }, 100);
     
     return () => {
       isMountedRef.current = false;
@@ -59,6 +67,7 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
       Object.values(animationTimers.current).forEach(timer => {
         if (timer) clearTimeout(timer);
       });
+      clearTimeout(initialLoadTimer);
     };
   }, []);
   
@@ -89,6 +98,70 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
     setIsOscillating(oscillate);
   }, [oscillate]);
   
+  // Get facial expression based on reaction
+  const getFaceImage = () => {
+    if (characterId !== 'kapoor') return characterData.sprite;
+    
+    switch (reaction) {
+      case 'positive':
+        return '/characters/kapoor-happy.png';
+      case 'negative':
+        return '/characters/kapoor-angry.png';
+      case 'question':
+        return '/characters/kapoor-focus.png';
+      case 'surprise':
+        return '/characters/kapoor-surprise.png';
+      case 'thinking':
+        return '/characters/kapoor-talk-2.png';
+      case 'idea':
+        return '/characters/kapoor-joyous.png';
+      default:
+        return characterData.sprite;
+    }
+  };
+  
+  // Get hand gesture based on reaction
+  const getHandGesture = () => {
+    if (characterId !== 'kapoor' || !reaction) return null;
+    
+    switch (reaction) {
+      case 'positive':
+        return '/characters/kapoor-hand-right-palm.png';
+      case 'negative':
+        return '/characters/kapoor-hand-left-palm.png';
+      case 'question':
+        return '/characters/kapoor-hand-right-point.png';
+      case 'surprise':
+        return '/characters/kapoor-hand-both-palm.png';
+      case 'thinking':
+        return '/characters/kapoor-hand-left-point.png';
+      case 'idea':
+        return null;
+      default:
+        return null;
+    }
+  };
+  
+  // Get hand position based on reaction type
+  const getHandPosition = () => {
+    switch (reaction) {
+      case 'positive':
+        return { bottom: '0px', right: '0px' };
+      case 'negative':
+        return { bottom: '0px', left: '0px' };
+      case 'question':
+        return { bottom: '0px', right: '0px' };
+      case 'surprise':
+        return { bottom: '0px', left: '25%' };
+      case 'thinking':
+        return { bottom: '0px', left: '0px' };
+      case 'idea':
+        return { bottom: '0px', left: '25%' };
+      default:
+        return { bottom: '0px', right: '0px' };
+    }
+  };
+  
   // Size variants for the portrait
   const sizeClasses = {
     sm: 'w-24 h-24',
@@ -117,7 +190,7 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
       {/* Mentor reaction indicator - Positioned as a sibling outside the portrait container */}
       <div className="absolute w-full" style={{ right: '-1.5rem', top: '-2rem', zIndex: 100 }}>
         <MentorReaction 
-          reaction={reaction} 
+          reaction={isInitialLoad ? null : reaction} 
           color={characterData.primaryColor}
         />
       </div>
@@ -125,7 +198,7 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
       {/* Portrait container */}
       <motion.div
         ref={portraitRef}
-        className={`relative ${sizeClasses[size]} overflow-hidden ${characterData.bgClass} ${getModeClasses()}`}
+        className={`relative ${sizeClasses[size]} overflow-visible ${characterData.bgClass} ${getModeClasses()}`}
         animate={{
           y: isOscillating ? [0, -5, 0] : 0,
         }}
@@ -147,10 +220,10 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
       >
         {/* Character image */}
         <div 
-          className={`w-full h-full relative ${isShaking ? 'character-shake' : ''}`}
+          className={`w-full h-full relative overflow-hidden ${isShaking ? 'character-shake' : ''}`}
         >
           <Image
-            src={characterData.sprite}
+            src={getFaceImage()}
             alt={characterData.name}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -158,6 +231,37 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
             className="pixel-art"
           />
         </div>
+        
+        {/* Hand gesture overlay */}
+        <AnimatePresence>
+          {getHandGesture() && reaction && (
+            <motion.div
+              className="absolute pointer-events-none"
+              style={{
+                ...getHandPosition(),
+                zIndex: 20
+              }}
+              initial={{ opacity: 0, y: 20, scale: 0.7 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.7 }}
+              transition={{
+                type: 'spring',
+                stiffness: 300,
+                damping: 20,
+                delay: 0.1
+              }}
+            >
+              <Image
+                src={getHandGesture() || ''}
+                alt="hand gesture"
+                width={180}
+                height={180}
+                className="pixel-art"
+                priority
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
       
       {/* Character title if requested */}

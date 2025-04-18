@@ -2,12 +2,13 @@
 ├── README.md
 ├── app
 │   ├── components
+│   │   ├── CharacterPortrait.tsx
 │   │   ├── DayNightTransition.tsx
 │   │   ├── FontPreLoader.tsx
 │   │   ├── GameContainer.tsx
 │   │   ├── HillHomeScene.tsx
+│   │   ├── MentorReaction.tsx
 │   │   ├── PixelThemeProvider.tsx
-│   │   ├── PlayerStats.tsx
 │   │   ├── ResidentPortrait.tsx
 │   │   ├── challenges
 │   │   │   ├── ChallengeRouter.tsx
@@ -22,21 +23,32 @@
 │   │   │   ├── PerformanceDashboard.tsx
 │   │   │   ├── UnifiedDebugPanel.tsx
 │   │   │   └── VerticalSliceDebugPanel.tsx
+│   │   ├── dialogue
+│   │   │   ├── DialogueContainer.tsx
+│   │   │   └── DialogueModeExample.tsx
 │   │   ├── extensions
+│   │   │   ├── ChallengeCeremony.tsx
 │   │   │   ├── ExtensionRenderer.tsx
 │   │   │   ├── VisualExtender.tsx
 │   │   │   ├── content
 │   │   │   │   ├── anatomical.ts
 │   │   │   │   ├── calculations.ts
 │   │   │   │   ├── equipment.ts
-│   │   │   │   └── extensionContentRegistry.ts
+│   │   │   │   ├── errors.ts
+│   │   │   │   ├── extensionContentRegistry.ts
+│   │   │   │   └── measurements.ts
 │   │   │   ├── types
 │   │   │   │   ├── AnatomicalIdentification.tsx
 │   │   │   │   ├── CalculationInterface.tsx
+│   │   │   │   ├── DosimetricPatternRecognition.tsx
 │   │   │   │   ├── EquipmentIdentification.tsx
-│   │   │   │   └── MeasurementReading.tsx
-│   │   │   └── ui
-│   │   │       └── ErrorDisplay.tsx
+│   │   │   │   ├── ErrorIdentification.tsx
+│   │   │   │   ├── MeasurementReading.tsx
+│   │   │   │   └── TreatmentPlanOptimization.tsx
+│   │   │   ├── ui
+│   │   │   │   └── ErrorDisplay.tsx
+│   │   │   └── unified
+│   │   │       └── UnifiedExtensionContainer.tsx
 │   │   ├── gameplay
 │   │   │   ├── InsightMeter.tsx
 │   │   │   ├── MomentumCounter.tsx
@@ -65,18 +77,22 @@
 │   │   │       ├── JournalOverlay.tsx
 │   │   │       ├── SPMeter.tsx
 │   │   │       └── SelectedNodePanel.tsx
-│   │   └── map
-│   │       └── SimplifiedKapoorMap.tsx
+│   │   ├── map
+│   │   │   └── SimplifiedKapoorMap.tsx
+│   │   └── tools
+│   │       └── DialogueNodeSelector.tsx
 │   ├── core
 │   │   ├── dialogue
 │   │   │   ├── ActionIntegration.ts
+│   │   │   ├── DialogueModeHelper.ts
 │   │   │   ├── DialogueStateMachine.ts
 │   │   │   └── NarrativeTransaction.ts
 │   │   ├── events
 │   │   │   ├── CentralEventBus.ts
 │   │   │   ├── EventSubscriptionHooks.ts
 │   │   │   ├── EventTypes.ts
-│   │   │   └── JournalEventHandler.ts
+│   │   │   ├── JournalEventHandler.ts
+│   │   │   └── NodeCompletionHandler.ts
 │   │   ├── init.ts
 │   │   ├── progression
 │   │   │   └── ProgressionResolver.ts
@@ -95,11 +111,17 @@
 │   │   ├── characters.ts
 │   │   ├── concepts
 │   │   │   └── medicalPhysicsConcepts.ts
+│   │   ├── dialogueRegistry.ts
 │   │   ├── dialogues
-│   │   │   └── calibrations
-│   │   │       ├── kapoor-calibration.ts
-│   │   │       └── kapoor-second-node.ts
+│   │   │   ├── calibrations
+│   │   │   │   └── kapoor-calibration.ts
+│   │   │   ├── examples
+│   │   │   │   └── dialogue-mode-example.ts
+│   │   │   └── extensions
+│   │   │       └── example-extensions-dialogue.ts
 │   │   └── items.ts
+│   ├── dialogue-mode-demo
+│   │   └── page.tsx
 │   ├── favicon.ico
 │   ├── globals.css
 │   ├── hooks
@@ -116,10 +138,13 @@
 │   │   ├── knowledgeStore.ts
 │   │   └── resourceStore.ts
 │   ├── styles
+│   │   ├── globals.css
 │   │   └── pixel-borders.css
-│   └── types
-│       ├── game.ts
-│       └── player.ts
+│   ├── types
+│   │   ├── game.ts
+│   │   └── player.ts
+│   └── utils
+│       └── themeUtils.ts
 ├── clear-storage.js
 ├── combined_tsx.txt
 ├── components
@@ -155,4 +180,4 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-34 directories, 122 files
+41 directories, 140 files

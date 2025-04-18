@@ -95,6 +95,50 @@ const dialogueRegistry: Record<DialogueId, DialogueRegistryItem> = {
     description: 'Example dialogue demonstrating different dialogue modes',
     characterId: 'kapoor',
     tags: ['example', 'mode']
+  },
+  // Add equipment identification dialogue
+  'equipment-identification-linac': {
+    dialogueId: 'equipment-identification-linac',
+    content: [
+      {
+        id: 'equipment-identification-intro',
+        type: 'standard',
+        text: "Today, we need to identify the key components of a linear accelerator. This is essential knowledge for any medical physicist.",
+        options: [
+          {
+            id: 'ready-to-identify',
+            text: "I'm ready to identify the components.",
+            nextStageId: 'equipment-identification-challenge'
+          }
+        ]
+      },
+      {
+        id: 'equipment-identification-challenge',
+        type: 'standard',
+        text: '',
+        extension: {
+          type: 'equipment-identification',
+          contentId: 'linac_components_basic',
+          conversationText: "Let's identify the key components of a linear accelerator. Understanding the equipment is fundamental to ensuring proper treatment delivery."
+        },
+        nextStageId: 'equipment-identification-followup'
+      },
+      {
+        id: 'equipment-identification-followup',
+        type: 'standard',
+        text: "Excellent work. This knowledge is critical for quality assurance and troubleshooting. The linear accelerator is truly the workhorse of radiation oncology.",
+        options: [
+          {
+            id: 'whats-next',
+            text: "What should we focus on next?",
+            nextStageId: 'equipment-identification-followup'
+          }
+        ]
+      }
+    ],
+    description: 'Equipment identification dialogue for linear accelerator components',
+    characterId: 'kapoor',
+    tags: ['equipment', 'identification', 'linac']
   }
   // Add more dialogue entries here
 };
@@ -125,6 +169,12 @@ const nodeToDialogueMap: NodeDialogueMapping[] = [
     nodeId: 'dialogue-mode-demo',
     dialogueId: 'dialogue-mode-example',
     description: 'Demo node for dialogue mode example'
+  },
+  // Add encounter_1 node mapping
+  {
+    nodeId: 'enc-1',
+    dialogueId: 'equipment-identification-linac',
+    description: 'Encounter 1 - Linear Accelerator Equipment Identification'
   }
   // Add more node mappings here
 ];

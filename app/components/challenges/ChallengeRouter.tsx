@@ -17,6 +17,7 @@ import {
   useStableCallback
 } from '@/app/core/utils/storeHooks';
 import { PixelTransition } from '@/app/components/PixelThemeProvider';
+import { useGameStateMachine } from '@/app/core/statemachine/GameStateMachine';
 
 /**
  * Challenge Router - Fully Chamber Pattern Compliant
@@ -178,62 +179,113 @@ export default function ChallengeRouter() {
           gameStore.completeNode(currentNodeId);
           console.log(`✅ Marked node ${currentNodeId} as completed`);
           
-          // Extra assurance to mark the node as completed in the game state machine
+          // Also directly update the state machine for reliability
           try {
-            if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
-              window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState().markNodeCompleted(currentNodeId);
-              console.log(`✅ Explicitly marked node ${currentNodeId} as completed in state machine`);
+            // Get the state machine directly
+            const gameStateMachine = useGameStateMachine.getState();
+            if (gameStateMachine && typeof gameStateMachine.markNodeCompleted === 'function') {
+              gameStateMachine.markNodeCompleted(currentNodeId);
+              console.log(`✅ Directly marked node ${currentNodeId} as completed in state machine`);
+              
+              // Refresh available nodes
+              if (typeof gameStateMachine.refreshAvailableNodes === 'function') {
+                gameStateMachine.refreshAvailableNodes();
+              }
             }
           } catch (err) {
             console.error('[ChallengeRouter] Error marking node completed in state machine', err);
           }
-        }
-        
-        updateLocalState({ 
-          challengeComplete: true,
-          journalAcquired: true 
-        });
-        
-        // Use a consistent character ID for dispatching the event
-        const characterForDispatch = currentCharacterId || 'kapoor';
-        console.log(`Using character "${characterForDispatch}" for journal acquisition event`);
-        
-        // Explicitly dispatch the JOURNAL_ACQUIRED event to trigger the animation
-        safeDispatch(GameEventType.JOURNAL_ACQUIRED, {
-          tier: results.journalTier,
-          character: characterForDispatch,
-          source: 'node_completion',
-          nodeId: currentNodeId
-        });
-        console.log('✅ Journal acquisition event explicitly dispatched');
-        
-        // Emit completion event to ensure other systems know
-        if (gameStore && gameStore.emit) {
-          gameStore.emit(GameEventType.CHALLENGE_COMPLETED, {
-            nodeId: currentNodeId,
-            journalTier: results.journalTier,
-            isJournalAcquisition: true
+          
+          updateLocalState({ 
+            challengeComplete: true,
+            journalAcquired: true 
           });
-          console.log('✅ Journal challenge completion event emitted');
-        }
-        
-        // Exit after a longer delay for journal acquisition
-        setTimeout(() => {
-          if (isMountedRef.current) {
-            startExitTransition();
+          
+          // Use a consistent character ID for dispatching the event
+          const characterForDispatch = currentCharacterId || 'kapoor';
+          console.log(`Using character "${characterForDispatch}" for journal acquisition event`);
+          
+          // Explicitly dispatch the JOURNAL_ACQUIRED event to trigger the animation
+          safeDispatch(GameEventType.JOURNAL_ACQUIRED, {
+            tier: results.journalTier,
+            character: characterForDispatch,
+            source: 'node_completion',
+            nodeId: currentNodeId
+          });
+          console.log('✅ Journal acquisition event explicitly dispatched');
+          
+          // CRITICAL FIX: Also dispatch a custom DOM event to ensure SimplifiedKapoorMap can catch it
+          if (typeof document !== 'undefined') {
+            const nodeCompletedEvent = new CustomEvent('node:completed', {
+              detail: { 
+                nodeId: currentNodeId,
+                result: {
+                  journalTier: results.journalTier,
+                  isJournalAcquisition: true
+                }
+              }
+            });
+            document.dispatchEvent(nodeCompletedEvent);
+            console.log('✅ Custom DOM node:completed event dispatched for map update');
           }
-        }, 6000);
-        
-        return; // Stop further processing
+          
+          // Emit completion event to ensure other systems know
+          if (gameStore && gameStore.emit) {
+            gameStore.emit(GameEventType.CHALLENGE_COMPLETED, {
+              nodeId: currentNodeId,
+              journalTier: results.journalTier,
+              isJournalAcquisition: true
+            });
+            console.log('✅ Journal challenge completion event emitted');
+          }
+          
+          // Exit after a longer delay for journal acquisition
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              startExitTransition();
+            }
+          }, 6000);
+          
+          return; // Stop further processing
+        }
       }
       
       // Mark node as completed - important for progression
       if (currentNodeId && gameStore && gameStore.completeNode) {
         gameStore.completeNode(currentNodeId);
         console.log(`✅ Marked node ${currentNodeId} as completed`);
+        
+        // Also directly update the state machine for reliability
+        try {
+          // Get the state machine directly
+          const gameStateMachine = useGameStateMachine.getState();
+          if (gameStateMachine && typeof gameStateMachine.markNodeCompleted === 'function') {
+            gameStateMachine.markNodeCompleted(currentNodeId);
+            console.log(`✅ Directly marked node ${currentNodeId} as completed in state machine`);
+            
+            // Refresh available nodes
+            if (typeof gameStateMachine.refreshAvailableNodes === 'function') {
+              gameStateMachine.refreshAvailableNodes();
+            }
+          }
+        } catch (err) {
+          console.error('[ChallengeRouter] Error marking node completed in state machine', err);
+        }
       }
       
       updateLocalState({ challengeComplete: true });
+      
+      // CRITICAL FIX: Dispatch a custom DOM event for regular node completion too
+      if (typeof document !== 'undefined') {
+        const nodeCompletedEvent = new CustomEvent('node:completed', {
+          detail: { 
+            nodeId: currentNodeId,
+            result: results
+          }
+        });
+        document.dispatchEvent(nodeCompletedEvent);
+        console.log('✅ Custom DOM node:completed event dispatched for map update');
+      }
       
       // Emit completion event to ensure other systems know
       if (gameStore && gameStore.emit) {

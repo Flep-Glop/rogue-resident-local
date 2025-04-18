@@ -1,0 +1,2818 @@
+'use client';
+
+import { useState, useRef, useCallback, useEffect } from 'react';
+import Image from 'next/image';
+import { PixelText, PixelButton, PixelBox } from '@/app/components/PixelThemeProvider';
+
+// Type for preset configuration
+interface PresetConfig {
+  downscaleWidth: number;
+  colorCount: number;
+  scaleUp: number;
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  dithering: boolean;
+  colorTint: string;
+  edgeEnhance: number;
+  posterize: number;
+  transparentBg: boolean;
+  outlineBorder: string;
+  detectionAlgorithm: string;
+  detectionThreshold: number;
+  objectSensitivity: number;
+  borderWidth: number;
+  noiseReduction: number;
+  forceClientSideProcessing: boolean;
+  applyBorderClientSide: boolean;
+  useMinimalGrid: boolean;
+  useNearestNeighbor: boolean;
+  enforceGridAlignment: boolean;
+  pixelBlockSize: number;
+  showGridOverlay: boolean;
+  gridSize: number;
+  gridColor: string;
+}
+
+interface PixelateImageProps {
+  className?: string;
+  defaultImageSrc?: string;
+}
+
+// Default settings
+const DEFAULT_SETTINGS = {
+  downscaleWidth: 60,
+  colorCount: 16,
+  scaleUp: 8,
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  dithering: false,
+  colorTint: '',
+  edgeEnhance: 0,
+  posterize: 0,
+  transparentBg: false,
+  outlineBorder: '',
+  detectionAlgorithm: 'threshold',
+  detectionThreshold: 0.5,
+  objectSensitivity: 0.5,
+  borderWidth: 1,
+  noiseReduction: 0,
+  forceClientSideProcessing: false,
+  applyBorderClientSide: false,
+  useMinimalGrid: false,
+  useNearestNeighbor: false,
+  enforceGridAlignment: false,
+  pixelBlockSize: 8,
+  showGridOverlay: false,
+  gridSize: 32,
+  gridColor: '#ffffff'
+};
+
+// Preset configurations
+const PRESETS = {
+  'rogue-equipment': {
+    downscaleWidth: 120,
+    colorCount: 24,
+    scaleUp: 6,
+    brightness: 0.05,
+    contrast: 0.4,
+    dithering: true,
+    colorTint: '',
+    edgeEnhance: 0.7,
+    saturation: 0.2,
+    posterize: 0,
+    transparentBg: true,
+    outlineBorder: '#FF0000',
+    detectionAlgorithm: 'canny',
+    detectionThreshold: 0.6,
+    objectSensitivity: 0.7,
+    borderWidth: 2,
+    noiseReduction: 0.3,
+    forceClientSideProcessing: false,
+    applyBorderClientSide: true,
+    useNearestNeighbor: false,
+    enforceGridAlignment: false
+  },
+  'true-pixel-art': {
+    downscaleWidth: 64,
+    colorCount: 16,
+    scaleUp: 12,
+    brightness: 0.1,
+    contrast: 0.3,
+    saturation: 0.2,
+    dithering: false,
+    colorTint: '',
+    edgeEnhance: 0.3,
+    posterize: 0,
+    transparentBg: false,
+    outlineBorder: '',
+    detectionAlgorithm: 'threshold',
+    detectionThreshold: 0.5,
+    objectSensitivity: 0.5,
+    borderWidth: 1,
+    noiseReduction: 0,
+    forceClientSideProcessing: true,
+    applyBorderClientSide: true,
+    useNearestNeighbor: true,
+    enforceGridAlignment: true,
+    useMinimalGrid: false,
+    pixelBlockSize: 10
+  }
+};
+
+// Detection algorithm options
+const DETECTION_ALGORITHMS = [
+  { value: 'threshold', label: 'Simple Threshold' },
+  { value: 'adaptive', label: 'Adaptive Threshold' },
+  { value: 'canny', label: 'Canny Edge Detection' },
+  { value: 'grabcut', label: 'GrabCut Segmentation' },
+  { value: 'watershed', label: 'Watershed Algorithm' }
+];
+
+export default function PixelateImage({ className = '', defaultImageSrc }: PixelateImageProps) {
+  // Image state
+  const [originalImage, setOriginalImage] = useState<string | null>(defaultImageSrc || null);
+  const [pixelatedImage, setPixelatedImage] = useState<string | null>(null);
+  const [originalPixelatedImage, setOriginalPixelatedImage] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Original image dimensions
+  const [originalDimensions, setOriginalDimensions] = useState<{width: number, height: number} | null>(null);
+  const [targetDimensions, setTargetDimensions] = useState<{width: number, height: number} | null>(null);
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'basic' | 'advanced' | 'creative' | 'presets' | 'palette'>('basic');
+  
+  // Color palette
+  const [colorPalette, setColorPalette] = useState<string[]>([]);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  
+  // Basic parameters
+  const [downscaleWidth, setDownscaleWidth] = useState<number>(DEFAULT_SETTINGS.downscaleWidth);
+  const [colorCount, setColorCount] = useState<number>(DEFAULT_SETTINGS.colorCount);
+  const [scaleUp, setScaleUp] = useState<number>(DEFAULT_SETTINGS.scaleUp);
+  
+  // Advanced parameters
+  const [brightness, setBrightness] = useState<number>(DEFAULT_SETTINGS.brightness);
+  const [contrast, setContrast] = useState<number>(DEFAULT_SETTINGS.contrast);
+  const [saturation, setSaturation] = useState<number>(DEFAULT_SETTINGS.saturation);
+  const [dithering, setDithering] = useState<boolean>(DEFAULT_SETTINGS.dithering);
+  
+  // Creative parameters
+  const [colorTint, setColorTint] = useState<string>(DEFAULT_SETTINGS.colorTint);
+  const [edgeEnhance, setEdgeEnhance] = useState<number>(DEFAULT_SETTINGS.edgeEnhance);
+  const [posterize, setPosterize] = useState<number>(DEFAULT_SETTINGS.posterize);
+  
+  // New parameters for object detection and transparency
+  const [transparentBg, setTransparentBg] = useState<boolean>(DEFAULT_SETTINGS.transparentBg);
+  const [outlineBorder, setOutlineBorder] = useState<string>(DEFAULT_SETTINGS.outlineBorder);
+  const [detectionAlgorithm, setDetectionAlgorithm] = useState<string>(DEFAULT_SETTINGS.detectionAlgorithm);
+  const [detectionThreshold, setDetectionThreshold] = useState<number>(DEFAULT_SETTINGS.detectionThreshold);
+  const [objectSensitivity, setObjectSensitivity] = useState<number>(DEFAULT_SETTINGS.objectSensitivity);
+  const [borderWidth, setBorderWidth] = useState<number>(DEFAULT_SETTINGS.borderWidth);
+  const [noiseReduction, setNoiseReduction] = useState<number>(DEFAULT_SETTINGS.noiseReduction);
+  const [forceClientSideProcessing, setForceClientSideProcessing] = useState<boolean>(DEFAULT_SETTINGS.forceClientSideProcessing);
+  const [applyBorderClientSide, setApplyBorderClientSide] = useState<boolean>(DEFAULT_SETTINGS.applyBorderClientSide);
+  
+  // New parameters for true pixel grid
+  const [useNearestNeighbor, setUseNearestNeighbor] = useState<boolean>(DEFAULT_SETTINGS.useNearestNeighbor);
+  const [enforceGridAlignment, setEnforceGridAlignment] = useState<boolean>(DEFAULT_SETTINGS.enforceGridAlignment);
+  
+  // Min grid optimization
+  const [useMinimalGrid, setUseMinimalGrid] = useState<boolean>(DEFAULT_SETTINGS.useMinimalGrid);
+  const [optimalGridFound, setOptimalGridFound] = useState<boolean>(false);
+  const [analyzingGrid, setAnalyzingGrid] = useState<boolean>(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Create a ref to store tracked URL information without revoking until component truly unmounts
+  const blobTracker = useRef<{
+    urls: { url: string; inUse: boolean }[];
+    createAndTrack: (blob: Blob) => string;
+    markUrlAsUnused: (url: string) => void;
+  }>({
+    urls: [],
+    createAndTrack: (blob: Blob) => {
+      if (!blob || !(blob instanceof Blob)) {
+        console.error('Invalid blob provided to URL creator', blob);
+        throw new Error('Invalid blob');
+      }
+      const url = URL.createObjectURL(blob);
+      // Remove any existing URLs with the same path to avoid duplicates
+      blobTracker.current.urls = blobTracker.current.urls.filter(item => item.url !== url);
+      blobTracker.current.urls.push({ url, inUse: true });
+      console.log('Tracked new blob URL:', url);
+      return url;
+    },
+    markUrlAsUnused: (url: string) => {
+      const urlRecord = blobTracker.current.urls.find(item => item.url === url);
+      if (urlRecord) {
+        urlRecord.inUse = false;
+        console.log('Marked URL as unused:', url);
+      }
+    }
+  });
+  
+  // Custom presets state
+  const [customPresets, setCustomPresets] = useState<Record<string, PresetConfig>>({});
+  const [newPresetName, setNewPresetName] = useState<string>('');
+  const [showSavePresetForm, setShowSavePresetForm] = useState<boolean>(false);
+  
+  // Pixel appearance control
+  const [pixelBlockSize, setPixelBlockSize] = useState<number>(DEFAULT_SETTINGS.pixelBlockSize);
+  
+  // Grid overlay controls
+  const [showGridOverlay, setShowGridOverlay] = useState<boolean>(DEFAULT_SETTINGS.showGridOverlay);
+  const [gridSize, setGridSize] = useState<number>(DEFAULT_SETTINGS.gridSize);
+  const [gridColor, setGridColor] = useState<string>(DEFAULT_SETTINGS.gridColor);
+  const [gridOpacity, setGridOpacity] = useState<number>(0.5);
+  const [previewPixelation, setPreviewPixelation] = useState<boolean>(false);
+  
+  // References for grid overlay canvas
+  const gridCanvasRef = useRef<HTMLCanvasElement>(null);
+  const originalImageRef = useRef<HTMLImageElement>(null);
+  
+  // Load custom presets from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedPresets = localStorage.getItem('pixelateCustomPresets');
+      if (savedPresets) {
+        setCustomPresets(JSON.parse(savedPresets));
+        console.log('Loaded custom presets from storage:', savedPresets);
+      }
+    } catch (e) {
+      console.error('Failed to load custom presets:', e);
+    }
+  }, []);
+  
+  // Save custom presets to localStorage when they change
+  useEffect(() => {
+    if (Object.keys(customPresets).length > 0) {
+      try {
+        localStorage.setItem('pixelateCustomPresets', JSON.stringify(customPresets));
+        console.log('Saved custom presets to storage:', customPresets);
+      } catch (e) {
+        console.error('Failed to save custom presets:', e);
+      }
+    }
+  }, [customPresets]);
+  
+  // Reset settings to default
+  const resetSettings = () => {
+    setDownscaleWidth(DEFAULT_SETTINGS.downscaleWidth);
+    setColorCount(DEFAULT_SETTINGS.colorCount);
+    setScaleUp(DEFAULT_SETTINGS.scaleUp);
+    setBrightness(DEFAULT_SETTINGS.brightness);
+    setContrast(DEFAULT_SETTINGS.contrast);
+    setSaturation(DEFAULT_SETTINGS.saturation);
+    setDithering(DEFAULT_SETTINGS.dithering);
+    setColorTint(DEFAULT_SETTINGS.colorTint);
+    setEdgeEnhance(DEFAULT_SETTINGS.edgeEnhance);
+    setPosterize(DEFAULT_SETTINGS.posterize);
+    setTransparentBg(DEFAULT_SETTINGS.transparentBg);
+    setOutlineBorder(DEFAULT_SETTINGS.outlineBorder);
+    setDetectionAlgorithm(DEFAULT_SETTINGS.detectionAlgorithm);
+    setDetectionThreshold(DEFAULT_SETTINGS.detectionThreshold);
+    setObjectSensitivity(DEFAULT_SETTINGS.objectSensitivity);
+    setBorderWidth(DEFAULT_SETTINGS.borderWidth);
+    setNoiseReduction(DEFAULT_SETTINGS.noiseReduction);
+    setForceClientSideProcessing(DEFAULT_SETTINGS.forceClientSideProcessing);
+    setApplyBorderClientSide(DEFAULT_SETTINGS.applyBorderClientSide);
+    setUseNearestNeighbor(DEFAULT_SETTINGS.useNearestNeighbor);
+    setEnforceGridAlignment(DEFAULT_SETTINGS.enforceGridAlignment);
+    setUseMinimalGrid(DEFAULT_SETTINGS.useMinimalGrid);
+    setOptimalGridFound(false);
+    setPixelBlockSize(DEFAULT_SETTINGS.pixelBlockSize);
+    setShowGridOverlay(DEFAULT_SETTINGS.showGridOverlay);
+    setGridSize(DEFAULT_SETTINGS.gridSize);
+    setGridColor(DEFAULT_SETTINGS.gridColor);
+    setGridOpacity(0.5);
+    setPreviewPixelation(false);
+  };
+  
+  // Revert to original pixelated image with default settings
+  const revertToOriginal = () => {
+    if (originalPixelatedImage) {
+      setPixelatedImage(originalPixelatedImage);
+      resetSettings();
+    }
+  };
+  
+  // Load a preset
+  const loadPreset = (presetName: keyof typeof PRESETS) => {
+    const preset = PRESETS[presetName];
+    
+    // Basic parameters
+    setDownscaleWidth(preset.downscaleWidth);
+    setColorCount(preset.colorCount);
+    setScaleUp(preset.scaleUp);
+    
+    // Advanced parameters
+    setBrightness(preset.brightness);
+    setContrast(preset.contrast);
+    setSaturation(preset.saturation);
+    setDithering(preset.dithering);
+    
+    // Creative parameters
+    setColorTint(preset.colorTint);
+    setEdgeEnhance(preset.edgeEnhance);
+    setPosterize(preset.posterize);
+    
+    // New parameters
+    setTransparentBg(preset.transparentBg || false);
+    setOutlineBorder(preset.outlineBorder || '');
+    setDetectionAlgorithm(preset.detectionAlgorithm || DEFAULT_SETTINGS.detectionAlgorithm);
+    setDetectionThreshold(preset.detectionThreshold || DEFAULT_SETTINGS.detectionThreshold);
+    setObjectSensitivity(preset.objectSensitivity || DEFAULT_SETTINGS.objectSensitivity);
+    setBorderWidth(preset.borderWidth || DEFAULT_SETTINGS.borderWidth);
+    setNoiseReduction(preset.noiseReduction || DEFAULT_SETTINGS.noiseReduction);
+    setForceClientSideProcessing(preset.forceClientSideProcessing || DEFAULT_SETTINGS.forceClientSideProcessing);
+    setApplyBorderClientSide(preset.applyBorderClientSide || DEFAULT_SETTINGS.applyBorderClientSide);
+    setUseNearestNeighbor(preset.useNearestNeighbor || DEFAULT_SETTINGS.useNearestNeighbor);
+    setEnforceGridAlignment(preset.enforceGridAlignment || DEFAULT_SETTINGS.enforceGridAlignment);
+    
+    // Process immediately if an image is already loaded
+    if (originalImage) {
+      pixelateImage();
+    }
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Reset previous state
+    setError(null);
+    setPixelatedImage(null);
+    setOriginalPixelatedImage(null);
+    resetSettings();
+    
+    // Only allow image files
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+    
+    // Create URL for the image
+    const objectUrl = URL.createObjectURL(file);
+    setOriginalImage(objectUrl);
+    
+    // Get image dimensions
+    const img = new window.Image();
+    img.onload = () => {
+      setOriginalDimensions({ width: img.width, height: img.height });
+      updateTargetDimensions(img.width, img.height, downscaleWidth);
+    };
+    img.src = objectUrl;
+  };
+  
+  // Update target dimensions whenever downscaleWidth changes
+  useEffect(() => {
+    if (originalDimensions) {
+      updateTargetDimensions(originalDimensions.width, originalDimensions.height, downscaleWidth);
+    }
+  }, [downscaleWidth, originalDimensions]);
+  
+  // Calculate target dimensions based on downscaleWidth
+  const updateTargetDimensions = (origWidth: number, origHeight: number, targetWidth: number) => {
+    const aspectRatio = origHeight / origWidth;
+    const targetHeight = Math.round(targetWidth * aspectRatio);
+    setTargetDimensions({ width: targetWidth, height: targetHeight });
+  };
+  
+  // Extract color palette from pixelated image
+  const extractColorPalette = useCallback(async (imageUrl: string) => {
+    try {
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image for palette extraction'));
+        img.src = imageUrl;
+      });
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return [];
+      
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      // Map to track unique colors
+      const colorMap = new Map<string, number>();
+      
+      // Process each pixel
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        
+        // Skip fully transparent pixels
+        if (a === 0) continue;
+        
+        // Convert to hex
+        const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        
+        // Count occurrences
+        colorMap.set(hex, (colorMap.get(hex) || 0) + 1);
+      }
+      
+      // Sort colors by frequency (most used first)
+      const sortedColors = [...colorMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(entry => entry[0]);
+      
+      setColorPalette(sortedColors);
+      
+      return sortedColors;
+    } catch (error) {
+      console.error('Error extracting palette:', error);
+      return [];
+    }
+  }, []);
+  
+  // After image is pixelated, extract color palette
+  useEffect(() => {
+    if (pixelatedImage) {
+      extractColorPalette(pixelatedImage);
+    }
+  }, [pixelatedImage, extractColorPalette]);
+  
+  const handleSelectFile = () => {
+    fileInputRef.current?.click();
+  };
+  
+  const clientSidePixelate = async (imageUrl: string, pixelSize: number): Promise<string> => {
+    try {
+      console.log('Client-side pixelation starting with image URL:', imageUrl);
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = (e) => {
+          console.error('Error loading image:', e);
+          reject(new Error('Failed to load image for pixelation'));
+        };
+        img.src = imageUrl;
+        
+        // For some browsers, if the image is already cached, onload may not fire
+        if (img.complete) {
+          resolve();
+        }
+      });
+
+      console.log('Image loaded successfully, dimensions:', img.width, 'x', img.height);
+      
+      // Create canvas elements for pixelation
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        throw new Error('Could not get canvas context');
+      }
+      
+      // Set canvas size to match original image
+      const width = img.width;
+      const height = img.height;
+      
+      // Calculate downscale dimensions
+      const downscaleWidth = Math.max(10, Math.floor(width / pixelSize));
+      const downscaleHeight = Math.max(10, Math.floor(height / pixelSize));
+      
+      // Set initial canvas size to downscaled dimensions
+      canvas.width = downscaleWidth;
+      canvas.height = downscaleHeight;
+      
+      // Draw downscaled image (this creates the pixelation effect)
+      ctx.drawImage(img, 0, 0, downscaleWidth, downscaleHeight);
+      
+      // Create second canvas for upscaling
+      const finalCanvas = document.createElement('canvas');
+      const finalCtx = finalCanvas.getContext('2d');
+      
+      if (!finalCtx) {
+        throw new Error('Could not get final canvas context');
+      }
+      
+      // Set final canvas to original dimensions
+      finalCanvas.width = width;
+      finalCanvas.height = height;
+      
+      // Disable image smoothing for the pixelated look
+      finalCtx.imageSmoothingEnabled = false;
+      
+      // Draw the small canvas to the final canvas, scaling it up
+      finalCtx.drawImage(canvas, 0, 0, width, height);
+      
+      // Convert to data URL
+      return finalCanvas.toDataURL('image/png');
+    } catch (error) {
+      console.error('Client-side pixelation failed:', error);
+      return imageUrl; // Return original image if pixelation fails
+    }
+  };
+  
+  // Apply border client-side to the pixelated image
+  const applyBorderToImage = useCallback(async (imageUrl: string, borderColor: string, width: number): Promise<string> => {
+    if (!imageUrl || !borderColor) return imageUrl;
+    
+    console.log(`Applying client-side border: ${borderColor}, width: ${width}px`);
+    
+    return new Promise<string>((resolve, reject) => {
+      try {
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          // Add extra space for the border
+          canvas.width = img.width + (width * 2);
+          canvas.height = img.height + (width * 2);
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          
+          if (!ctx) {
+            resolve(imageUrl);
+            return;
+          }
+          
+          // Fill with border color first
+          ctx.fillStyle = borderColor;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Draw the image in the center
+          ctx.drawImage(img, width, width);
+          
+          // Also attempt edge detection for better borders
+          // This uses a simple algorithm to trace edges and apply border
+          if (transparentBg) {
+            try {
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const data = imageData.data;
+              
+              // Detect edges by looking for transparent pixels next to non-transparent ones
+              for (let y = 1; y < canvas.height - 1; y++) {
+                for (let x = 1; x < canvas.width - 1; x++) {
+                  const idx = (y * canvas.width + x) * 4;
+                  
+                  // Skip fully transparent pixels
+                  if (data[idx + 3] === 0) continue;
+                  
+                  // Check neighbors for transparency (simplified edge detection)
+                  const hasTransparentNeighbor = (
+                    // Check top, right, bottom, left
+                    data[((y-1) * canvas.width + x) * 4 + 3] === 0 ||
+                    data[(y * canvas.width + (x+1)) * 4 + 3] === 0 ||
+                    data[((y+1) * canvas.width + x) * 4 + 3] === 0 ||
+                    data[(y * canvas.width + (x-1)) * 4 + 3] === 0
+                  );
+                  
+                  // If this pixel is at the edge of a transparent area, color it
+                  if (hasTransparentNeighbor) {
+                    // Parse the hex color to RGB
+                    const r = parseInt(borderColor.slice(1, 3), 16);
+                    const g = parseInt(borderColor.slice(3, 5), 16);
+                    const b = parseInt(borderColor.slice(5, 7), 16);
+                    
+                    // Apply the border color
+                    data[idx] = r;
+                    data[idx + 1] = g;
+                    data[idx + 2] = b;
+                    data[idx + 3] = 255; // Full opacity
+                  }
+                }
+              }
+              
+              // Put the modified image data back
+              ctx.putImageData(imageData, 0, 0);
+            } catch (edgeError) {
+              console.error('Edge detection error:', edgeError);
+            }
+          }
+          
+          // Convert to data URL
+          const borderedDataUrl = canvas.toDataURL('image/png');
+          resolve(borderedDataUrl);
+        };
+        
+        img.onerror = (event: Event | string) => {
+          console.error('Error loading image for border application:', event);
+          resolve(imageUrl); // Return original on error
+        };
+        
+        img.src = imageUrl;
+      } catch (error) {
+        console.error('Error in applyBorderToImage:', error);
+        resolve(imageUrl); // Return original on error
+      }
+    });
+  }, [transparentBg]);
+
+  // Modified client side pixelation to enhance pixel appearance
+  const clientSidePixelateWithBorder = useCallback(async (imageUrl: string): Promise<string> => {
+    try {
+      console.log('Starting client-side pixelation with border');
+      
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = (e) => {
+          console.error('Error loading image:', e);
+          reject(new Error('Failed to load image for pixelation'));
+        };
+        img.src = imageUrl;
+        
+        if (img.complete) {
+          resolve();
+        }
+      });
+      
+      // Calculate final dimensions
+      const ratio = img.height / img.width;
+      let downscaledWidth = downscaleWidth;
+      let downscaledHeight = Math.round(downscaledWidth * ratio);
+      
+      // Enforce grid alignment if needed
+      if (enforceGridAlignment) {
+        // Adjust downscaledWidth to ensure perfect grid alignment when scaled up
+        const originalWidth = img.width;
+        const scaleUpFactor = scaleUp;
+        
+        // Find the nearest downscaled width that results in integer-aligned pixels
+        const idealDownscaleWidth = originalWidth / scaleUpFactor;
+        if (Math.abs(downscaledWidth - idealDownscaleWidth) < 10) {
+          // If we're close to ideal, just use the ideal width for perfect alignment
+          downscaledWidth = Math.floor(idealDownscaleWidth);
+          downscaledHeight = Math.floor(img.height / scaleUpFactor);
+        }
+      }
+      
+      // If this was called via auto-find minimal grid, prioritize distinctness
+      let useNearestNeighborSetting = useNearestNeighbor;
+      if (useMinimalGrid) {
+        // Force nearest neighbor for minimal grid
+        useNearestNeighborSetting = true;
+      }
+      
+      // Create canvas for downscaling
+      const canvas = document.createElement('canvas');
+      canvas.width = downscaledWidth;
+      canvas.height = downscaledHeight;
+      
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      
+      if (!ctx) {
+        throw new Error('Could not get canvas context');
+      }
+      
+      // Apply nearest-neighbor interpolation for downscaling
+      if (useNearestNeighborSetting) {
+        ctx.imageSmoothingEnabled = false;
+        
+        // For true nearest-neighbor downscaling, we need a different approach
+        // First, create a temporary canvas at original size
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = img.width;
+        tempCanvas.height = img.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        if (tempCtx) {
+          // Draw the original image
+          tempCtx.drawImage(img, 0, 0);
+          
+          // Get image data
+          const imgData = tempCtx.getImageData(0, 0, img.width, img.height);
+          
+          // Manually sample pixels using nearest-neighbor
+          const outputImgData = ctx.createImageData(downscaledWidth, downscaledHeight);
+          
+          for (let y = 0; y < downscaledHeight; y++) {
+            for (let x = 0; x < downscaledWidth; x++) {
+              // Find source pixel in original image
+              const srcX = Math.floor(x * img.width / downscaledWidth);
+              const srcY = Math.floor(y * img.height / downscaledHeight);
+              
+              // Get source pixel color
+              const srcIdx = (srcY * img.width + srcX) * 4;
+              const r = imgData.data[srcIdx];
+              const g = imgData.data[srcIdx + 1];
+              const b = imgData.data[srcIdx + 2];
+              const a = imgData.data[srcIdx + 3];
+              
+              // Set target pixel color
+              const destIdx = (y * downscaledWidth + x) * 4;
+              outputImgData.data[destIdx] = r;
+              outputImgData.data[destIdx + 1] = g;
+              outputImgData.data[destIdx + 2] = b;
+              outputImgData.data[destIdx + 3] = a;
+            }
+          }
+          
+          // Put the downsampled image data back
+          ctx.putImageData(outputImgData, 0, 0);
+        } else {
+          // Fallback to regular drawing if temp context fails
+          ctx.drawImage(img, 0, 0, downscaledWidth, downscaledHeight);
+        }
+      } else {
+        // Regular downscaling (browser's default interpolation)
+        ctx.drawImage(img, 0, 0, downscaledWidth, downscaledHeight);
+      }
+      
+      // Get image data for processing
+      let imageData = ctx.getImageData(0, 0, downscaledWidth, downscaledHeight);
+      let data = imageData.data;
+      
+      // Apply color reduction
+      if (colorCount < 256) {
+        for (let i = 0; i < data.length; i += 4) {
+          // Apply brightness/contrast/saturation
+          let r = data[i];
+          let g = data[i + 1];
+          let b = data[i + 2];
+          
+          // Apply brightness adjustment
+          if (brightness !== 0) {
+            const factor = 1 + brightness;
+            r = Math.min(255, Math.max(0, Math.round(r * factor)));
+            g = Math.min(255, Math.max(0, Math.round(g * factor)));
+            b = Math.min(255, Math.max(0, Math.round(b * factor)));
+          }
+          
+          // Apply contrast adjustment
+          if (contrast !== 0) {
+            const factor = 1 + contrast;
+            const midpoint = 128;
+            r = Math.min(255, Math.max(0, Math.round(midpoint + (r - midpoint) * factor)));
+            g = Math.min(255, Math.max(0, Math.round(midpoint + (g - midpoint) * factor)));
+            b = Math.min(255, Math.max(0, Math.round(midpoint + (b - midpoint) * factor)));
+          }
+          
+          // Color reduction (quantization)
+          const factor = 255 / (colorCount - 1);
+          r = Math.round(Math.round(r / factor) * factor);
+          g = Math.round(Math.round(g / factor) * factor);
+          b = Math.round(Math.round(b / factor) * factor);
+          
+          // Enforce palette boundaries
+          r = Math.min(255, Math.max(0, r));
+          g = Math.min(255, Math.max(0, g));
+          b = Math.min(255, Math.max(0, b));
+          
+          data[i] = r;
+          data[i + 1] = g;
+          data[i + 2] = b;
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+      }
+      
+      // Apply edge enhancement if needed
+      if (edgeEnhance > 0) {
+        // Simple edge detection using Sobel operator
+        const edgeCanvas = document.createElement('canvas');
+        edgeCanvas.width = downscaledWidth;
+        edgeCanvas.height = downscaledHeight;
+        const edgeCtx = edgeCanvas.getContext('2d', { willReadFrequently: true });
+        
+        if (edgeCtx) {
+          // Draw original image
+          edgeCtx.drawImage(canvas, 0, 0);
+          
+          // Get image data
+          const origData = edgeCtx.getImageData(0, 0, downscaledWidth, downscaledHeight);
+          const edgeData = edgeCtx.createImageData(downscaledWidth, downscaledHeight);
+          
+          // Apply simple edge detection
+          for (let y = 1; y < downscaledHeight - 1; y++) {
+            for (let x = 1; x < downscaledWidth - 1; x++) {
+              const idx = (y * downscaledWidth + x) * 4;
+              
+              // Get surrounding pixels
+              const topLeft = ((y-1) * downscaledWidth + (x-1)) * 4;
+              const top = ((y-1) * downscaledWidth + x) * 4;
+              const topRight = ((y-1) * downscaledWidth + (x+1)) * 4;
+              const left = (y * downscaledWidth + (x-1)) * 4;
+              const right = (y * downscaledWidth + (x+1)) * 4;
+              const bottomLeft = ((y+1) * downscaledWidth + (x-1)) * 4;
+              const bottom = ((y+1) * downscaledWidth + x) * 4;
+              const bottomRight = ((y+1) * downscaledWidth + (x+1)) * 4;
+              
+              // Calculate gradient (simplified Sobel)
+              const gx = (
+                -1 * origData.data[topLeft] +
+                -2 * origData.data[left] +
+                -1 * origData.data[bottomLeft] +
+                1 * origData.data[topRight] +
+                2 * origData.data[right] +
+                1 * origData.data[bottomRight]
+              );
+              
+              const gy = (
+                -1 * origData.data[topLeft] +
+                -2 * origData.data[top] +
+                -1 * origData.data[topRight] +
+                1 * origData.data[bottomLeft] +
+                2 * origData.data[bottom] +
+                1 * origData.data[bottomRight]
+              );
+              
+              // Calculate magnitude
+              const mag = Math.sqrt(gx * gx + gy * gy);
+              
+              // Apply edge strength
+              const edgeStrength = Math.min(255, mag * edgeEnhance * 5);
+              
+              // Set edge data
+              edgeData.data[idx] = edgeStrength;
+              edgeData.data[idx + 1] = edgeStrength;
+              edgeData.data[idx + 2] = edgeStrength;
+              edgeData.data[idx + 3] = 255;
+            }
+          }
+          
+          // Apply edges to original image
+          edgeCtx.putImageData(edgeData, 0, 0);
+          
+          // Blend with original
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.drawImage(edgeCanvas, 0, 0);
+          ctx.globalCompositeOperation = 'source-over';
+        }
+      }
+      
+      // Make transparent background if needed
+      if (transparentBg) {
+        imageData = ctx.getImageData(0, 0, downscaledWidth, downscaledHeight);
+        data = imageData.data;
+        
+        // Simple background detection (assume white/light background)
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          
+          // Calculate brightness
+          const brightness = (r + g + b) / 3;
+          
+          // If pixel is bright, make it transparent
+          // Adjust threshold based on detectionThreshold
+          const threshold = 255 * (1 - detectionThreshold);
+          if (brightness > threshold) {
+            data[i + 3] = 0; // Make transparent
+          }
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+      }
+      
+      // Create final canvas with scaled up dimensions
+      const finalCanvas = document.createElement('canvas');
+      const scaleUpFactor = pixelBlockSize > 0 ? pixelBlockSize : scaleUp;
+      finalCanvas.width = downscaledWidth * scaleUpFactor;
+      finalCanvas.height = downscaledHeight * scaleUpFactor;
+      
+      const finalCtx = finalCanvas.getContext('2d');
+      
+      if (!finalCtx) {
+        throw new Error('Could not get final canvas context');
+      }
+      
+      // Always disable image smoothing for upscaling to preserve pixel grid
+      finalCtx.imageSmoothingEnabled = false;
+      
+      // Draw the small canvas to the final canvas, scaling it up
+      finalCtx.drawImage(canvas, 0, 0, finalCanvas.width, finalCanvas.height);
+      
+      // For true pixel grid effect, enhance the pixel boundaries
+      if (useNearestNeighborSetting && scaleUpFactor > 4) {
+        const pixelGridData = finalCtx.getImageData(0, 0, finalCanvas.width, finalCanvas.height);
+        const pixelData = pixelGridData.data;
+        
+        // Optional: Create subtle grid lines every pixel block
+        // This helps make individual pixels more distinct
+        const gridOpacity = 0.1; // Subtle grid lines
+        
+        for (let y = 0; y < finalCanvas.height; y++) {
+          for (let x = 0; x < finalCanvas.width; x++) {
+            const idx = (y * finalCanvas.width + x) * 4;
+            
+            // If we're on a grid line (divisible by scaleUpFactor)
+            if (x % scaleUpFactor === 0 || y % scaleUpFactor === 0) {
+              // Darken the pixel slightly to create grid line effect
+              pixelData[idx] = Math.floor(pixelData[idx] * (1 - gridOpacity));
+              pixelData[idx + 1] = Math.floor(pixelData[idx + 1] * (1 - gridOpacity));
+              pixelData[idx + 2] = Math.floor(pixelData[idx + 2] * (1 - gridOpacity));
+            }
+          }
+        }
+        
+        finalCtx.putImageData(pixelGridData, 0, 0);
+      }
+      
+      // Convert to data URL
+      let result = finalCanvas.toDataURL('image/png');
+      
+      // Apply border if needed
+      if (outlineBorder && borderWidth > 0) {
+        result = await applyBorderToImage(result, outlineBorder, borderWidth);
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Client-side pixelation failed:', error);
+      return imageUrl; // Return original image if pixelation fails
+    }
+  }, [
+    downscaleWidth,
+    colorCount,
+    scaleUp,
+    brightness,
+    contrast,
+    saturation,
+    edgeEnhance,
+    transparentBg,
+    detectionThreshold,
+    outlineBorder,
+    borderWidth,
+    applyBorderToImage,
+    useNearestNeighbor,
+    enforceGridAlignment,
+    useMinimalGrid,
+    pixelBlockSize
+  ]);
+
+  const pixelateImage = useCallback(async () => {
+    if (!originalImage) return;
+    
+    // If there's an existing pixelated image, mark it as unused
+    if (pixelatedImage && pixelatedImage.startsWith('blob:')) {
+      blobTracker.current.markUrlAsUnused(pixelatedImage);
+    }
+    
+    try {
+      setIsProcessing(true);
+      setError(null);
+      
+      // If force client-side processing is enabled, skip the API call
+      if (forceClientSideProcessing) {
+        console.log('Forced client-side processing enabled, skipping API call');
+        const clientSideResult = await clientSidePixelateWithBorder(originalImage);
+        setPixelatedImage(clientSideResult);
+        
+        // If this is the first pixelation with default settings, save it as the original
+        const isDefaultSettings = 
+          downscaleWidth === DEFAULT_SETTINGS.downscaleWidth &&
+          colorCount === DEFAULT_SETTINGS.colorCount &&
+          scaleUp === DEFAULT_SETTINGS.scaleUp &&
+          brightness === DEFAULT_SETTINGS.brightness &&
+          contrast === DEFAULT_SETTINGS.contrast &&
+          saturation === DEFAULT_SETTINGS.saturation &&
+          dithering === DEFAULT_SETTINGS.dithering &&
+          colorTint === DEFAULT_SETTINGS.colorTint &&
+          edgeEnhance === DEFAULT_SETTINGS.edgeEnhance &&
+          posterize === DEFAULT_SETTINGS.posterize &&
+          transparentBg === DEFAULT_SETTINGS.transparentBg &&
+          outlineBorder === DEFAULT_SETTINGS.outlineBorder &&
+          borderWidth === DEFAULT_SETTINGS.borderWidth &&
+          useNearestNeighbor === DEFAULT_SETTINGS.useNearestNeighbor &&
+          enforceGridAlignment === DEFAULT_SETTINGS.enforceGridAlignment;
+        
+        if (isDefaultSettings && !originalPixelatedImage) {
+          setOriginalPixelatedImage(clientSideResult);
+        }
+        
+        setIsProcessing(false);
+        return;
+      }
+      
+      const formData = new FormData();
+      
+      // Handle image data differently based on URL type
+      if (originalImage.startsWith('blob:')) {
+        // For blob URLs, use directly without fetching
+        const blob = await fetch(originalImage).then(res => res.blob());
+        formData.append('image', blob, 'image.png');
+      } else {
+        // For other URLs, create an Image element to handle cross-origin issues
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = originalImage;
+        });
+        
+        // Convert image to canvas and then to blob
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const blob = await new Promise<Blob>((resolve) => 
+            canvas.toBlob((b) => resolve(b || new Blob()), 'image/png')
+          );
+          formData.append('image', blob, 'image.png');
+        }
+      }
+      
+      formData.append('downscaleWidth', downscaleWidth.toString());
+      formData.append('colorCount', colorCount.toString());
+      formData.append('scaleUp', scaleUp.toString());
+      
+      // Add additional parameters
+      if (brightness !== 0) formData.append('brightness', brightness.toString());
+      if (contrast !== 0) formData.append('contrast', contrast.toString());
+      if (saturation !== 0) formData.append('saturation', saturation.toString());
+      if (dithering) formData.append('dithering', 'true');
+      if (colorTint) formData.append('colorTint', colorTint);
+      if (edgeEnhance !== 0) formData.append('edgeEnhance', edgeEnhance.toString());
+      if (posterize !== 0) formData.append('posterize', posterize.toString());
+      
+      // Add new parameters for transparency and border
+      if (transparentBg) formData.append('transparentBg', 'true');
+      if (outlineBorder) formData.append('outlineBorder', outlineBorder);
+      
+      // Add algorithm and detection parameters
+      formData.append('detectionAlgorithm', detectionAlgorithm);
+      formData.append('detectionThreshold', detectionThreshold.toString());
+      formData.append('objectSensitivity', objectSensitivity.toString());
+      formData.append('borderWidth', borderWidth.toString());
+      formData.append('noiseReduction', noiseReduction.toString());
+      
+      // Add new parameters for true pixel grid
+      if (useNearestNeighbor) formData.append('useNearestNeighbor', 'true');
+      if (enforceGridAlignment) formData.append('enforceGridAlignment', 'true');
+      
+      // Get the current origin to build absolute URL
+      const origin = window.location.origin;
+      console.log('Current origin:', origin);
+      
+      // Use the App Router endpoint with explicit origin to ensure correct port
+      const apiUrl = `${origin}/api/pixelate`;
+      console.log('Fetching from API:', apiUrl);
+      
+      let imageUrl: string;
+      
+      try {
+        console.log('Sending request to API with formData keys:', [...formData.keys()]);
+        
+        let response;
+        try {
+          response = await fetch(apiUrl, {
+            method: 'POST',
+            body: formData,
+          });
+          console.log('API response status:', response.status, response.statusText);
+        } catch (initialFetchError) {
+          console.error('Initial fetch failed:', initialFetchError);
+          
+          // If the port is 3001, try port 3000 as a fallback
+          if (origin.includes('3001')) {
+            const fallbackApiUrl = origin.replace('3001', '3000') + '/api/pixelate';
+            console.log('Trying fallback API URL:', fallbackApiUrl);
+            
+            response = await fetch(fallbackApiUrl, {
+              method: 'POST',
+              body: formData,
+            });
+            console.log('Fallback API response status:', response.status, response.statusText);
+          } else {
+            throw initialFetchError;
+          }
+        }
+        
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'No error text available');
+          console.error(`API error (${response.status}): ${errorText}`);
+          throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        console.log('Received blob from API:', blob.type, 'size:', blob.size);
+        
+        // Create blob URL and ensure it's properly stored
+        imageUrl = blobTracker.current.createAndTrack(blob);
+        console.log('Created blob URL:', imageUrl);
+        
+        // Apply border client-side if needed
+        if (applyBorderClientSide && outlineBorder && borderWidth > 0) {
+          console.log('Applying border client-side');
+          // Convert blob URL to data URL
+          const img = new window.Image();
+          img.crossOrigin = 'anonymous';
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = imageUrl;
+          });
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            const dataUrl = canvas.toDataURL('image/png');
+            const borderedUrl = await applyBorderToImage(dataUrl, outlineBorder, borderWidth);
+            
+            // Mark the old URL as unused
+            blobTracker.current.markUrlAsUnused(imageUrl);
+            
+            // Use the bordered image instead
+            imageUrl = borderedUrl;
+          }
+        }
+        
+        // Set state immediately to prevent race conditions
+        setPixelatedImage(imageUrl);
+      } catch (fetchError) {
+        console.error('API fetch error:', fetchError);
+        throw fetchError; // Re-throw to be caught by the outer catch block
+      }
+      
+      // If this is the first pixelation with default settings, save it as the original
+      const isDefaultSettings = 
+        downscaleWidth === DEFAULT_SETTINGS.downscaleWidth &&
+        colorCount === DEFAULT_SETTINGS.colorCount &&
+        scaleUp === DEFAULT_SETTINGS.scaleUp &&
+        brightness === DEFAULT_SETTINGS.brightness &&
+        contrast === DEFAULT_SETTINGS.contrast &&
+        saturation === DEFAULT_SETTINGS.saturation &&
+        dithering === DEFAULT_SETTINGS.dithering &&
+        colorTint === DEFAULT_SETTINGS.colorTint &&
+        edgeEnhance === DEFAULT_SETTINGS.edgeEnhance &&
+        posterize === DEFAULT_SETTINGS.posterize &&
+        transparentBg === DEFAULT_SETTINGS.transparentBg &&
+        outlineBorder === DEFAULT_SETTINGS.outlineBorder &&
+        borderWidth === DEFAULT_SETTINGS.borderWidth &&
+        useNearestNeighbor === DEFAULT_SETTINGS.useNearestNeighbor &&
+        enforceGridAlignment === DEFAULT_SETTINGS.enforceGridAlignment;
+      
+      if (isDefaultSettings && !originalPixelatedImage && imageUrl) {
+        setOriginalPixelatedImage(imageUrl);
+      }
+    } catch (error) {
+      console.error('Pixelation error:', error);
+      // Additional fallback for border issues
+      if (pixelatedImage && outlineBorder && borderWidth > 0) {
+        console.log('Attempting to apply border to existing pixelated image');
+        try {
+          const borderedUrl = await applyBorderToImage(pixelatedImage, outlineBorder, borderWidth);
+          setPixelatedImage(borderedUrl);
+        } catch (borderError) {
+          console.error('Failed to apply border:', borderError);
+        }
+      }
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [
+    originalImage, 
+    downscaleWidth, 
+    colorCount, 
+    scaleUp, 
+    brightness, 
+    contrast, 
+    saturation,
+    dithering, 
+    colorTint, 
+    edgeEnhance, 
+    posterize,
+    transparentBg,
+    outlineBorder,
+    detectionAlgorithm,
+    detectionThreshold,
+    objectSensitivity,
+    borderWidth,
+    noiseReduction,
+    forceClientSideProcessing,
+    applyBorderClientSide,
+    originalPixelatedImage,
+    pixelatedImage,
+    clientSidePixelateWithBorder,
+    applyBorderToImage,
+    useNearestNeighbor,
+    enforceGridAlignment
+  ]);
+  
+  // Process the image with default settings when a new image is loaded
+  useEffect(() => {
+    if (originalImage && !pixelatedImage && !isProcessing) {
+      pixelateImage();
+    }
+  }, [originalImage, pixelatedImage, isProcessing, pixelateImage]);
+  
+  // Handle URL marking when pixelatedImage changes
+  useEffect(() => {
+    // When pixelatedImage changes, we can mark the old one as unused
+    return () => {
+      // When the component unmounts or when dependencies change, mark URLs as unused
+      if (pixelatedImage && pixelatedImage.startsWith('blob:')) {
+        blobTracker.current.markUrlAsUnused(pixelatedImage);
+      }
+    };
+  }, [pixelatedImage]);
+  
+  // Clean up object URLs only when component is truly unmounting
+  useEffect(() => {
+    // This variable will be used to determine if we should clean up
+    const componentId = Math.random().toString(36).substring(7); // Unique ID for this instance
+    console.log(`Component mounted with ID: ${componentId}`);
+    
+    // Create a ref to track if this is a real unmount or a hot reload
+    const isMounted = { current: true };
+    
+    // Setup a delay to detect if this is a real unmount
+    // If the component remounts quickly, it's likely a hot reload
+    const unmountTimer = setTimeout(() => {
+      // Only runs if the component stays unmounted for a while (real unmount)
+      if (!isMounted.current) {
+        console.log(`Component ${componentId} confirmed unmounted after delay, cleaning up`);
+        
+        // Only revoke URLs that are no longer in use
+        blobTracker.current.urls
+          .filter(item => !item.inUse)
+          .forEach(item => {
+            try {
+              console.log('Revoking unused URL:', item.url);
+              URL.revokeObjectURL(item.url);
+            } catch (e) {
+              console.error('Error revoking URL:', e);
+            }
+          });
+      }
+    }, 1000); // 1 second delay to distinguish hot reloads from real unmounts
+    
+    return () => {
+      console.log(`Component with ID ${componentId} cleanup triggered`);
+      isMounted.current = false;
+      
+      // Clear the timer to prevent unnecessary operations
+      clearTimeout(unmountTimer);
+      
+      // Mark all URLs as unused, but don't revoke them yet
+      // We'll revoke them in the delayed function if this is a real unmount
+      blobTracker.current.urls.forEach(item => {
+        item.inUse = false;
+        console.log('Marked URL as unused on unmount:', item.url);
+      });
+    };
+  }, []); // Empty dependency array to ensure this only runs on mount/unmount
+  
+  // Create a custom preset from current settings
+  const saveCurrentAsPreset = () => {
+    if (!newPresetName.trim()) return;
+    
+    const newPreset: PresetConfig = {
+      downscaleWidth,
+      colorCount,
+      scaleUp,
+      brightness,
+      contrast,
+      saturation,
+      dithering,
+      colorTint,
+      edgeEnhance,
+      posterize,
+      transparentBg,
+      outlineBorder,
+      detectionAlgorithm,
+      detectionThreshold,
+      objectSensitivity,
+      borderWidth,
+      noiseReduction,
+      forceClientSideProcessing,
+      applyBorderClientSide,
+      useNearestNeighbor,
+      enforceGridAlignment,
+      useMinimalGrid,
+      pixelBlockSize,
+      showGridOverlay,
+      gridSize,
+      gridColor
+    };
+    
+    setCustomPresets(prev => ({
+      ...prev,
+      [newPresetName]: newPreset
+    }));
+    
+    setNewPresetName('');
+    setShowSavePresetForm(false);
+  };
+  
+  // Delete a custom preset
+  const deleteCustomPreset = (presetName: string) => {
+    setCustomPresets(prev => {
+      const newPresets = { ...prev };
+      delete newPresets[presetName];
+      return newPresets;
+    });
+  };
+  
+  // Apply a custom preset
+  const applyCustomPreset = (presetName: string) => {
+    const preset = customPresets[presetName];
+    if (!preset) return;
+    
+    // Basic parameters
+    setDownscaleWidth(preset.downscaleWidth);
+    setColorCount(preset.colorCount);
+    setScaleUp(preset.scaleUp);
+    
+    // Advanced parameters
+    setBrightness(preset.brightness);
+    setContrast(preset.contrast);
+    setSaturation(preset.saturation);
+    setDithering(preset.dithering);
+    
+    // Creative parameters
+    setColorTint(preset.colorTint);
+    setEdgeEnhance(preset.edgeEnhance);
+    setPosterize(preset.posterize);
+    
+    // Detection parameters
+    setTransparentBg(preset.transparentBg);
+    setOutlineBorder(preset.outlineBorder);
+    setDetectionAlgorithm(preset.detectionAlgorithm);
+    setDetectionThreshold(preset.detectionThreshold);
+    setObjectSensitivity(preset.objectSensitivity);
+    setBorderWidth(preset.borderWidth);
+    setNoiseReduction(preset.noiseReduction);
+    setForceClientSideProcessing(preset.forceClientSideProcessing);
+    setApplyBorderClientSide(preset.applyBorderClientSide);
+    
+    // New parameters
+    setUseNearestNeighbor(preset.useNearestNeighbor);
+    setEnforceGridAlignment(preset.enforceGridAlignment);
+    
+    // Process immediately if an image is already loaded
+    if (originalImage) {
+      pixelateImage();
+    }
+  };
+  
+  // Function to find the optimal minimal grid
+  const findOptimalGrid = useCallback(async () => {
+    if (!originalImage) return;
+    
+    try {
+      setAnalyzingGrid(true);
+      
+      // When using minimal grid, also enable these settings for best results
+      setUseNearestNeighbor(true);
+      setEnforceGridAlignment(true);
+      setForceClientSideProcessing(true);
+      
+      // Load the original image
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = originalImage;
+      });
+      
+      // Start with a very small grid and gradually increase
+      let currentWidth = 20; // Start with minimum
+      let optimalWidth = currentWidth;
+      let prevSimilarity = 0;
+      const maxWidth = Math.min(512, img.width); // Cap at reasonable size
+      const similarityThreshold = 0.95; // When similarity reaches this threshold, we're good
+      
+      // Create canvas for comparison
+      const originalCanvas = document.createElement('canvas');
+      originalCanvas.width = img.width;
+      originalCanvas.height = img.height;
+      const origCtx = originalCanvas.getContext('2d', { willReadFrequently: true });
+      if (origCtx) {
+        origCtx.drawImage(img, 0, 0);
+        
+        // Function to measure similarity between original and downscaled/upscaled version
+        const measureSimilarity = async (downscaleSize: number): Promise<number> => {
+          // Create temporary canvas for the downscaled version
+          const smallCanvas = document.createElement('canvas');
+          smallCanvas.width = downscaleSize;
+          smallCanvas.height = Math.round(downscaleSize * (img.height / img.width));
+          const smallCtx = smallCanvas.getContext('2d');
+          
+          if (!smallCtx) return 0;
+          
+          // Downscale
+          smallCtx.imageSmoothingEnabled = true; // Use smoothing for downscale
+          smallCtx.drawImage(img, 0, 0, smallCanvas.width, smallCanvas.height);
+          
+          // Upscale back to original size
+          const largeCanvas = document.createElement('canvas');
+          largeCanvas.width = img.width;
+          largeCanvas.height = img.height;
+          const largeCtx = largeCanvas.getContext('2d');
+          
+          if (!largeCtx) return 0;
+          
+          // Use nearest-neighbor for upscale to create pixelated effect
+          largeCtx.imageSmoothingEnabled = false;
+          largeCtx.drawImage(smallCanvas, 0, 0, largeCanvas.width, largeCanvas.height);
+          
+          // Get image data for comparison
+          const origData = origCtx.getImageData(0, 0, img.width, img.height).data;
+          const processedData = largeCtx.getImageData(0, 0, img.width, img.height).data;
+          
+          // Calculate simple image difference (normalized RMSE)
+          let sumSquaredDiff = 0;
+          const pixelCount = origData.length / 4;
+          
+          for (let i = 0; i < origData.length; i += 4) {
+            // For each pixel, compare RGB values
+            for (let j = 0; j < 3; j++) { // Skip alpha
+              const diff = (origData[i+j] - processedData[i+j]) / 255;
+              sumSquaredDiff += diff * diff;
+            }
+          }
+          
+          // Calculate similarity score (1 = identical, 0 = completely different)
+          const rmse = Math.sqrt(sumSquaredDiff / (pixelCount * 3));
+          return 1 - Math.min(1, rmse);
+        };
+        
+        // Binary search to find optimal grid size
+        let min = 20;
+        let max = maxWidth;
+        
+        while (min <= max) {
+          // Try middle point
+          const mid = Math.floor((min + max) / 2);
+          const similarity = await measureSimilarity(mid);
+          
+          console.log(`Testing width ${mid}, similarity: ${similarity.toFixed(4)}`);
+          
+          // Check if we've reached the similarity threshold
+          if (similarity >= similarityThreshold) {
+            optimalWidth = mid;
+            max = mid - 1; // Try smaller
+          } else {
+            min = mid + 1; // Try larger
+          }
+          
+          // Update optimal width if this is better than previous
+          if (similarity > prevSimilarity) {
+            prevSimilarity = similarity;
+            optimalWidth = mid;
+          }
+          
+          // Avoid excessive iterations
+          if (max - min > 100) {
+            max = min + 100;
+          }
+        }
+        
+        // Set the optimal width
+        console.log(`Optimal grid width: ${optimalWidth}`);
+        setDownscaleWidth(optimalWidth);
+        setOptimalGridFound(true);
+        
+        // After finding optimal width, also adjust the pixel block size
+        // to make pixels more visible based on the image size
+        const idealBlockSize = Math.max(4, Math.floor(img.width / optimalWidth / 2));
+        setPixelBlockSize(idealBlockSize);
+        setScaleUp(idealBlockSize);
+        
+        // Process image with new optimal width
+        await pixelateImage();
+      }
+    } catch (error) {
+      console.error('Error finding optimal grid:', error);
+    } finally {
+      setAnalyzingGrid(false);
+    }
+  }, [originalImage, pixelateImage]);
+  
+  // Auto-run optimal grid finding when enabled
+  useEffect(() => {
+    if (useMinimalGrid && originalImage && !optimalGridFound && !analyzingGrid) {
+      findOptimalGrid();
+    }
+  }, [useMinimalGrid, originalImage, optimalGridFound, analyzingGrid, findOptimalGrid]);
+  
+  // Draw grid overlay
+  useEffect(() => {
+    if (showGridOverlay && originalImage && gridCanvasRef.current) {
+      const canvas = gridCanvasRef.current;
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) return;
+      
+      // Clear the canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Get the image dimensions from our state
+      if (!originalDimensions) return;
+      
+      // Set canvas size to match original image
+      canvas.width = originalDimensions.width;
+      canvas.height = originalDimensions.height;
+      
+      // Load the original image to get its dimensions
+      const img = new window.Image();
+      img.src = originalImage;
+      
+      img.onload = () => {
+        // Draw the original image
+        ctx.drawImage(img, 0, 0);
+        
+        // Apply a semi-transparent overlay
+        if (previewPixelation) {
+          // Pixelate the image on the canvas by drawing in blocks
+          const blockSize = gridSize;
+          
+          // Process the image data to create pixelated preview
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = img.width;
+          tempCanvas.height = img.height;
+          const tempCtx = tempCanvas.getContext('2d');
+          
+          if (tempCtx) {
+            // Draw the original image
+            tempCtx.drawImage(img, 0, 0);
+            
+            // Get image data
+            const imageData = tempCtx.getImageData(0, 0, img.width, img.height);
+            const data = imageData.data;
+            
+            // Clear the main canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw pixelated version
+            for (let y = 0; y < img.height; y += blockSize) {
+              for (let x = 0; x < img.width; x += blockSize) {
+                // Get the center pixel of this block
+                const centerX = Math.min(x + Math.floor(blockSize / 2), img.width - 1);
+                const centerY = Math.min(y + Math.floor(blockSize / 2), img.height - 1);
+                const centerIdx = (centerY * img.width + centerX) * 4;
+                
+                const r = data[centerIdx];
+                const g = data[centerIdx + 1];
+                const b = data[centerIdx + 2];
+                const a = data[centerIdx + 3];
+                
+                // Use average color for the block (optional alternative)
+                // This is computationally more expensive but gives better color representation
+                let avgR = 0, avgG = 0, avgB = 0, avgA = 0, pixelCount = 0;
+                
+                for (let by = 0; by < blockSize && y + by < img.height; by++) {
+                  for (let bx = 0; bx < blockSize && x + bx < img.width; bx++) {
+                    const idx = ((y + by) * img.width + (x + bx)) * 4;
+                    avgR += data[idx];
+                    avgG += data[idx + 1];
+                    avgB += data[idx + 2];
+                    avgA += data[idx + 3];
+                    pixelCount++;
+                  }
+                }
+                
+                if (pixelCount > 0) {
+                  avgR = Math.round(avgR / pixelCount);
+                  avgG = Math.round(avgG / pixelCount);
+                  avgB = Math.round(avgB / pixelCount);
+                  avgA = Math.round(avgA / pixelCount);
+                }
+                
+                // Fill the block with this color
+                ctx.fillStyle = `rgba(${avgR}, ${avgG}, ${avgB}, ${avgA / 255})`;
+                
+                // Draw the rectangle, limiting to image boundaries
+                const width = Math.min(blockSize, img.width - x);
+                const height = Math.min(blockSize, img.height - y);
+                ctx.fillRect(x, y, width, height);
+              }
+            }
+          }
+        } else {
+          // Just draw grid lines
+          // Draw the grid
+          ctx.strokeStyle = gridColor;
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = gridOpacity;
+          
+          // Draw vertical lines
+          for (let x = 0; x <= img.width; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, img.height);
+            ctx.stroke();
+          }
+          
+          // Draw horizontal lines
+          for (let y = 0; y <= img.height; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(img.width, y);
+            ctx.stroke();
+          }
+          
+          // Reset global alpha
+          ctx.globalAlpha = 1;
+        }
+      };
+    }
+  }, [originalImage, showGridOverlay, gridSize, gridColor, gridOpacity, previewPixelation, originalDimensions]);
+  
+  // Update grid size when downscale width changes
+  useEffect(() => {
+    if (originalDimensions && downscaleWidth > 0) {
+      // Calculate what grid size would result in the current downscale width
+      const gridSizeFromDownscale = Math.floor(originalDimensions.width / downscaleWidth);
+      if (gridSizeFromDownscale > 0 && gridSizeFromDownscale !== gridSize) {
+        setGridSize(gridSizeFromDownscale);
+      }
+    }
+  }, [downscaleWidth, originalDimensions, gridSize]);
+  
+  // Update downscale width when grid size changes (two-way binding)
+  useEffect(() => {
+    if (originalDimensions && gridSize > 0) {
+      // Calculate what downscale width would result from the current grid size
+      const downscaleFromGrid = Math.floor(originalDimensions.width / gridSize);
+      if (downscaleFromGrid > 0 && downscaleFromGrid !== downscaleWidth) {
+        setDownscaleWidth(downscaleFromGrid);
+      }
+    }
+  }, [gridSize, originalDimensions, downscaleWidth]);
+  
+  // Modified pixelation function to use the grid size for processing
+  const pixelateWithGrid = useCallback(async () => {
+    if (!originalImage || !originalDimensions) return;
+    
+    try {
+      setIsProcessing(true);
+      setError(null);
+      
+      // Create a temporary canvas and context
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = originalDimensions.width;
+      tempCanvas.height = originalDimensions.height;
+      
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) {
+        throw new Error('Could not get canvas context');
+      }
+      
+      // Load the original image
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = originalImage;
+      });
+      
+      // Draw the original image
+      tempCtx.drawImage(img, 0, 0);
+      
+      // Get image data
+      const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      const data = imageData.data;
+      
+      // Create a canvas for the pixelated image
+      const pixelCanvas = document.createElement('canvas');
+      pixelCanvas.width = Math.ceil(originalDimensions.width / gridSize);
+      pixelCanvas.height = Math.ceil(originalDimensions.height / gridSize);
+      
+      const pixelCtx = pixelCanvas.getContext('2d');
+      if (!pixelCtx) {
+        throw new Error('Could not get pixel canvas context');
+      }
+      
+      // Process each grid cell
+      for (let y = 0; y < originalDimensions.height; y += gridSize) {
+        for (let x = 0; x < originalDimensions.width; x += gridSize) {
+          // Calculate average color for this grid cell
+          let avgR = 0, avgG = 0, avgB = 0, avgA = 0, pixelCount = 0;
+          
+          for (let by = 0; by < gridSize && y + by < originalDimensions.height; by++) {
+            for (let bx = 0; bx < gridSize && x + bx < originalDimensions.width; bx++) {
+              const idx = ((y + by) * originalDimensions.width + (x + bx)) * 4;
+              avgR += data[idx];
+              avgG += data[idx + 1];
+              avgB += data[idx + 2];
+              avgA += data[idx + 3];
+              pixelCount++;
+            }
+          }
+          
+          if (pixelCount > 0) {
+            avgR = Math.round(avgR / pixelCount);
+            avgG = Math.round(avgG / pixelCount);
+            avgB = Math.round(avgB / pixelCount);
+            avgA = Math.round(avgA / pixelCount);
+            
+            // Apply color quantization if needed
+            if (colorCount < 256) {
+              const factor = 255 / (colorCount - 1);
+              avgR = Math.round(Math.round(avgR / factor) * factor);
+              avgG = Math.round(Math.round(avgG / factor) * factor);
+              avgB = Math.round(Math.round(avgB / factor) * factor);
+            }
+          }
+          
+          // Set pixel color in the pixelated canvas
+          pixelCtx.fillStyle = `rgba(${avgR}, ${avgG}, ${avgB}, ${avgA / 255})`;
+          pixelCtx.fillRect(
+            Math.floor(x / gridSize), 
+            Math.floor(y / gridSize), 
+            1, 1
+          );
+        }
+      }
+      
+      // Now create the final output image with scaled-up pixels
+      const finalCanvas = document.createElement('canvas');
+      const pixelBlockSizeToUse = pixelBlockSize > 0 ? pixelBlockSize : scaleUp;
+      finalCanvas.width = pixelCanvas.width * pixelBlockSizeToUse;
+      finalCanvas.height = pixelCanvas.height * pixelBlockSizeToUse;
+      
+      const finalCtx = finalCanvas.getContext('2d');
+      if (!finalCtx) {
+        throw new Error('Could not get final canvas context');
+      }
+      
+      // Disable image smoothing for the pixelated look
+      finalCtx.imageSmoothingEnabled = false;
+      
+      // Draw the pixelated image upscaled
+      finalCtx.drawImage(
+        pixelCanvas, 
+        0, 0, 
+        finalCanvas.width, 
+        finalCanvas.height
+      );
+      
+      // Optional: Add grid lines
+      if (outlineBorder) {
+        finalCtx.strokeStyle = outlineBorder;
+        finalCtx.lineWidth = borderWidth;
+        
+        // Draw vertical lines
+        for (let x = 0; x <= finalCanvas.width; x += pixelBlockSizeToUse) {
+          finalCtx.beginPath();
+          finalCtx.moveTo(x, 0);
+          finalCtx.lineTo(x, finalCanvas.height);
+          finalCtx.stroke();
+        }
+        
+        // Draw horizontal lines
+        for (let y = 0; y <= finalCanvas.height; y += pixelBlockSizeToUse) {
+          finalCtx.beginPath();
+          finalCtx.moveTo(0, y);
+          finalCtx.lineTo(finalCanvas.width, y);
+          finalCtx.stroke();
+        }
+      }
+      
+      // Convert to data URL
+      const pixelatedDataUrl = finalCanvas.toDataURL('image/png');
+      
+      // Set the pixelated image
+      setPixelatedImage(pixelatedDataUrl);
+      
+      // Save as original if this is the first pixelation
+      if (!originalPixelatedImage) {
+        setOriginalPixelatedImage(pixelatedDataUrl);
+      }
+      
+    } catch (error) {
+      console.error('Error in pixelateWithGrid:', error);
+      setError('Failed to process image');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [
+    originalImage,
+    originalDimensions,
+    gridSize,
+    colorCount,
+    pixelBlockSize,
+    scaleUp,
+    outlineBorder,
+    borderWidth,
+    originalPixelatedImage
+  ]);
+  
+  // Modified pixelateImage function to use grid-based pixelation when grid overlay is enabled
+  const pixelateImage = useCallback(async () => {
+    if (showGridOverlay) {
+      return pixelateWithGrid();
+    }
+    
+    // Original pixelation logic for when grid overlay is not enabled
+    if (!originalImage) return;
+    
+    // ... [rest of the existing pixelateImage function]
+    
+  }, [
+    // ... [existing dependencies],
+    showGridOverlay,
+    pixelateWithGrid
+  ]);
+  
+  return (
+    <div className={`flex flex-col space-y-4 ${className}`}>
+      {/* File input (hidden) */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept="image/*"
+        className="hidden"
+      />
+      
+      {/* Main Interface */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* Left Column - Controls */}
+        <PixelBox variant="dark" bordered className="p-4 lg:w-1/3">
+          <div className="flex flex-col h-full">
+            <PixelText className="text-xl font-bold mb-4">Image Pixelator</PixelText>
+            
+            {/* Image Selection */}
+            <PixelButton 
+              onClick={handleSelectFile}
+              variant="primary"
+              size="md"
+              className="mb-4"
+            >
+              Select Image
+            </PixelButton>
+            
+            {originalImage && (
+              <>
+                {/* Tabs */}
+                <div className="grid grid-cols-5 gap-1 mb-4">
+                  <PixelButton
+                    variant={activeTab === 'basic' ? 'primary' : 'default'}
+                    size="sm"
+                    onClick={() => setActiveTab('basic')}
+                  >
+                    Basic
+                  </PixelButton>
+                  <PixelButton
+                    variant={activeTab === 'advanced' ? 'primary' : 'default'}
+                    size="sm"
+                    onClick={() => setActiveTab('advanced')}
+                  >
+                    Advanced
+                  </PixelButton>
+                  <PixelButton
+                    variant={activeTab === 'creative' ? 'primary' : 'default'}
+                    size="sm"
+                    onClick={() => setActiveTab('creative')}
+                  >
+                    Creative
+                  </PixelButton>
+                  <PixelButton
+                    variant={activeTab === 'palette' ? 'primary' : 'default'}
+                    size="sm"
+                    onClick={() => setActiveTab('palette')}
+                  >
+                    Palette
+                  </PixelButton>
+                  <PixelButton
+                    variant={activeTab === 'presets' ? 'primary' : 'default'}
+                    size="sm"
+                    onClick={() => setActiveTab('presets')}
+                  >
+                    Presets
+                  </PixelButton>
+                </div>
+                
+                {/* Tab Content */}
+                <div className="flex-1 mb-4">
+                  {/* Basic Parameters */}
+                  {activeTab === 'basic' && (
+                    <div className="space-y-4">
+                      {/* Grid Overlay Toggle */}
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="showGridOverlay"
+                            checked={showGridOverlay}
+                            onChange={(e) => {
+                              setShowGridOverlay(e.target.checked);
+                              if (e.target.checked) {
+                                // When enabling grid overlay, enable client-side processing
+                                setForceClientSideProcessing(true);
+                              }
+                            }}
+                            className="w-4 h-4 bg-gray-700 rounded"
+                          />
+                          <label htmlFor="showGridOverlay">
+                            <PixelText className="text-sm">Show Grid Overlay</PixelText>
+                          </label>
+                        </div>
+                        <div className="text-xs text-gray-400 ml-6">
+                          Overlay a grid on the original image to see how it will be pixelated
+                        </div>
+                      </div>
+                      
+                      {showGridOverlay && (
+                        <>
+                          {/* Grid Size Control */}
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <PixelText className="text-sm">Grid Size (px)</PixelText>
+                              <PixelText className="text-sm">{gridSize}</PixelText>
+                            </div>
+                            <input
+                              type="range"
+                              min="4"
+                              max="100"
+                              value={gridSize}
+                              onChange={(e) => setGridSize(Number(e.target.value))}
+                              className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                            />
+                            <div className="text-xs text-gray-400">
+                              Size of each grid cell in pixels (smaller = more detailed)
+                            </div>
+                          </div>
+                          
+                          {/* Grid Color Control */}
+                          <div className="space-y-2">
+                            <PixelText className="text-sm">Grid Color</PixelText>
+                            <div className="flex space-x-2">
+                              <input
+                                type="color"
+                                value={gridColor}
+                                onChange={(e) => setGridColor(e.target.value)}
+                                className="h-8 w-12 bg-transparent cursor-pointer"
+                              />
+                              <input
+                                type="text"
+                                value={gridColor}
+                                onChange={(e) => setGridColor(e.target.value)}
+                                className="flex-1 px-2 py-1 border border-gray-700 bg-gray-900 text-white rounded"
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Grid Opacity Control */}
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <PixelText className="text-sm">Grid Opacity</PixelText>
+                              <PixelText className="text-sm">{gridOpacity.toFixed(1)}</PixelText>
+                            </div>
+                            <input
+                              type="range"
+                              min="0.1"
+                              max="1"
+                              step="0.1"
+                              value={gridOpacity}
+                              onChange={(e) => setGridOpacity(Number(e.target.value))}
+                              className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                            />
+                          </div>
+                          
+                          {/* Preview Toggle */}
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="previewPixelation"
+                                checked={previewPixelation}
+                                onChange={(e) => setPreviewPixelation(e.target.checked)}
+                                className="w-4 h-4 bg-gray-700 rounded"
+                              />
+                              <label htmlFor="previewPixelation">
+                                <PixelText className="text-sm">Preview Pixelation</PixelText>
+                              </label>
+                            </div>
+                            <div className="text-xs text-gray-400 ml-6">
+                              Show how the image will look after pixelation
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      
+                      {/* Existing downscale width control - hide when grid overlay is enabled */}
+                      {!showGridOverlay && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <PixelText className="text-sm">Downscale Width (px)</PixelText>
+                              {analyzingGrid && (
+                                <span className="text-xs text-yellow-400 animate-pulse">Analyzing...</span>
+                              )}
+                              {optimalGridFound && (
+                                <span className="text-xs text-green-400">Optimal</span>
+                              )}
+                            </div>
+                            <PixelText className="text-sm">{downscaleWidth}</PixelText>
+                          </div>
+                          <input
+                            type="range"
+                            min="20"
+                            max="1024"
+                            value={downscaleWidth}
+                            onChange={(e) => {
+                              setDownscaleWidth(Number(e.target.value));
+                              setOptimalGridFound(false);
+                            }}
+                            className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                          />
+                          {originalDimensions && targetDimensions && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              <div>Original: {originalDimensions.width} × {originalDimensions.height}</div>
+                              <div>Target: {targetDimensions.width} × {targetDimensions.height}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="useMinimalGrid"
+                            checked={useMinimalGrid}
+                            onChange={(e) => {
+                              setUseMinimalGrid(e.target.checked);
+                              // When enabling minimal grid, also enable settings for best results
+                              if (e.target.checked) {
+                                setUseNearestNeighbor(true);
+                                setEnforceGridAlignment(true);
+                                setForceClientSideProcessing(true);
+                                if (!optimalGridFound) {
+                                  // Will trigger the effect to find optimal grid
+                                  setOptimalGridFound(false);
+                                }
+                              }
+                            }}
+                            className="w-4 h-4 bg-gray-700 rounded"
+                            disabled={showGridOverlay}
+                          />
+                          <label htmlFor="useMinimalGrid">
+                            <PixelText className={`text-sm ${showGridOverlay ? 'text-gray-600' : ''}`}>Auto-find Minimal Grid</PixelText>
+                          </label>
+                        </div>
+                        <div className="text-xs text-gray-400 ml-6">
+                          Automatically finds the smallest grid that maintains visual quality
+                        </div>
+                        
+                        {useMinimalGrid && !optimalGridFound && !analyzingGrid && !showGridOverlay && (
+                          <PixelButton
+                            onClick={findOptimalGrid}
+                            variant="primary"
+                            size="sm"
+                            className="ml-6 mt-2"
+                          >
+                            Find Optimal Grid Now
+                          </PixelButton>
+                        )}
+                      </div>
+                      
+                      {/* Pixel Block Size control */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <PixelText className="text-sm">Pixel Block Size</PixelText>
+                          <PixelText className="text-sm">{pixelBlockSize}</PixelText>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="200"
+                          value={pixelBlockSize}
+                          onChange={(e) => setPixelBlockSize(Number(e.target.value))}
+                          className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                        />
+                        <div className="text-xs text-gray-400">
+                          Controls how chunky and visible individual pixels appear
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <PixelText className="text-sm">Color Count</PixelText>
+                          <PixelText className="text-sm">{colorCount}</PixelText>
+                        </div>
+                        <input
+                          type="range"
+                          min="2"
+                          max="30"
+                          value={colorCount}
+                          onChange={(e) => setColorCount(Number(e.target.value))}
+                          className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <PixelText className="text-sm">Scale Factor</PixelText>
+                          <PixelText className="text-sm">{scaleUp}</PixelText>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="20"
+                          value={scaleUp}
+                          onChange={(e) => setScaleUp(Number(e.target.value))}
+                          className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                        />
+                        {targetDimensions && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            <div>Output: {targetDimensions.width * scaleUp} × {targetDimensions.height * scaleUp}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Advanced Parameters */}
+                  {activeTab === 'advanced' && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <PixelText className="text-sm">Brightness</PixelText>
+                          <PixelText className="text-sm">{brightness.toFixed(1)}</PixelText>
+                        </div>
+                        <input
+                          type="range"
+                          min="-1"
+                          max="1"
+                          step="0.1"
+                          value={brightness}
+                          onChange={(e) => setBrightness(Number(e.target.value))}
+                          className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <PixelText className="text-sm">Contrast</PixelText>
+                          <PixelText className="text-sm">{contrast.toFixed(1)}</PixelText>
+                        </div>
+                        <input
+                          type="range"
+                          min="-1"
+                          max="1"
+                          step="0.1"
+                          value={contrast}
+                          onChange={(e) => setContrast(Number(e.target.value))}
+                          className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <PixelText className="text-sm">Saturation</PixelText>
+                          <PixelText className="text-sm">{saturation.toFixed(1)}</PixelText>
+                        </div>
+                        <input
+                          type="range"
+                          min="-1"
+                          max="1"
+                          step="0.1"
+                          value={saturation}
+                          onChange={(e) => setSaturation(Number(e.target.value))}
+                          className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="dithering"
+                          checked={dithering}
+                          onChange={(e) => setDithering(e.target.checked)}
+                          className="w-4 h-4 bg-gray-700 rounded"
+                        />
+                        <label htmlFor="dithering">
+                          <PixelText className="text-sm">Enable Dithering</PixelText>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Creative Parameters */}
+                  {activeTab === 'creative' && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <PixelText className="text-sm">Color Tint</PixelText>
+                        <div className="flex space-x-2">
+                          <input
+                            type="color"
+                            value={colorTint || '#ffffff'}
+                            onChange={(e) => setColorTint(e.target.value)}
+                            className="h-8 w-12 bg-transparent cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={colorTint}
+                            placeholder="e.g. #ff00ff"
+                            onChange={(e) => setColorTint(e.target.value)}
+                            className="flex-1 px-2 py-1 border border-gray-700 bg-gray-900 text-white rounded"
+                          />
+                          {colorTint && (
+                            <PixelButton
+                              variant="default"
+                              size="sm"
+                              onClick={() => setColorTint('')}
+                            >
+                              Clear
+                            </PixelButton>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <PixelText className="text-sm">Edge Enhancement</PixelText>
+                          <PixelText className="text-sm">{edgeEnhance.toFixed(1)}</PixelText>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.1"
+                          value={edgeEnhance}
+                          onChange={(e) => setEdgeEnhance(Number(e.target.value))}
+                          className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <PixelText className="text-sm">Posterize Levels</PixelText>
+                          <PixelText className="text-sm">
+                            {posterize > 0 ? posterize : 'Off'}
+                          </PixelText>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="8"
+                          step="1"
+                          value={posterize}
+                          onChange={(e) => setPosterize(Number(e.target.value))}
+                          className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="transparentBg"
+                            checked={transparentBg}
+                            onChange={(e) => setTransparentBg(e.target.checked)}
+                            className="w-4 h-4 bg-gray-700 rounded"
+                          />
+                          <label htmlFor="transparentBg">
+                            <PixelText className="text-sm">Transparent Background</PixelText>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="forceClientSide"
+                            checked={forceClientSideProcessing}
+                            onChange={(e) => setForceClientSideProcessing(e.target.checked)}
+                            className="w-4 h-4 bg-gray-700 rounded"
+                          />
+                          <label htmlFor="forceClientSide">
+                            <PixelText className="text-sm">Force Client-Side Processing</PixelText>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="applyBorderClientSide"
+                            checked={applyBorderClientSide}
+                            onChange={(e) => setApplyBorderClientSide(e.target.checked)}
+                            className="w-4 h-4 bg-gray-700 rounded"
+                          />
+                          <label htmlFor="applyBorderClientSide">
+                            <PixelText className="text-sm">Apply Border in Browser</PixelText>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2 mt-4">
+                        <PixelText className="text-sm font-medium">True Pixel Grid Options</PixelText>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="useNearestNeighbor"
+                              checked={useNearestNeighbor}
+                              onChange={(e) => setUseNearestNeighbor(e.target.checked)}
+                              className="w-4 h-4 bg-gray-700 rounded"
+                            />
+                            <label htmlFor="useNearestNeighbor">
+                              <PixelText className="text-sm">Use Nearest-Neighbor Interpolation</PixelText>
+                            </label>
+                          </div>
+                          <div className="text-xs text-gray-400 ml-6">
+                            Forces pixel-perfect downscaling and upscaling without blurring or anti-aliasing
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id="enforceGridAlignment"
+                              checked={enforceGridAlignment}
+                              onChange={(e) => setEnforceGridAlignment(e.target.checked)}
+                              className="w-4 h-4 bg-gray-700 rounded"
+                            />
+                            <label htmlFor="enforceGridAlignment">
+                              <PixelText className="text-sm">Enforce Perfect Grid Alignment</PixelText>
+                            </label>
+                          </div>
+                          <div className="text-xs text-gray-400 ml-6">
+                            Adjusts dimensions to ensure pixels align perfectly with the original image grid
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {transparentBg && (
+                        <>
+                          <div className="space-y-2 mt-4">
+                            <PixelText className="text-sm">Detection Algorithm</PixelText>
+                            <select 
+                              value={detectionAlgorithm} 
+                              onChange={(e) => setDetectionAlgorithm(e.target.value)}
+                              className="w-full px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white"
+                            >
+                              {DETECTION_ALGORITHMS.map(algo => (
+                                <option key={algo.value} value={algo.value}>
+                                  {algo.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <PixelText className="text-sm">Detection Threshold</PixelText>
+                              <PixelText className="text-sm">{detectionThreshold.toFixed(2)}</PixelText>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.01"
+                              value={detectionThreshold}
+                              onChange={(e) => setDetectionThreshold(Number(e.target.value))}
+                              className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                            />
+                            <div className="flex space-x-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value={detectionThreshold}
+                                onChange={(e) => setDetectionThreshold(Number(e.target.value))}
+                                className="w-24 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+                              />
+                              <div className="flex space-x-1">
+                                <PixelButton 
+                                  variant="default" 
+                                  size="sm"
+                                  onClick={() => setDetectionThreshold(Math.max(0, detectionThreshold - 0.01))}
+                                >
+                                  -
+                                </PixelButton>
+                                <PixelButton 
+                                  variant="default" 
+                                  size="sm"
+                                  onClick={() => setDetectionThreshold(Math.min(1, detectionThreshold + 0.01))}
+                                >
+                                  +
+                                </PixelButton>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <PixelText className="text-sm">Object Sensitivity</PixelText>
+                              <PixelText className="text-sm">{objectSensitivity.toFixed(1)}</PixelText>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.1"
+                              value={objectSensitivity}
+                              onChange={(e) => setObjectSensitivity(Number(e.target.value))}
+                              className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <PixelText className="text-sm">Noise Reduction</PixelText>
+                              <PixelText className="text-sm">{noiseReduction.toFixed(1)}</PixelText>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.1"
+                              value={noiseReduction}
+                              onChange={(e) => setNoiseReduction(Number(e.target.value))}
+                              className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                            />
+                          </div>
+                        </>
+                      )}
+                      
+                      <div className="space-y-2">
+                        <PixelText className="text-sm">Outline Border Color</PixelText>
+                        <div className="flex space-x-2">
+                          <input
+                            type="color"
+                            value={outlineBorder || '#FF0000'}
+                            onChange={(e) => setOutlineBorder(e.target.value)}
+                            className="h-8 w-12 bg-transparent cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={outlineBorder}
+                            placeholder="e.g. #FF0000"
+                            onChange={(e) => setOutlineBorder(e.target.value)}
+                            className="flex-1 px-2 py-1 border border-gray-700 bg-gray-900 text-white rounded"
+                          />
+                          {outlineBorder && (
+                            <PixelButton
+                              variant="default"
+                              size="sm"
+                              onClick={() => setOutlineBorder('')}
+                            >
+                              Clear
+                            </PixelButton>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {outlineBorder && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <PixelText className="text-sm">Border Width (px)</PixelText>
+                            <PixelText className="text-sm">{borderWidth}</PixelText>
+                          </div>
+                          <input
+                            type="range"
+                            min="1"
+                            max="5"
+                            step="1"
+                            value={borderWidth}
+                            onChange={(e) => setBorderWidth(Number(e.target.value))}
+                            className="w-full bg-gray-700 rounded-lg appearance-none cursor-pointer h-2"
+                          />
+                        </div>
+                      )}
+                      
+                    </div>
+                  )}
+                  
+                  {/* Color Palette Tab */}
+                  {activeTab === 'palette' && (
+                    <div className="space-y-4">
+                      <PixelText className="text-sm font-medium">Image Color Palette</PixelText>
+                      
+                      {colorPalette.length > 0 ? (
+                        <>
+                          <div className="grid grid-cols-6 gap-1 border border-gray-700 p-2">
+                            {colorPalette.map((color, index) => (
+                              <div 
+                                key={index} 
+                                className={`w-full aspect-square cursor-pointer ${selectedColor === color ? 'ring-2 ring-white' : 'ring-1 ring-gray-600'}`}
+                                style={{ backgroundColor: color }}
+                                onClick={() => setSelectedColor(color)}
+                                title={color}
+                              />
+                            ))}
+                          </div>
+                          
+                          {selectedColor && (
+                            <div className="flex items-center space-x-2">
+                              <div 
+                                className="w-8 h-8 border border-gray-600"
+                                style={{ backgroundColor: selectedColor }}
+                              />
+                              <PixelText className="text-sm">{selectedColor}</PixelText>
+                              <PixelButton
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(selectedColor);
+                                }}
+                              >
+                                Copy
+                              </PixelButton>
+                            </div>
+                          )}
+                          
+                          <div className="flex justify-between text-xs text-gray-400">
+                            <span>Total colors: {colorPalette.length}</span>
+                            <span>Target: {colorCount}</span>
+                          </div>
+                        </>
+                      ) : pixelatedImage ? (
+                        <div className="text-gray-400 italic">
+                          Processing palette...
+                        </div>
+                      ) : (
+                        <div className="text-gray-400 italic">
+                          Pixelate an image to view its color palette
+                        </div>
+                      )}
+                      
+                      <div className="space-y-2 mt-4">
+                        <PixelText className="text-sm">Palette Actions</PixelText>
+                        <div className="grid grid-cols-2 gap-2">
+                          <PixelButton
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              const paletteText = colorPalette.join('\n');
+                              navigator.clipboard.writeText(paletteText);
+                            }}
+                            disabled={colorPalette.length === 0}
+                          >
+                            Copy All Colors
+                          </PixelButton>
+                          <PixelButton
+                            variant="default"
+                            size="sm"
+                            onClick={() => extractColorPalette(pixelatedImage || '')}
+                            disabled={!pixelatedImage}
+                          >
+                            Refresh Palette
+                          </PixelButton>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Presets */}
+                  {activeTab === 'presets' && (
+                    <div className="space-y-4">
+                      {/* Built-in presets */}
+                      <div className="space-y-2">
+                        <PixelText className="text-sm font-medium">Built-in Presets</PixelText>
+                        <div className="grid grid-cols-1 gap-2">
+                          <PixelButton
+                            variant="primary"
+                            size="sm"
+                            onClick={() => loadPreset('rogue-equipment')}
+                          >
+                            Rogue Equipment (Game Aesthetic)
+                          </PixelButton>
+                          
+                          <PixelButton
+                            variant="primary"
+                            size="sm"
+                            onClick={() => loadPreset('true-pixel-art')}
+                          >
+                            True Pixel Art (Chunky Grid)
+                          </PixelButton>
+                        </div>
+                        <div className="mt-2 p-2 bg-gray-800/50 rounded text-sm">
+                          <p><strong>True Pixel Art</strong> preset creates a clean pixel grid effect with chunky, clearly visible pixels. Perfect for creating authentic pixel art from any image.</p>
+                        </div>
+                      </div>
+                      
+                      {/* Custom presets */}
+                      {Object.keys(customPresets).length > 0 && (
+                        <div className="space-y-2 mt-4">
+                          <PixelText className="text-sm font-medium">Your Saved Presets</PixelText>
+                          <div className="grid grid-cols-1 gap-2">
+                            {Object.keys(customPresets).map((presetName) => (
+                              <div key={presetName} className="flex items-center space-x-1">
+                                <PixelButton
+                                  variant="default"
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => applyCustomPreset(presetName)}
+                                >
+                                  {presetName}
+                                </PixelButton>
+                                <PixelButton
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() => deleteCustomPreset(presetName)}
+                                >
+                                  ×
+                                </PixelButton>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Save current as preset */}
+                      <div className="mt-4">
+                        {!showSavePresetForm ? (
+                          <PixelButton
+                            variant="success"
+                            size="sm"
+                            onClick={() => setShowSavePresetForm(true)}
+                            className="w-full"
+                          >
+                            Save Current Settings as Preset
+                          </PixelButton>
+                        ) : (
+                          <div className="space-y-2">
+                            <PixelText className="text-sm">Preset Name</PixelText>
+                            <div className="flex space-x-2">
+                              <input
+                                type="text"
+                                value={newPresetName}
+                                onChange={(e) => setNewPresetName(e.target.value)}
+                                placeholder="My Custom Preset"
+                                className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-white"
+                              />
+                            </div>
+                            <div className="flex space-x-2">
+                              <PixelButton
+                                variant="default"
+                                size="sm"
+                                onClick={() => setShowSavePresetForm(false)}
+                              >
+                                Cancel
+                              </PixelButton>
+                              <PixelButton
+                                variant="success"
+                                size="sm"
+                                onClick={saveCurrentAsPreset}
+                                disabled={!newPresetName.trim()}
+                              >
+                                Save Preset
+                              </PixelButton>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <PixelButton
+                    onClick={resetSettings}
+                    variant="default"
+                    size="sm"
+                  >
+                    Reset Settings
+                  </PixelButton>
+                  
+                  <PixelButton
+                    onClick={revertToOriginal}
+                    variant="default"
+                    size="sm"
+                    disabled={!originalPixelatedImage}
+                  >
+                    Revert to Original
+                  </PixelButton>
+                </div>
+                
+                {/* Process Button */}
+                <PixelButton
+                  onClick={pixelateImage}
+                  disabled={isProcessing}
+                  variant="success"
+                  size="md"
+                >
+                  {isProcessing ? 'Processing...' : 'Pixelate Image'}
+                </PixelButton>
+              </>
+            )}
+          </div>
+        </PixelBox>
+        
+        {/* Right Column - Image Preview */}
+        <PixelBox variant="dark" bordered className="p-4 flex-1">
+          <div className="flex flex-col h-full">
+            {/* Error message */}
+            {error && (
+              <PixelBox variant="dark" bordered className="p-3 mb-4 bg-red-900/30 text-red-400">
+                <PixelText>{error}</PixelText>
+              </PixelBox>
+            )}
+            
+            {/* Image preview */}
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {originalImage ? (
+                <div className="h-full">
+                  <PixelText className="font-medium mb-2">Original Image</PixelText>
+                  <div className="relative w-full h-[calc(100%-28px)] border border-gray-700 rounded overflow-hidden">
+                    {/* Original Image */}
+                    <Image
+                      src={originalImage}
+                      alt="Original"
+                      fill
+                      style={{ objectFit: 'contain' }}
+                      ref={originalImageRef}
+                    />
+                    
+                    {/* Grid Overlay Canvas */}
+                    {showGridOverlay && (
+                      <canvas
+                        ref={gridCanvasRef}
+                        className="absolute top-0 left-0 w-full h-full"
+                      />
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] border border-gray-800 border-dashed rounded">
+                  <PixelText className="text-gray-500">
+                    Select an image to begin
+                  </PixelText>
+                </div>
+              )}
+              
+              {pixelatedImage ? (
+                <div className="h-full">
+                  <PixelText className="font-medium mb-2">Pixelated Image</PixelText>
+                  <div className="relative w-full h-[calc(100%-28px)] border border-gray-700 rounded overflow-hidden">
+                    <Image
+                      src={pixelatedImage}
+                      alt="Pixelated"
+                      fill
+                      style={{ 
+                        objectFit: 'contain',
+                        imageRendering: useNearestNeighbor ? 'pixelated' : 'auto'
+                      }}
+                      className={useNearestNeighbor ? "pixel-art" : ""}
+                      unoptimized={true}
+                    />
+                  </div>
+                </div>
+              ) : (
+                originalImage && (
+                  <div className="flex items-center justify-center h-[300px] border border-gray-800 border-dashed rounded">
+                    {isProcessing ? (
+                      <PixelText className="text-gray-500">
+                        Processing image...
+                      </PixelText>
+                    ) : (
+                      <PixelText className="text-gray-500">
+                        Adjust parameters and click "Pixelate Image"
+                      </PixelText>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+            
+            {/* Download Button */}
+            {pixelatedImage && (
+              <div className="mt-4">
+                <PixelButton
+                  variant="primary"
+                  size="md"
+                  className="w-full"
+                  onClick={() => {
+                    const a = document.createElement('a');
+                    a.href = pixelatedImage;
+                    a.download = 'pixelated_image.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }}
+                >
+                  Download Pixelated Image
+                </PixelButton>
+              </div>
+            )}
+          </div>
+        </PixelBox>
+      </div>
+    </div>
+  );
+} 

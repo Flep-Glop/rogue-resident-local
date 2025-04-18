@@ -14,66 +14,42 @@ const equipmentContent: Record<string, any> = {
       title: 'Linear Accelerator Components',
       description: 'Identify the key components of a modern linear accelerator used in radiation therapy.',
       
-      imageUrl: '/images/extensions/equipment/linac_diagram.png',
-      imageWidth: 800,
-      imageHeight: 600,
+      imageUrl: '/items/linac.png',
+      imageWidth: 512,
+      imageHeight: 512,
       
       components: [
         {
-          id: 'gantry',
-          name: 'Gantry',
+          id: 'treatment_head',
+          name: 'Treatment Head',
           description: 'Rotational component that houses the treatment head and beam generation components. Allows the beam to be directed from different angles around the patient.',
-          position: { x: 400, y: 150, width: 300, height: 120 },
+          position: { x: 20, y: 20, width: 300, height: 160 },
           isCritical: true,
           order: 1
         },
         {
-          id: 'treatment_head',
-          name: 'Treatment Head',
-          description: 'Contains key beam-shaping and monitoring components including the target, flattening filter, primary collimator, and monitor chambers.',
-          position: { x: 550, y: 250, width: 150, height: 100 },
+          id: 'kv_tube',
+          name: 'kV Tube',
+          description: 'X-ray tube that generates kilovoltage imaging beams for patient positioning verification.',
+          position: { x: 190, y: 200, width: 90, height: 60 },
           isCritical: true,
           order: 2
         },
         {
-          id: 'mlc',
-          name: 'Multi-Leaf Collimator',
-          description: 'Device consisting of multiple thin leaves that can move independently to shape the radiation beam to match the target volume.',
-          position: { x: 580, y: 350, width: 100, height: 80 },
+          id: 'kv_panel',
+          name: 'kV Panel',
+          description: 'Flat panel detector that captures kilovoltage X-ray images for patient positioning.',
+          position: { x: 15, y: 180, width: 100, height: 100 },
           isCritical: true,
           order: 3
         },
         {
-          id: 'couch',
-          name: 'Treatment Couch',
-          description: 'Patient support system that can move in multiple directions (vertical, lateral, longitudinal) with high precision.',
-          position: { x: 350, y: 400, width: 300, height: 80 },
+          id: 'mv_panel',
+          name: 'MV Panel',
+          description: 'Megavoltage imaging panel that can detect therapeutic beam for portal imaging.',
+          position: { x: 95, y: 300, width: 130, height: 85 },
           isCritical: true,
           order: 4
-        },
-        {
-          id: 'waveguide',
-          name: 'Waveguide',
-          description: 'Component that accelerates electrons to high energies before they strike the target to produce X-rays.',
-          position: { x: 250, y: 200, width: 200, height: 60 },
-          isCritical: false,
-          order: 5
-        },
-        {
-          id: 'kv_imaging',
-          name: 'kV Imaging System',
-          description: 'Provides planar or cone-beam CT imaging for patient positioning verification prior to treatment.',
-          position: { x: 150, y: 300, width: 100, height: 100 },
-          isCritical: false,
-          order: 6
-        },
-        {
-          id: 'control_console',
-          name: 'Control Console',
-          description: 'Interface used by therapists to operate the linear accelerator and monitor treatment delivery.',
-          position: { x: 50, y: 500, width: 120, height: 80 },
-          isCritical: false,
-          order: 7
         }
       ],
       
@@ -81,7 +57,7 @@ const equipmentContent: Record<string, any> = {
       difficulty: 'medium',
       domain: 'linac-anatomy',
       sequenceRequired: true,
-      hint: 'Start with the largest rotating component that houses the treatment head, then identify the components in the beam path.'
+      hint: 'Start with the treatment head, then identify the imaging components used for patient positioning and verification.'
     },
     
     // Brachytherapy Equipment

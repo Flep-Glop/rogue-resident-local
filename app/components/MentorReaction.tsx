@@ -34,7 +34,7 @@ const MentorReaction: React.FC<MentorReactionProps> = ({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Local display state - kept minimal per Chamber Pattern
-  const [isVisible, setIsVisible] = useState(reaction !== null);
+  const [isVisible, setIsVisible] = useState(false);
   
   // Clear timers on unmount
   useEffect(() => {

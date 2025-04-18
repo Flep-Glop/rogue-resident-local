@@ -28,6 +28,15 @@ enum NodeStatus {
   COMPLETED = 'completed'
 }
 
+// Define the node style type
+interface NodeStatusStyle {
+  filter: string;
+  borderColor: string;
+  borderWidth: number;
+  glowColor: string;
+  pulseAnimation?: boolean;
+}
+
 /**
  * Enhanced SimplifiedKapoorMap Component
  * 
@@ -169,7 +178,7 @@ const SimplifiedKapoorMap: React.FC = () => {
   };
 
   // Define colors for node status visual feedback
-  const nodeStatusStyles = {
+  const nodeStatusStyles: Record<NodeStatus, NodeStatusStyle> = {
     [NodeStatus.LOCKED]: {
       filter: 'grayscale(100%) brightness(40%)',
       borderColor: 'rgba(100, 100, 100, 0.5)',
@@ -177,10 +186,11 @@ const SimplifiedKapoorMap: React.FC = () => {
       glowColor: 'rgba(100, 100, 100, 0.3)'
     },
     [NodeStatus.AVAILABLE]: {
-      filter: 'brightness(100%)',
+      filter: 'brightness(120%)',
       borderColor: 'rgba(120, 255, 120, 0.8)',
-      borderWidth: 2,
-      glowColor: 'rgba(120, 255, 120, 0.3)'
+      borderWidth: 3,
+      glowColor: 'rgba(120, 255, 120, 0.5)',
+      pulseAnimation: true
     },
     [NodeStatus.CURRENT]: {
       filter: 'brightness(130%)',
@@ -195,6 +205,52 @@ const SimplifiedKapoorMap: React.FC = () => {
       glowColor: 'rgba(255, 215, 0, 0.4)'
     }
   };
+
+  // Add ref to track recently completed nodes
+  const recentlyCompletedNodesRef = useRef<Set<string>>(new Set());
+  
+  // Function to fetch completed nodes from game state machine
+  const fetchCompletedNodes = useCallback(() => {
+    try {
+      // First try to get state from state machine
+      let updatedCompletedNodes: string[] = [];
+      
+      if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
+        const gameStateMachine = window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState();
+        if (gameStateMachine && gameStateMachine.completedNodeIds) {
+          updatedCompletedNodes = [...gameStateMachine.completedNodeIds];
+          console.log('[MAP] Found completed nodes from state machine:', updatedCompletedNodes);
+        }
+      }
+      
+      // Combine with any recently completed nodes from events
+      if (recentlyCompletedNodesRef.current.size > 0) {
+        console.log('[MAP] Adding recently completed nodes from events:', 
+          Array.from(recentlyCompletedNodesRef.current));
+        updatedCompletedNodes = [
+          ...updatedCompletedNodes,
+          ...Array.from(recentlyCompletedNodesRef.current)
+        ];
+      }
+      
+      // Remove duplicates
+      updatedCompletedNodes = [...new Set(updatedCompletedNodes)];
+      
+      // Update nodes if we have any
+      if (updatedCompletedNodes.length > 0 || completedNodes.length === 0) {
+        setCompletedNodes(prevNodes => {
+          // Combine previous nodes with new ones to avoid losing data
+          const combinedNodes = [...new Set([...prevNodes, ...updatedCompletedNodes])];
+          console.log('[MAP] Updated completed nodes:', combinedNodes);
+          return combinedNodes;
+        });
+      } else {
+        console.log('[MAP] No update to completed nodes needed');
+      }
+    } catch (error) {
+      console.warn('[MAP] Error getting completed nodes:', error);
+    }
+  }, [completedNodes.length]);
 
   const getNodeImage = (nodeType: string): string => {
     return nodeImages[nodeType as keyof typeof nodeImages] || nodeImages.default;
@@ -240,19 +296,58 @@ const SimplifiedKapoorMap: React.FC = () => {
       }
     });
     
-    // Set up event listener for node completion events
+    // CRITICAL FIX: Add direct event listener for node completion events
     const handleNodeCompleted = (event: any) => {
       if (!isMountedRef.current) return;
       
       console.log('[MAP] Received node:completed event:', event);
-      fetchCompletedNodes();
+      
+      // Get the nodeId from the event
+      const nodeId = event.payload?.nodeId || event.detail?.nodeId;
+      if (nodeId) {
+        console.log(`[MAP] Adding ${nodeId} to recently completed nodes`);
+        recentlyCompletedNodesRef.current.add(nodeId);
+      }
+      
+      // Small delay to ensure state machine has updated
+      setTimeout(() => {
+        if (isMountedRef.current) {
+          fetchCompletedNodes();
+        }
+      }, 100);
     };
     
-    // Add event listener for node completion
+    // CRITICAL FIX: Listen for both custom events and the GameEventType event
     document.addEventListener('node:completed', handleNodeCompleted);
+    
+    // Add subscription to the central event bus for NODE_COMPLETED events
+    let eventUnsubscribe: (() => void) | null = null;
+    try {
+      if (typeof window !== 'undefined') {
+        // This will work regardless of event dispatch method
+        const centralEventBus = require('@/app/core/events/CentralEventBus').default;
+        if (centralEventBus) {
+          const busInstance = centralEventBus.getInstance();
+          if (busInstance && busInstance.subscribe) {
+            eventUnsubscribe = busInstance.subscribe(
+              require('@/app/core/events/EventTypes').GameEventType.NODE_COMPLETED, 
+              handleNodeCompleted
+            );
+            console.log('[MAP] Subscribed to NODE_COMPLETED events via central event bus');
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('[MAP] Error subscribing to central event bus:', error);
+    }
     
     // Initial fetch of completed nodes
     fetchCompletedNodes();
+    
+    // Fetch completed nodes again after a delay to handle any race conditions
+    const delayedFetchTimer = setTimeout(() => {
+      if (isMountedRef.current) fetchCompletedNodes();
+    }, 500);
     
     isMountedRef.current = true;
     
@@ -263,24 +358,10 @@ const SimplifiedKapoorMap: React.FC = () => {
       animationTimeoutRefs.current = [];
       unsubscribe();
       document.removeEventListener('node:completed', handleNodeCompleted);
+      if (eventUnsubscribe) eventUnsubscribe();
+      clearTimeout(delayedFetchTimer);
     };
-  }, []);
-  
-  // Function to fetch completed nodes from game state machine
-  const fetchCompletedNodes = useCallback(() => {
-    try {
-      if (typeof window !== 'undefined' && window.__GAME_STATE_MACHINE_DEBUG__?.getCurrentState) {
-        const gameStateMachine = window.__GAME_STATE_MACHINE_DEBUG__.getCurrentState();
-        if (gameStateMachine && gameStateMachine.completedNodeIds) {
-          const updatedCompletedNodes = [...gameStateMachine.completedNodeIds];
-          console.log('[MAP] Found completed nodes:', updatedCompletedNodes);
-          setCompletedNodes(updatedCompletedNodes);
-        }
-      }
-    } catch (error) {
-      console.warn('[MAP] Error getting completed nodes:', error);
-    }
-  }, []);
+  }, [fetchCompletedNodes]);
   
   // Calculate and store SVG bounds for click debugging
   useEffect(() => {
@@ -437,21 +518,59 @@ const SimplifiedKapoorMap: React.FC = () => {
       return NodeStatus.AVAILABLE;
     }
     
-    // Map node IDs to appropriate dialogue nodes
-    // This mapping helps link map nodes to dialogue content
-    const nodeToDialogueMapping: Record<string, string> = {
-      'start': 'kapoor-1', // Link start node to first Kapoor dialogue
-      'path-a1': 'kapoor-2', // Link path-a1 to second Kapoor dialogue
-      // Add more mappings as needed for other nodes
-    };
+    // Get the node info
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return NodeStatus.LOCKED;
     
-    // Check if it's available (connected to a completed node)
-    const isAvailable = nodes.some(node => 
-      completedNodes.includes(node.id) && 
-      node.connections.includes(nodeId)
+    // Find all completed nodes and their positions
+    const completedNodePositions = nodes
+      .filter(n => completedNodes.includes(n.id))
+      .map(n => ({ id: n.id, y: n.y }));
+    
+    // Find all nodes at the same y position (same row)
+    const sameRowNodes = nodes.filter(n => n.y === node.y);
+    
+    // Check if any node in the same row is already completed
+    // If so, this node should be locked (can only select one node per row)
+    const isRowAlreadySelected = sameRowNodes.some(n => 
+      n.id !== nodeId && (completedNodes.includes(n.id) || n.id === currentNodeId)
     );
     
-    return isAvailable ? NodeStatus.AVAILABLE : NodeStatus.LOCKED;
+    if (isRowAlreadySelected) {
+      return NodeStatus.LOCKED;
+    }
+    
+    // Check if node is connected to a completed node
+    const isConnectedToCompleted = nodes.some(n => 
+      completedNodes.includes(n.id) && 
+      n.connections.includes(nodeId)
+    );
+    
+    // Not connected to a completed node? Then it's locked
+    if (!isConnectedToCompleted) {
+      return NodeStatus.LOCKED;
+    }
+    
+    // Find y positions of all rows
+    const allYPositions = [...new Set(nodes.map(n => n.y))].sort((a, b) => a - b);
+    
+    // Find the last completed row's y position
+    const lastCompletedY = Math.max(
+      0, 
+      ...completedNodePositions.map(pos => pos.y)
+    );
+    
+    // Find the index of the last completed row
+    const lastCompletedRowIndex = allYPositions.findIndex(y => y === lastCompletedY);
+    
+    // Find the next row's y position
+    const nextRowY = allYPositions[lastCompletedRowIndex + 1];
+    
+    // Check if this node is in the next available row
+    const isInNextRow = node.y === nextRowY;
+    
+    // Node is available if it's in the next row and connected to a completed node
+    return isInNextRow ? NodeStatus.AVAILABLE : NodeStatus.LOCKED;
   }, [nodes, currentNodeId, completedNodes]);
 
   // Check if a node is interactive
@@ -498,7 +617,7 @@ const SimplifiedKapoorMap: React.FC = () => {
       audio.play().catch(e => console.warn('Audio play failed:', e));
     }
     
-    // Instead, create a more gentle fade overlay directly in this component
+    // Create a more efficient fade overlay with fewer opacity steps
     const fadeOverlay = document.createElement('div');
     fadeOverlay.id = 'map-fade-overlay';
     fadeOverlay.style.cssText = `
@@ -506,7 +625,7 @@ const SimplifiedKapoorMap: React.FC = () => {
       inset: 0;
       background-color: black;
       opacity: 0;
-      transition: opacity 1.5s ease-in;
+      transition: opacity 2s ease-in;
       pointer-events: none;
       z-index: 5000;
     `;
@@ -515,24 +634,12 @@ const SimplifiedKapoorMap: React.FC = () => {
     // Force reflow
     fadeOverlay.offsetHeight;
     
-    // Fade in gradually - not immediately
+    // Just one opacity transition instead of multiple
     setTimeout(() => {
       if (fadeOverlay) {
-        fadeOverlay.style.opacity = '0.4';
+        fadeOverlay.style.opacity = '0.85';
       }
     }, 100);
-    
-    setTimeout(() => {
-      if (fadeOverlay) {
-        fadeOverlay.style.opacity = '0.7';
-      }
-    }, 600);
-    
-    setTimeout(() => {
-      if (fadeOverlay) {
-        fadeOverlay.style.opacity = '1';
-      }
-    }, 1600);
     
     // Clean up when done
     setTimeout(() => {
@@ -546,6 +653,16 @@ const SimplifiedKapoorMap: React.FC = () => {
     if (nodeElement) {
       // Add enhanced glow effect to the node
       nodeElement.classList.add('node-enhanced-glow-animation');
+      
+      // Make the animation visible by ensuring rings have proper styling
+      const rings = nodeElement.querySelectorAll('.node-glow-ring, .node-outer-glow-ring, .node-radial-ring');
+      rings.forEach((ring) => {
+        const circleElement = ring as SVGCircleElement;
+        circleElement.style.strokeWidth = '1';
+        circleElement.style.opacity = '0.2';
+      });
+      
+      console.log(`[MAP] Applied node-enhanced-glow-animation to node ${nodeId}`);
       
       // Add vignette and radial animations
       document.querySelector('.map-vignette')?.classList.add('map-vignette-active');
@@ -561,19 +678,8 @@ const SimplifiedKapoorMap: React.FC = () => {
       const clickedRect = nodeElement.getBoundingClientRect();
       document.querySelectorAll('.node-group').forEach(node => {
         if (node.id !== `node-${nodeId}`) {
-          const rect = node.getBoundingClientRect();
-          const distance = Math.sqrt(
-            Math.pow(rect.left - clickedRect.left, 2) + 
-            Math.pow(rect.top - clickedRect.top, 2)
-          );
-          
-          // Only animate nearby nodes for better performance
-          if (distance < 500) {
-            node.classList.add('node-dim-animation');
-          } else {
-            // Just hide far nodes immediately without animation
-            (node as HTMLElement).style.opacity = '0.1';
-          }
+          // Skip animation, just reduce opacity immediately
+          (node as HTMLElement).style.opacity = '0.1';
         }
       });
     }
@@ -869,12 +975,20 @@ const SimplifiedKapoorMap: React.FC = () => {
         node.type === 'calibration' ? 'rgba(120, 120, 255, 0.4)' :
         node.type === 'qa' ? 'rgba(255, 180, 100, 0.4)' :
         node.type === 'clinical' ? 'rgba(100, 255, 150, 0.4)' :
-        'rgba(255, 130, 170, 0.4)'; // educational or default
-
+        'rgba(255, 130, 170, 0.4)';
+      
+      // Apply pulse animation class based on node status
+      const nodeClasses = [
+        'node-group',
+        `${nodeStatus.toLowerCase()}-node`, 
+        isHovered ? 'hovered-node' : '',
+        statusStyle.pulseAnimation ? 'node-pulse-animation' : '',
+      ].filter(Boolean).join(' ');
+      
       return (
-        <g 
+        <g
           key={node.id}
-          id={`node-${node.id}`} 
+          id={`node-${node.id}`}
           data-node-id={node.id}
           data-node-type={node.type}
           data-node-status={nodeStatus}
@@ -894,11 +1008,12 @@ const SimplifiedKapoorMap: React.FC = () => {
           }}
           onMouseEnter={() => setHoveredNodeId(node.id)}
           onMouseLeave={() => setHoveredNodeId(null)}
-          style={{ 
+          style={{
             cursor: isInteractive ? 'pointer' : 'not-allowed',
-            opacity: nodeStatus === NodeStatus.LOCKED ? 0.6 : 1
+            opacity: nodeStatus === NodeStatus.LOCKED ? 0.6 : 1,
+            transformOrigin: `${node.x}px ${node.y}px`
           }}
-          className={`node-group ${nodeStatus.toLowerCase()}-node ${isHovered ? 'hovered-node' : ''}`}
+          className={nodeClasses}
         >
           {/* Enhanced Node Background for better visibility */}
           <circle
@@ -933,34 +1048,12 @@ const SimplifiedKapoorMap: React.FC = () => {
             opacity="0"
           />
 
-          {/* Additional radial glow rings - will be animated when node is clicked */}
+          {/* Single radial ring for better performance */}
           <circle
             cx={node.x}
             cy={node.y}
             r={size + 3}
-            className="node-radial-ring-1"
-            fill="none"
-            stroke={nodeTypeColor}
-            strokeWidth="0"
-            opacity="0"
-          />
-          
-          <circle
-            cx={node.x}
-            cy={node.y}
-            r={size + 3}
-            className="node-radial-ring-2"
-            fill="none"
-            stroke={nodeTypeColor}
-            strokeWidth="0"
-            opacity="0"
-          />
-          
-          <circle
-            cx={node.x}
-            cy={node.y}
-            r={size + 3}
-            className="node-radial-ring-3"
+            className="node-radial-ring"
             fill="none"
             stroke={nodeTypeColor}
             strokeWidth="0"
@@ -1073,502 +1166,195 @@ const SimplifiedKapoorMap: React.FC = () => {
     );
   }, []);
   
+  // Add this CSS in a style tag to the component for the pulse animation
+  const pulseAnimationCSS = `
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.8; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    
+    .node-pulse-animation {
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    /* Enhanced Node Glow Animation - optimized for performance */
+    @keyframes nodeEnhancedGlow {
+      0% { 
+        r: 26;
+        stroke-width: 2;
+        opacity: 0.3;
+      }
+      50% {
+        r: 45;
+        stroke-width: 5;
+        opacity: 0.7;
+      }
+      100% {
+        r: 90;
+        stroke-width: 8;
+        opacity: 0.2;
+      }
+    }
+    
+    /* Outer Glow Ring Animation - simplified for performance */
+    @keyframes nodeOuterGlowRing {
+      0% { 
+        r: 28;
+        stroke-width: 1;
+        opacity: 0;
+      }
+      40% {
+        r: 120;
+        stroke-width: 2;
+        opacity: 0.3;
+      }
+      100% {
+        r: 200;
+        stroke-width: 1;
+        opacity: 0;
+      }
+    }
+    
+    /* Reduced to just one additional ring animation for performance */
+    @keyframes nodeRadialRing {
+      0% { 
+        r: 30;
+        stroke-width: 1;
+        opacity: 0;
+      }
+      30% {
+        r: 100;
+        stroke-width: 2;
+        opacity: 0.4;
+      }
+      100% {
+        r: 250;
+        stroke-width: 1;
+        opacity: 0;
+      }
+    }
+
+    .node-enhanced-glow-animation .node-glow-ring {
+      animation: nodeEnhancedGlow 3s ease-in forwards;
+      will-change: r, stroke-width, opacity;
+    }
+    
+    .node-enhanced-glow-animation .node-outer-glow-ring {
+      animation: nodeOuterGlowRing 3s ease-in forwards;
+      will-change: r, stroke-width, opacity;
+      transform: translateZ(0);
+    }
+    
+    .node-enhanced-glow-animation .node-radial-ring {
+      animation: nodeRadialRing 2.5s ease-out forwards;
+      will-change: r, stroke-width, opacity;
+      transform: translateZ(0);
+    }
+  `;
+  
   // ===== MAIN RENDER =====
   return (
-    <div 
-      ref={mapContainerRef} 
-      className="relative w-full h-full overflow-hidden bg-black"
-    >
-      {/* Enhanced Background with cohesive visual effects */}
-      <div className="fixed inset-0 z-0">
-        {/* Deep space background with subtle gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-gray-950 via-blue-950 to-gray-950" />
-        
-        {/* Simplified starfield with fewer stars */}
-        <div className="absolute inset-0 starfield-bg-sparse" />
-        <div className="absolute inset-0 starfield-bg-medium" />
-        
-        {/* Very subtle nebula effect */}
-        <div className="absolute inset-0 nebula-effect-subtle" />
-        
-        {/* Minimal noise texture overlay */}
-        <div className="absolute inset-0 pixel-noise opacity-3" />
-        
-        {/* Vignette effect container that will be activated on node selection */}
-        <div className="absolute inset-0 map-vignette" />
-        
-        {/* Additional black overlay for transitions */}
-        <div className="absolute inset-0 black-overlay opacity-0 z-50" />
-      </div>
+    <>
+      {/* Add the CSS animation styles */}
+      <style>{pulseAnimationCSS}</style>
       
-      {/* Emergency start node button - for debugging */}
-      <div className="absolute top-4 right-4 z-50">
-        <button 
-          className="px-4 py-2 bg-blue-700 text-white font-pixel text-sm rounded shadow-md hover:bg-blue-600 transition-colors"
-          onClick={() => {
-            console.log("[MAP] Emergency start node button clicked");
-            handleDirectNodeClick('start');
-          }}
-        >
-          Start Node
-        </button>
-      </div>
-      
-      {/* Map container with expanded dimensions */}
-      <div className="relative z-10 w-full" style={{ height: "1700px" }}>
-        <svg 
-          ref={svgRef}
-          width="100%" 
-          height="100%" 
-          viewBox="0 0 1200 1700"
-          preserveAspectRatio="xMidYMin slice"
-          className={isAnimating ? 'animate-map-click' : ''}
-          data-testid="kapoor-map-svg"
-        >
-          {/* Grid pattern definition */}
-          <defs>
-            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(100, 120, 255, 0.05)" strokeWidth="0.5"/>
-            </pattern>
-            
-            {/* Simplified grid */}
-            <pattern id="enhanced-grid" width="100" height="100" patternUnits="userSpaceOnUse">
-              <rect width="100" height="100" fill="transparent"/>
-              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(100, 120, 255, 0.05)" strokeWidth="0.5"/>
-            </pattern>
-            
-            {/* Glow filter for nodes */}
-            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="2.5" result="blur"/>
-              <feMerge>
-                <feMergeNode in="blur"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-            
-            {/* More intense glow for active elements */}
-            <filter id="active-glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="4" result="blur"/>
-              <feMerge>
-                <feMergeNode in="blur"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-          </defs>
+      <div 
+        ref={mapContainerRef} 
+        className="relative w-full h-full overflow-hidden bg-black"
+      >
+        {/* Enhanced Background with cohesive visual effects */}
+        <div className="fixed inset-0 z-0">
+          {/* Deep space background with subtle gradient */}
+          <div className="absolute inset-0 bg-gradient-to-b from-gray-950 via-blue-950 to-gray-950" />
           
-          {/* Very subtle grid background */}
-          <rect width="100%" height="100%" fill="url(#enhanced-grid)" pointerEvents="none" fillOpacity="0.7" />
+          {/* Simplified starfield with fewer stars */}
+          <div className="absolute inset-0 starfield-bg-sparse" />
+          <div className="absolute inset-0 starfield-bg-medium" />
           
-          {/* Enhanced connection lines */}
-          {renderConnectionLines()}
+          {/* Very subtle nebula effect */}
+          <div className="absolute inset-0 nebula-effect-subtle" />
           
-          {/* Visually enhanced nodes */}
-          {renderNodes()}
-        </svg>
+          {/* Minimal noise texture overlay */}
+          <div className="absolute inset-0 pixel-noise opacity-3" />
+          
+          {/* Vignette effect container that will be activated on node selection */}
+          <div className="absolute inset-0 map-vignette" />
+          
+          {/* Additional black overlay for transitions */}
+          <div className="absolute inset-0 black-overlay opacity-0 z-50" />
+        </div>
+        
+        {/* Emergency start node button - for debugging */}
+        <div className="absolute top-4 right-4 z-50">
+          <button 
+            className="px-4 py-2 bg-blue-700 text-white font-pixel text-sm rounded shadow-md hover:bg-blue-600 transition-colors"
+            onClick={() => {
+              console.log("[MAP] Emergency start node button clicked");
+              handleDirectNodeClick('start');
+            }}
+          >
+            Start Node
+          </button>
+        </div>
+        
+        {/* Map container with expanded dimensions */}
+        <div className="relative z-10 w-full" style={{ height: "1700px" }}>
+          <svg 
+            ref={svgRef}
+            width="100%" 
+            height="100%" 
+            viewBox="0 0 1200 1700"
+            preserveAspectRatio="xMidYMin slice"
+            className={isAnimating ? 'animate-map-click' : ''}
+            data-testid="kapoor-map-svg"
+          >
+            {/* Grid pattern definition */}
+            <defs>
+              <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(100, 120, 255, 0.05)" strokeWidth="0.5"/>
+              </pattern>
+              
+              {/* Simplified grid */}
+              <pattern id="enhanced-grid" width="100" height="100" patternUnits="userSpaceOnUse">
+                <rect width="100" height="100" fill="transparent"/>
+                <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(100, 120, 255, 0.05)" strokeWidth="0.5"/>
+              </pattern>
+              
+              {/* Glow filter for nodes */}
+              <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="2.5" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+              
+              {/* More intense glow for active elements */}
+              <filter id="active-glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="4" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            
+            {/* Very subtle grid background */}
+            <rect width="100%" height="100%" fill="url(#enhanced-grid)" pointerEvents="none" fillOpacity="0.7" />
+            
+            {/* Enhanced connection lines */}
+            {renderConnectionLines()}
+            
+            {/* Visually enhanced nodes */}
+            {renderNodes()}
+          </svg>
+        </div>
+        
+        {/* Map Legend */}
+        {renderLegend}
       </div>
-      
-      {/* Map Legend */}
-      {renderLegend}
-      
-      {/* Add global styles for animations and visual effects */}
-      <style jsx global>{`
-        /* Keyframes for pulse animation */
-        @keyframes pulse {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.3); opacity: 0.7; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        
-        /* Keyframes for pulse path animation */
-        @keyframes pulse-path {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
-        }
-        
-        /* Keyframes for subtle pulse animation */
-        @keyframes pulse-slow {
-          0%, 100% { transform: scale(1); opacity: 0.9; }
-          50% { transform: scale(1.1); opacity: 1; }
-        }
-        
-        /* Keyframes for in-place pulse animation */
-        @keyframes pulse-in-place {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
-        }
-        
-        /* Keyframes for very slow pulse animation */
-        @keyframes pulse-very-slow {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
-        }
-        
-        /* Animation classes */
-        .pulse-animation {
-          animation: pulse 0.6s ease-in-out;
-        }
-        
-        .animate-pulse-path {
-          animation: pulse-path 2s infinite ease-in-out;
-        }
-        
-        .animate-pulse-path-subtle {
-          animation: pulse-path 4s infinite ease-in-out;
-        }
-        
-        .animate-pulse-slow {
-          animation: pulse-slow 3s infinite ease-in-out;
-        }
-        
-        .animate-pulse-in-place {
-          animation: pulse-in-place 2s infinite ease-in-out;
-        }
-        
-        .animate-pulse-very-slow {
-          animation: pulse-very-slow 8s infinite ease-in-out;
-        }
-        
-        .animate-map-click {
-          animation: map-click 0.3s ease-in-out;
-        }
-        
-        @keyframes map-click {
-          0% { transform: scale(1); }
-          50% { transform: scale(0.98); }
-          100% { transform: scale(1); }
-        }
-        
-        /* Enhanced Node Glow Animation - optimized for performance */
-        @keyframes nodeEnhancedGlow {
-          0% { 
-            r: 26;
-            stroke-width: 2;
-            opacity: 0.3;
-          }
-          50% {
-            r: 45;
-            stroke-width: 5;
-            opacity: 0.7;
-          }
-          100% {
-            r: 90;
-            stroke-width: 8;
-            opacity: 0.2;
-          }
-        }
-        
-        /* Outer Glow Ring Animation - simplified for performance */
-        @keyframes nodeOuterGlowRing {
-          0% { 
-            r: 28;
-            stroke-width: 1;
-            opacity: 0;
-          }
-          30% {
-            r: 70;
-            stroke-width: 3;
-            opacity: 0.4;
-          }
-          100% {
-            r: 150;
-            stroke-width: 1;
-            opacity: 0;
-          }
-        }
-        
-        /* Additional Radial Ring Animations - reduced for performance */
-        @keyframes nodeRadialRing1 {
-          0% { 
-            r: 30;
-            stroke-width: 1;
-            opacity: 0;
-          }
-          20% {
-            r: 75;
-            stroke-width: 2;
-            opacity: 0.3;
-          }
-          100% {
-            r: 200;
-            stroke-width: 1;
-            opacity: 0;
-          }
-        }
-        
-        @keyframes nodeRadialRing2 {
-          0% { 
-            r: 30;
-            stroke-width: 1;
-            opacity: 0;
-          }
-          10% {
-            opacity: 0;
-          }
-          30% {
-            r: 50;
-            stroke-width: 3;
-            opacity: 0.4;
-          }
-          100% {
-            r: 230;
-            stroke-width: 1;
-            opacity: 0;
-          }
-        }
-        
-        @keyframes nodeRadialRing3 {
-          0% { 
-            r: 30;
-            stroke-width: 1;
-            opacity: 0;
-          }
-          20% {
-            opacity: 0;
-          }
-          40% {
-            r: 60;
-            stroke-width: 4;
-            opacity: 0.5;
-          }
-          100% {
-            r: 260;
-            stroke-width: 1;
-            opacity: 0;
-          }
-        }
-        
-        /* Vignette effect animation - simplified for better performance */
-        @keyframes vignetteAnimation {
-          0% {
-            box-shadow: inset 0 0 0px rgba(0,0,0,0);
-          }
-          100% {
-            box-shadow: inset 0 0 150px rgba(0,0,0,0.7);
-          }
-        }
-        
-        /* Map vignette setup */
-        .map-vignette {
-          pointer-events: none;
-          transition: all 0.5s ease;
-          box-shadow: inset 0 0 0px rgba(0,0,0,0);
-          background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0) 70%);
-        }
-        
-        .map-vignette-active {
-          animation: vignetteAnimation 2s forwards;
-        }
-        
-        .node-enhanced-glow-animation .node-glow-ring {
-          animation: nodeEnhancedGlow 3s ease-in forwards;
-        }
-        
-        .node-enhanced-glow-animation .node-outer-glow-ring {
-          animation: nodeOuterGlowRing 3s ease-in forwards;
-        }
-        
-        .node-enhanced-glow-animation .node-radial-ring-1 {
-          animation: nodeRadialRing1 2.5s ease-out forwards;
-        }
-        
-        .node-enhanced-glow-animation .node-radial-ring-2 {
-          animation: nodeRadialRing2 2.8s ease-out forwards;
-        }
-        
-        .node-enhanced-glow-animation .node-radial-ring-3 {
-          animation: nodeRadialRing3 3s ease-out forwards;
-        }
-        
-        /* Improved cursor styles */
-        .node-circle {
-          cursor: pointer;
-        }
-        
-        .node-group {
-          cursor: pointer;
-        }
-        
-        /* Node status-specific styles */
-        .locked-node {
-          cursor: not-allowed;
-        }
-        
-        .completed-node .node-label {
-          text-decoration: line-through;
-        }
-        
-        /* Enhanced button effect */
-        .enhanced-button::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: -100%;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(
-            to right,
-            rgba(255,255,255,0) 0%,
-            rgba(255,255,255,0.2) 50%,
-            rgba(255,255,255,0) 100%
-          );
-          transition: all 0.8s ease;
-          z-index: 1;
-          transform: skewX(-25deg);
-        }
-        
-        .enhanced-button:hover::after {
-          left: 100%;
-        }
-        
-        /* Simplified starfield background */
-        .starfield-bg-sparse {
-          background-image: radial-gradient(
-            circle at center,
-            rgba(255, 255, 255, 0.3) 1px,
-            transparent 1px
-          );
-          background-size: 80px 80px;
-        }
-        
-        .starfield-bg-medium {
-          background-image: radial-gradient(
-            circle at center,
-            rgba(255, 255, 255, 0.4) 1.5px,
-            transparent 1.5px
-          );
-          background-size: 200px 200px;
-        }
-        
-        /* Subtle nebula effect */
-        .nebula-effect-subtle {
-          background: radial-gradient(
-            circle at 70% 60%,
-            rgba(30, 64, 175, 0.08) 0%,
-            rgba(30, 64, 175, 0.02) 40%,
-            transparent 70%
-          );
-        }
-        
-        /* Pixel noise effect */
-        .pixel-noise {
-          background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAADi0lEQVR4nO2ZW2hcVRSGv3WdJgaCaGtFCtJe4oNSLwWtNVPrQy/2SUUFvfhSgjVtKRF8UBIQpeAlPimK1hegT1pTJdCKMVIhVE2jiEgRRIMoFYtWG6KmXpJMlsw0M1mz59hMmMuZZM6ZSOYPCzKXvda/1z5777XXiXCDQXrDh/3BXgE2As0WNZeBS8DCQOfgKFPEpBzpD75qYHMNbvYXtD59cOgkJcJvI/ZsNLLLom5XfvnmJ/q3kCJs2IiIyHwDO4HVFnUvqsomFV2nqutVdLuBH4GfRdjiT3TtcWlTbRsxIm0G3gZWTzVHVS/PmrH+LxF5GdinyiIDNBT0PBvoGhxxYVdtGxGpNbAXaJnqVaH/vWwuP+OTJzz41KXeRkp9JNQevBtYUjI8IsJr6RXpNxu/7DtfmxVVQF0jBvbXlU1m40cGJPVAOvXJJ8K9C0N7Oj91aWfFHjEibQb6gcbikRHg3cbujoOFjXn3zr7Hc/nZr9YflXOVGv2/9YjBvshbAOkLbQ8Xj6uqL3Np7Lv0/JZE8c8n9C6ufhVpqFiPiLSp6rdAT9FQRoRNmf3DHUxC0KjXwCPFQ4ocrM3KKqMcj3iB0jrBV0o2EeyxuL0U3lvCkw40lUelHolJPDKd5xMi34nIMyZwxyoKDhbTcqvF4Vkgbh7KlzJDFdtbBqo93Tc2ySRFMJcMdNRmZZVR9WHIiMSFCT0CkJjTGGw00DMTXEeXVm5W5kwReQ/YP1/GVUQmKfIAcNSB3KpR0Teegf0O5FaNetrIiScGtwCP2dblAtWsiV4Dj1vW5AS29YinRE89C3jTYVE5QvGm5rHs99vC3yTwPgMR8QzhKtlU5Dv92jRpvjswrTfnG5jtddGkYkG7gf0Vur0A3G0p+98c5d6xGG84rmZKYVOP+P4adCjYlehNrL7YCWBgM7Ciagsds9rD7uHSPgtHZ2bqkSQbRn8H3gRmWdQ9AYwCl1VkGPgs0DX4m1Mr67F4frUQkYYZK55g4O4ZKnXoEeX5tdlOq+E5RLUe8crlpNIARETkhWnmVOSRLRHO4BHReaoyPtvIOtqZpKcMtAEpYA4wF1iqwuMK7zYuePDFdw9MlqhrzU1SZEGkH8B6h+hb0TvKE+5H+rZ7+eSvwBJVfSiQTJ6zwBaIjSM1RI39E3yDmjc3/bxUAAAAAElFTkSuQmCC");
-          background-size: 4px 4px;
-          image-rendering: pixelated;
-        }
-        
-        .node-pulse-animation {
-          animation: nodePulse 0.75s ease-out;
-          z-index: 10;
-          filter: drop-shadow(0 0 10px #fff);
-        }
-        
-        .node-dim-animation {
-          animation: nodeDim 1.5s forwards;
-        }
-        
-        .map-transition-out {
-          animation: mapZoomBlur 0.75s forwards;
-        }
-        
-        /* Extended transition */
-        .map-transition-out-extended {
-          animation: mapZoomBlurExtended 3s forwards;
-        }
-        
-        @keyframes nodePulse {
-          0% { transform: scale(1); filter: brightness(1); }
-          50% { transform: scale(1.5); filter: brightness(1.5) drop-shadow(0 0 15px #fff); }
-          100% { transform: scale(1.3); filter: brightness(1.2) drop-shadow(0 0 10px #fff); }
-        }
-        
-        @keyframes nodeDim {
-          to { opacity: 0.1; }
-        }
-        
-        /* Style for body during transition */
-        .transitioning-to-black {
-          background-color: black !important;
-        }
-        
-        /* Performance optimizations */
-        .node-group {
-          will-change: opacity, transform;
-        }
-        
-        /* Use transform instead of filter for better performance */
-        .map-transition-out-extended {
-          animation: mapZoomBlurExtended 2.8s forwards;
-          will-change: transform, opacity, background-color;
-        }
-        
-        /* Prevent repaints by using opacity instead of filter for animations */
-        .node-dim-animation {
-          animation: nodeDim 1s forwards;
-          will-change: opacity;
-        }
-        
-        /* Force GPU acceleration for all animations */
-        .animate-pulse-path,
-        .animate-pulse-slow,
-        .animate-pulse-in-place,
-        .node-glow-ring,
-        .node-outer-glow-ring,
-        .node-radial-ring-1,
-        .node-radial-ring-2,
-        .node-radial-ring-3 {
-          transform: translateZ(0);
-          will-change: opacity, r, stroke-width;
-        }
-        
-        /* Optimize the black overlay - use gradual fade instead of immediate */
-        .black-overlay {
-          background-color: #000;
-          opacity: 0;
-          transition: opacity 1.5s ease-in;
-          pointer-events: none;
-          will-change: opacity;
-          z-index: 1000;
-        }
-        
-        .black-overlay-fade {
-          opacity: 0.85; /* Not 1, to keep some visibility */
-        }
-        
-        /* Extended zoom blur animation - optimized for performance and gradual fade */
-        @keyframes mapZoomBlurExtended {
-          0% { 
-            transform: translate3d(0,0,0) scale(1); 
-            background-color: rgba(0,0,0,0); 
-            opacity: 1;
-          }
-          20% { 
-            transform: translate3d(0,0,0) scale(1.02); 
-            background-color: rgba(0,0,0,0.2); 
-            opacity: 0.95;
-          }
-          60% { 
-            transform: translate3d(0,0,0) scale(1.05); 
-            background-color: rgba(0,0,0,0.4); 
-            opacity: 0.85;
-          }
-          100% { 
-            transform: translate3d(0,0,0) scale(1.08); 
-            background-color: rgba(0,0,0,0.8); 
-            opacity: 0.7;
-          }
-        }
-        
-        /* Vignette effect animation - more gradual */
-        @keyframes vignetteAnimation {
-          0% {
-            box-shadow: inset 0 0 0px rgba(0,0,0,0);
-          }
-          100% {
-            box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
-          }
-        }
-      `}</style>
-    </div>
+    </>
   );
 };
 

@@ -14,7 +14,8 @@ export default function DialogueNodeSelector() {
   
   // Simple test nodes for extension testing
   const testNodes = [
-    { id: 'path1', name: 'Extensions Test', description: 'Test all extension types with example dialogue' }
+    { id: 'path1', name: 'Extensions Test', description: 'Test all extension types with example dialogue' },
+    { id: 'enc-1', name: 'Equipment Identification', description: 'Linear Accelerator Equipment Identification Challenge' }
   ];
   
   return (

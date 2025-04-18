@@ -28,6 +28,10 @@ import FontPreLoader from './FontPreLoader';
 import JournalEventHandler from '@/app/core/events/JournalEventHandler';
 import JournalAcquisitionAnimation from './journal/JournalAcquisitionAnimation';
 import Journal from './journal/Journal';
+import NodeCompletionHandler from '../core/events/NodeCompletionHandler';
+import EndDayButton from './EndDayButton';
+import ResourceGainFeedback from './gameplay/ResourceGainFeedback';
+import { useKnowledgeEventHandler } from '@/app/core/events/KnowledgeEventHandler';
 
 // Import optimized store hooks
 import { 
@@ -660,8 +664,17 @@ export default function GameContainer() {
       {/* Journal event handler - Connects NODE_COMPLETED events to JOURNAL_ACQUIRED */}
       <JournalEventHandler />
       
+      {/* Node completion handler - Ensures nodes are marked as completed in the state machine */}
+      <NodeCompletionHandler />
+      
+      {/* Knowledge event handler - Ensures concepts are recorded in the constellation */}
+      {useKnowledgeEventHandler()}
+      
       {/* Journal acquisition animation - Shown when journal is acquired */}
       <JournalAcquisitionAnimation />
+      
+      {/* Resource Gain Feedback - Shows floating numbers when resources increase */}
+      <ResourceGainFeedback />
       
       <div className="flex-grow flex overflow-hidden">
         <div className="flex-grow relative overflow-hidden">
@@ -673,6 +686,9 @@ export default function GameContainer() {
 
       {/* Purely presentational transition overlay - only when initialized */}
       {initialized && <DayNightTransition />}
+
+      {/* End Day button - Allows player to manually end the day */}
+      {initialized && gamePhase === 'day' && <EndDayButton />}
 
       {/* Unified Debug Panel - Only in development */}
       {process.env.NODE_ENV !== 'production' && <UnifiedDebugPanel />}

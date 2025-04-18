@@ -13,6 +13,7 @@ import { useResourceStore } from '@/app/store/resourceStore';
 import ConstellationDebugControls from './ConstellationDebugControls';
 import { safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
+import KnowledgeSystemDebug from './KnowledgeSystemDebug';
 
 // Type declarations for window extensions
 declare global {
@@ -20,6 +21,11 @@ declare global {
     __FORCE_REINITIALIZE__?: () => void;
     __TOGGLE_DEBUG_PANEL__?: () => void;
     __INIT_STATE__?: any;
+    __GAME_STATE_MACHINE_DEBUG__?: any;
+    __DEBUG_COMPONENTS__?: {
+      CharacterPortrait?: React.ComponentType<any>;
+      [key: string]: any;
+    };
   }
 }
 
@@ -37,7 +43,7 @@ declare global {
 export default function UnifiedDebugPanel() {
   // Panel state
   const [isExpanded, setIsExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState<'game' | 'map' | 'actions' | 'system' | 'events' | 'constellation'>('game');
+  const [activeTab, setActiveTab] = useState<'game' | 'map' | 'actions' | 'system' | 'events' | 'constellation' | 'reactions' | 'knowledge'>('game');
   const [clickPending, setClickPending] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{message: string, type: 'success'|'error'|'info'|null}>({
     message: '',
@@ -53,6 +59,11 @@ export default function UnifiedDebugPanel() {
   const [clickCount, setClickCount] = useState(0);
   const [criticalEvents, setCriticalEvents] = useState<Array<{event: string, timestamp: number}>>([]);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
+  
+  // Reactions tab state
+  const [currentReaction, setCurrentReaction] = useState<'positive' | 'negative' | 'question' | 'surprise' | 'thinking' | 'idea' | null>(null);
+  const [isShaking, setIsShaking] = useState(false);
+  const [isOscillating, setIsOscillating] = useState(false);
   
   // Store references - use the actual hooks properly
   // Don't store the hook functions themselves, we need their store objects
@@ -194,6 +205,22 @@ export default function UnifiedDebugPanel() {
       // Just mark that we need a refresh, don't update state directly
       refreshNeededRef.current = true;
     });
+    
+    // Expose components for debugging
+    if (typeof window !== 'undefined') {
+      // Create a debug components container if it doesn't exist
+      if (!window.__DEBUG_COMPONENTS__) {
+        window.__DEBUG_COMPONENTS__ = {};
+      }
+      
+      // Dynamically import the CharacterPortrait component
+      import('@/app/components/CharacterPortrait').then(module => {
+        window.__DEBUG_COMPONENTS__.CharacterPortrait = module.default;
+        console.log('[Debug] CharacterPortrait component loaded for debugging');
+      }).catch(error => {
+        console.error('[Debug] Failed to load CharacterPortrait:', error);
+      });
+    }
     
     // Update console output logic
     const originalConsoleLog = console.log;
@@ -709,6 +736,17 @@ export default function UnifiedDebugPanel() {
     );
   }, [handleAction, updateStateValues, refreshMapState]);
   
+  // Tab definitions
+  const tabs = [
+    { id: 'game', label: 'Game' },
+    { id: 'state', label: 'State' }, 
+    { id: 'dialogue', label: 'Dialogue' },
+    { id: 'journal', label: 'Journal' },
+    { id: 'constellation', label: 'Constellation' },
+    { id: 'reactions', label: 'Reactions' },
+    { id: 'knowledge', label: 'Knowledge' }
+  ];
+  
   // Tab renderers
   const renderGameTab = () => {
     // Don't call refreshStateValues during render
@@ -1222,6 +1260,15 @@ export default function UnifiedDebugPanel() {
           >
             Clear Console
           </button>
+          
+          <a 
+            href="/tools/pixelate" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-500 text-center transition pixel-button"
+          >
+            Image Pixelator Tool
+          </a>
         </div>
       </div>
     );
@@ -1267,6 +1314,140 @@ export default function UnifiedDebugPanel() {
     );
   };
   
+  // NEW: Render the reactions tab
+  const renderReactionsTab = () => {
+    return (
+      <div className="p-3 bg-gray-800/80 rounded-md">
+        <h3 className="font-pixel text-sm mb-2 text-blue-400">Character Expressions</h3>
+        
+        {/* Display current reaction state */}
+        <div className="bg-black/60 p-2 rounded pixel-borders mb-3">
+          <div className="flex justify-between mb-1">
+            <span>Current Reaction:</span>
+            <span className="font-mono text-xs">{currentReaction || 'none'}</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span>Shaking:</span>
+            <span className="font-mono text-xs">{isShaking ? 'true' : 'false'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Oscillating:</span>
+            <span className="font-mono text-xs">{isOscillating ? 'true' : 'false'}</span>
+          </div>
+        </div>
+        
+        {/* Character portrait preview */}
+        <div className="flex justify-center mb-3">
+          <div className="relative w-32 h-32 bg-gray-900/60 rounded-md flex items-center justify-center">
+            {/* Import and use CharacterPortrait component here */}
+            {
+              typeof window !== 'undefined' && (
+                <div className="p-2">
+                  {/* @ts-ignore - Dynamic import */}
+                  {React.createElement(
+                    // @ts-ignore
+                    window.__DEBUG_COMPONENTS__?.CharacterPortrait || 'div',
+                    {
+                      characterId: 'kapoor',
+                      reaction: currentReaction,
+                      size: 'md',
+                      shake: isShaking,
+                      oscillate: isOscillating,
+                    }
+                  )}
+                </div>
+              )
+            }
+          </div>
+        </div>
+        
+        {/* Reaction buttons */}
+        <h3 className="font-pixel text-sm mb-2 text-blue-400">Trigger Reactions</h3>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <button
+            className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-500 transition pixel-button"
+            onClick={() => setCurrentReaction('positive')}
+          >
+            Positive ✓
+          </button>
+          
+          <button
+            className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-500 transition pixel-button"
+            onClick={() => setCurrentReaction('negative')}
+          >
+            Negative ✗
+          </button>
+          
+          <button
+            className="px-2 py-1 bg-yellow-600 text-white text-xs rounded hover:bg-yellow-500 transition pixel-button"
+            onClick={() => setCurrentReaction('question')}
+          >
+            Question ?
+          </button>
+          
+          <button
+            className="px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-500 transition pixel-button"
+            onClick={() => setCurrentReaction('surprise')}
+          >
+            Surprise !
+          </button>
+          
+          <button
+            className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-500 transition pixel-button"
+            onClick={() => setCurrentReaction('thinking')}
+          >
+            Thinking ...
+          </button>
+          
+          <button
+            className="px-2 py-1 bg-amber-600 text-white text-xs rounded hover:bg-amber-500 transition pixel-button"
+            onClick={() => setCurrentReaction('idea')}
+          >
+            Idea *
+          </button>
+          
+          <button
+            className="px-2 py-1 col-span-3 bg-gray-600 text-white text-xs rounded hover:bg-gray-500 transition pixel-button"
+            onClick={() => setCurrentReaction(null)}
+          >
+            Clear Reaction
+          </button>
+        </div>
+        
+        {/* Animation controls */}
+        <h3 className="font-pixel text-sm mb-2 text-blue-400 mt-4">Animation Controls</h3>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <button
+            className={`px-2 py-1 ${isShaking ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-600 hover:bg-gray-500'} text-white text-xs rounded transition pixel-button`}
+            onClick={() => {
+              setIsShaking(!isShaking);
+              // Auto-reset shake after 500ms if turning it on
+              if (!isShaking) {
+                setTimeout(() => setIsShaking(false), 500);
+              }
+            }}
+          >
+            {isShaking ? 'Stop Shaking' : 'Trigger Shake'}
+          </button>
+          
+          <button
+            className={`px-2 py-1 ${isOscillating ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-600 hover:bg-gray-500'} text-white text-xs rounded transition pixel-button`}
+            onClick={() => setIsOscillating(!isOscillating)}
+          >
+            {isOscillating ? 'Stop Oscillating' : 'Start Oscillating'}
+          </button>
+        </div>
+        
+        {/* Helper text */}
+        <div className="text-xs text-gray-400">
+          <p>Click a reaction to test facial expressions and hand gestures. Hand gestures appear at the bottom of the portrait.</p>
+          <p className="mt-1">Note: The 'idea' reaction has facial animation but no hand gesture as configured.</p>
+          <p className="mt-1">Animation Controls: Use the shake button to trigger a brief shake animation. Oscillating makes the portrait float up and down continuously.</p>
+        </div>
+      </div>
+    );
+  };
+  
   // Render active tab content
   const renderTabContent = () => {
     // Don't call refreshStateValues during render
@@ -1279,6 +1460,8 @@ export default function UnifiedDebugPanel() {
       case 'system': return renderSystemTab();
       case 'events': return renderEventsTab();
       case 'constellation': return renderConstellationTab();
+      case 'reactions': return renderReactionsTab();
+      case 'knowledge': return <KnowledgeSystemDebug />;
       default: return renderGameTab();
     }
   };
@@ -1412,6 +1595,18 @@ export default function UnifiedDebugPanel() {
               onClick={() => setActiveTab('events')}
             >
               Events
+            </button>
+            <button
+              className={`px-3 py-2 text-xs transition-colors ${activeTab === 'reactions' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}
+              onClick={() => setActiveTab('reactions')}
+            >
+              Reactions
+            </button>
+            <button
+              className={`px-3 py-2 text-xs transition-colors ${activeTab === 'knowledge' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}
+              onClick={() => setActiveTab('knowledge')}
+            >
+              Knowledge
             </button>
           </div>
           

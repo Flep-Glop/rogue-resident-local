@@ -371,7 +371,7 @@ function ConversationFormat({
   
   // ===== HANDLERS =====
   // Handle option selection with enhanced character reactions
-  const handleOptionClick = (index: number) => {
+  const handleOptionClick = (index: number, event: React.MouseEvent) => {
     if (selectedOptionIndex !== null || !currentStage?.options) return;
     
     // Get the selected option
@@ -380,6 +380,24 @@ function ConversationFormat({
     // Record the selection
     setSelectedOptionIndex(index);
     setShowResponse(true);
+    
+    // Track click position for resource gain feedback
+    const clickPosition = {
+      x: event.clientX,
+      y: event.clientY
+    };
+    
+    // Dispatch UI event for resource gain animations
+    safeDispatch(
+      GameEventType.UI_OPTION_SELECTED,
+      {
+        optionIndex: index,
+        stageId: currentStage.id,
+        position: clickPosition,
+        timestamp: Date.now()
+      },
+      'ConversationFormat'
+    );
     
     // Show response text if available
     if (option.responseText) {
@@ -926,7 +944,7 @@ function ConversationFormat({
                         initial={{ opacity: 0, x: -5 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.2 + index * 0.1 }}
-                        onClick={() => handleOptionClick(index)}
+                        onClick={(event) => handleOptionClick(index, event)}
                         disabled={selectedOptionIndex !== null}
                         className={`
                           w-full text-left p-2 

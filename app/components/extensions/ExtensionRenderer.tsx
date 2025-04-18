@@ -28,9 +28,9 @@ import { getExtensionClasses, extensionTypeToTheme } from '@/app/utils/themeUtil
 
 // Import extension components
 import CalculationInterface from './types/CalculationInterface';
+import EquipmentIdentificationInterface from './types/EquipmentIdentificationInterface';
 import UnifiedExtensionContainer from './unified/UnifiedExtensionContainer';
 import AnatomicalIdentification from './types/AnatomicalIdentification';
-import EquipmentIdentification from './types/EquipmentIdentification';
 import MeasurementReading from './types/MeasurementReading';
 import ErrorIdentification from './types/ErrorIdentification';
 import ErrorDisplay from './ui/ErrorDisplay';
@@ -394,7 +394,7 @@ const ExtensionRenderer: React.FC<ExtensionRendererProps> = ({
       
     case 'equipment-identification':
       return (
-        <EquipmentIdentification
+        <EquipmentIdentificationInterface
           content={content}
           characterId={characterId}
           stageId={stageId}

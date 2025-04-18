@@ -26,6 +26,7 @@ export enum GameEventType {
   UI_NODE_SELECTION_CLEARED = 'ui:node:selection:cleared', // Added for constellation interactions
   UI_NODE_HIGHLIGHTED = 'ui:node:highlighted',     // Added for constellation animations
   UI_CONNECTION_STARTED = 'ui:connection:started', // Added for constellation connections
+  UI_END_DAY_CLICKED = 'ui:end_day:clicked',      // Added for end day button
   
   // ===== Dialogue System Events =====
   DIALOGUE_SYSTEM_INITIALIZED = 'dialogue:system:initialized',

@@ -46,8 +46,15 @@ export async function getExtensionContent(
   contentId: string
 ): Promise<any | null> {
   try {
+    console.log(`[DEBUG] Loading extension content for ${type}:${contentId}`);
+    
     // Check if content is already registered
     if (contentRegistry[type]?.[contentId]) {
+      const content = await contentRegistry[type][contentId];
+      console.log(`[DEBUG] Found registered content for ${type}:${contentId}`, { 
+        imageUrl: content?.imageUrl,
+        hasImage: !!content?.imageUrl
+      });
       return contentRegistry[type][contentId];
     }
     
@@ -56,7 +63,15 @@ export async function getExtensionContent(
     
     // Helper function to get content from a module
     const getContentFromModule = (module: ContentModule, id: string) => {
-      return module.default?.[id] || module[id] || null;
+      const content = module.default?.[id] || module[id] || null;
+      console.log(`[DEBUG] Content from module for ${type}:${id}`, { 
+        found: !!content,
+        imageUrl: content?.imageUrl,
+        hasImage: !!content?.imageUrl,
+        moduleKeys: Object.keys(module),
+        defaultKeys: module.default ? Object.keys(module.default) : 'no default'
+      });
+      return content;
     };
     
     // Each extension type has its own content module
@@ -74,7 +89,7 @@ export async function getExtensionContent(
         break;
         
       case 'equipment-identification':
-        contentPromise = import('./equipment.js').then(module => 
+        contentPromise = import('./equipmentIdentification.js').then(module => 
           getContentFromModule(module as ContentModule, contentId)
         );
         break;
