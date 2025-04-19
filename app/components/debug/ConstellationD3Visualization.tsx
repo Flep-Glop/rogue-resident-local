@@ -419,7 +419,7 @@ const ConstellationD3Visualization: React.FC = () => {
     if (selectedNodeId) {
       linkElements.style('stroke-width', d => {
         const isSelected = d.source === selectedNodeId || d.target === selectedNodeId;
-        return isSelected ? 1.8 : d.patternIds.includes(activePattern!) ? 3 : 1.5;
+        return isSelected ? 1.2 : d.patternIds.includes(activePattern!) ? 3 : 1.5;
       })
       .style('opacity', d => {
         const isSelected = d.source === selectedNodeId || d.target === selectedNodeId;
@@ -493,7 +493,8 @@ const ConstellationD3Visualization: React.FC = () => {
       .enter()
       .append('text')
       .text(d => d.name)
-      .attr('font-size', '11px')
+      .attr('font-size', '10px')
+      .attr('font-family', 'Inter, system-ui, sans-serif')
       .attr('fill', d => {
         if (activePattern && d.patterns.includes(activePattern)) {
           return '#ffffff';
@@ -503,6 +504,7 @@ const ConstellationD3Visualization: React.FC = () => {
       .attr('text-anchor', 'middle')
       .attr('dy', d => -d.radius - 5)
       .style('pointer-events', 'none')
+      .style('text-shadow', '0px 1px 2px rgba(0,0,0,0.8)')
       .style('opacity', d => {
         // Only show labels for selected node and its connections
         if (selectedNodeId) {

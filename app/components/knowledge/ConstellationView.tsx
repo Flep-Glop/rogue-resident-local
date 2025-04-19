@@ -1,61 +1,22 @@
 // app/components/knowledge/ConstellationView.tsx
 'use client';
 /**
- * Enhanced ConstellationView with improved visualization and debug features
+ * Enhanced ConstellationView with improved visualization using D3
  * 
- * Changes from original:
- * 1. Support for hybrid orbital-quadrant layout
- * 2. Enhanced particle system with shooting stars
- * 3. Connection to debug visualization controls
- * 4. Improved interaction patterns following Chamber Pattern
- * 5. Integration with the comprehensive medical physics concept data
+ * Simplified version based on SimpleConstellationTest implementation
  */
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { usePrimitiveStoreValue, useStableCallback } from '../../core/utils/storeHooks';
-import { useKnowledgeStore, ConceptNode, ConceptConnection, KnowledgeState } from '../../store/knowledgeStore';
-import { DOMAIN_COLORS, DOMAIN_COLORS_LIGHT } from '../../core/themeConstants';
+import React, { useState, useEffect, useRef } from 'react';
+import useKnowledgeStore, { KnowledgeDomain } from '../../store/knowledgeStore';
+import { DOMAIN_COLORS } from '../../core/themeConstants';
 import { GameEventType } from '@/app/core/events/EventTypes';
-import { safeDispatch, useEventBus, GameEvent } from '@/app/core/events/CentralEventBus';
-
-// Import the enhanced particle system
-import {
-  ParticleEffect,
-  ShootingStarParticle,
-  updateParticles,
-  drawParticles,
-  createConnectionParticles,
-  createShootingStar,
-  createRandomShootingStars,
-  generateVisualizationParticles
-} from './ConstellationParticleSystem';
+import { safeDispatch, useEventBus } from '@/app/core/events/CentralEventBus';
+import * as d3 from 'd3';
 
 // Import visualization control
-import constellationVisualizationControl, { ConstellationDebugOptions } from './ConstellationVisualizationControl';
+import { ConstellationDebugOptions } from './ConstellationVisualizationControl';
 
 // Import pattern detection system
-import { detectPatterns, ConstellationPattern } from './ConstellationPatternSystem';
-
-// Import drawing utilities
-import {
-  drawStarryBackground,
-  drawConnections,
-  drawNodes,
-  drawPendingConnection,
-  initializeImages
-} from './constellationCanvasUtils';
-
-// Import UI Sub-components
-import ConstellationInfoPanel from './ui/ConstellationInfoPanel';
-import ConstellationLegend from './ui/ConstellationLegend';
-import ConstellationControls from './ui/ConstellationControls';
-import ConstellationActions from './ui/ConstellationActions';
-import SelectedNodePanel from './ui/SelectedNodePanel';
-import ConnectionSuggestionsPanel from './ui/ConnectionSuggestionsPanel';
-import JournalOverlay from './ui/JournalOverlay';
-import HelpOverlay from './ui/HelpOverlay';
-import ConnectionPanel from './ui/ConnectionPanel';
-import ConnectionHelpTooltip from './ui/ConnectionHelpTooltip';
-import ConnectionModeIndicator from './ui/ConnectionModeIndicator';
+import { detectPatterns, PatternFormation } from './ConstellationPatternSystem';
 
 // Re-export Knowledge Domains for external use
 export { KNOWLEDGE_DOMAINS } from '../../store/knowledgeStore';
@@ -73,8 +34,32 @@ interface ConstellationViewProps {
   debugOptions?: ConstellationDebugOptions; // For debug visualization controls
 }
 
+interface Node {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  radius: number;
+  domain: string;
+  discovered: boolean;
+  mastery: number;
+  patterns: string[];
+  vx?: number;
+  vy?: number;
+  fx?: number | null;
+  fy?: number | null;
+}
+
+interface Link {
+  source: string;
+  target: string;
+  strength: number;
+  discovered: boolean;
+  patternIds: string[];
+}
+
 /**
- * Enhanced ConstellationView with direct DOM interaction
+ * Enhanced ConstellationView with D3 visualization
  */
 export default function ConstellationView({
   onClose,
@@ -88,140 +73,64 @@ export default function ConstellationView({
   showLabels = true,
   debugOptions
 }: ConstellationViewProps) {
-  // ========= REFS FOR DOM & ANIMATION STATE =========
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  // ========= REFS AND STATE =========
+  const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const animationFrameRef = useRef<number | null>(null);
   const isComponentMountedRef = useRef(true);
-  const particleEffectsRef = useRef<ParticleEffect[]>([]);
-  const autoSelectionPerformedRef = useRef(false);
-  const interactionStateRef = useRef({
-    isDragging: false,
-    dragStart: { x: 0, y: 0 },
-    dragThreshold: 5,
-    lastClickTime: 0,
-    clickCoords: { x: 0, y: 0 },
-    pendingClick: false,
-    lastTouchDistance: 0,
-    isMultiTouch: false,
-    debugMode: process.env.NODE_ENV !== 'production',
-    lastHoveredNodeId: null as string | null,
-    renderNeeded: false
-  });
   
-  // Debug logger function
-  const debugLog = useCallback((message: string, ...args: any[]) => {
-    if (interactionStateRef.current.debugMode) {
-      console.log(`[ConstellationView] ${message}`, ...args);
-    }
-  }, []);
-
-  // ========= LOCAL COMPONENT STATE =========
-  const [activeNode, setActiveNode] = useState<ConceptNode | null>(null);
-  const [selectedNode, setSelectedNode] = useState<ConceptNode | null>(null);
-  const [pendingConnection, setPendingConnection] = useState<string | null>(null);
-  const [journalVisible, setJournalVisible] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(0.8);
-  const [cameraPosition, setCameraPosition] = useState({ x: 0, y: 0 });
+  // Local state
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [activePatternId, setActivePatternId] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [recentInsights, setRecentInsights] = useState<{conceptId: string, amount: number}[]>([]);
-  const [shootingStarReward, setShootingStarReward] = useState<{
-    message: string;
-    type: string;
-    value: number;
-    active: boolean;
-  } | null>(null);
-  const [detectedPatterns, setDetectedPatterns] = useState<ConstellationPattern[]>([]);
-  const [connectionTarget, setConnectionTarget] = useState<ConceptNode | null>(null);
-  const [connectionSource, setConnectionSource] = useState<ConceptNode | null>(null);
-  const [showConnectionConfirmation, setShowConnectionConfirmation] = useState(false);
-  const [connectionCost, setConnectionCost] = useState(10); // Default cost
-  const [showConnectionHelp, setShowConnectionHelp] = useState(false);
-  
-  // ========= STORE DATA ACCESS =========
-  // Extract primitive counts for stable rendering
-  const nodeCount = usePrimitiveStoreValue(
-    useKnowledgeStore,
-    (state: KnowledgeState) => state.nodes.length,
-    0
-  );
-  
-  const connectionCount = usePrimitiveStoreValue(
-    useKnowledgeStore,
-    (state: KnowledgeState) => state.connections.length,
-    0
-  );
-  
-  const totalMastery = usePrimitiveStoreValue(
-    useKnowledgeStore,
-    (state: KnowledgeState) => state.totalMastery,
-    0
-  );
-  
-  // Extract full objects using a safe pattern - use shallow equality to prevent excess re-renders
-  const { nodes, connections } = useKnowledgeStore();
-  const domainMastery = useKnowledgeStore(state => state.domainMastery);
-  const newlyDiscovered = useKnowledgeStore(state => state.newlyDiscovered);
-  const journalEntries = useKnowledgeStore(state => state.journalEntries);
-  
-  // Directly access needed store functions
-  const storeActions = useMemo(() => ({
-    createConnection: useKnowledgeStore.getState().createConnection,
-    updateMastery: useKnowledgeStore.getState().updateMastery,
-    resetNewlyDiscovered: useKnowledgeStore.getState().resetNewlyDiscovered
-  }), []);
+  const [simulationNodes, setSimulationNodes] = useState<Node[]>([]);
+  const [simulationLinks, setSimulationLinks] = useState<Link[]>([]);
+  const [showHelp, setShowHelp] = useState(false);
 
-  // ========= DERIVED DATA =========
-  // Filter for discovered nodes and connections - memoize to prevent recalculations
-  const discoveredNodes = useMemo(() => 
+  // ========= STORE ACCESS =========
+  const { 
+    nodes, 
+    connections, 
+    discoverConcept, 
+    updateMastery, 
+    createConnection,
+    addStarPoints,
+    starPoints
+  } = useKnowledgeStore();
+  
+  // Derived data - use React.useMemo to prevent recalculations on every render
+  const discoveredNodes = React.useMemo(() => 
     nodes.filter(node => node.discovered), 
   [nodes]);
   
-  const discoveredConnections = useMemo(() => 
+  const discoveredConnections = React.useMemo(() => 
     connections.filter(conn => conn.discovered), 
   [connections]);
-
-  // Create a memoized node lookup map for performance
-  const nodeMap = useMemo(() => {
-    const map = new Map<string, ConceptNode>();
-    discoveredNodes.forEach(node => {
-      map.set(node.id, node);
-    });
-    return map;
-  }, [discoveredNodes]);
-
-  // ========= RENDER SCHEDULING =========
-  // Schedule next animation frame for rendering
-  const scheduleRender = useCallback(() => {
-    if (!isComponentMountedRef.current || animationFrameRef.current !== null) return;
+  
+  // Function to get color for a pattern
+  const getPatternColor = (patternId: string): string => {
+    const colorMap: Record<string, string> = {
+      'alara-triangle': '#2ecc71',    // Green
+      'treatment-chain': '#3498db',   // Blue
+      'qa-circle': '#9b59b6',         // Purple
+      'plan-optimization': '#e74c3c'  // Red
+    };
     
-    animationFrameRef.current = requestAnimationFrame(() => {
-      animationFrameRef.current = null;
-      
-      if (!isComponentMountedRef.current) return;
-      
-      // Update particles using the enhanced particle system
-      if (particleEffectsRef.current.length > 0) {
-        particleEffectsRef.current = updateParticles(particleEffectsRef.current);
-        interactionStateRef.current.renderNeeded = true;
-      }
-      
-      // Render if needed
-      if (interactionStateRef.current.renderNeeded) {
-        renderCanvas();
-        interactionStateRef.current.renderNeeded = false;
-      }
-      
-      // Continue animation if needed
-      if (particleEffectsRef.current.length > 0) {
-        scheduleRender();
-      }
-    });
-  }, []);
+    return colorMap[patternId] || '#f1c40f'; // Default yellow
+  };
 
+  // Function to get lighter version of pattern color (for glows)
+  const getPatternGlowColor = (patternId: string): string => {
+    const colorMap: Record<string, string> = {
+      'alara-triangle': 'rgba(46, 204, 113, 0.5)',    // Green glow
+      'treatment-chain': 'rgba(52, 152, 219, 0.5)',   // Blue glow
+      'qa-circle': 'rgba(155, 89, 182, 0.5)',         // Purple glow
+      'plan-optimization': 'rgba(231, 76, 60, 0.5)'   // Red glow
+    };
+    
+    return colorMap[patternId] || 'rgba(241, 196, 15, 0.5)'; // Default yellow glow
+  };
+  
   // ========= DIMENSION MANAGEMENT =========
-  // Initialize and update dimensions based on container size
   useEffect(() => {
     if (!isComponentMountedRef.current) return;
     
@@ -231,21 +140,6 @@ export default function ConstellationView({
         width: window.innerWidth,
         height: window.innerHeight
       });
-      
-      // Update canvas dimensions directly
-      if (canvasRef.current) {
-        canvasRef.current.width = window.innerWidth;
-        canvasRef.current.height = window.innerHeight;
-      }
-      
-      debugLog('Dimensions updated', { 
-        width: window.innerWidth, 
-        height: window.innerHeight 
-      });
-      
-      // Force a render update
-      interactionStateRef.current.renderNeeded = true;
-      scheduleRender();
     };
     
     // Update dimensions initially and when component mounts
@@ -255,226 +149,600 @@ export default function ConstellationView({
     window.addEventListener('resize', updateDimensions);
     
     return () => window.removeEventListener('resize', updateDimensions);
-  }, [debugLog, scheduleRender]);
+  }, []);
 
-  // Track recent insights for Journal Overlay
+  // ========= DATA PREPARATION =========
+  // Prepare data for D3 simulation
   useEffect(() => {
-    if (!isComponentMountedRef.current) return;
+    // Get pattern information for node classification
+    const patterns = detectPatterns(nodes, connections, new Set()).allComplete;
+    const patternNodeIds = patterns.flatMap(p => p.starIds);
     
-    if (journalEntries.length > 0) {
-      const recent = journalEntries
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, 5)
-        .map(entry => ({ conceptId: entry.conceptId, amount: entry.masteryGained }));
-      
-      setRecentInsights(recent);
-    } else {
-      // Placeholder if no entries
-      setRecentInsights([
-        { conceptId: 'electron-equilibrium', amount: 15 },
-        { conceptId: 'radiation-safety', amount: 30 }
-      ]);
-    }
-  }, [journalEntries]);
-
-  // Center all stars on screen after layout and whenever window resizes
-  useEffect(() => {
-    if (!isComponentMountedRef.current || discoveredNodes.length === 0) return;
-    
-    // Calculate the bounding box of all nodes
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    
-    discoveredNodes.forEach(node => {
-      if (!node.position) return;
-      
-      minX = Math.min(minX, node.position.x);
-      minY = Math.min(minY, node.position.y);
-      maxX = Math.max(maxX, node.position.x);
-      maxY = Math.max(maxY, node.position.y);
-    });
-    
-    // Calculate the center of the bounding box
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    
-    // Center camera on the stars
-    setCameraPosition({ x: -centerX, y: -centerY });
-    
-    debugLog('Centered constellation on screen', { centerX, centerY });
-    
-    // Force a render update
-    interactionStateRef.current.renderNeeded = true;
-    scheduleRender();
-  }, [discoveredNodes, dimensions, debugLog, scheduleRender]);
-
-  // Handler for debug visualization features
-  const handleDebugVisualization = useCallback((options: ConstellationDebugOptions) => {
-    if (!isComponentMountedRef.current) return;
-    
-    debugLog('Debug visualization options updated', options);
-    
-    // Process the debug visualization options
-    const { showAllDiscovered, masteryLevel, showAllConnections, showShootingStars } = options;
-    
-    // Track if anything changed that requires re-rendering
-    let visualizationChanged = false;
-    
-    // Clear existing debug visualization particles to prevent accumulation
-    const filteredParticles = particleEffectsRef.current.filter(p => 
-      p.type !== 'debug-discovery' && 
-      p.type !== 'debug-mastery' && 
-      p.type !== 'debug-connection'
+    // Filter nodes to include
+    const filteredNodes = nodes.filter(n => 
+      n.discovered || (interactive && patternNodeIds.includes(n.id))
     );
     
-    if (filteredParticles.length !== particleEffectsRef.current.length) {
-      particleEffectsRef.current = filteredParticles;
-      visualizationChanged = true;
+    // Transform to simulation nodes
+    const d3Nodes: Node[] = filteredNodes.map(node => {
+      // Find which patterns this node belongs to
+      const nodePatterns = patterns
+        .filter(p => p.starIds.includes(node.id))
+        .map(p => p.id);
+      
+      // Use node position if available, or calculate initial position
+      const x = node.position?.x || (Math.random() - 0.5) * 500;
+      const y = node.position?.y || (Math.random() - 0.5) * 500;
+      
+      return {
+        id: node.id,
+        name: node.name,
+        x: x,
+        y: y,
+        radius: node.discovered ? 
+          Math.max(10, 5 + (node.mastery / 10)) : 
+          7,
+        domain: node.domain,
+        discovered: node.discovered,
+        mastery: node.mastery,
+        patterns: nodePatterns
+      };
+    });
+    
+    // Transform connections to links - using discoveredConnections from the memoized value
+    const d3Links: Link[] = discoveredConnections.map(conn => {
+      // Find which patterns this connection belongs to
+      const connPatterns: string[] = [];
+      
+      for (const pattern of patterns) {
+        const sourceInPattern = pattern.starIds.includes(conn.source);
+        const targetInPattern = pattern.starIds.includes(conn.target);
+        
+        if (sourceInPattern && targetInPattern) {
+          connPatterns.push(pattern.id);
+        }
+      }
+      
+      return {
+        source: conn.source,
+        target: conn.target,
+        strength: conn.strength,
+        discovered: conn.discovered,
+        patternIds: connPatterns
+      };
+    });
+    
+    setSimulationNodes(d3Nodes);
+    setSimulationLinks(d3Links);
+  }, [nodes, connections, interactive]); // Remove discoveredConnections as it's derived from connections
+
+  // ========= D3 VISUALIZATION =========
+  useEffect(() => {
+    if (!svgRef.current || simulationNodes.length === 0) return;
+    
+    const width = dimensions.width;
+    const height = dimensions.height;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    
+    // Clear previous visualization
+    d3.select(svgRef.current).selectAll('*').remove();
+    
+    // Create SVG and groups
+    const svg = d3.select(svgRef.current);
+    
+    // Add defs for filters and gradients
+    const defs = svg.append('defs');
+    
+    // Add star image pattern for nodes
+    defs.append('pattern')
+      .attr('id', 'starPattern')
+      .attr('patternUnits', 'objectBoundingBox')
+      .attr('width', 1)
+      .attr('height', 1)
+      .append('image')
+      .attr('href', '/star.png')
+      .attr('width', 32)
+      .attr('height', 32)
+      .attr('preserveAspectRatio', 'xMidYMid slice')
+      .attr('image-rendering', 'pixelated'); // Keep pixel art sharp
+
+    // Add colored star patterns for domain nodes
+    const domainImagePatterns = [
+      { id: 'tealStarPattern', domain: 'treatment-planning', image: '/teal-star.png' },
+      { id: 'purpleStarPattern', domain: 'radiation-therapy', image: '/purple-star.png' },
+      { id: 'redStarPattern', domain: 'linac-anatomy', image: '/red-star.png' },
+      { id: 'pinkStarPattern', domain: 'dosimetry', image: '/pink-star.png' }
+    ];
+    
+    domainImagePatterns.forEach(pattern => {
+      defs.append('pattern')
+        .attr('id', pattern.id)
+        .attr('patternUnits', 'objectBoundingBox')
+        .attr('width', 1)
+        .attr('height', 1)
+        .append('image')
+        .attr('href', pattern.image)
+        .attr('width', 32)
+        .attr('height', 32)
+        .attr('preserveAspectRatio', 'xMidYMid slice')
+        .attr('image-rendering', 'pixelated');
+    });
+    
+    // Glow filter for nodes
+    const glowFilter = defs.append('filter')
+      .attr('id', 'glow')
+      .attr('x', '-50%')
+      .attr('y', '-50%')
+      .attr('width', '200%')
+      .attr('height', '200%');
+      
+    glowFilter.append('feGaussianBlur')
+      .attr('stdDeviation', '3')
+      .attr('result', 'blur');
+      
+    glowFilter.append('feComposite')
+      .attr('in', 'SourceGraphic')
+      .attr('in2', 'blur')
+      .attr('operator', 'over');
+    
+    // Create pattern-specific glow filters
+    const uniquePatternIds = Array.from(new Set(
+      simulationNodes.flatMap(n => n.patterns)
+    ));
+    
+    uniquePatternIds.forEach(patternId => {
+      if (!patternId) return;
+      
+      const patternGlow = defs.append('filter')
+        .attr('id', `glow-${patternId}`)
+        .attr('x', '-50%')
+        .attr('y', '-50%')
+        .attr('width', '200%')
+        .attr('height', '200%');
+        
+      patternGlow.append('feGaussianBlur')
+        .attr('stdDeviation', '4')
+        .attr('result', 'blur');
+        
+      patternGlow.append('feFlood')
+        .attr('flood-color', getPatternColor(patternId))
+        .attr('flood-opacity', '0.3')
+        .attr('result', 'color');
+        
+      patternGlow.append('feComposite')
+        .attr('in', 'color')
+        .attr('in2', 'blur')
+        .attr('operator', 'in')
+        .attr('result', 'coloredBlur');
+        
+      patternGlow.append('feMerge')
+        .html(`
+          <feMergeNode in="coloredBlur"/>
+          <feMergeNode in="SourceGraphic"/>
+        `);
+    });
+    
+    // Main visualization container, centered in the SVG
+    const container = svg.append('g')
+      .attr('class', 'main-container')
+      .attr('transform', `translate(${centerX}, ${centerY})`);
+    
+    // Background grid for depth effect
+    const grid = container.append('g').attr('class', 'grid');
+    
+    // Add subtle grid lines
+    const gridSize = 1000;
+    const gridStep = 100;
+    
+    for (let x = -gridSize/2; x <= gridSize/2; x += gridStep) {
+      grid.append('line')
+        .attr('x1', x)
+        .attr('y1', -gridSize/2)
+        .attr('x2', x)
+        .attr('y2', gridSize/2)
+        .attr('stroke', nightMode ? 'rgba(100, 100, 255, 0.1)' : 'rgba(100, 100, 200, 0.05)')
+        .attr('stroke-width', 0.5);
     }
     
-    // Only process if we have debug options enabled
-    if (showAllDiscovered || masteryLevel !== undefined || showAllConnections || showShootingStars) {
-      // Create debug visualization particles
-      if (showAllDiscovered) {
-        // Generate discovery particles
-        const discoveryParticles = generateVisualizationParticles(nodes, 'discovery', 30);
-        particleEffectsRef.current = [...particleEffectsRef.current, ...discoveryParticles];
-        visualizationChanged = true;
-      }
-      
-      if (masteryLevel !== undefined && masteryLevel > 0) {
-        // Generate mastery particles - limit quantity based on mastery level
-        const particleCount = Math.min(30 + masteryLevel, 150);
-        const masteryParticles = generateVisualizationParticles(nodes, 'mastery', particleCount);
-        particleEffectsRef.current = [...particleEffectsRef.current, ...masteryParticles];
-        visualizationChanged = true;
-        
-        // Apply mastery styling to nodes if needed
-        // This directly updates the rendering without modifying the store
-        debugLog(`Applying mastery level styling: ${masteryLevel}%`);
-      }
-      
-      if (showAllConnections) {
-        // Generate connection particles
-        const connectionParticles = generateVisualizationParticles(nodes, 'connection', 50);
-        particleEffectsRef.current = [...particleEffectsRef.current, ...connectionParticles];
-        visualizationChanged = true;
-      }
-      
-      if (showShootingStars) {
-        // Generate random shooting stars - limit to a reasonable number
-        const existingShootingStars = particleEffectsRef.current.filter(p => p.type === 'shootingStar').length;
-        if (existingShootingStars < 5) {
-          const shootingStars = createRandomShootingStars(dimensions.width, dimensions.height, 2);
-          particleEffectsRef.current = [...particleEffectsRef.current, ...shootingStars];
-          visualizationChanged = true;
+    for (let y = -gridSize/2; y <= gridSize/2; y += gridStep) {
+      grid.append('line')
+        .attr('x1', -gridSize/2)
+        .attr('y1', y)
+        .attr('x2', gridSize/2)
+        .attr('y2', y)
+        .attr('stroke', nightMode ? 'rgba(100, 100, 255, 0.1)' : 'rgba(100, 100, 200, 0.05)')
+        .attr('stroke-width', 0.5);
+    }
+    
+    // Add pattern shapes before links if there's an active pattern
+    if (activePatternId) {
+      const pattern = patterns.find(p => p.id === activePatternId);
+      if (pattern) {
+        const patternShape = container.append('g')
+          .attr('class', 'pattern-shape')
+          .attr('opacity', 0.2);
+          
+        // Different shape based on formation type
+        if (pattern.formation === 'triangle') {
+          // Create triangle shape connecting the nodes
+          const patternNodes = simulationNodes.filter(n => n.patterns.includes(activePatternId));
+          if (patternNodes.length >= 3) {
+            patternShape.append('polygon')
+              .attr('points', '0,0 0,0 0,0') // Will be updated in tick
+              .attr('fill', 'none')
+              .attr('stroke', getPatternColor(activePatternId))
+              .attr('stroke-width', 2)
+              .attr('stroke-dasharray', '5,3')
+              .attr('opacity', 0.7);
+          }
+        } else if (pattern.formation === 'circuit') {
+          // Create circle/polygon shape connecting the nodes
+          const patternNodes = simulationNodes.filter(n => n.patterns.includes(activePatternId));
+          if (patternNodes.length >= 3) {
+            patternShape.append('polygon')
+              .attr('points', '0,0 0,0 0,0') // Will be updated in tick
+              .attr('fill', getPatternGlowColor(activePatternId))
+              .attr('stroke', getPatternColor(activePatternId))
+              .attr('stroke-width', 2)
+              .attr('opacity', 0.3);
+          }
+        } else if (pattern.formation === 'chain') {
+          // Create a path connecting the nodes in sequence
+          patternShape.append('path')
+            .attr('d', 'M0,0 L0,0') // Will be updated in tick
+            .attr('fill', 'none')
+            .attr('stroke', getPatternColor(activePatternId))
+            .attr('stroke-width', 3)
+            .attr('stroke-linecap', 'round')
+            .attr('opacity', 0.5);
         }
       }
     }
     
-    // Only schedule a render if something actually changed
-    if (visualizationChanged) {
-      interactionStateRef.current.renderNeeded = true;
-      scheduleRender();
+    // Links first (so they're behind nodes)
+    const linkGroup = container.append('g').attr('class', 'links');
+    const nodeGroup = container.append('g').attr('class', 'nodes');
+    
+    // Process links
+    const linkElements = linkGroup.selectAll('line')
+      .data(simulationLinks)
+      .enter()
+      .append('line')
+      .attr('stroke', d => {
+        // If we have an active pattern, highlight links belonging to it
+        if (activePatternId && d.patternIds.includes(activePatternId)) {
+          return getPatternColor(activePatternId);
+        }
+        // Default link color based on connection strength
+        return `rgba(180, 180, 255, ${0.3 + (d.strength / 200)})`;
+      })
+      .attr('stroke-width', d => {
+        // Thicker lines for pattern links when a pattern is active
+        if (activePatternId && d.patternIds.includes(activePatternId)) {
+          return 3;
+        }
+        return 1.5;
+      })
+      .attr('opacity', d => {
+        // Full opacity for active pattern links
+        if (activePatternId && d.patternIds.includes(activePatternId)) {
+          return 1;
+        }
+        return 0.6;
+      });
+    
+    // Add light glow to links
+    linkGroup.selectAll('line')
+      .each(function(d: any) {
+        if (activePatternId && d.patternIds.includes(activePatternId)) {
+          d3.select(this).attr('filter', `url(#glow-${activePatternId})`);
+        }
+      });
+    
+    // Process nodes - use image elements instead of circles
+    const nodeElements = nodeGroup.selectAll('image')
+      .data(simulationNodes)
+      .enter()
+      .append('image')
+      .attr('href', (d: Node) => {
+        // Only use the colored sprites for the main domain stars
+        // These are typically the core stars with ID matching the domain
+        if (d.id === d.domain) {
+          switch(d.domain) {
+            case 'treatment-planning':
+              return '/teal-star.png';
+            case 'radiation-therapy':
+              return '/purple-star.png';
+            case 'linac-anatomy':
+              return '/red-star.png';
+            case 'dosimetry':
+              return '/pink-star.png';
+          }
+        }
+        // For all other stars, use the default star
+        return '/star.png';
+      })
+      .attr('width', (d: Node) => {
+        // Increase size for domain stars
+        return d.id === d.domain ? d.radius * 3 : d.radius * 2;
+      })
+      .attr('height', (d: Node) => {
+        // Increase size for domain stars
+        return d.id === d.domain ? d.radius * 3 : d.radius * 2;
+      })
+      .attr('x', (d: Node) => {
+        // Adjust position for increased size of domain stars
+        return d.id === d.domain ? -d.radius * 1.5 : -d.radius;
+      })
+      .attr('y', (d: Node) => {
+        // Adjust position for increased size of domain stars
+        return d.id === d.domain ? -d.radius * 1.5 : -d.radius;
+      })
+      .attr('image-rendering', 'pixelated') // Ensure pixel art stays sharp
+      .style('filter', (d: Node) => {
+        // Add stronger glow effect for selected node
+        if (d.id === selectedNodeId) {
+          return 'url(#glow) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))';
+        }
+        if (activePatternId && d.patterns.includes(activePatternId)) {
+          return `url(#glow-${activePatternId})`;
+        }
+        return 'url(#glow)';
+      })
+      .style('cursor', 'pointer')
+      .style('opacity', (d: Node) => {
+        // Full opacity for selected node
+        if (d.id === selectedNodeId) return 1;
+        // Normal opacity rules for other nodes
+        return d.discovered ? 1 : 0.5;
+      })
+      .on('click', (event: any, d: Node) => {
+        event.stopPropagation(); // Prevent SVG background click
+        if (interactive) {
+          setSelectedNodeId(prev => prev === d.id ? null : d.id);
+          
+          // Dispatch node selection event
+          if (d.id !== selectedNodeId) {
+            safeDispatch(
+              GameEventType.UI_NODE_SELECTED, 
+              { nodeId: d.id }, 
+              'constellation'
+            );
+          }
+        }
+      });
+    
+    // Node labels (if enabled)
+    if (showLabels) {
+      const nodeLabels = nodeGroup.selectAll('text')
+        .data(simulationNodes)
+        .enter()
+        .append('text')
+        .text(d => d.name)
+        .attr('font-size', '10px')
+        .attr('font-family', 'Inter, system-ui, sans-serif')
+        .attr('fill', d => {
+          if (activePatternId && d.patterns.includes(activePatternId)) {
+            return '#ffffff';
+          }
+          return d.discovered ? 'rgba(255, 255, 255, 0.8)' : 'rgba(150, 150, 200, 0.4)';
+        })
+        .attr('text-anchor', 'middle')
+        .attr('dy', d => -d.radius - 5)
+        .style('pointer-events', 'none')
+        .style('text-shadow', '0px 1px 2px rgba(0,0,0,0.8)')
+        .style('opacity', d => {
+          // Show labels for selected node and in active patterns
+          if (d.id === selectedNodeId) return 1;
+          if (activePatternId && d.patterns.includes(activePatternId)) return 1;
+          return showLabels ? 0.7 : 0; // Show all labels if enabled
+        });
     }
-  }, [nodes, dimensions.width, dimensions.height, scheduleRender, debugLog]);
+    
+    // Force simulation with optimized parameters based on SimpleConstellationTest
+    const simulation = d3.forceSimulation()
+      .force('link', d3.forceLink()
+        .id((d: any) => d.id)
+        .distance(d => {
+          // Shorter distances for active pattern links
+          if (activePatternId && (d as any).patternIds?.includes(activePatternId)) {
+            return 80;
+          }
+          return 120;
+        })
+        .strength(0.7)
+      )
+      .force('charge', d3.forceManyBody().strength(-250))
+      .force('center', d3.forceCenter(0, 0).strength(0.15))
+      .force('x', d3.forceX(0).strength(0.1))
+      .force('y', d3.forceY(0).strength(0.1))
+      .force('collision', d3.forceCollide().radius((d: any) => d.radius + 15));
+    
+    // Add pattern-specific forces
+    if (activePatternId) {
+      const pattern = patterns.find(p => p.id === activePatternId);
+      
+      if (pattern?.formation === 'triangle') {
+        // Triangle formation - push nodes toward triangle vertices
+        const patternNodes = simulationNodes.filter(n => n.patterns.includes(activePatternId));
+        if (patternNodes.length === 3) {
+          // Add radial force to form triangle
+          simulation.force('radial', d3.forceRadial(120).strength((d: any) => {
+            return d.patterns.includes(activePatternId) ? 0.3 : 0.05;
+          }));
+        }
+      } else if (pattern?.formation === 'circuit') {
+        // Circuit formation - arrange in a circle
+        simulation.force('radial', d3.forceRadial(100).strength((d: any) => {
+          return d.patterns.includes(activePatternId) ? 0.5 : 0.05;
+        }));
+      } else if (pattern?.formation === 'chain') {
+        // Chain formation - strengthen link force for chain nodes
+        const linkForce = simulation.force('link') as d3.ForceLink<any, any>;
+        if (linkForce) {
+          linkForce.strength((d: any) => d.patternIds?.includes(activePatternId) ? 1.0 : 0.7);
+        }
+      }
+    }
+    
+    // Add node dragging capability if interactive
+    if (interactive) {
+      const nodeDrag = d3.drag<SVGImageElement, any>()
+        .on('start', (event, d) => {
+          if (!event.active) simulation.alphaTarget(0.3).restart();
+          d.fx = d.x;
+          d.fy = d.y;
+        })
+        .on('drag', (event, d) => {
+          d.fx = event.x;
+          d.fy = event.y;
+        })
+        .on('end', (event, d) => {
+          if (!event.active) simulation.alphaTarget(0);
+          d.fx = null;
+          d.fy = null;
+        });
+      
+      // Apply node dragging to all nodes
+      nodeElements.call(nodeDrag as any);
+    }
+    
+    // Click on background to deselect
+    svg.on('click', () => {
+      if (interactive) {
+        setSelectedNodeId(null);
+      }
+    });
+    
+    // Use a custom tick function to update positions
+    simulation.nodes(simulationNodes as any).on('tick', () => {
+      // Update links
+      linkElements
+        .attr('x1', d => {
+          const source = simulationNodes.find(n => n.id === d.source);
+          return source ? source.x : 0;
+        })
+        .attr('y1', d => {
+          const source = simulationNodes.find(n => n.id === d.source);
+          return source ? source.y : 0;
+        })
+        .attr('x2', d => {
+          const target = simulationNodes.find(n => n.id === d.target);
+          return target ? target.x : 0;
+        })
+        .attr('y2', d => {
+          const target = simulationNodes.find(n => n.id === d.target);
+          return target ? target.y : 0;
+        });
+      
+      // Update node images
+      nodeElements
+        .attr('x', (d: Node) => {
+          // Adjust position for increased size of domain stars
+          const baseOffset = d.id === d.domain ? -d.radius * 1.5 : -d.radius;
+          return d.x + baseOffset;
+        })
+        .attr('y', (d: Node) => {
+          // Adjust position for increased size of domain stars
+          const baseOffset = d.id === d.domain ? -d.radius * 1.5 : -d.radius;
+          return d.y + baseOffset;
+        });
+      
+      // Update labels if showing
+      if (showLabels) {
+        nodeGroup.selectAll('text')
+          .attr('x', d => d.x)
+          .attr('y', d => d.y);
+      }
+      
+      // Update pattern shapes
+      if (activePatternId) {
+        const patternShape = container.select('.pattern-shape');
+        const patternNodes = simulationNodes.filter(n => n.patterns.includes(activePatternId));
+        const pattern = patterns.find(p => p.id === activePatternId);
+        
+        if (pattern?.formation === 'triangle' || pattern?.formation === 'circuit') {
+          if (patternNodes.length >= 3) {
+            const points = patternNodes.map(n => `${n.x},${n.y}`).join(' ');
+            patternShape.select('polygon').attr('points', points);
+          }
+        } else if (pattern?.formation === 'chain') {
+          if (patternNodes.length >= 2) {
+            // Sort nodes by chain order
+            const orderedNodes = [...patternNodes].sort((a, b) => {
+              const patternStarIds = pattern.starIds;
+              return patternStarIds.indexOf(a.id) - patternStarIds.indexOf(b.id);
+            });
+            
+            const path = orderedNodes.map((n, i) => 
+              (i === 0 ? 'M' : 'L') + `${n.x},${n.y}`
+            ).join(' ');
+            
+            patternShape.select('path').attr('d', path);
+          }
+        }
+      }
+    });
+    
+    // Set link force data
+    const linkForce = simulation.force('link') as d3.ForceLink<any, any>;
+    if (linkForce) {
+      linkForce.links(simulationLinks.map(link => {
+        const source = simulationNodes.find(n => n.id === link.source);
+        const target = simulationNodes.find(n => n.id === link.target);
+        if (source && target) {
+          return { source, target, ...link };
+        }
+        return null;
+      }).filter(Boolean) as any);
+    }
+    
+    // Cleanup
+    return () => {
+      simulation.stop();
+    };
+  }, [
+    simulationNodes, 
+    simulationLinks, 
+    dimensions, 
+    selectedNodeId, 
+    activePatternId, 
+    interactive, 
+    showLabels,
+    nightMode,
+    detectPatterns,
+    nodes,
+    connections
+  ]);
 
   // ========= LIFECYCLE MANAGEMENT =========
-  // Component mount/unmount tracking
   useEffect(() => {
-    debugLog('Component mounted');
     isComponentMountedRef.current = true;
-    autoSelectionPerformedRef.current = false;
     
-    // Show connection help on first mount
-    setShowConnectionHelp(true);
-    
-    // Hide connection help after 10 seconds
-    const helpTimer = setTimeout(() => {
-      if (isComponentMountedRef.current) {
-        setShowConnectionHelp(false);
+    // Handle auto-selection of active nodes
+    if (activeNodes.length > 0 && interactive) {
+      const nodeToFocus = nodes.find(n => n.discovered && activeNodes.includes(n.id));
+      if (nodeToFocus) {
+        setSelectedNodeId(nodeToFocus.id);
       }
-    }, 10000);
-    
-    // Initialize images on client-side only
-    if (typeof window !== 'undefined') {
-      // Add extra debugging for image loading
-      console.log('Checking for star image file...');
-      
-      // Check if the file exists by creating a test image
-      const testImage = new Image();
-      testImage.onload = () => {
-        console.log('✅ Star image exists at /icons/star.png');
-        console.log(`Star image dimensions: ${testImage.width}x${testImage.height}`);
-        
-        // Create a temporary canvas to check if the image has transparency
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-        if (tempCtx) {
-          tempCanvas.width = testImage.width;
-          tempCanvas.height = testImage.height;
-          tempCtx.drawImage(testImage, 0, 0);
-          
-          // Check for transparency by sampling the corners
-          let hasTransparency = false;
-          [
-            tempCtx.getImageData(0, 0, 1, 1),
-            tempCtx.getImageData(testImage.width-1, 0, 1, 1),
-            tempCtx.getImageData(0, testImage.height-1, 1, 1),
-            tempCtx.getImageData(testImage.width-1, testImage.height-1, 1, 1)
-          ].forEach(pixel => {
-            if (pixel.data[3] < 255) hasTransparency = true;
-          });
-          
-          console.log(`Star image has transparency: ${hasTransparency}`);
-        }
-        
-        // Initialize all images only after verifying the star image exists
-        initializeImages();
-        
-        // Force a render update to ensure stars are displayed
-        interactionStateRef.current.renderNeeded = true;
-        scheduleRender();
-      };
-      testImage.onerror = () => {
-        console.error('❌ Star image not found at /icons/star.png - check file path');
-        // Try alternate path as fallback
-        console.log('Trying fallback path /public/icons/star.png');
-        const fallbackImage = new Image();
-        fallbackImage.onload = () => {
-          console.log('✅ Star image found at fallback location');
-          initializeImages();
-          interactionStateRef.current.renderNeeded = true;
-          scheduleRender();
-        };
-        fallbackImage.onerror = () => {
-          console.error('❌ All star image paths failed, using fallback circles');
-          // Still initialize other images
-          initializeImages();
-          interactionStateRef.current.renderNeeded = true;
-          scheduleRender();
-        };
-        fallbackImage.src = '/public/icons/star.png';
-      };
-      testImage.src = '/icons/star.png';
     }
     
-    // Subscribe to visualization control events
-    const unsubscribe = constellationVisualizationControl.subscribeToAll(handleDebugVisualization);
-    
-    // Add event listeners for critical events to avoid console warnings
+    // Subscribe to event bus for UI events
     const eventHandlers = {
-      [GameEventType.TRANSITION_TO_NIGHT_COMPLETED]: (event: GameEvent<any>) => {
-        debugLog('Night transition completed, updating constellation view');
-        // Request a render update when night transition completes
-        interactionStateRef.current.renderNeeded = true;
-        scheduleRender();
-      },
-      [GameEventType.UI_NODE_SELECTED]: (event: GameEvent<{nodeId: string}>) => {
-        debugLog('Node selected via event', event.payload);
+      [GameEventType.UI_NODE_SELECTED]: (event: any) => {
         // Find the node and select it if it exists and is discovered
         const node = nodes.find(n => n.id === event.payload.nodeId && n.discovered);
         if (node) {
-          setSelectedNode(node);
+          setSelectedNodeId(node.id);
+        }
+      },
+      [GameEventType.TRANSITION_TO_NIGHT_COMPLETED]: () => {
+        // Ensure we re-render when night transition completes
+        if (svgRef.current) {
+          // Force re-render of visualization
+          const currentNodes = [...simulationNodes];
+          setSimulationNodes(currentNodes);
         }
       }
     };
@@ -484,985 +752,32 @@ export default function ConstellationView({
       return useEventBus.getState().subscribe(eventType as GameEventType, handler);
     });
     
+    // Debug options handling
+    if (debugOptions) {
+      // Handle debug options
+      // This would process showAllDiscovered, masteryLevel, etc.
+    }
+    
     return () => {
-      debugLog('Component unmounting');
       isComponentMountedRef.current = false;
-      
-      // Clear the help timer
-      clearTimeout(helpTimer);
-      
-      // Cancel any pending animation frames
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-      
-      // Unsubscribe from visualization control
-      unsubscribe();
       
       // Unsubscribe from all event handlers
       eventUnsubscribes.forEach(unsubFn => unsubFn());
     };
-  }, [debugLog, handleDebugVisualization, nodes, scheduleRender]);
+  }, [nodes, activeNodes, interactive, debugOptions, simulationNodes]);
 
-  // ========= COORDINATION UPDATES =========
-  // Auto-select node only when needed
-  useEffect(() => {
-    if (!isComponentMountedRef.current || selectedNode || autoSelectionPerformedRef.current) return;
-    
-    const nodesToFocus = [...activeNodes, ...newlyDiscovered];
-    if (nodesToFocus.length === 0) return;
-    
-    const nodeToFocus = nodes.find(n => n.discovered && nodesToFocus.includes(n.id));
-    if (nodeToFocus) {
-      debugLog('Auto-selecting highlighted node', nodeToFocus.id);
-      autoSelectionPerformedRef.current = true;
-      setSelectedNode(nodeToFocus);
-    }
-  }, [nodes, activeNodes, newlyDiscovered, selectedNode, debugLog]);
+  // Function to handle pattern selection
+  const handlePatternSelect = (patternId: string | null) => {
+    setActivePatternId(patternId);
+  };
+
+  // Get details for the selected node
+  const selectedNode = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) : null;
   
-  // Reset autoSelection flag when selected node changes
-  useEffect(() => {
-    if (selectedNode === null) {
-      autoSelectionPerformedRef.current = false;
-    }
-  }, [selectedNode]);
-
-  // Highlight active nodes with particle effects - separated from node selection logic
-  useEffect(() => {
-    if (!isComponentMountedRef.current || nodes.length === 0) return;
-
-    const nodesToHighlight = [...activeNodes, ...newlyDiscovered];
-    if (nodesToHighlight.length === 0) return;
-    
-    debugLog('Highlighting nodes', nodesToHighlight);
-
-    // Generate particle effects for highlighted nodes
-    const newParticles: ParticleEffect[] = [];
-    
-    nodesToHighlight.forEach(nodeId => {
-      const node = nodes.find(n => n.id === nodeId);
-      if (node?.position) {
-        for (let i = 0; i < 15; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const distance = Math.random() * 100 + 50;
-          const color = DOMAIN_COLORS[node.domain] || '#ffffff';
-          
-          newParticles.push({
-            id: `particle-${nodeId}-${i}-${Date.now()}`,
-            type: 'discovery',
-            conceptId: node.id,
-            x: node.position.x + Math.cos(angle) * distance,
-            y: node.position.y + Math.sin(angle) * distance,
-            targetX: node.position.x,
-            targetY: node.position.y,
-            color: color,
-            size: Math.random() * 3 + 1,
-            life: 100,
-            maxLife: 100
-          });
-        }
-      }
-    });
-
-    if (newParticles.length > 0) {
-      // Update particle effects and request render
-      particleEffectsRef.current = [...particleEffectsRef.current, ...newParticles];
-      interactionStateRef.current.renderNeeded = true;
-      scheduleRender();
-      
-      // Dispatch event for externally activated nodes
-      if (activeNodes.length > 0) {
-        safeDispatch(
-          GameEventType.UI_NODE_HIGHLIGHTED, 
-          { nodeIds: activeNodes }, 
-          'constellation'
-        );
-      }
-    }
-  }, [activeNodes, newlyDiscovered, nodes, scheduleRender, debugLog]);
-
-  // Effect to process debugOptions prop when it changes
-  useEffect(() => {
-    if (debugOptions && isComponentMountedRef.current) {
-      handleDebugVisualization(debugOptions);
-    }
-  }, [debugOptions, handleDebugVisualization]);
-
-  // ========= SCENE COORDINATE CALCULATIONS =========
-  // Calculate scene coordinates from screen coordinates
-  const getSceneCoordinates = useCallback((clientX: number, clientY: number) => {
-    if (!canvasRef.current) return { x: 0, y: 0 };
-    
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const canvasX = (clientX - rect.left);
-    const canvasY = (clientY - rect.top);
-    
-    // Transform screen coordinates to scene coordinates with zoom and camera
-    const sceneX = (canvasX - (canvas.width / 2 + cameraPosition.x)) / zoomLevel + canvas.width / 2;
-    const sceneY = (canvasY - (canvas.height / 2 + cameraPosition.y)) / zoomLevel + canvas.height / 2;
-    
-    return { x: sceneX, y: sceneY };
-  }, [canvasRef, cameraPosition, zoomLevel]);
-
-  // Find node at given scene coordinates
-  const findNodeAtCoordinates = useCallback((sceneX: number, sceneY: number): ConceptNode | null => {
-    if (!discoveredNodes.length) return null;
-    
-    // Find node under cursor using hit detection
-    let closestNode = null;
-    let closestDistance = Infinity;
-    
-    // Check for any node at cursor position
-    const hitNode = discoveredNodes.find(node => {
-      if (!node.position) return false;
-      
-      // Size based on mastery level
-      const baseSize = 10 + (node.mastery / 100) * 10;
-      
-      // Calculate distance to node center
-      const distance = Math.sqrt(
-        Math.pow(node.position.x - sceneX, 2) +
-        Math.pow(node.position.y - sceneY, 2)
-      );
-      
-      // Store closest node for fallback
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestNode = node;
-      }
-      
-      // Hit detection with slight padding for easier selection
-      return distance <= baseSize + 10;
-    });
-    
-    // Return the hit node if found, or the closest node if it's within a reasonable distance
-    if (hitNode) return hitNode;
-    
-    // If no direct hit but we have a close node within a reasonable distance threshold,
-    // return that node to improve usability, especially for small nodes
-    const maxFallbackDistance = 20; // Fallback distance threshold
-    if (closestNode && closestDistance <= maxFallbackDistance) {
-      return closestNode;
-    }
-    
-    return null;
-  }, [discoveredNodes]);
-
-  // ========= CURSOR MANAGEMENT =========
-  // Update cursor style via direct DOM manipulation
-  const updateCursor = useCallback((style: 'pointer' | 'grab' | 'grabbing' | 'default') => {
-    if (!canvasRef.current || !isComponentMountedRef.current) return;
-    canvasRef.current.style.cursor = style;
-  }, [canvasRef]);
-
-  // ========= RENDERING & ANIMATION =========
-  // Render canvas with current state
-  const renderCanvas = useCallback(() => {
-    if (!canvasRef.current || !isComponentMountedRef.current) return;
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return;
-
-    // Disable image smoothing for pixel-perfect rendering
-    ctx.imageSmoothingEnabled = false;
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Apply transformations
-    ctx.save();
-    ctx.translate(canvas.width / 2 + cameraPosition.x, canvas.height / 2 + cameraPosition.y);
-    ctx.scale(zoomLevel, zoomLevel);
-    ctx.translate(-canvas.width / 2, -canvas.height / 2);
-
-    // Call drawing utilities
-    drawStarryBackground(ctx, canvas.width, canvas.height);
-    drawConnections(ctx, discoveredConnections, discoveredNodes, selectedNode, pendingConnection);
-    drawNodes(ctx, discoveredNodes, activeNode, selectedNode, pendingConnection, activeNodes, newlyDiscovered, showLabels);
-    drawPendingConnection(ctx, discoveredNodes, pendingConnection, activeNode);
-    drawParticles(ctx, particleEffectsRef.current);
-
-    // Debug overlay in development
-    if (process.env.NODE_ENV !== 'production' && activeNode) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.fillText(`Hover: ${activeNode.id}`, 10, 20);
-    }
-
-    // Restore transformations
-    ctx.restore();
-  }, [
-    canvasRef,
-    discoveredNodes, 
-    discoveredConnections, 
-    activeNode, 
-    selectedNode, 
-    pendingConnection,
-    activeNodes, 
-    newlyDiscovered, 
-    zoomLevel, 
-    cameraPosition, 
-    showLabels,
-  ]);
-
-  // Initial render and dimension changes
-  useEffect(() => {
-    if (!isComponentMountedRef.current) return;
-    
-    // Just mark that rendering is needed and schedule once
-    interactionStateRef.current.renderNeeded = true;
-    scheduleRender();
-    
-    // Don't include scheduleRender in dependencies to avoid cycles
-  }, [
-    dimensions.width, 
-    dimensions.height
-  ]);
-
-  // Add handler for initiating a connection
-  const handleInitiateConnection = useStableCallback((node: ConceptNode) => {
-    if (!pendingConnection) {
-      setPendingConnection(node.id);
-      setConnectionSource(node);
-      debugLog('Initiated connection from', node.id);
-    } else if (pendingConnection !== node.id) {
-      // Found target node - show confirmation
-      setConnectionTarget(node);
-      setShowConnectionConfirmation(true);
-      
-      // Calculate connection cost based on domains
-      const source = connectionSource;
-      const target = node;
-      
-      if (source && target) {
-        // Connections within same domain cost less
-        const baseCost = source.domain === target.domain ? 5 : 10;
-        
-        // Special nodes may have custom costs
-        const sourceCost = source.spCost || 0;
-        const targetCost = target.spCost || 0;
-        
-        // Calculate final cost
-        const finalCost = baseCost + Math.floor((sourceCost + targetCost) / 4);
-        setConnectionCost(finalCost);
-      }
-    }
-  });
-
-  // Helper function to create connection particle effects
-  const createConnectionParticlesEffect = useStableCallback((sourceNode: ConceptNode, targetNode: ConceptNode) => {
-    if (sourceNode.position && targetNode.position) {
-      const newParticles = createConnectionParticles(sourceNode, targetNode);
-      particleEffectsRef.current = [...particleEffectsRef.current, ...newParticles];
-      
-      // Schedule render
-      interactionStateRef.current.renderNeeded = true;
-      scheduleRender();
-    }
-  });
-
-  // Function to handle shooting star clicks
-  const handleShootingStarClick = useCallback((star: ShootingStarParticle) => {
-    if (!star.reward || star.wasClicked) return;
-    
-    debugLog('Shooting star clicked with reward:', star.reward);
-    
-    // Mark the star as clicked
-    star.wasClicked = true;
-    
-    // Process the reward
-    const reward = star.reward; // Create local reference to guarantee it's defined
-    
-    switch (reward.type) {
-      case 'sp':
-        // Add star points
-        useKnowledgeStore.getState().addStarPoints(reward.value, 'shooting-star');
-        break;
-      case 'mastery':
-        // Find a random discovered node to boost mastery
-        const nodesForMastery = discoveredNodes.filter(n => n.mastery < 100);
-        if (nodesForMastery.length > 0) {
-          const randomNode = nodesForMastery[Math.floor(Math.random() * nodesForMastery.length)];
-          useKnowledgeStore.getState().updateMastery(randomNode.id, reward.value);
-          // Update the reward message to include the affected node
-          reward.message = `${reward.value}% Mastery gained for ${randomNode.name}!`;
-          reward.targetId = randomNode.id;
-        }
-        break;
-      case 'discovery':
-        // Find a random undiscovered node
-        const undiscoveredNodes = nodes.filter(n => !n.discovered);
-        if (undiscoveredNodes.length > 0) {
-          const randomNode = undiscoveredNodes[Math.floor(Math.random() * undiscoveredNodes.length)];
-          useKnowledgeStore.getState().discoverConcept(randomNode.id);
-          // Update the message to include the discovered node
-          reward.message = `New concept discovered: ${randomNode.name}!`;
-          reward.targetId = randomNode.id;
-        }
-        break;
-    }
-    
-    // Show reward notification
-    setShootingStarReward({
-      message: reward.message,
-      type: reward.type,
-      value: reward.value,
-      active: true
-    });
-    
-    // Hide notification after a delay
-    setTimeout(() => {
-      setShootingStarReward(prev => prev ? { ...prev, active: false } : null);
-    }, 3000);
-    
-    // Add visual effect for the reward
-    if (reward.targetId) {
-      const targetNode = nodes.find(n => n.id === reward.targetId);
-      if (targetNode?.position) {
-        // Create particles flowing to the target node
-        const rewardParticles: ParticleEffect[] = [];
-        for (let i = 0; i < 20; i++) {
-          rewardParticles.push({
-            id: `reward-${star.id}-${i}`,
-            type: 'reward',
-            x: star.x,
-            y: star.y,
-            targetX: targetNode.position.x,
-            targetY: targetNode.position.y,
-            color: DOMAIN_COLORS[targetNode.domain],
-            size: Math.random() * 3 + 1,
-            life: 60,
-            maxLife: 60
-          });
-        }
-        particleEffectsRef.current = [...particleEffectsRef.current, ...rewardParticles];
-      }
-    }
-    
-    // Request render update
-    interactionStateRef.current.renderNeeded = true;
-    scheduleRender();
-  }, [nodes, discoveredNodes, debugLog, scheduleRender]);
-
-  // Get starPoints from store
-  const starPoints = usePrimitiveStoreValue(
-    useKnowledgeStore,
-    (state: KnowledgeState) => state.starPoints,
-    0
-  );
-
-  // Add a unified helper for creating connections
-  const createConnectionHelper = useStableCallback((sourceId: string, targetId: string) => {
-    if (!isComponentMountedRef.current) return false;
-    
-    // Find the source and target nodes using the lookup map
-    const sourceNode = nodeMap.get(sourceId);
-    const targetNode = nodeMap.get(targetId);
-    
-    if (!sourceNode || !targetNode) {
-      debugLog('Cannot create connection - nodes not found', { sourceId, targetId });
-      return false;
-    }
-    
-    // Calculate connection cost based on domains
-    const baseCost = sourceNode.domain === targetNode.domain ? 5 : 10;
-    const sourceCost = sourceNode.spCost || 0;
-    const targetCost = targetNode.spCost || 0;
-    const connectionCost = baseCost + Math.floor((sourceCost + targetCost) / 4);
-    
-    // Attempt to spend star points
-    const spendSuccess = useKnowledgeStore.getState().spendStarPoints(connectionCost, 'connection');
-    
-    if (spendSuccess) {
-      // Create connection in store
-      storeActions.createConnection(sourceId, targetId);
-      
-      // Visual feedback
-      if (sourceNode.position && targetNode.position) {
-        const newParticles = createConnectionParticles(sourceNode, targetNode);
-        particleEffectsRef.current = [...particleEffectsRef.current, ...newParticles];
-        
-        // Schedule render
-        interactionStateRef.current.renderNeeded = true;
-        scheduleRender();
-      }
-      
-      // Notify about connection creation
-      safeDispatch(
-        GameEventType.UI_CONNECTION_STARTED, 
-        { 
-          sourceId: sourceNode.id, 
-          targetId: targetNode.id 
-        }, 
-        'constellation'
-      );
-      
-      // Increment mastery when making connections
-      storeActions.updateMastery(sourceNode.id, 5);
-      storeActions.updateMastery(targetNode.id, 5);
-      
-      return true;
-    }
-    
-    return false;
-  });
-
-  // Add handler for confirming a connection
-  const handleConfirmConnection = useStableCallback(() => {
-    if (pendingConnection && connectionTarget && connectionSource) {
-      const sourceId = pendingConnection;
-      const targetId = connectionTarget.id;
-      
-      // Use the unified helper
-      const success = createConnectionHelper(sourceId, targetId);
-      
-      // Reset connection state regardless of success
-      resetConnectionState();
-    }
-  });
-
-  // Add handler for canceling a connection
-  const handleCancelConnection = useStableCallback(() => {
-    resetConnectionState();
-  });
-
-  // Add helper to reset connection state
-  const resetConnectionState = useStableCallback(() => {
-    setPendingConnection(null);
-    setConnectionSource(null);
-    setConnectionTarget(null);
-    setShowConnectionConfirmation(false);
-  });
-
-  // Modified handleNodeInteraction to use the unified connection helper
-  const handleNodeInteraction = useStableCallback((clientX: number, clientY: number) => {
-    if (!interactive || !isComponentMountedRef.current) {
-      console.log('DEBUG: handleNodeInteraction: Not interactive or component not mounted');
-      return;
-    }
-    
-    try {
-      // Get scene coordinates for hit testing
-      const { x: sceneX, y: sceneY } = getSceneCoordinates(clientX, clientY);
-      console.log('DEBUG: Scene coordinates:', { sceneX, sceneY });
-      
-      // First check if we clicked a shooting star
-      const shootingStar = particleEffectsRef.current.find(p => 
-        p.type === 'shootingStar' && 
-        !((p as ShootingStarParticle).wasClicked) &&
-        Math.sqrt(Math.pow(p.x - sceneX, 2) + Math.pow(p.y - sceneY, 2)) < 20
-      ) as ShootingStarParticle | undefined;
-      
-      if (shootingStar) {
-        console.log('DEBUG: Clicked a shooting star');
-        handleShootingStarClick(shootingStar);
-        return;
-      }
-      
-      // Get information about nodes and interaction state
-      console.log('DEBUG: Interaction state:', {
-        discoveredNodes: discoveredNodes.length,
-        pendingConnection,
-        selectedNode: selectedNode?.id,
-      });
-      
-      // Original node interaction logic
-      const clickedNode = findNodeAtCoordinates(sceneX, sceneY);
-      
-      // Log the interaction attempt
-      debugLog('Node interaction', { 
-        sceneCoords: { x: sceneX, y: sceneY },
-        clickedNode: clickedNode?.id || 'none',
-        pendingConnection,
-        selectedNode: selectedNode?.id || 'none'
-      });
-      
-      // Skip if no node clicked
-      if (!clickedNode) {
-        console.log('DEBUG: No node clicked, clearing selection if any');
-        // Clear selection if clicking empty space
-        if (selectedNode) {
-          setSelectedNode(null);
-          safeDispatch(
-            GameEventType.UI_NODE_SELECTION_CLEARED, 
-            {}, 
-            'constellation'
-          );
-        }
-        return;
-      }
-      
-      console.log(`DEBUG: Clicked on node ${clickedNode.id} (${clickedNode.name})`);
-      
-      // Handle connection creation if we have a pending connection
-      if (pendingConnection && clickedNode.id !== pendingConnection) {
-        // Use unified connection helper
-        createConnectionHelper(pendingConnection, clickedNode.id);
-        setPendingConnection(null);
-        return;
-      }
-      
-      // Default node selection behavior
-      console.log(`DEBUG: Setting selected node: ${clickedNode.id} (${clickedNode.name})`);
-      setSelectedNode(clickedNode);
-      
-      // Clear pending connection if selecting a different node
-      if (pendingConnection && clickedNode.id !== pendingConnection) {
-        setPendingConnection(null);
-      }
-      
-      // Notify about node selection
-      safeDispatch(
-        GameEventType.UI_NODE_SELECTED, 
-        { nodeId: clickedNode.id }, 
-        'constellation'
-      );
-    } catch (err) {
-      console.error('Error in node interaction logic:', err);
-    }
-  });
-
-  // ========= INTERACTION HANDLERS =========
-  // Mouse move handler
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || !interactive || !isComponentMountedRef.current) return;
-    
-    const state = interactionStateRef.current;
-    
-    // Handle dragging
-    if (state.isDragging) {
-      const dx = e.clientX - state.dragStart.x;
-      const dy = e.clientY - state.dragStart.y;
-      
-      setCameraPosition(prev => ({ x: prev.x + dx, y: prev.y + dy }));
-      state.dragStart = { x: e.clientX, y: e.clientY };
-      
-      updateCursor('grabbing');
-      return;
-    }
-    
-    // Find node under cursor
-    const { x: sceneX, y: sceneY } = getSceneCoordinates(e.clientX, e.clientY);
-    const hoveredNode = findNodeAtCoordinates(sceneX, sceneY);
-    
-    // Track if hovering changed, dispatch event only on change
-    if (hoveredNode?.id !== state.lastHoveredNodeId) {
-      state.lastHoveredNodeId = hoveredNode?.id || null;
-      
-      // Update hover state if changed
-      if (hoveredNode !== activeNode) {
-        setActiveNode(hoveredNode);
-        
-        // Dispatch hover event
-        if (hoveredNode) {
-          safeDispatch(
-            GameEventType.UI_NODE_HOVERED, 
-            { nodeId: hoveredNode.id }, 
-            'constellation'
-          );
-        }
-      }
-    }
-    
-    // Update cursor via DOM
-    updateCursor(hoveredNode ? 'pointer' : 'grab');
-  }, [
-    canvasRef,
-    interactive,
-    setCameraPosition,
-    getSceneCoordinates,
-    findNodeAtCoordinates,
-    activeNode,
-    setActiveNode,
-    updateCursor
-  ]);
-
-  // Mouse down handler
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || !interactive || !isComponentMountedRef.current) return;
-    
-    const state = interactionStateRef.current;
-    
-    if (e.button === 0) { // Left click
-      if (!activeNode) {
-        // Start panning if not over a node
-        state.isDragging = true;
-        state.dragStart = { x: e.clientX, y: e.clientY };
-        updateCursor('grabbing');
-      }
-      
-      // Record click position for later processing in mouseup
-      state.clickCoords = { x: e.clientX, y: e.clientY };
-      state.lastClickTime = Date.now();
-    } else if (e.button === 1 || e.button === 2) { // Middle or right click
-      e.preventDefault();
-      // Always allow panning with middle/right button
-      state.isDragging = true;
-      state.dragStart = { x: e.clientX, y: e.clientY };
-      updateCursor('grabbing');
-    }
-  }, [
-    canvasRef,
-    interactive,
-    activeNode,
-    updateCursor,
-  ]);
-
-  // Mouse up handler with built-in click detection
-  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || !interactive || !isComponentMountedRef.current) return;
-    
-    const state = interactionStateRef.current;
-    const wasDragging = state.isDragging;
-    
-    // Reset drag state
-    state.isDragging = false;
-    
-    // Only process as click if left button and not dragging significantly
-    if (e.button === 0 && !wasDragging) {
-      // Calculate distance moved since mousedown
-      const dx = e.clientX - state.clickCoords.x;
-      const dy = e.clientY - state.clickCoords.y;
-      const moveDistance = Math.sqrt(dx * dx + dy * dy);
-      
-      // If moved less than threshold, count as a click
-      if (moveDistance < state.dragThreshold) {
-        debugLog('Click detected', { 
-          coords: { x: e.clientX, y: e.clientY },
-          moveDistance
-        });
-        
-        // Call our click handler with original coordinates
-        handleNodeInteraction(e.clientX, e.clientY);
-      }
-    }
-    
-    // Update cursor based on current hover state
-    updateCursor(activeNode ? 'pointer' : 'grab');
-  }, [
-    canvasRef,
-    interactive,
-    activeNode,
-    updateCursor,
-    handleNodeInteraction
-  ]);
-
-  // Direct click handler (backup for browsers where mouseup/down doesn't work properly)
-  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!interactive || !isComponentMountedRef.current) return;
-    
-    const state = interactionStateRef.current;
-    const { x: sceneX, y: sceneY } = getSceneCoordinates(e.clientX, e.clientY);
-    
-    // Check if we're in the connection-building mode
-    if (pendingConnection) {
-      // Find if we clicked on a valid target node
-      const node = findNodeAtCoordinates(sceneX, sceneY);
-      if (node && node.id !== pendingConnection) {
-        // We clicked on a valid target node for connection
-        handleInitiateConnection(node);
-      } else if (!node) {
-        // Clicked on empty space, cancel connection
-        resetConnectionState();
-      }
-      return;
-    }
-    
-    // Handle clicking on a node
-    if (activeNode) {
-      if (e.shiftKey) {
-        // Shift+click to initiate a connection
-        handleInitiateConnection(activeNode);
-      } else {
-        // Regular click selects the node
-        setSelectedNode(selectedNode?.id === activeNode.id ? null : activeNode);
-      }
-    } else {
-      // Clicked on empty space, deselect current node
-      setSelectedNode(null);
-    }
-  }, [
-    interactive, 
-    activeNode, 
-    selectedNode, 
-    getSceneCoordinates, 
-    findNodeAtCoordinates, 
-    handleInitiateConnection,
-    pendingConnection,
-    isComponentMountedRef,
-    setSelectedNode,
-    resetConnectionState
-  ]);
-
-  // Wheel handler for zooming
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
-    if (!interactive || !isComponentMountedRef.current) return;
-    
-    e.preventDefault();
-    
-    // Calculate zoom delta with reduced sensitivity for smoother zooming
-    const zoomSensitivity = 0.05;
-    const delta = e.deltaY > 0 ? -zoomSensitivity : zoomSensitivity;
-    
-    // Get cursor position for focal zoom point
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    
-    // Calculate cursor position relative to canvas center
-    const mouseX = e.clientX - rect.left - rect.width / 2;
-    const mouseY = e.clientY - rect.top - rect.height / 2;
-    
-    // Calculate new zoom level with constraints
-    const MIN_ZOOM = 0.3;
-    const MAX_ZOOM = 2.5;
-    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel + delta));
-    
-    // Only update if zoom level actually changed
-    if (newZoom !== zoomLevel) {
-      // Calculate camera adjustment to zoom toward cursor position
-      const zoomFactor = newZoom / zoomLevel;
-      const cameraDx = mouseX - mouseX * zoomFactor;
-      const cameraDy = mouseY - mouseY * zoomFactor;
-      
-      // Update zoom level
-      setZoomLevel(newZoom);
-      
-      // Adjust camera position for focal point zooming
-      setCameraPosition(prev => ({
-        x: prev.x + cameraDx,
-        y: prev.y + cameraDy
-      }));
-      
-      // Request render update
-      interactionStateRef.current.renderNeeded = true;
-      scheduleRender();
-    }
-  }, [
-    interactive,
-    zoomLevel,
-    setZoomLevel,
-    setCameraPosition,
-    scheduleRender
-  ]);
-
-  // Add an effect to manually add a passive: false wheel event listener
-  useEffect(() => {
-    // Only add listeners if the component is mounted and canvas exists
-    if (!canvasRef.current || !isComponentMountedRef.current || !interactive) return;
-    
-    const canvas = canvasRef.current;
-    
-    // Add wheel event listener with passive: false to allow preventDefault
-    const wheelHandler = (e: WheelEvent) => {
-      if (!isComponentMountedRef.current) return;
-      
-      e.preventDefault();
-      
-      // Calculate zoom delta with reduced sensitivity for smoother zooming
-      const zoomSensitivity = 0.05;
-      const delta = e.deltaY > 0 ? -zoomSensitivity : zoomSensitivity;
-      
-      // Get cursor position for focal zoom point
-      const rect = canvas.getBoundingClientRect();
-      
-      // Calculate cursor position relative to canvas center
-      const mouseX = e.clientX - rect.left - rect.width / 2;
-      const mouseY = e.clientY - rect.top - rect.height / 2;
-      
-      // Calculate new zoom level with constraints
-      const MIN_ZOOM = 0.3;
-      const MAX_ZOOM = 2.5;
-      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel + delta));
-      
-      // Only update if zoom level actually changed
-      if (newZoom !== zoomLevel) {
-        // Calculate camera adjustment to zoom toward cursor position
-        const zoomFactor = newZoom / zoomLevel;
-        const cameraDx = mouseX - mouseX * zoomFactor;
-        const cameraDy = mouseY - mouseY * zoomFactor;
-        
-        // Update zoom level
-        setZoomLevel(newZoom);
-        
-        // Adjust camera position for focal point zooming
-        setCameraPosition(prev => ({
-          x: prev.x + cameraDx,
-          y: prev.y + cameraDy
-        }));
-        
-        // Request render update
-        interactionStateRef.current.renderNeeded = true;
-        scheduleRender();
-      }
-    };
-    
-    // Add event listener with passive: false
-    canvas.addEventListener('wheel', wheelHandler, { passive: false });
-    
-    // Clean up event listener on unmount
-    return () => {
-      canvas.removeEventListener('wheel', wheelHandler);
-    };
-  }, [interactive, zoomLevel, setZoomLevel, setCameraPosition, scheduleRender]);
-
-  // Mouse leave handler
-  const handleMouseLeave = useCallback(() => {
-    if (!isComponentMountedRef.current) return;
-    
-    const state = interactionStateRef.current;
-    
-    // Reset interaction states
-    state.isDragging = false;
-    state.lastHoveredNodeId = null;
-    
-    // Clear active node
-    if (activeNode) {
-      setActiveNode(null);
-    }
-  }, [activeNode, setActiveNode]);
-
-  // Close handler with cleanup
-  const handleClose = useCallback(() => {
-    if (!isComponentMountedRef.current || !onClose) return;
-    
-    // Clean up state
-    setSelectedNode(null);
-    setActiveNode(null);
-    setPendingConnection(null);
-    
-    // Reset highlights
-    storeActions.resetNewlyDiscovered(); 
-    
-    // Call provided onClose
-    onClose();
-  }, [onClose, storeActions]);
-
-  // Add helper function to visualize patterns
-  const visualizePattern = useCallback((pattern: ConstellationPattern) => {
-    if (!isComponentMountedRef.current) return;
-    
-    debugLog('Visualizing pattern:', pattern.name);
-    
-    // Find all nodes in this pattern
-    const patternNodes = pattern.starIds
-      .map(id => nodes.find(n => n.id === id))
-      .filter(n => n?.position) as ConceptNode[];
-    
-    if (patternNodes.length < 2) return;
-    
-    // Create visual connection particles between all nodes in the pattern
-    let newParticles: ParticleEffect[] = [];
-    
-    // Create line particles connecting nodes in a pattern-specific formation
-    for (let i = 0; i < patternNodes.length; i++) {
-      const source = patternNodes[i];
-      
-      // Connect to the next node in sequence (circular for all patterns)
-      const target = patternNodes[(i + 1) % patternNodes.length];
-      
-      // Add extra visual effects
-      if (source.position && target.position) {
-        // Add connection particles
-        const connectionParticles = createConnectionParticles(source, target);
-        newParticles = [...newParticles, ...connectionParticles];
-      }
-    }
-    
-    // Add a shooting star to celebrate the pattern discovery
-    const centerX = patternNodes.reduce((sum, n) => sum + (n.position?.x || 0), 0) / patternNodes.length;
-    const centerY = patternNodes.reduce((sum, n) => sum + (n.position?.y || 0), 0) / patternNodes.length;
-    
-    // Create a shooting star that crosses near the pattern center
-    const angle = Math.random() * Math.PI * 2;
-    const distance = 200;
-    const startX = centerX + Math.cos(angle) * distance;
-    const startY = centerY + Math.sin(angle) * distance;
-    
-    // Create shooting star with SP reward
-    const shootingStar = createShootingStar(startX, startY, angle + Math.PI, 5, 60, {
-      type: 'sp',
-      value: Number(pattern.reward.value) || 20,
-      message: `Pattern Discovered: ${pattern.name} (+${pattern.reward.value} SP)`,
-      targetId: patternNodes[0].id
-    });
-    
-    newParticles.push(shootingStar);
-    
-    // Update particle effects and request render
-    particleEffectsRef.current = [...particleEffectsRef.current, ...newParticles];
-    interactionStateRef.current.renderNeeded = true;
-    scheduleRender();
-    
-    // Show notification
-    setShootingStarReward({
-      message: `Pattern Discovered: ${pattern.name}!`,
-      type: 'sp',
-      value: Number(pattern.reward.value) || 20,
-      active: true
-    });
-    
-    // Hide notification after a delay
-    setTimeout(() => {
-      setShootingStarReward(prev => prev ? { ...prev, active: false } : null);
-    }, 5000);
-    
-  }, [nodes, debugLog, scheduleRender]);
-
-  // Add effect to detect patterns whenever connections change
-  useEffect(() => {
-    if (!isComponentMountedRef.current || !interactive) return;
-    
-    // Use detected pattern IDs to avoid redundant animations
-    const knownPatternIds = new Set(detectedPatterns.map(p => p.id));
-    
-    // Run pattern detection
-    const { newPatterns, allComplete } = detectPatterns(
-      nodes, 
-      connections, 
-      knownPatternIds
-    );
-    
-    // Update patterns state
-    if (allComplete.length !== detectedPatterns.length) {
-      setDetectedPatterns(allComplete);
-    }
-    
-    // Visualize any newly discovered patterns
-    if (newPatterns.length > 0) {
-      debugLog('New patterns discovered:', newPatterns.map(p => p.name));
-      
-      // Visualize each new pattern (staggered for visual effect)
-      newPatterns.forEach((pattern, index) => {
-        setTimeout(() => {
-          visualizePattern(pattern);
-          
-          // Award SP for pattern discovery
-          useKnowledgeStore.getState().addStarPoints(
-            Number(pattern.reward.value) || 20,
-            `pattern-${pattern.id}`
-          );
-        }, index * 2000); // 2 second delay between pattern celebrations
-      });
-      
-      // Emit pattern discovery event
-      safeDispatch(
-        GameEventType.KNOWLEDGE_GAINED, 
-        { 
-          patterns: newPatterns.map(p => p.id)
-        }, 
-        'constellation'
-      );
-    }
-  }, [nodes, connections, detectedPatterns, interactive, visualizePattern, debugLog]);
-
-  // Add effect to show connection help when pendingConnection is active
-  useEffect(() => {
-    if (pendingConnection) {
-      setShowConnectionHelp(true);
-    }
-  }, [pendingConnection]);
+  // Get all available patterns
+  const patterns = React.useMemo(() => 
+    detectPatterns(nodes, connections, new Set()).allComplete,
+  [nodes, connections]);
 
   // ========= COMPONENT RENDER =========
   return (
@@ -1470,125 +785,101 @@ export default function ConstellationView({
       ref={containerRef}
       className={`constellation-view relative ${
         fullscreen ? 'constellation-fullscreen fixed inset-0 z-50' : ''
-      } ${pendingConnection ? 'connecting-cursor' : ''}`}
+      }`}
       data-testid="constellation-view"
+      style={{
+        backgroundColor: nightMode ? '#111827' : '#1e293b',
+        width: '100%',
+        height: '100%'
+      }}
     >
-      {/* Main Canvas */}
-      <canvas
-        ref={canvasRef}
-        width={window.innerWidth}
-        height={window.innerHeight}
+      <svg 
+        ref={svgRef} 
+        width="100%" 
+        height="100%" 
         className="w-full h-full"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          display: 'block'
-        }}
-        // Attach interaction handlers
-        onMouseMove={handleMouseMove}
-        onClick={handleClick}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onContextMenu={(e) => e.preventDefault()}
-        data-element="constellation-canvas"
-      />
-
-      {/* Shooting Star Reward Notification */}
-      {shootingStarReward && shootingStarReward.active && (
-        <div className="absolute top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 
-                       bg-black/80 text-white px-6 py-3 rounded-lg border border-yellow-500/50
-                       animate-fadeIn">
-          <div className="text-center">
-            <div className="text-xl mb-1">
-              {shootingStarReward.type === 'sp' && <span className="text-yellow-400">✦</span>}
-              {shootingStarReward.type === 'mastery' && <span className="text-blue-400">★</span>}
-              {shootingStarReward.type === 'discovery' && <span className="text-green-400">✧</span>}
-            </div>
-            <div className="font-bold">{shootingStarReward.message}</div>
-          </div>
+      ></svg>
+      
+      {/* Simple UI elements */}
+      <div className="absolute top-4 right-4 flex space-x-2">
+        {interactive && onClose && (
+          <button 
+            onClick={onClose}
+            className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-full"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+      
+      {/* Pattern Selection - only if we have patterns */}
+      {patterns.length > 0 && (
+        <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+          <button
+            className={`px-3 py-1 text-sm rounded bg-gray-700 hover:bg-gray-600`}
+            onClick={() => handlePatternSelect(null)}
+          >
+            Show All
+          </button>
+          
+          {patterns.map(pattern => (
+            <button
+              key={pattern.id}
+              className={`px-3 py-1 text-sm rounded ${
+                activePatternId === pattern.id 
+                  ? 'ring-2 ring-white' 
+                  : 'hover:bg-opacity-80'
+              }`}
+              style={{ backgroundColor: getPatternColor(pattern.id) }}
+              onClick={() => handlePatternSelect(pattern.id)}
+            >
+              {pattern.name}
+            </button>
+          ))}
         </div>
       )}
-
-      {/* UI Sub-components */}
-      <ConstellationInfoPanel
-        discoveredNodes={discoveredNodes}
-        totalNodes={nodeCount}
-        discoveredConnections={discoveredConnections}
-        totalMastery={totalMastery}
-        domainMastery={domainMastery}
-      />
-
-      <ConstellationControls
-        zoomLevel={zoomLevel}
-        setZoomLevel={setZoomLevel}
-        setCameraPosition={setCameraPosition}
-      />
-
-      <ConstellationActions
-        enableJournal={enableJournal}
-        setJournalVisible={setJournalVisible}
-        setShowHelp={setShowHelp}
-        onClose={handleClose}
-      />
-
+      
+      {/* Selected Node Info */}
       {selectedNode && (
-        <SelectedNodePanel
-          selectedNode={selectedNode}
-          masteryLevel={selectedNode.mastery || 0}
-          onConnect={() => setPendingConnection(selectedNode.id)}
-          canConnect={pendingConnection !== selectedNode.id}
-        />
-      )}
-
-      {/* Render Overlays */}
-      <JournalOverlay
-        journalVisible={journalVisible}
-        setJournalVisible={setJournalVisible}
-        discoveredNodes={discoveredNodes}
-        recentInsights={recentInsights}
-      />
-
-      <HelpOverlay
-        showHelp={showHelp}
-        setShowHelp={setShowHelp}
-      />
-
-      {/* Connection Confirmation Panel */}
-      {showConnectionConfirmation && connectionSource && connectionTarget && (
-        <ConnectionPanel
-          sourceNode={connectionSource}
-          targetNode={connectionTarget}
-          spCost={connectionCost}
-          onConfirm={handleConfirmConnection}
-          onCancel={handleCancelConnection}
-          canAfford={starPoints >= connectionCost}
-        />
-      )}
-
-      {/* Connection Help Tooltip */}
-      <ConnectionHelpTooltip 
-        visible={showConnectionHelp} 
-        className={pendingConnection ? 'animate-bounce-slow' : ''}
-      />
-
-      {/* Connection Mode Indicator */}
-      <ConnectionModeIndicator 
-        isActive={!!pendingConnection}
-        sourceNodeName={connectionSource?.name}
-        onCancel={resetConnectionState}
-      />
-
-      {/* Development debug overlay */}
-      {process.env.NODE_ENV !== 'production' && (
-        <div className="absolute bottom-1 left-1 bg-black/70 text-white text-xs p-1 rounded">
-          Nodes: {discoveredNodes.length}/{nodeCount} | 
-          Active: {activeNode?.id || 'none'} | 
-          Selected: {selectedNode?.id || 'none'} |
-          Pending: {pendingConnection || 'none'}
+        <div className="absolute right-4 top-16 w-64 bg-gray-900 bg-opacity-90 p-3 rounded-md shadow-lg border border-gray-700">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="font-bold text-white">{selectedNode.name}</h4>
+            <button 
+              className="text-gray-400 hover:text-white"
+              onClick={() => setSelectedNodeId(null)}
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="text-xs mb-2 flex items-center text-white">
+            <div 
+              className="w-3 h-3 rounded-full mr-1" 
+              style={{ backgroundColor: DOMAIN_COLORS[selectedNode.domain as KnowledgeDomain] }}
+            ></div>
+            <span>{selectedNode.domain.replace(/-/g, ' ')}</span>
+            <span className="ml-auto">{selectedNode.mastery}% mastery</span>
+          </div>
+          
+          {interactive && (
+            <div className="mt-2 grid grid-cols-2 gap-1">
+              <button 
+                onClick={() => updateMastery(selectedNode.id, 10)}
+                className="p-1 bg-blue-800 rounded hover:bg-blue-700 text-white text-sm"
+              >
+                +10% Mastery
+              </button>
+              <button 
+                onClick={() => {
+                  // Show a simplified connection UI
+                  alert('Connection feature would go here');
+                }}
+                className="p-1 bg-orange-800 rounded hover:bg-orange-700 text-white text-sm"
+              >
+                Connect
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
