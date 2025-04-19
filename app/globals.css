@@ -1512,3 +1512,48 @@ img.pixel-art,
 .reaction-active {
   opacity: 1;
 }
+
+/* Constellation Connection Cursor */
+.connecting-cursor {
+  cursor: url('/icons/connection-cursor.png'), crosshair !important;
+}
+
+.can-connect-cursor {
+  cursor: url('/icons/can-connect-cursor.png'), pointer !important;
+}
+
+/* Make sure we have proper text colors for star points */
+.text-star-point {
+  color: #ffe100;
+}
+
+/* Special glow for active connection hints */
+.connection-node-hint {
+  animation: pulse-connection 2s infinite;
+}
+
+@keyframes pulse-connection {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 0, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 255, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 0, 0);
+  }
+}
+
+/* Animation for connection tooltip */
+.animate-bounce-slow {
+  animation: bounce-slow 2s infinite;
+}
+
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0) translateX(-50%);
+  }
+  50% {
+    transform: translateY(-10px) translateX(-50%);
+  }
+}

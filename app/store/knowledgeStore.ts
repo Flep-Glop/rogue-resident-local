@@ -819,6 +819,26 @@ export const useKnowledgeStore = create<KnowledgeState>()(
       });
       
       return success;
+    },
+    
+    // Reset all discovered connections - for testing purposes only
+    resetConnections: () => {
+      set(state => {
+        // Create a new array without discovered connections
+        const updatedConnections = state.connections.map(conn => ({
+          ...conn, 
+          discovered: false,
+          strength: 0
+        }));
+        
+        return {
+          ...state,
+          connections: updatedConnections
+        };
+      });
+      
+      // Log connection reset for analytics
+      analytics.track('debug_reset_connections');
     }
   }))
 );

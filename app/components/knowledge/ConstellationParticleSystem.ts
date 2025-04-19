@@ -7,6 +7,9 @@
 import { ConceptNode } from '@/app/store/knowledgeStore';
 import { DOMAIN_COLORS } from '@/app/core/themeConstants';
 
+// System-wide constants
+const MAX_PARTICLES = 300; // Maximum allowed particles to maintain performance
+
 /**
  * Base particle interface with common properties
  */
@@ -242,9 +245,23 @@ export function createRandomShootingStars(
 
 /**
  * Updates the particle positions and properties for animation
+ * Now enforces a maximum particle count for performance
  */
 export function updateParticles(particles: ParticleEffect[]): ParticleEffect[] {
-  return particles
+  // Sort particles by priority to keep the most important ones
+  // Shooting stars have highest priority, followed by connection, then discovery/reward
+  const prioritizedParticles = sortParticlesByPriority(particles);
+  
+  // Enforce particle limit for performance
+  let updatedParticles = prioritizedParticles;
+  if (particles.length > MAX_PARTICLES) {
+    // Keep shooting stars and important particles, trim the rest
+    updatedParticles = prioritizedParticles.slice(0, MAX_PARTICLES);
+    console.log(`Particle limit reached, trimmed ${particles.length - MAX_PARTICLES} particles`);
+  }
+
+  // Update the remaining particles
+  return updatedParticles
     .map(particle => {
       // Common update: decrease life
       particle.life -= 1;
@@ -287,6 +304,36 @@ export function updateParticles(particles: ParticleEffect[]): ParticleEffect[] {
       return particle;
     })
     .filter(particle => particle.life > 0);
+}
+
+/**
+ * Helper function to sort particles by priority
+ * This ensures important visual effects are preserved when limiting particles
+ */
+function sortParticlesByPriority(particles: ParticleEffect[]): ParticleEffect[] {
+  return [...particles].sort((a, b) => {
+    // Priority order: shooting stars > rewards > connection > discovery > debug
+    const getTypePriority = (type: ParticleType): number => {
+      switch(type) {
+        case 'shootingStar': return 5;
+        case 'reward': return 4;
+        case 'connection': return 3;
+        case 'discovery': return 2;
+        default: return 1; // debug particles
+      }
+    };
+    
+    const priorityA = getTypePriority(a.type);
+    const priorityB = getTypePriority(b.type);
+    
+    // Sort by priority first
+    if (priorityA !== priorityB) {
+      return priorityB - priorityA;
+    }
+    
+    // If same priority, prefer newer particles (higher life)
+    return (b.life / b.maxLife) - (a.life / a.maxLife);
+  });
 }
 
 /**

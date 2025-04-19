@@ -44,50 +44,103 @@ export const initializeImages = () => {
   // Check if we're in a browser environment
   if (typeof window === 'undefined') return;
   
-  // Add star image - try multiple paths
-  const starImagePaths = [
-    '/icons/star.png',         // Primary path
-    '/star.png',               // Root fallback
-    '/public/icons/star.png'   // Alternate path
-  ];
-
-  // Try loading the star image from each path
-  const loadStarImage = (pathIndex = 0) => {
-    if (pathIndex >= starImagePaths.length) {
-      console.error('Failed to load star image from all paths');
-      return;
-    }
-
-    const currentPath = starImagePaths[pathIndex];
-    const starImage = new window.Image();
-    starImage.crossOrigin = 'anonymous';
-    
-    starImage.onload = () => {
-      console.log(`Successfully loaded star image from: ${currentPath}`);
-      console.log(`Star dimensions: ${starImage.width}x${starImage.height}`);
-      backgroundImages['star'] = starImage;
-    };
-    
-    starImage.onerror = () => {
-      console.error(`Failed to load star image from: ${currentPath}, trying next path...`);
-      loadStarImage(pathIndex + 1);
-    };
-    
-    starImage.src = currentPath;
+  console.log('DEBUG: Initializing constellation images...');
+  
+  // Create a backup star image immediately - we'll use this if the image loading fails
+  createBackupStarImage();
+  
+  // Try to load the actual star image - we'll use this if it loads successfully
+  const primaryStarPath = '/icons/star.png';
+  const starImage = new window.Image();
+  starImage.crossOrigin = 'anonymous';
+  
+  starImage.onload = () => {
+    console.log(`✅ Successfully loaded star image from: ${primaryStarPath}`);
+    console.log(`Star dimensions: ${starImage.width}x${starImage.height}`);
+    backgroundImages['star'] = starImage;
   };
   
-  // Start loading the star image
-  loadStarImage();
+  starImage.onerror = () => {
+    console.log(`⚠️ Primary star image failed to load; using backup star`);
+    // We already have the backup image created, so no need to do anything here
+  };
+  
+  starImage.src = primaryStarPath;
   
   // Preload background images
+  backgroundImages['sky'] = null;
   backgroundPaths.forEach(path => {
     const img = new window.Image();
+    img.onload = () => {
+      console.log(`✅ Loaded background image: ${path}`);
+      backgroundImages[path] = img;
+    };
+    img.onerror = () => {
+      console.error(`❌ Failed to load background image: ${path}`);
+    };
     img.src = path;
-    backgroundImages[path] = img;
   });
   
   // Log successful loading for debugging
-  console.log('Constellation images initialized', Object.keys(backgroundImages));
+  console.log('DEBUG: Constellation images initialization started');
+};
+
+/**
+ * Create a backup star image using canvas
+ * This is called immediately during initialization to ensure we always have a usable star
+ */
+const createBackupStarImage = () => {
+  console.log('DEBUG: Creating backup star image using canvas');
+  
+  try {
+    // Create a canvas to draw the star
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      // Draw a simple star shape
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      
+      // Draw a 5-pointed star
+      for (let i = 0; i < 5; i++) {
+        const outerRadius = 16;
+        const innerRadius = 7;
+        
+        // Outer point
+        const outerX = 16 + outerRadius * Math.cos(Math.PI / 2 + i * Math.PI * 2 / 5);
+        const outerY = 16 + outerRadius * Math.sin(Math.PI / 2 + i * Math.PI * 2 / 5);
+        
+        // Inner point
+        const innerX = 16 + innerRadius * Math.cos(Math.PI / 2 + (i + 0.5) * Math.PI * 2 / 5);
+        const innerY = 16 + innerRadius * Math.sin(Math.PI / 2 + (i + 0.5) * Math.PI * 2 / 5);
+        
+        // Draw lines
+        if (i === 0) {
+          ctx.moveTo(outerX, outerY);
+        } else {
+          ctx.lineTo(outerX, outerY);
+        }
+        
+        ctx.lineTo(innerX, innerY);
+      }
+      
+      ctx.closePath();
+      ctx.fill();
+      
+      // Create an image from the canvas
+      const starImage = new Image();
+      starImage.src = canvas.toDataURL();
+      backgroundImages['star'] = starImage;
+      console.log('✅ Successfully created backup star image');
+    } else {
+      console.error('❌ Could not get canvas context for backup star image');
+    }
+  } catch (error) {
+    console.error('❌ Error creating backup star image:', error);
+  }
 };
 
 /**
@@ -193,9 +246,15 @@ export const drawConnections = (
   selectedNode: ConceptNode | null,
   pendingConnection: string | null
 ): void => {
+  // Create node lookup map for better performance
+  const nodeMap = new Map<string, ConceptNode>();
+  discoveredNodes.forEach(node => {
+    nodeMap.set(node.id, node);
+  });
+
   discoveredConnections.forEach(connection => {
-    const sourceNode = discoveredNodes.find(n => n.id === connection.source);
-    const targetNode = discoveredNodes.find(n => n.id === connection.target);
+    const sourceNode = nodeMap.get(connection.source);
+    const targetNode = nodeMap.get(connection.target);
 
     if (sourceNode && targetNode && sourceNode.position && targetNode.position) {
       const isActive =
@@ -447,148 +506,57 @@ export const drawNodes = (
       ctx.save();
       
       // Apply shadow effects for better visibility
-      ctx.shadowColor = isHighlighted ? domainLightColor : domainColor;
-      ctx.shadowBlur = isHighlighted ? 15 : 8;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
+      ctx.shadowColor = hexToRgba(domainLightColor, 0.8);
+      ctx.shadowBlur = 8;
       
-      // Set blending for better color application
+      // Use global composite operation for glow effect
       ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = (opacityPercent / 100) * (isHighlighted ? 1.0 : 0.9);
+      ctx.globalAlpha = opacityPercent / 100;
+
+      // Calculate drawing dimensions
+      const drawSize = size * 2; // Double size for better visibility
       
-      // Calculate star size and position for center alignment - reduced by 20%
-      const starSize = size * 4.0 * 0.8;
-      const starX = node.position.x - starSize / 2;
-      const starY = node.position.y - starSize / 2;
-      
-      // Draw the star glow first (larger than the star itself) - reduced by 20%
-      const glowSize = starSize * 1.8 * 0.8;
-      const glowX = node.position.x - glowSize / 2;
-      const glowY = node.position.y - glowSize / 2;
-      
-      // Draw the glow with a radial gradient
-      const glowGradient = ctx.createRadialGradient(
-        node.position.x, node.position.y, 0,
-        node.position.x, node.position.y, glowSize / 2
+      // Draw the star image
+      ctx.drawImage(
+        starImg,
+        node.position.x - drawSize / 2,
+        node.position.y - drawSize / 2,
+        drawSize,
+        drawSize
       );
-      glowGradient.addColorStop(0, hexToRgba(isHighlighted ? domainLightColor : domainColor, 0.9));
-      glowGradient.addColorStop(1, 'rgba(0,0,0,0)');
-      
-      ctx.beginPath();
-      ctx.arc(node.position.x, node.position.y, glowSize / 2, 0, Math.PI * 2);
-      ctx.fillStyle = glowGradient;
-      ctx.fill();
-      
-      // Draw the star image directly without a rectangular overlay
-      ctx.globalAlpha = isHighlighted ? 1.0 : 0.9;
-      
-      // First, draw the star with a color tint
-      // Create a temporary canvas for coloring the star
-      const tempCanvas = document.createElement('canvas');
-      const tempCtx = tempCanvas.getContext('2d');
-      if (tempCtx) {
-        // Size the temp canvas to match the star
-        tempCanvas.width = starSize;
-        tempCanvas.height = starSize;
-        
-        // Ensure smoothing is disabled for pixel-perfect rendering
-        tempCtx.imageSmoothingEnabled = false;
-        
-        // Draw the star onto the temp canvas
-        tempCtx.drawImage(starImg, 0, 0, starSize, starSize);
-        
-        // Apply color tint using source-in to preserve transparency
-        tempCtx.globalCompositeOperation = 'source-in';
-        tempCtx.fillStyle = isHighlighted ? domainLightColor : domainColor;
-        tempCtx.fillRect(0, 0, starSize, starSize);
-        
-        // Draw the colored star onto the main canvas with normal blending
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(tempCanvas, starX, starY);
-      } else {
-        // Fallback if temp canvas creation fails
-        ctx.drawImage(starImg, starX, starY, starSize, starSize);
-      }
-      
-      // Add mastery indicator ring on top of the star
-      if (node.mastery > 0) {
-        ctx.restore(); // Restore to get back to normal blending
-        ctx.save(); // Save again for new isolated context
-        
-        ctx.beginPath();
-        const ringRadius = starSize / 1.5;
-        // Fixed arc calculation to correctly represent mastery level with proper bounds check
-        const masteryPercentage = Math.max(0, Math.min(100, node.mastery)) / 100;
-        ctx.arc(
-          node.position.x,
-          node.position.y,
-          ringRadius,
-          -Math.PI / 2,
-          (Math.PI * 2) * masteryPercentage - Math.PI / 2
-        );
-        // Make the mastery ring more visible
-        ctx.strokeStyle = isHighlighted ? '#FFFFFF' : domainLightColor;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        
-        // Show mastery percentage text for better visualization
-        if (size > 15) { // Only show text for larger nodes
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillStyle = "#FFFFFF";
-          ctx.font = `${Math.round(size/2)}px Arial`;
-          ctx.fillText(`${Math.round(node.mastery)}%`, node.position.x, node.position.y + ringRadius + 15);
-        }
-      }
       
       // Restore context
       ctx.restore();
     } else {
-      // Fallback if image isn't loaded yet
-      console.error('Star image not loaded, using fallback circle. Image status:', 
-        starImg ? `complete: ${starImg.complete}, height: ${starImg.naturalHeight}` : 'null');
+      // Fallback to drawing a star directly if image isn't loaded
+      console.log(`DEBUG: Using fallback star for node ${node.id} due to missing image`);
       
-      // Add glow around the fallback circle first
-      ctx.beginPath();
-      ctx.arc(node.position.x, node.position.y, size * 3.0, 0, Math.PI * 2);
-      const glow = ctx.createRadialGradient(
-        node.position.x, node.position.y, 0,
-        node.position.x, node.position.y, size * 3.0
+      // Apply domain color with appropriate opacity
+      const starColor = isHighlighted ? domainLightColor : domainColor;
+      
+      // Draw using our fallback function
+      drawStarFallback(
+        ctx, 
+        node.position.x, 
+        node.position.y, 
+        size, 
+        starColor, 
+        opacityPercent / 100
       );
-      glow.addColorStop(0, hexToRgba(domainColor, 0.8));
-      glow.addColorStop(0.6, hexToRgba(domainColor, 0.3));
-      glow.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = glow;
-      ctx.fill();
       
-      // Draw a more prominent fallback star shape
-      ctx.beginPath();
-      ctx.arc(node.position.x, node.position.y, size * 2.0, 0, Math.PI * 2);
-      ctx.fillStyle = isHighlighted ? domainLightColor : domainColor;
-      ctx.globalAlpha = (opacityPercent / 100) * 1.2; // Slightly increase visibility
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
-      
-      // Add inner highlight for better visibility in fallback
-      ctx.beginPath();
-      ctx.arc(node.position.x - size * 0.3, node.position.y - size * 0.3, size * 0.8, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fill();
-      
-      // Add mastery indicator ring
-      if (node.mastery > 0) {
-        ctx.beginPath();
-        ctx.arc(
-          node.position.x,
-          node.position.y,
-          size * 1.8,
-          -Math.PI / 2,
-          (Math.PI * 2) * (node.mastery / 100) - Math.PI / 2
-        );
-        ctx.strokeStyle = domainLightColor;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-      }
+      // Add glow effect
+      ctx.save();
+      ctx.shadowColor = hexToRgba(domainLightColor, 0.8);
+      ctx.shadowBlur = 10;
+      drawStarFallback(
+        ctx, 
+        node.position.x, 
+        node.position.y, 
+        size * 0.9, 
+        '#ffffff', 
+        0.7
+      );
+      ctx.restore();
     }
 
     // Draw labels
@@ -626,7 +594,14 @@ export const drawPendingConnection = (
   activeNode: ConceptNode | null
 ): void => {
   if (pendingConnection && activeNode) {
-    const sourceNode = discoveredNodes.find(n => n.id === pendingConnection);
+    // Use direct lookup if we have the node ID
+    const nodeMap = new Map<string, ConceptNode>();
+    discoveredNodes.forEach(node => {
+      nodeMap.set(node.id, node);
+    });
+    
+    const sourceNode = nodeMap.get(pendingConnection);
+    
     if (sourceNode && sourceNode.position && activeNode.position) {
       ctx.beginPath();
       ctx.moveTo(sourceNode.position.x, sourceNode.position.y);
@@ -656,4 +631,46 @@ export const drawParticles = (
     ctx.fillStyle = hexToRgba(particle.color, opacity);
     ctx.fill();
   });
+};
+
+// Add a function to draw stars directly if no image is loaded
+export const drawStarFallback = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  color: string,
+  opacity: number = 1.0
+): void => {
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = color;
+  
+  // Draw a 5-pointed star
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const outerRadius = radius;
+    const innerRadius = radius * 0.4;
+    
+    // Outer point
+    const outerX = x + outerRadius * Math.cos(Math.PI / 2 + i * Math.PI * 2 / 5);
+    const outerY = y + outerRadius * Math.sin(Math.PI / 2 + i * Math.PI * 2 / 5);
+    
+    // Inner point
+    const innerX = x + innerRadius * Math.cos(Math.PI / 2 + (i + 0.5) * Math.PI * 2 / 5);
+    const innerY = y + innerRadius * Math.sin(Math.PI / 2 + (i + 0.5) * Math.PI * 2 / 5);
+    
+    // Draw lines
+    if (i === 0) {
+      ctx.moveTo(outerX, outerY);
+    } else {
+      ctx.lineTo(outerX, outerY);
+    }
+    
+    ctx.lineTo(innerX, innerY);
+  }
+  
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 };

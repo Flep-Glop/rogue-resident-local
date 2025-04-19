@@ -117,21 +117,6 @@ export function applyOrbitalQuadrantLayout(
 }
 
 /**
- * NOTE: This function is now deprecated in favor of using explicit orbit values.
- * All nodes should have their orbit level explicitly set in the data.
- * This function remains for backward compatibility but may be removed in future.
- */
-function getNodeOrbit(node: ConceptNode): number {
-  // First check explicit orbit property if available
-  if (node.orbit !== undefined) {
-    return node.orbit;
-  }
-  
-  // Default to intermediate orbit (1)
-  return 1;
-}
-
-/**
  * Resolve collisions between nodes to ensure they don't overlap
  * Enhanced with orbit respect - nodes should stay in their orbits
  */

@@ -14,6 +14,11 @@ import ConstellationDebugControls from './ConstellationDebugControls';
 import { safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import KnowledgeSystemDebug from './KnowledgeSystemDebug';
+import { 
+  ResourceOutcomeService, 
+  ResourceTier, 
+  getResourceTierForSuccess
+} from '@/app/core/resources/ResourceTierSystem';
 
 // Type declarations for window extensions
 declare global {
@@ -43,7 +48,7 @@ declare global {
 export default function UnifiedDebugPanel() {
   // Panel state
   const [isExpanded, setIsExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState<'game' | 'map' | 'actions' | 'system' | 'events' | 'constellation' | 'reactions' | 'knowledge'>('game');
+  const [activeTab, setActiveTab] = useState<'game' | 'map' | 'actions' | 'system' | 'events' | 'constellation' | 'reactions' | 'knowledge' | 'resources'>('game');
   const [clickPending, setClickPending] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{message: string, type: 'success'|'error'|'info'|null}>({
     message: '',
@@ -64,6 +69,9 @@ export default function UnifiedDebugPanel() {
   const [currentReaction, setCurrentReaction] = useState<'positive' | 'negative' | 'question' | 'surprise' | 'thinking' | 'idea' | null>(null);
   const [isShaking, setIsShaking] = useState(false);
   const [isOscillating, setIsOscillating] = useState(false);
+  
+  // Resources tab state
+  const [resourceTestLog, setResourceTestLog] = useState<string[]>([]);
   
   // Store references - use the actual hooks properly
   // Don't store the hook functions themselves, we need their store objects
@@ -739,12 +747,14 @@ export default function UnifiedDebugPanel() {
   // Tab definitions
   const tabs = [
     { id: 'game', label: 'Game' },
-    { id: 'state', label: 'State' }, 
-    { id: 'dialogue', label: 'Dialogue' },
-    { id: 'journal', label: 'Journal' },
+    { id: 'map', label: 'Map' },
+    { id: 'actions', label: 'Actions' },
+    { id: 'system', label: 'System' },
+    { id: 'events', label: 'Events' },
     { id: 'constellation', label: 'Constellation' },
     { id: 'reactions', label: 'Reactions' },
-    { id: 'knowledge', label: 'Knowledge' }
+    { id: 'knowledge', label: 'Knowledge' },
+    { id: 'resources', label: 'Resources' }
   ];
   
   // Tab renderers
@@ -1448,6 +1458,273 @@ export default function UnifiedDebugPanel() {
     );
   };
   
+  // NEW: Render the resources tab
+  const renderResourcesTab = () => {
+    // Don't call refreshStateValues during render
+    // refreshStateValues();
+    const state = stateRef.current || {};
+    
+    // Add a function to get the full resource store state
+    const getFullResourceState = () => {
+      const store = useResourceStore.getState();
+      const fullState = {
+        insight: store.insight,
+        insightMax: store.insightMax,
+        momentum: store.momentum,
+        consecutiveCorrect: store.consecutiveCorrect,
+        momentumEffect: store.momentumEffect,
+        availableActions: store.availableActions,
+        pendingUpdates: store.pendingResourceUpdates,
+        lastChange: store.lastResourceChange,
+      };
+      
+      // Log full state to console
+      console.log('[ResourceDebug] Full resource state:', fullState);
+      
+      // Log specific values for momentum tracking
+      console.log('[ResourceDebug] Momentum tracking:',
+        'Current:', store.momentum,
+        'ConsecutiveCorrect:', store.consecutiveCorrect,
+        'Effect active:', store.momentumEffect?.active,
+        'Effect intensity:', store.momentumEffect?.intensity
+      );
+      
+      // Return a string representation for the log
+      setResourceTestLog(prev => [
+        `Full state logged to console. Momentum: ${store.momentum}, Consecutive: ${store.consecutiveCorrect}`,
+        ...prev
+      ]);
+      
+      return fullState;
+    };
+    
+    // Apply a specific resource tier
+    const applyTier = (tier: ResourceTier) => {
+      const store = useResourceStore.getState();
+      handleAction(
+        () => {
+          // Log before state
+          console.log(`[ResourceDebug] Before applying ${tier} tier:`, 
+            'Momentum:', store.momentum, 
+            'Consecutive:', store.consecutiveCorrect
+          );
+          
+          ResourceOutcomeService.applyTierOutcome(tier, store, 'debug_panel');
+          
+          // Log after state
+          setTimeout(() => {
+            console.log(`[ResourceDebug] After applying ${tier} tier:`, 
+              'Momentum:', store.momentum, 
+              'Consecutive:', store.consecutiveCorrect
+            );
+          }, 50);
+          
+          setResourceTestLog(prev => [
+            `Applied ${tier} tier. New momentum: ${store.momentum}`,
+            ...prev
+          ]);
+        },
+        `Applying ${tier} tier...`,
+        `Applied ${tier} tier outcome`
+      );
+    };
+    
+    // Test momentum directly
+    const testMomentum = () => {
+      const store = useResourceStore.getState();
+      
+      handleAction(
+        () => {
+          // Initial state
+          console.log('[ResourceDebug] Initial momentum state:', 
+            'Momentum:', store.momentum,
+            'Consecutive:', store.consecutiveCorrect
+          );
+          
+          // Test increment
+          store.incrementMomentum();
+          console.log('[ResourceDebug] After increment:', 
+            'Momentum:', store.momentum,
+            'Consecutive:', store.consecutiveCorrect
+          );
+          
+          // Apply standard tier
+          ResourceOutcomeService.applyTierOutcome('STANDARD', store, 'debug_panel');
+          console.log('[ResourceDebug] After STANDARD tier:', 
+            'Momentum:', store.momentum,
+            'Consecutive:', store.consecutiveCorrect
+          );
+          
+          // Test reset
+          store.resetMomentum();
+          console.log('[ResourceDebug] After reset:', 
+            'Momentum:', store.momentum,
+            'Consecutive:', store.consecutiveCorrect
+          );
+          
+          // Log results
+          setResourceTestLog(prev => [
+            'Momentum test complete - check console for detailed results',
+            ...prev
+          ]);
+        },
+        'Testing momentum system...',
+        'Momentum system test complete'
+      );
+    };
+    
+    return (
+      <div className="p-3 bg-gray-800/80 rounded-md">
+        <h3 className="font-pixel text-sm mb-2 text-blue-400">Resource Testing</h3>
+        
+        {/* Resource Status */}
+        <div className="bg-black/60 p-2 rounded pixel-borders mb-3">
+          <div className="flex justify-between mb-1">
+            <span>Current Insight:</span>
+            <span className="text-blue-300">{state.insight || 0}/100</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span>Current Momentum:</span>
+            <span className="text-orange-300">{state.momentum || 0}/3</span>
+          </div>
+          <div className="flex justify-between mb-1">
+            <span>Consecutive Correct:</span>
+            <span className="text-green-300">{resourceStoreState.consecutiveCorrect || 0}</span>
+          </div>
+        </div>
+        
+        {/* Debug Controls */}
+        <h3 className="font-pixel text-sm mb-2 text-blue-400">Debug Controls</h3>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <button 
+            className="px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-500 disabled:opacity-50 transition pixel-button"
+            onClick={() => getFullResourceState()}
+            disabled={clickPending}
+          >
+            Dump Full State
+          </button>
+          
+          <button 
+            className="px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-500 disabled:opacity-50 transition pixel-button"
+            onClick={testMomentum}
+            disabled={clickPending}
+          >
+            Run Momentum Test
+          </button>
+        </div>
+        
+        {/* Momentum Controls */}
+        <h3 className="font-pixel text-sm mb-2 text-blue-400">Momentum Controls</h3>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <button 
+            className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-500 disabled:opacity-50 transition pixel-button"
+            onClick={() => {
+              const store = useResourceStore.getState();
+              handleAction(
+                () => {
+                  store.incrementMomentum();
+                  setResourceTestLog(prev => [`Momentum incremented to ${store.momentum}`, ...prev]);
+                },
+                'Incrementing momentum...',
+                'Momentum incremented'
+              );
+            }}
+            disabled={clickPending || (state.momentum || 0) >= 3}
+          >
+            Increment Momentum
+          </button>
+          
+          <button 
+            className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-500 disabled:opacity-50 transition pixel-button"
+            onClick={() => {
+              const store = useResourceStore.getState();
+              handleAction(
+                () => {
+                  store.resetMomentum();
+                  setResourceTestLog(prev => ['Momentum reset to 0', ...prev]);
+                },
+                'Resetting momentum...',
+                'Momentum reset'
+              );
+            }}
+            disabled={clickPending || (state.momentum || 0) === 0}
+          >
+            Reset Momentum
+          </button>
+          
+          <button 
+            className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-500 disabled:opacity-50 transition pixel-button"
+            onClick={addInsight}
+            disabled={clickPending || (state.insight || 0) >= 100}
+          >
+            Add +25 Insight
+          </button>
+          
+          <button 
+            className="px-2 py-1 bg-yellow-600 text-white text-xs rounded hover:bg-yellow-500 disabled:opacity-50 transition pixel-button"
+            onClick={() => {
+              const store = useResourceStore.getState();
+              handleAction(
+                () => {
+                  // Direct consecutive updates
+                  const currentConsecutive = store.consecutiveCorrect || 0;
+                  store.setMomentum(store.momentum, currentConsecutive + 1);
+                  setResourceTestLog(prev => [`Consecutive incremented to ${currentConsecutive + 1}`, ...prev]);
+                },
+                'Incrementing consecutive...',
+                'Consecutive incremented'
+              );
+            }}
+            disabled={clickPending}
+          >
+            Incr. Consecutive
+          </button>
+        </div>
+        
+        {/* Resource Tier Testing */}
+        <h3 className="font-pixel text-sm mb-2 text-blue-400">Apply Resource Tier</h3>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {(['MINOR', 'STANDARD', 'MAJOR', 'CRITICAL', 'FAILURE'] as ResourceTier[]).map(tier => (
+            <button
+              key={tier}
+              onClick={() => applyTier(tier)}
+              disabled={clickPending}
+              className={`px-2 py-1 rounded text-xs disabled:opacity-50 transition pixel-button
+                ${tier === 'FAILURE' ? 'bg-red-600 hover:bg-red-500' : 
+                  tier === 'MINOR' ? 'bg-blue-400 hover:bg-blue-300' :
+                  tier === 'STANDARD' ? 'bg-green-600 hover:bg-green-500' :
+                  tier === 'MAJOR' ? 'bg-purple-600 hover:bg-purple-500' :
+                  'bg-yellow-600 hover:bg-yellow-500'} text-white`}
+            >
+              {tier}
+            </button>
+          ))}
+        </div>
+        
+        {/* Results Log */}
+        <h3 className="font-pixel text-sm mb-2 text-blue-400">Resource Test Log</h3>
+        <div className="bg-black/60 p-2 rounded pixel-borders max-h-40 overflow-y-auto">
+          {resourceTestLog.length > 0 ? (
+            resourceTestLog.map((item, index) => (
+              <div key={index} className="text-xs mb-1">
+                {item}
+              </div>
+            ))
+          ) : (
+            <div className="text-xs text-gray-500">No resource tests run yet</div>
+          )}
+        </div>
+        
+        <button 
+          className="mt-2 px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white text-xs rounded transition pixel-button w-full"
+          onClick={() => setResourceTestLog([])}
+        >
+          Clear Log
+        </button>
+      </div>
+    );
+  };
+  
   // Render active tab content
   const renderTabContent = () => {
     // Don't call refreshStateValues during render
@@ -1462,6 +1739,7 @@ export default function UnifiedDebugPanel() {
       case 'constellation': return renderConstellationTab();
       case 'reactions': return renderReactionsTab();
       case 'knowledge': return <KnowledgeSystemDebug />;
+      case 'resources': return renderResourcesTab();
       default: return renderGameTab();
     }
   };
@@ -1607,6 +1885,12 @@ export default function UnifiedDebugPanel() {
               onClick={() => setActiveTab('knowledge')}
             >
               Knowledge
+            </button>
+            <button
+              className={`px-3 py-2 text-xs transition-colors ${activeTab === 'resources' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}
+              onClick={() => setActiveTab('resources')}
+            >
+              Resources
             </button>
           </div>
           

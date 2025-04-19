@@ -350,9 +350,53 @@ export const useResourceStore = create<ResourceState>()(
        * Increment momentum (convenience method)
        */
       incrementMomentum: () => {
-        const { consecutiveCorrect } = get();
+        const { momentum, consecutiveCorrect } = get();
+        
+        // Only proceed if we're not already at max
+        if (momentum >= MAX_MOMENTUM_LEVEL) {
+          if (DEBUG_LOGGING) {
+            console.log(`[ResourceStore] Momentum already at max (${MAX_MOMENTUM_LEVEL}), ignoring increment`);
+          }
+          return;
+        }
+        
+        // Directly update consecutive count and calculate new momentum
         const newConsecutive = consecutiveCorrect + 1;
         const newMomentum = Math.min(MAX_MOMENTUM_LEVEL, Math.floor(newConsecutive / 2));
+        
+        if (DEBUG_LOGGING) {
+          console.log(`[ResourceStore] Incrementing momentum: ${momentum} -> ${newMomentum} (consecutive: ${consecutiveCorrect} -> ${newConsecutive})`);
+        }
+        
+        // Force an immediate dispatch for the momentum increased event before setting state
+        // This ensures feedback systems get notified immediately
+        if (newMomentum > momentum) {
+          safeDispatch(
+            GameEventType.MOMENTUM_INCREASED,
+            {
+              resourceType: 'momentum',
+              previousValue: momentum,
+              newValue: newMomentum,
+              change: newMomentum - momentum,
+              consecutive: newConsecutive
+            },
+            'resourceStore.incrementMomentum'
+          );
+          
+          // Also dispatch the momentum effect event for visual feedback
+          safeDispatch(
+            GameEventType.MOMENTUM_EFFECT,
+            {
+              effect: 'increment',
+              source: 'system',
+              intensity: newMomentum === MAX_MOMENTUM_LEVEL ? 'high' : 'medium',
+              timestamp: Date.now()
+            },
+            'resourceStore.incrementMomentum'
+          );
+        }
+        
+        // Set the momentum state
         get().setMomentum(newMomentum, newConsecutive);
       },
       
@@ -360,6 +404,46 @@ export const useResourceStore = create<ResourceState>()(
        * Reset momentum to 0
        */
       resetMomentum: () => {
+        const { momentum } = get();
+        
+        // Only proceed if we have momentum to reset
+        if (momentum === 0) {
+          if (DEBUG_LOGGING) {
+            console.log(`[ResourceStore] Momentum already at 0, ignoring reset`);
+          }
+          return;
+        }
+        
+        if (DEBUG_LOGGING) {
+          console.log(`[ResourceStore] Resetting momentum from ${momentum} to 0`);
+        }
+        
+        // Force an immediate dispatch for the momentum reset event before setting state
+        safeDispatch(
+          GameEventType.MOMENTUM_RESET,
+          {
+            resourceType: 'momentum',
+            previousValue: momentum,
+            newValue: 0,
+            change: -momentum,
+            consecutive: 0
+          },
+          'resourceStore.resetMomentum'
+        );
+        
+        // Also dispatch the momentum effect event for visual feedback
+        safeDispatch(
+          GameEventType.MOMENTUM_EFFECT,
+          {
+            effect: 'reset',
+            source: 'system',
+            intensity: 'high',
+            timestamp: Date.now()
+          },
+          'resourceStore.resetMomentum'
+        );
+        
+        // Set the momentum state
         get().setMomentum(0, 0);
       },
       

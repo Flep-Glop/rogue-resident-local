@@ -1,4 +1,6 @@
 // app/components/knowledge/ConstellationVisualizationControl.ts
+'use client';
+
 /**
  * Centralized control system for constellation visualization
  * Provides pub/sub mechanism for debug controls to communicate with the visualization
@@ -19,6 +21,7 @@ export interface ConstellationDebugOptions {
   masteryLevel?: number;
   showAllConnections?: boolean;
   showShootingStars?: boolean;
+  connectionCursorEnabled?: boolean;
 }
 
 // Event listener type
@@ -30,7 +33,13 @@ type EventListener = (options: ConstellationDebugOptions) => void;
  */
 class ConstellationVisualizationControlBus {
   private listeners: Map<ConstellationVisualizationEvent, Set<EventListener>> = new Map();
-  private activeOptions: ConstellationDebugOptions = {};
+  private activeOptions: ConstellationDebugOptions = {
+    showAllDiscovered: false,
+    masteryLevel: 0,
+    showAllConnections: false,
+    showShootingStars: false,
+    connectionCursorEnabled: false
+  };
   
   constructor() {
     this.resetOptions();
@@ -130,7 +139,8 @@ class ConstellationVisualizationControlBus {
       showAllDiscovered: false,
       masteryLevel: 0,
       showAllConnections: false,
-      showShootingStars: false
+      showShootingStars: false,
+      connectionCursorEnabled: false
     };
     this.notifyListeners('resetVisualization');
     this.notifyListeners('stateChanged'); // Also notify of generic state change
@@ -159,6 +169,18 @@ class ConstellationVisualizationControlBus {
         }
       });
     }
+  }
+
+  // Set connection cursor mode
+  setConnectionCursorMode(enabled: boolean): void {
+    this.activeOptions.connectionCursorEnabled = enabled;
+    this.notifyListeners('stateChanged');
+  }
+
+  // Toggle connection cursor mode
+  toggleConnectionCursorMode(): void {
+    this.activeOptions.connectionCursorEnabled = !this.activeOptions.connectionCursorEnabled;
+    this.notifyListeners('stateChanged');
   }
 }
 

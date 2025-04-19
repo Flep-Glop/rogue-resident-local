@@ -85,16 +85,25 @@ export default function ResourceGainFeedback() {
       }
       
       // Update momentum counter position
-      const momentumCounter = document.querySelector('.momentum-counter');
+      const momentumCounter = document.querySelector('#momentum-counter') || 
+                              document.querySelector('.momentum-counter') || 
+                              document.querySelector('[data-testid="momentum-counter"]');
+      
       if (momentumCounter) {
         const rect = momentumCounter.getBoundingClientRect();
         momentumCounterRef.current = {
           x: rect.left + rect.width / 2,
           y: rect.top + rect.height / 2
         };
-        console.log("[ResourceGainFeedback] Momentum counter position updated:", momentumCounterRef.current);
+        const momentumValue = momentumCounter.getAttribute('data-momentum-value');
+        console.log(`[ResourceGainFeedback] Momentum counter position updated:`, momentumCounterRef.current, 
+                    `Current momentum value: ${momentumValue}`);
       } else {
         console.log("[ResourceGainFeedback] Momentum counter not found, using fallback position");
+        // More detailed logging to help debug
+        console.log("[ResourceGainFeedback] Available elements with similar classes:", 
+                    Array.from(document.querySelectorAll('[class*="momentum"]')).map(el => el.className));
+        
         // Fallback to top-right area where momentum pips are displayed
         momentumCounterRef.current = {
           x: window.innerWidth - 120,

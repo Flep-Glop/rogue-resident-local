@@ -41,6 +41,11 @@ export default function ConstellationDebugControls({
       const knowledgeStore = useKnowledgeStore.getState();
       const nodes = knowledgeStore.nodes;
       
+      // Add debug info
+      console.log('DEBUG: Current discovered nodes:', 
+        nodes.filter(n => n.discovered).map(n => ({id: n.id, name: n.name, position: n.position}))
+      );
+      
       // Set to the opposite of current state
       const newState = !allDiscovered;
       setAllDiscovered(newState);
@@ -50,16 +55,35 @@ export default function ConstellationDebugControls({
       
       if (newState) {
         // Discover all nodes
+        console.log('DEBUG: Discovering all nodes...');
+        let discoveredCount = 0;
+        
         nodes.forEach(node => {
           if (!node.discovered) {
+            console.log(`DEBUG: Discovering node: ${node.id} - ${node.name}, current position:`, node.position);
             knowledgeStore.discoverConcept(node.id);
+            discoveredCount++;
           }
         });
-        showFeedback('All nodes discovered', 'success');
+        
+        // Log after discovery
+        console.log(`DEBUG: Discovered ${discoveredCount} new nodes`);
+        console.log('DEBUG: Post-discovery nodes:',
+          knowledgeStore.nodes
+            .filter(n => n.discovered)
+            .map(n => ({id: n.id, name: n.name, position: n.position}))
+        );
+        
+        showFeedback(`All nodes discovered (${discoveredCount} new)`, 'success');
       } else {
         // Reset to original discovered state - this requires reimporting the original data
         knowledgeStore.resetKnowledge();
         showFeedback('Knowledge reset to initial state', 'info');
+        
+        // Check post-reset
+        console.log('DEBUG: After reset, discovered nodes:', 
+          knowledgeStore.nodes.filter(n => n.discovered).map(n => n.id)
+        );
       }
     } catch (error) {
       console.error('Error toggling node discovery:', error);

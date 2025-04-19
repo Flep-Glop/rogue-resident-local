@@ -300,8 +300,24 @@ export default function MomentumCounter({
     return { bg: 'bg-orange-500', border: 'border-orange-400', pulse: 'rgba(255, 140, 0, 0.7)', text: 'text-orange-100' };
   }, []);
   
+  // Debug: Log when momentum values change
+  useEffect(() => {
+    console.log(`[MomentumCounter] Mounted, initial momentum: ${momentum}, storeMomentum: ${storeMomentum}`);
+    return () => console.log('[MomentumCounter] Unmounted');
+  }, []);
+
+  useEffect(() => {
+    console.log(`[MomentumCounter] Momentum updated: ${momentum} (from store: ${storeMomentum})`);
+  }, [momentum, storeMomentum]);
+  
   return (
-    <div className={`${className} relative momentum-counter`} ref={containerRef} data-testid="momentum-counter">
+    <div 
+      className={`${className} relative momentum-counter`} 
+      ref={containerRef} 
+      data-testid="momentum-counter"
+      data-momentum-value={momentum}
+      id="momentum-counter"
+    >
       <div className="flex items-center justify-between mb-1">
         {showLabel && (
           <div className={`font-pixel ${compact ? 'text-sm' : 'text-base'} text-orange-300`}>
