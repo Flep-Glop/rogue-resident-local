@@ -2,7 +2,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import * as d3 from 'd3';
-import useKnowledgeStore from '@/app/store/knowledgeStore';
+import useKnowledgeStore, { KnowledgeDomain } from '@/app/store/knowledgeStore';
 import { SIMPLE_PATTERNS } from './SimplePatterns';
 import { DOMAIN_COLORS } from '@/app/core/themeConstants';
 
@@ -17,6 +17,10 @@ interface Node {
   discovered: boolean;
   mastery: number;
   patterns: string[];
+  vx?: number;
+  vy?: number;
+  fx?: number | null;
+  fy?: number | null;
 }
 
 interface Link {
@@ -29,11 +33,40 @@ interface Link {
 
 // Component for D3 visualization of patterns with 2.5D effects
 const ConstellationD3Visualization: React.FC = () => {
-  const { nodes: storeNodes, connections } = useKnowledgeStore();
+  const { nodes: storeNodes, connections, discoverConcept } = useKnowledgeStore();
   const svgRef = useRef<SVGSVGElement>(null);
   const [activePattern, setActivePattern] = useState<string | null>(null);
   const [simulationNodes, setSimulationNodes] = useState<Node[]>([]);
   const [simulationLinks, setSimulationLinks] = useState<Link[]>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  
+  // Function to unlock all stars
+  const unlockAllStars = () => {
+    // Find all locked nodes and discover them
+    const lockedNodes = storeNodes.filter(n => !n.discovered);
+    lockedNodes.forEach(node => {
+      discoverConcept(node.id);
+    });
+  };
+  
+  // Function to handle node selection
+  const handleNodeSelect = (nodeId: string) => {
+    // Toggle selection if clicking the same node
+    setSelectedNodeId(prevId => prevId === nodeId ? null : nodeId);
+  };
+  
+  // Get selected node data
+  const getSelectedNode = () => {
+    if (!selectedNodeId) return null;
+    return storeNodes.find(n => n.id === selectedNodeId);
+  };
+  
+  // Get connections for a selected node
+  const getNodeConnections = (nodeId: string) => {
+    return connections.filter(c => 
+      c.discovered && (c.source === nodeId || c.target === nodeId)
+    );
+  };
   
   // Prepare data for D3 simulation
   useEffect(() => {
@@ -142,6 +175,19 @@ const ConstellationD3Visualization: React.FC = () => {
     // Add defs for filters and gradients
     const defs = svg.append('defs');
     
+    // Add star image pattern for nodes
+    defs.append('pattern')
+      .attr('id', 'starPattern')
+      .attr('patternUnits', 'objectBoundingBox')
+      .attr('width', 1)
+      .attr('height', 1)
+      .append('image')
+      .attr('href', '/star.png')
+      .attr('width', 32)  // Fixed width instead of using d.radius
+      .attr('height', 32) // Fixed height instead of using d.radius
+      .attr('preserveAspectRatio', 'xMidYMid slice')
+      .attr('image-rendering', 'pixelated'); // Keep pixel art sharp
+
     // Glow filter for nodes
     const glowFilter = defs.append('filter')
       .attr('id', 'glow')
@@ -308,35 +354,138 @@ const ConstellationD3Visualization: React.FC = () => {
       });
     
     // Process nodes
-    const nodeElements = nodeGroup.selectAll('circle')
+    const nodeElements = nodeGroup.selectAll('image')
       .data(simulationNodes)
       .enter()
-      .append('circle')
-      .attr('r', d => d.radius)
-      .attr('fill', d => {
-        // If we have an active pattern, highlight nodes belonging to it
-        if (activePattern && d.patterns.includes(activePattern)) {
-          return getPatternColor(activePattern);
+      .append('image')
+      .attr('href', (d: Node) => {
+        // Only use the colored sprites for the main domain stars
+        // These are typically the core stars with ID matching the domain
+        if (d.id === d.domain) {
+          switch(d.domain) {
+            case 'treatment-planning':
+              return '/teal-star.png';
+            case 'radiation-therapy':
+              return '/purple-star.png';
+            case 'linac-anatomy':
+              return '/red-star.png';
+            case 'dosimetry':
+              return '/pink-star.png';
+          }
         }
-        // Default node color based on domain
-        return d.discovered ? 
-          DOMAIN_COLORS[d.domain] : 
-          'rgba(80, 80, 100, 0.5)';
+        // For all other stars, use the default star
+        return '/star.png';
       })
-      .attr('stroke', d => {
-        if (activePattern && d.patterns.includes(activePattern)) {
-          return '#ffffff';
+      .attr('width', (d: Node) => {
+        // Increase size for domain stars
+        return d.id === d.domain ? d.radius * 3 : d.radius * 2;
+      })
+      .attr('height', (d: Node) => {
+        // Increase size for domain stars
+        return d.id === d.domain ? d.radius * 3 : d.radius * 2;
+      })
+      .attr('x', (d: Node) => {
+        // Adjust position for increased size of domain stars
+        return d.id === d.domain ? -d.radius * 1.5 : -d.radius;
+      })
+      .attr('y', (d: Node) => {
+        // Adjust position for increased size of domain stars
+        return d.id === d.domain ? -d.radius * 1.5 : -d.radius;
+      })
+      .attr('image-rendering', 'pixelated') // Ensure pixel art stays sharp
+      .style('filter', (d: Node) => {
+        // Add stronger glow effect for selected node
+        if (d.id === selectedNodeId) {
+          return 'url(#glow) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))';
         }
-        return d.discovered ? 'rgba(255, 255, 255, 0.4)' : 'rgba(100, 100, 150, 0.3)';
-      })
-      .attr('stroke-width', 1.5)
-      .attr('filter', d => {
         if (activePattern && d.patterns.includes(activePattern)) {
           return `url(#glow-${activePattern})`;
         }
         return 'url(#glow)';
       })
-      .style('cursor', 'move');
+      .style('cursor', 'pointer')
+      .style('opacity', (d: Node) => {
+        // Full opacity for selected node
+        if (d.id === selectedNodeId) return 1;
+        // Normal opacity rules for other nodes
+        return d.discovered ? 1 : 0.5;
+      })
+      .on('click', (event: any, d: Node) => {
+        event.stopPropagation(); // Prevent SVG background click
+        handleNodeSelect(d.id);
+      });
+    
+    // Highlight connections for selected node
+    if (selectedNodeId) {
+      linkElements.style('stroke-width', d => {
+        const isSelected = d.source === selectedNodeId || d.target === selectedNodeId;
+        return isSelected ? 1.8 : d.patternIds.includes(activePattern!) ? 3 : 1.5;
+      })
+      .style('opacity', d => {
+        const isSelected = d.source === selectedNodeId || d.target === selectedNodeId;
+        return isSelected ? 1 : 0.3;
+      })
+      .style('stroke', d => {
+        const isSelected = d.source === selectedNodeId || d.target === selectedNodeId;
+        if (isSelected) {
+          return 'rgba(255, 255, 255, 0.8)';
+        }
+        if (activePattern && d.patternIds.includes(activePattern)) {
+          return getPatternColor(activePattern);
+        }
+        return `rgba(180, 180, 255, ${0.3 + (d.strength / 200)})`;
+      });
+      
+      // Apply greying effect to nodes not related to selection
+      nodeElements
+        .style('opacity', (d: Node) => {
+          // Selected node is fully visible
+          if (d.id === selectedNodeId) return 1;
+          
+          // Check if connected to selected node
+          const isConnected = simulationLinks.some(link => 
+            (link.source === selectedNodeId && link.target === d.id) || 
+            (link.target === selectedNodeId && link.source === d.id)
+          );
+          
+          // Connected nodes are fully visible, others are faded
+          return isConnected ? 1 : 0.5;
+        })
+        .style('filter', (d: Node) => {
+          // Strong glow for selected node
+          if (d.id === selectedNodeId) {
+            return 'url(#glow) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))';
+          }
+          
+          // Normal glow for connected nodes or pattern nodes
+          const isConnected = simulationLinks.some(link => 
+            (link.source === selectedNodeId && link.target === d.id) || 
+            (link.target === selectedNodeId && link.source === d.id)
+          );
+          
+          if (isConnected) {
+            return 'url(#glow)';
+          }
+          
+          // Grey out unconnected nodes
+          return 'url(#glow) saturate(50%)';
+        });
+    } else {
+      // Reset node styling when nothing is selected
+      nodeElements
+        .style('opacity', (d: Node) => d.discovered ? 1 : 0.5)
+        .style('filter', (d: Node) => {
+          if (activePattern && d.patterns.includes(activePattern)) {
+            return `url(#glow-${activePattern})`;
+          }
+          return 'url(#glow)';
+        });
+    }
+    
+    // Click on background to deselect
+    svg.on('click', () => {
+      setSelectedNodeId(null);
+    });
     
     // Node labels
     const nodeLabels = nodeGroup.selectAll('text')
@@ -353,7 +502,30 @@ const ConstellationD3Visualization: React.FC = () => {
       })
       .attr('text-anchor', 'middle')
       .attr('dy', d => -d.radius - 5)
-      .style('pointer-events', 'none');
+      .style('pointer-events', 'none')
+      .style('opacity', d => {
+        // Only show labels for selected node and its connections
+        if (selectedNodeId) {
+          // This is the selected node
+          if (d.id === selectedNodeId) return 1;
+          
+          // Check if this node is connected to the selected node
+          const isConnected = simulationLinks.some(link => 
+            (link.source === selectedNodeId && link.target === d.id) || 
+            (link.target === selectedNodeId && link.source === d.id)
+          );
+          
+          return isConnected ? 1 : 0;
+        }
+        
+        // When no node is selected and a pattern is active
+        if (activePattern && d.patterns.includes(activePattern)) {
+          return 1;
+        }
+        
+        // Default: hide all labels when nothing is selected
+        return 0;
+      });
     
     // Force simulation with stronger centering
     const simulation = d3.forceSimulation()
@@ -374,6 +546,88 @@ const ConstellationD3Visualization: React.FC = () => {
       .force('y', d3.forceY(0).strength(0.1))
       .force('collision', d3.forceCollide().radius((d: any) => d.radius + 15));
       
+    // Custom force to create space around selected node
+    if (selectedNodeId) {
+      // Find the selected node's position
+      const selectedNode = simulationNodes.find(n => n.id === selectedNodeId);
+      if (selectedNode) {
+        // Strengthen the collision force for better separation
+        simulation.force('collision', d3.forceCollide().radius((d: any) => {
+          if (d.id === selectedNodeId) {
+            return d.radius + 30; // Larger collision radius for selected node
+          }
+          
+          // Direct connections get medium collision radius
+          const isConnected = simulationLinks.some(link => 
+            (link.source === selectedNodeId && link.target === d.id) || 
+            (link.target === selectedNodeId && link.source === d.id)
+          );
+          
+          if (isConnected) {
+            return d.radius + 20;
+          }
+          
+          // For unrelated nodes, calculate distance-based collision radius
+          // Further nodes get smaller collision radius (can overlap more)
+          const dx = d.x - selectedNode.x;
+          const dy = d.y - selectedNode.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          // Max influence distance - beyond this, minimum spacing
+          const maxDistance = 300;
+          // Calculate scaling factor based on distance
+          const scaleFactor = Math.max(0.5, 1 - (distance / maxDistance));
+          
+          // Scale collision radius - closer = bigger radius (more spacing)
+          // Further = smaller radius (more dense packing)
+          return d.radius + 15 * scaleFactor;
+        }).strength(0.8)); // Increase collision strength for better enforcement
+        
+        // Also adjust the custom repulsion force to create more dramatic space near selected node
+        simulation.force('clearSpace', alpha => {
+          for (const node of simulationNodes) {
+            // Skip the selected node and its direct connections
+            if (node.id === selectedNodeId) continue;
+            
+            // Check if connected to selected node
+            const isConnected = simulationLinks.some(link => 
+              (link.source === selectedNodeId && link.target === node.id) || 
+              (link.target === selectedNodeId && link.source === node.id)
+            );
+            
+            // Don't repel connected nodes
+            if (isConnected) continue;
+            
+            // Calculate vector from selected node to this node
+            const dx = node.x - selectedNode.x;
+            const dy = node.y - selectedNode.y;
+            
+            // Calculate distance
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Define the repulsion radius - larger than normal collision distance
+            const repulsionRadius = 200; // Increased from 120 for wider effect
+            
+            // Only repel if within radius
+            if (distance < repulsionRadius) {
+              // Normalized direction vector
+              const unitX = dx / distance || 0;
+              const unitY = dy / distance || 0;
+              
+              // Repulsion strength decreases with distance - sharper falloff
+              // Use quadratic falloff for more dramatic near-field effect
+              const proximityFactor = 1 - (distance / repulsionRadius);
+              const strength = (0.8 * alpha) * proximityFactor * proximityFactor;
+              
+              // Apply force - stronger when closer
+              node.vx = (node.vx || 0) + unitX * strength;
+              node.vy = (node.vy || 0) + unitY * strength;
+            }
+          }
+        });
+      }
+    }
+    
     // Add pattern-specific forces
     if (activePattern) {
       const pattern = SIMPLE_PATTERNS.find(p => p.id === activePattern);
@@ -424,8 +678,8 @@ const ConstellationD3Visualization: React.FC = () => {
       
       // Update nodes
       nodeElements
-        .attr('cx', d => d.x)
-        .attr('cy', d => d.y);
+        .attr('x', (d: Node) => d.x - d.radius)
+        .attr('y', (d: Node) => d.y - d.radius);
       
       // Update labels
       nodeLabels
@@ -479,6 +733,14 @@ const ConstellationD3Visualization: React.FC = () => {
       }
     });
     
+    // Apply shadow effect to the selected node
+    if (selectedNodeId) {
+      const selectedNodeElement = nodeElements.filter((d: Node) => d.id === selectedNodeId);
+      // Add shadow underneath the selected star for 3D effect
+      selectedNodeElement
+        .style('filter', 'url(#glow) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))');
+    }
+    
     // Set link force data
     const linkForce = simulation.force('link') as d3.ForceLink<any, any>;
     if (linkForce) {
@@ -493,7 +755,7 @@ const ConstellationD3Visualization: React.FC = () => {
     }
     
     // Add node dragging capability
-    const nodeDrag = d3.drag<SVGCircleElement, any>()
+    const nodeDrag = d3.drag<SVGImageElement, any>()
       .on('start', (event, d) => {
         if (!event.active) simulation.alphaTarget(0.3).restart();
         d.fx = d.x;
@@ -516,7 +778,7 @@ const ConstellationD3Visualization: React.FC = () => {
     return () => {
       simulation.stop();
     };
-  }, [simulationNodes, simulationLinks, activePattern]);
+  }, [simulationNodes, simulationLinks, activePattern, selectedNodeId]);
   
   // Helper function to get color for a pattern
   const getPatternColor = (patternId: string): string => {
@@ -548,6 +810,67 @@ const ConstellationD3Visualization: React.FC = () => {
     return pattern ? pattern.name : patternId;
   };
   
+  // Element to display selected node information
+  const SelectedNodeInfo = () => {
+    const selectedNode = getSelectedNode();
+    if (!selectedNode) return null;
+    
+    const nodeConnections = getNodeConnections(selectedNode.id);
+    const connectedNodes = nodeConnections.map(conn => {
+      const otherId = conn.source === selectedNode.id ? conn.target : conn.source;
+      const otherNode = storeNodes.find(n => n.id === otherId);
+      return {
+        id: otherId,
+        name: otherNode?.name || 'Unknown',
+        strength: conn.strength,
+        domain: otherNode?.domain || 'treatment-planning'  // Use a default domain
+      };
+    });
+    
+    return (
+      <div className="absolute right-3 top-3 w-64 bg-gray-900 bg-opacity-90 p-3 rounded-md shadow-lg border border-gray-700 text-sm">
+        <div className="flex justify-between items-center mb-2">
+          <h4 className="font-bold text-md">{selectedNode.name}</h4>
+          <button 
+            className="text-gray-400 hover:text-white"
+            onClick={() => setSelectedNodeId(null)}
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="text-xs mb-2 flex items-center">
+          <div 
+            className="w-3 h-3 rounded-full mr-1" 
+            style={{ backgroundColor: DOMAIN_COLORS[selectedNode.domain as KnowledgeDomain] }}
+          ></div>
+          <span>{selectedNode.domain.replace(/-/g, ' ')}</span>
+          <span className="ml-auto">{selectedNode.mastery}% mastery</span>
+        </div>
+        
+        <div className="mt-3">
+          <h5 className="text-xs font-bold mb-1 text-gray-400">CONNECTIONS ({connectedNodes.length})</h5>
+          {connectedNodes.length > 0 ? (
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {connectedNodes.map(node => (
+                <div key={node.id} className="flex items-center p-1 hover:bg-gray-800 rounded">
+                  <div 
+                    className="w-2 h-2 rounded-full mr-1" 
+                    style={{ backgroundColor: DOMAIN_COLORS[node.domain as KnowledgeDomain] }}
+                  ></div>
+                  <span>{node.name}</span>
+                  <span className="ml-auto text-xs text-gray-400">{Math.round(node.strength)}%</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-gray-500">No connections</div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="mt-4 bg-gray-800 p-3 rounded-md">
       <h3 className="font-bold mb-2">2.5D Pattern Visualization</h3>
@@ -574,6 +897,13 @@ const ConstellationD3Visualization: React.FC = () => {
             {pattern.name}
           </button>
         ))}
+
+        <button 
+          className="px-3 py-1 text-sm rounded ml-auto bg-yellow-600 hover:bg-yellow-500"
+          onClick={unlockAllStars}
+        >
+          Unlock All Stars
+        </button>
       </div>
       
       <div className="relative">
@@ -589,6 +919,9 @@ const ConstellationD3Visualization: React.FC = () => {
             {getPatternName(activePattern)}
           </div>
         )}
+        
+        {/* Display selected node info */}
+        <SelectedNodeInfo />
       </div>
       
       <div className="mt-2 text-xs text-gray-400 flex flex-wrap gap-4">
@@ -597,6 +930,12 @@ const ConstellationD3Visualization: React.FC = () => {
             <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
           </svg>
           Nodes: Drag to reposition
+        </span>
+        <span className="flex items-center">
+          <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current mr-1">
+            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+          </svg>
+          Click star to view details
         </span>
       </div>
     </div>
