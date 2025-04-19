@@ -7,6 +7,7 @@ import { useCoreInitialization } from './core/init';
 import ChamberDebugInitializer from './components/debug/ChamberDebugInitializer';
 import UnifiedDebugPanel from './components/debug/UnifiedDebugPanel';
 import DialogueNodeSelector from './components/tools/DialogueNodeSelector';
+import Link from 'next/link';
 
 // Debug styles for initialization visualization
 const debugStyles = {
@@ -312,6 +313,19 @@ export default function VerticalSlicePage() {
           {showDebugPanel ? 'Hide Init Debug' : 'Show Init Debug'}
         </button>
       )}
+      
+      {/* Add debug link to mastery dashboard */}
+      <div className="mt-8 p-4 bg-blue-900 rounded-md">
+        <h3 className="text-xl font-bold mb-2">Debug Links</h3>
+        <div className="flex gap-4">
+          <Link href="/mastery-dashboard" className="text-blue-300 hover:text-blue-100 underline">
+            Mastery Dashboard
+          </Link>
+          <Link href="/test-panel" className="text-blue-300 hover:text-blue-100 underline">
+            Test Panel
+          </Link>
+        </div>
+      </div>
     </ErrorBoundary>
   );
 }

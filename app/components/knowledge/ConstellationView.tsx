@@ -11,9 +11,12 @@ import { DOMAIN_COLORS } from '../../core/themeConstants';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { safeDispatch, useEventBus } from '@/app/core/events/CentralEventBus';
 import * as d3 from 'd3';
+// Import PixelText for consistent font styling
+import { PixelText, PixelButton } from '../PixelThemeProvider';
 
 // Import visualization control
 import { ConstellationDebugOptions } from './ConstellationVisualizationControl';
+import CollapsibleKnowledgePanel from './CollapsibleKnowledgePanel';
 
 // Import pattern detection system
 import { detectPatterns, PatternFormation } from './ConstellationPatternSystem';
@@ -32,6 +35,7 @@ interface ConstellationViewProps {
   fullscreen?: boolean;
   enableJournal?: boolean;
   debugOptions?: ConstellationDebugOptions; // For debug visualization controls
+  showKnowledgePanel?: boolean; // Whether to show the knowledge panel
 }
 
 interface Node {
@@ -58,6 +62,29 @@ interface Link {
   patternIds: string[];
 }
 
+// Add style to custom button props for pattern buttons
+interface PatternButtonProps {
+  patternId: string;
+  isActive: boolean;
+  onClick: () => void;
+  color: string;
+  name: string;
+}
+
+// Custom pattern button component with inline styling
+const PatternButton = ({ patternId, isActive, onClick, color, name }: PatternButtonProps) => (
+  <PixelButton
+    key={patternId}
+    size="sm"
+    className={`rounded ${isActive ? 'ring-2 ring-white' : 'hover:bg-opacity-80'}`}
+    onClick={onClick}
+  >
+    <div style={{ backgroundColor: color }} className="px-3 py-1">
+      {name}
+    </div>
+  </PixelButton>
+);
+
 /**
  * Enhanced ConstellationView with D3 visualization
  */
@@ -71,8 +98,12 @@ export default function ConstellationView({
   fullscreen = true,
   nightMode = false,
   showLabels = true,
-  debugOptions
+  debugOptions,
+  showKnowledgePanel = false
 }: ConstellationViewProps) {
+  // Log for debugging
+  console.log("ConstellationView rendering with showKnowledgePanel:", showKnowledgePanel);
+
   // ========= REFS AND STATE =========
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -85,6 +116,19 @@ export default function ConstellationView({
   const [simulationNodes, setSimulationNodes] = useState<Node[]>([]);
   const [simulationLinks, setSimulationLinks] = useState<Link[]>([]);
   const [showHelp, setShowHelp] = useState(false);
+  const [isPanelVisible, setIsPanelVisible] = useState(true);
+
+  // Update panel visibility when prop changes
+  useEffect(() => {
+    if (!showKnowledgePanel) {
+      setIsPanelVisible(false);
+    }
+  }, [showKnowledgePanel]);
+
+  // Toggle panel visibility
+  const togglePanel = () => {
+    setIsPanelVisible(prev => !prev);
+  };
 
   // ========= STORE ACCESS =========
   const { 
@@ -409,25 +453,44 @@ export default function ConstellationView({
       .data(simulationLinks)
       .enter()
       .append('line')
-      .attr('stroke', d => {
+      .attr('stroke', function(d) {
+        const link = d as unknown as Link;
+        // If we have a selected node, highlight its connections
+        if (selectedNodeId && (link.source === selectedNodeId || link.target === selectedNodeId)) {
+          return 'rgba(255, 255, 255, 0.8)';
+        }
         // If we have an active pattern, highlight links belonging to it
-        if (activePatternId && d.patternIds.includes(activePatternId)) {
+        if (activePatternId && link.patternIds.includes(activePatternId)) {
           return getPatternColor(activePatternId);
         }
         // Default link color based on connection strength
-        return `rgba(180, 180, 255, ${0.3 + (d.strength / 200)})`;
+        return `rgba(180, 180, 255, ${0.3 + (link.strength / 200)})`;
       })
-      .attr('stroke-width', d => {
+      .attr('stroke-width', function(d) {
+        const link = d as unknown as Link;
+        // Thicker lines for selected node connections
+        if (selectedNodeId && (link.source === selectedNodeId || link.target === selectedNodeId)) {
+          return 2;
+        }
         // Thicker lines for pattern links when a pattern is active
-        if (activePatternId && d.patternIds.includes(activePatternId)) {
+        if (activePatternId && link.patternIds.includes(activePatternId)) {
           return 3;
         }
         return 1.5;
       })
-      .attr('opacity', d => {
-        // Full opacity for active pattern links
-        if (activePatternId && d.patternIds.includes(activePatternId)) {
+      .attr('opacity', function(d) {
+        const link = d as unknown as Link;
+        // Full opacity for selected node connections
+        if (selectedNodeId && (link.source === selectedNodeId || link.target === selectedNodeId)) {
           return 1;
+        }
+        // Full opacity for active pattern links
+        if (activePatternId && link.patternIds.includes(activePatternId)) {
+          return 1;
+        }
+        // Lower opacity for unrelated links when a node is selected
+        if (selectedNodeId) {
+          return 0.3;
         }
         return 0.6;
       });
@@ -485,6 +548,21 @@ export default function ConstellationView({
         if (d.id === selectedNodeId) {
           return 'url(#glow) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))';
         }
+        
+        // Check if this node is connected to the selected node
+        if (selectedNodeId) {
+          const isConnected = simulationLinks.some(link => 
+            (link.source === selectedNodeId && link.target === d.id) || 
+            (link.target === selectedNodeId && link.source === d.id)
+          );
+          
+          if (isConnected) {
+            return 'url(#glow)';
+          }
+          // Grey out unconnected nodes
+          return 'url(#glow) saturate(50%)';
+        }
+        
         if (activePatternId && d.patterns.includes(activePatternId)) {
           return `url(#glow-${activePatternId})`;
         }
@@ -492,8 +570,21 @@ export default function ConstellationView({
       })
       .style('cursor', 'pointer')
       .style('opacity', (d: Node) => {
-        // Full opacity for selected node
+        // Selected node is fully visible
         if (d.id === selectedNodeId) return 1;
+        
+        // When a node is selected, adjust opacity based on connection
+        if (selectedNodeId) {
+          // Check if connected to selected node
+          const isConnected = simulationLinks.some(link => 
+            (link.source === selectedNodeId && link.target === d.id) || 
+            (link.target === selectedNodeId && link.source === d.id)
+          );
+          
+          // Connected nodes are fully visible, others are faded
+          return isConnected ? 1 : 0.5;
+        }
+        
         // Normal opacity rules for other nodes
         return d.discovered ? 1 : 0.5;
       })
@@ -513,7 +604,7 @@ export default function ConstellationView({
         }
       });
     
-    // Node labels (if enabled)
+    // Node labels (if enabled) - Update to use pixel font
     if (showLabels) {
       const nodeLabels = nodeGroup.selectAll('text')
         .data(simulationNodes)
@@ -521,7 +612,8 @@ export default function ConstellationView({
         .append('text')
         .text(d => d.name)
         .attr('font-size', '10px')
-        .attr('font-family', 'Inter, system-ui, sans-serif')
+        .attr('font-family', "'Press Start 2P', monospace") // Use pixel font
+        .attr('class', 'font-pixel') // Add font-pixel class
         .attr('fill', d => {
           if (activePatternId && d.patterns.includes(activePatternId)) {
             return '#ffffff';
@@ -532,11 +624,27 @@ export default function ConstellationView({
         .attr('dy', d => -d.radius - 5)
         .style('pointer-events', 'none')
         .style('text-shadow', '0px 1px 2px rgba(0,0,0,0.8)')
+        .style('image-rendering', 'pixelated') // Keep pixel font crisp
         .style('opacity', d => {
-          // Show labels for selected node and in active patterns
+          // Selected node's label is always visible
           if (d.id === selectedNodeId) return 1;
+          
+          // When a node is selected, only show labels for it and connected nodes
+          if (selectedNodeId) {
+            // Check if connected to selected node
+            const isConnected = simulationLinks.some(link => 
+              (link.source === selectedNodeId && link.target === d.id) || 
+              (link.target === selectedNodeId && link.source === d.id)
+            );
+            
+            return isConnected ? 1 : 0;
+          }
+          
+          // Show labels for nodes in active pattern
           if (activePatternId && d.patterns.includes(activePatternId)) return 1;
-          return showLabels ? 0.7 : 0; // Show all labels if enabled
+          
+          // Default label visibility based on showLabels prop
+          return showLabels ? 0.7 : 0;
         });
     }
     
@@ -652,8 +760,14 @@ export default function ConstellationView({
       // Update labels if showing
       if (showLabels) {
         nodeGroup.selectAll('text')
-          .attr('x', d => d.x)
-          .attr('y', d => d.y);
+          .attr('x', function(d) {
+            const node = d as unknown as Node;
+            return node.x;
+          })
+          .attr('y', function(d) {
+            const node = d as unknown as Node;
+            return node.y;
+          });
       }
       
       // Update pattern shapes
@@ -689,10 +803,17 @@ export default function ConstellationView({
     const linkForce = simulation.force('link') as d3.ForceLink<any, any>;
     if (linkForce) {
       linkForce.links(simulationLinks.map(link => {
-        const source = simulationNodes.find(n => n.id === link.source);
-        const target = simulationNodes.find(n => n.id === link.target);
-        if (source && target) {
-          return { source, target, ...link };
+        const sourceNode = simulationNodes.find(n => n.id === link.source);
+        const targetNode = simulationNodes.find(n => n.id === link.target);
+        if (sourceNode && targetNode) {
+          // Use different variable names to avoid the "specified more than once" error
+          return { 
+            source: sourceNode, 
+            target: targetNode, 
+            strength: link.strength,
+            discovered: link.discovered,
+            patternIds: link.patternIds
+          };
         }
         return null;
       }).filter(Boolean) as any);
@@ -800,50 +921,73 @@ export default function ConstellationView({
         className="w-full h-full"
       ></svg>
       
-      {/* Simple UI elements */}
+      {/* Debug indicator - visible during development */}
+      <div className="fixed bottom-2 right-2 bg-black bg-opacity-70 text-xs p-1 rounded font-pixel text-white z-50">
+        Panel prop: {showKnowledgePanel ? 'ON' : 'OFF'} | 
+        Panel state: {isPanelVisible ? 'VISIBLE' : 'HIDDEN'}
+      </div>
+      
+      {/* Simple UI elements - Updated with PixelButton */}
       <div className="absolute top-4 right-4 flex space-x-2">
+        {/* Always show knowledge panel toggle button */}
+        <PixelButton 
+          onClick={togglePanel}
+          className="bg-indigo-700 hover:bg-indigo-600 text-white rounded-md flex items-center"
+          size="sm"
+        >
+          <span className="mr-1">{isPanelVisible ? "📚" : "📖"}</span>
+          <span>{isPanelVisible ? "Hide Panel" : "Show Panel"}</span>
+        </PixelButton>
         {interactive && onClose && (
-          <button 
+          <PixelButton 
             onClick={onClose}
-            className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-full"
+            className="bg-gray-800 hover:bg-gray-700 text-white rounded-full"
+            size="sm"
           >
             ✕
-          </button>
+          </PixelButton>
         )}
       </div>
       
-      {/* Pattern Selection - only if we have patterns */}
+      {/* Pattern Selection - only if we have patterns - Updated with PatternButton */}
       {patterns.length > 0 && (
         <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-          <button
-            className={`px-3 py-1 text-sm rounded bg-gray-700 hover:bg-gray-600`}
+          <PixelButton
+            size="sm"
+            className={`rounded bg-gray-700 hover:bg-gray-600`}
             onClick={() => handlePatternSelect(null)}
           >
             Show All
-          </button>
+          </PixelButton>
           
           {patterns.map(pattern => (
-            <button
+            <PatternButton
               key={pattern.id}
-              className={`px-3 py-1 text-sm rounded ${
-                activePatternId === pattern.id 
-                  ? 'ring-2 ring-white' 
-                  : 'hover:bg-opacity-80'
-              }`}
-              style={{ backgroundColor: getPatternColor(pattern.id) }}
+              patternId={pattern.id}
+              isActive={activePatternId === pattern.id}
               onClick={() => handlePatternSelect(pattern.id)}
-            >
-              {pattern.name}
-            </button>
+              color={getPatternColor(pattern.id)}
+              name={pattern.name}
+            />
           ))}
         </div>
       )}
       
-      {/* Selected Node Info */}
+      {/* Knowledge Panel - improved visibility */}
+      {isPanelVisible && (
+        <div className="fixed right-4 top-20 w-80 sm:w-96 md:w-80 lg:w-96 z-20 max-h-[70vh] overflow-auto bg-gray-900 bg-opacity-95 rounded-lg shadow-lg border border-gray-700">
+          <CollapsibleKnowledgePanel 
+            onNodeSelect={(nodeId) => setSelectedNodeId(nodeId)}
+            onPatternSelect={(patternId) => handlePatternSelect(patternId)}
+          />
+        </div>
+      )}
+      
+      {/* Selected Node Info - Updated with PixelText */}
       {selectedNode && (
         <div className="absolute right-4 top-16 w-64 bg-gray-900 bg-opacity-90 p-3 rounded-md shadow-lg border border-gray-700">
           <div className="flex justify-between items-center mb-2">
-            <h4 className="font-bold text-white">{selectedNode.name}</h4>
+            <PixelText className="font-bold text-white">{selectedNode.name}</PixelText>
             <button 
               className="text-gray-400 hover:text-white"
               onClick={() => setSelectedNodeId(null)}
@@ -852,7 +996,7 @@ export default function ConstellationView({
             </button>
           </div>
           
-          <div className="text-xs mb-2 flex items-center text-white">
+          <div className="text-xs mb-2 flex items-center text-white font-pixel">
             <div 
               className="w-3 h-3 rounded-full mr-1" 
               style={{ backgroundColor: DOMAIN_COLORS[selectedNode.domain as KnowledgeDomain] }}
@@ -863,21 +1007,23 @@ export default function ConstellationView({
           
           {interactive && (
             <div className="mt-2 grid grid-cols-2 gap-1">
-              <button 
+              <PixelButton 
                 onClick={() => updateMastery(selectedNode.id, 10)}
-                className="p-1 bg-blue-800 rounded hover:bg-blue-700 text-white text-sm"
+                className="bg-blue-800 rounded hover:bg-blue-700 text-white"
+                size="sm"
               >
                 +10% Mastery
-              </button>
-              <button 
+              </PixelButton>
+              <PixelButton 
                 onClick={() => {
                   // Show a simplified connection UI
                   alert('Connection feature would go here');
                 }}
-                className="p-1 bg-orange-800 rounded hover:bg-orange-700 text-white text-sm"
+                className="bg-orange-800 rounded hover:bg-orange-700 text-white"
+                size="sm"
               >
                 Connect
-              </button>
+              </PixelButton>
             </div>
           )}
         </div>
