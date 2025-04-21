@@ -25,11 +25,13 @@ import { updateNodePositions, buildDomainAngles } from '@/app/components/knowled
 
 // Define custom event types - now using GameEventType enum for standard events
 const CUSTOM_EVENTS = {
-  KNOWLEDGE_DISCOVERED: GameEventType.KNOWLEDGE_GAINED,
+  KNOWLEDGE_DISCOVERED: GameEventType.KNOWLEDGE_DISCOVERED,
   CONNECTION_CREATED: GameEventType.KNOWLEDGE_CONNECTION_CREATED,
   CONNECTION_DISCOVERED: GameEventType.INSIGHT_CONNECTED,
   CONCEPT_SELECTED: GameEventType.UI_NODE_SELECTED,
-  PATTERN_DISCOVERED: GameEventType.PATTERN_DISCOVERED
+  PATTERN_DISCOVERED: GameEventType.PATTERN_DISCOVERED,
+  CONCEPT_UNLOCKED: GameEventType.CONCEPT_UNLOCKED,
+  CONCEPT_ACTIVATED: GameEventType.CONCEPT_ACTIVATION_CHANGED
   // Removed KNOWLEDGE_DECAY_APPLIED as decay system is paused
 };
 
@@ -78,17 +80,18 @@ export interface ConceptNode {
   description: string;
   mastery: number; // 0-100% mastery level
   connections: string[]; // IDs of connected concepts
-  discovered: boolean;
+  discovered: boolean; // Whether player has encountered this concept (Day phase)
+  unlocked: boolean; // Whether player has spent SP to unlock this concept (Night phase)
+  active: boolean; // Whether concept is currently "active" in mind
   position?: { x: number; y: number }; // For visual layout
   
   // Additional fields from documentation
   orbit: 0 | 1 | 2 | 3; // Specialization level (0=core, 3=specialized) - now required
-  spCost?: number; // Star Points required to unlock
+  spCost: number; // Star Points required to unlock
   maxConnections?: number; // Maximum number of connections allowed
   prerequisites?: string[]; // Stars that must be unlocked first
   crossDomainPotential?: 'Low' | 'Medium' | 'High'; // Likelihood of cross-domain connections
   journalEntryIds?: string[]; // Associated journal entries
-  active?: boolean; // Whether concept is currently "active" in mind
   
   // lastPracticed removed as knowledge decay system is paused
 }
@@ -135,8 +138,10 @@ export interface KnowledgeState {
   constellationVisible: boolean; // UI state tracking
   
   // Actions
-  addConcept: (concept: Omit<ConceptNode, 'id' | 'discovered' | 'connections'>) => string;
+  addConcept: (concept: Omit<ConceptNode, 'id' | 'discovered' | 'unlocked' | 'active' | 'connections'>) => string;
   discoverConcept: (conceptId: string) => void;
+  unlockConcept: (conceptId: string) => boolean; // New: Unlock a discovered concept by spending SP
+  setConceptActivation: (conceptId: string, isActive: boolean) => void; // New: Toggle activation state
   updateMastery: (conceptId: string, amount: number) => void;
   createConnection: (sourceId: string, targetId: string) => void;
   discoverConnection: (sourceId: string, targetId: string) => void;
@@ -150,6 +155,11 @@ export interface KnowledgeState {
   addStarPoints: (amount: number, source?: string) => void;
   spendStarPoints: (amount: number, target?: string) => boolean;
   
+  // Selectors for concept states
+  isConceptDiscovered: (conceptId: string) => boolean; // New: Check if concept is discovered
+  isConceptUnlocked: (conceptId: string) => boolean; // New: Check if concept is unlocked
+  isConceptActive: (conceptId: string) => boolean; // New: Check if concept is active
+  
   // Legacy compatibility
   unlockKnowledge: (knowledgeId: string) => void;
   addInsight: (insightId: string) => void; // Legacy method
@@ -162,14 +172,18 @@ export interface KnowledgeState {
 
 /**
  * Builds visual constellation connections from node data
- * Only creates connections between discovered nodes
+ * Only creates connections between unlocked nodes
  */
 const buildInitialConnections = (nodes: ConceptNode[]): ConceptConnection[] => {
   const connections: ConceptConnection[] = [];
   const processedPairs = new Set<string>();
   
+  const unlockedNodes = nodes.filter(n => n.unlocked);
+  console.log(`[Knowledge] Building connections between unlocked nodes. Found ${unlockedNodes.length}/${nodes.length} unlocked nodes`);
+  
   nodes.forEach(node => {
-    if (!node.discovered) return;
+    // Only unlocked nodes can form connections
+    if (!node.unlocked) return;
     
     node.connections.forEach(targetId => {
       // Prevent duplicate connections
@@ -177,9 +191,9 @@ const buildInitialConnections = (nodes: ConceptNode[]): ConceptConnection[] => {
       if (processedPairs.has(pairKey)) return;
       processedPairs.add(pairKey);
       
-      // Only create connection if target node exists and is discovered
+      // Only create connection if target node exists and is unlocked
       const targetNode = nodes.find(n => n.id === targetId);
-      if (targetNode?.discovered) {
+      if (targetNode?.unlocked) {
         connections.push({
           source: node.id,
           target: targetId,
@@ -190,12 +204,14 @@ const buildInitialConnections = (nodes: ConceptNode[]): ConceptConnection[] => {
     });
   });
   
+  console.log(`[Knowledge] Created ${connections.length} connections between unlocked nodes`);
   return connections;
 };
 
 /**
  * Calculates mastery level for each knowledge domain
  * with safety checks for domain validity
+ * Only includes discovered and unlocked nodes in calculation
  */
 const calculateDomainMastery = (nodes: ConceptNode[]): Record<KnowledgeDomain, number> => {
   // Initialize accumulator for each domain
@@ -206,8 +222,8 @@ const calculateDomainMastery = (nodes: ConceptNode[]): Record<KnowledgeDomain, n
     domainTotals[domain] = {sum: 0, count: 0};
   });
   
-  // Only consider discovered nodes
-  nodes.filter(node => node.discovered).forEach(node => {
+  // Only consider discovered and unlocked nodes
+  nodes.filter(node => node.discovered && node.unlocked).forEach(node => {
     // Safely access the domain
     if (domainTotals[node.domain]) {
       domainTotals[node.domain].sum += node.mastery;
@@ -228,9 +244,10 @@ const calculateDomainMastery = (nodes: ConceptNode[]): Record<KnowledgeDomain, n
 /**
  * Calculates overall mastery across all domains
  * Weighted by number of concepts in each domain
+ * Only includes discovered and unlocked nodes in calculation
  */
 const calculateTotalMastery = (domainMastery: Record<KnowledgeDomain, number>, nodes: ConceptNode[]): number => {
-  // Count discovered nodes per domain for weighting
+  // Count discovered and unlocked nodes per domain for weighting
   const domainCounts: Record<KnowledgeDomain, number> = {} as Record<KnowledgeDomain, number>;
   let totalNodes = 0;
   
@@ -239,8 +256,8 @@ const calculateTotalMastery = (domainMastery: Record<KnowledgeDomain, number>, n
     domainCounts[domain] = 0;
   });
   
-  // Count discovered nodes in each domain
-  nodes.filter(node => node.discovered).forEach(node => {
+  // Count discovered and unlocked nodes in each domain
+  nodes.filter(node => node.discovered && node.unlocked).forEach(node => {
     if (domainCounts[node.domain] !== undefined) {
       domainCounts[node.domain]++;
       totalNodes++;
@@ -314,6 +331,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
           domain: validDomain,
           connections: [],
           discovered: false,
+          unlocked: false,
+          active: false,
           orbit: 0
         };
         
@@ -323,8 +342,9 @@ export const useKnowledgeStore = create<KnowledgeState>()(
       return id;
     },
     
-    // Discover a previously unknown concept
+    // Discover a previously unknown concept - Day Phase
     discoverConcept: (conceptId) => {
+      console.log(`🔍 [KnowledgeStore] discoverConcept called with conceptId: ${conceptId}`);
       const node = get().nodes.find(n => n.id === conceptId);
       
       if (!node) {
@@ -337,8 +357,11 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         return;
       }
       
+      console.log(`[Knowledge] Discovering concept: ${conceptId}, name: ${node.name}, domain: ${node.domain}`);
+      
       set(state => {
-        // First mark the node as discovered
+        // Mark the node as discovered but NOT unlocked
+        // Unlocking happens in night phase with SP cost
         const nodeIndex = state.nodes.findIndex(n => n.id === conceptId);
         if (nodeIndex >= 0) {
           state.nodes[nodeIndex].discovered = true;
@@ -347,6 +370,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
           if (!state.newlyDiscovered.includes(conceptId)) {
             state.newlyDiscovered.push(conceptId);
           }
+
+          console.log(`[Knowledge] Concept marked as discovered: ${conceptId}, discovered=${true}, unlocked=${false}, SP cost to unlock: ${node.spCost}`);
         }
         
         // Build domain angles from KNOWLEDGE_DOMAINS
@@ -355,9 +380,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         // Update positions of all nodes (important for newly discovered nodes)
         state.nodes = updateNodePositions(state.nodes, domainAngles);
         
-        // Update connections based on discovery
-        const updatedConnections = buildInitialConnections(state.nodes);
-        state.connections = updatedConnections;
+        // Don't update connections since the concept is only discovered but not unlocked
+        // Connections are only updated when concepts are unlocked in the night phase
         
         // Recalculate mastery metrics
         state.domainMastery = calculateDomainMastery(state.nodes);
@@ -365,13 +389,23 @@ export const useKnowledgeStore = create<KnowledgeState>()(
       });
       
       // Emit discovery event
-      safeDispatch(
-        CUSTOM_EVENTS.KNOWLEDGE_DISCOVERED,
-        { 
+      console.log(`🔍 [KnowledgeStore] Preparing to dispatch KNOWLEDGE_DISCOVERED event for conceptId: ${conceptId}`);
+      try {
+        const eventPayload = { 
           conceptId, 
           source: 'knowledgeStore.discoverConcept' 
-        }
-      );
+        };
+        console.log(`🔍 [KnowledgeStore] KNOWLEDGE_DISCOVERED event payload:`, eventPayload);
+        
+        safeDispatch(
+          GameEventType.KNOWLEDGE_DISCOVERED,
+          eventPayload,
+          'knowledgeStore.discoverConcept'
+        );
+        console.log(`🔍 [KnowledgeStore] Successfully dispatched KNOWLEDGE_DISCOVERED event`);
+      } catch (error) {
+        console.error(`❌ [KnowledgeStore] Error dispatching KNOWLEDGE_DISCOVERED event:`, error);
+      }
     },
     
     // Update mastery level for a concept
@@ -646,7 +680,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
     
     /**
      * Implementation for SimplifiedKapoorMap compatibility
-     * Unlocks a knowledge node and ensures proper event emission
+     * Now only discovers a knowledge node without unlocking it
      */
     unlockKnowledge: (knowledgeId: string) => {
       // Extract the concept ID from the knowledge ID if needed
@@ -663,14 +697,15 @@ export const useKnowledgeStore = create<KnowledgeState>()(
           domain: 'treatment-planning',
           description: 'A newly discovered concept.',
           mastery: 25,
-          orbit: 1
+          orbit: 1,
+          spCost: 15 // Default SP cost for orbit 1 concepts
         });
         
         get().discoverConcept(newConceptId);
         return newConceptId;
       }
       
-      // Discover existing concept
+      // Only discover existing concept (not unlock)
       get().discoverConcept(conceptId);
       return conceptId;
     },
@@ -743,9 +778,29 @@ export const useKnowledgeStore = create<KnowledgeState>()(
     
     // Reset knowledge to initial state
     resetKnowledge: () => {
+      // Start with a clean copy of all concepts but ensure they're all undiscovered
+      const resetConcepts = allConcepts.map(concept => ({
+        ...concept,
+        discovered: false,
+        unlocked: false,
+        active: false,
+        mastery: 0
+      }));
+      
+      // Create empty array as additionalConcepts might not be defined
+      const additionalConceptsArray = [];
+      
+      // Also include additional concepts used in dialogues (if they exist)
+      const allResetConcepts = [
+        ...resetConcepts,
+        ...additionalConceptsArray
+      ];
+      
+      console.log(`[KnowledgeStore] Resetting knowledge system with ${allResetConcepts.length} concepts`);
+      
       set(state => {
-        state.nodes = [];
-        state.connections = [];
+        state.nodes = allResetConcepts;
+        state.connections = buildInitialConnections(allResetConcepts);
         state.journalEntries = [];
         state.pendingInsights = [];
         state.newlyDiscovered = [];
@@ -839,6 +894,146 @@ export const useKnowledgeStore = create<KnowledgeState>()(
       
       // Log connection reset for analytics
       analytics.track('debug_reset_connections');
+    },
+    
+    // Unlock a discovered concept by spending SP - Night Phase
+    unlockConcept: (conceptId: string): boolean => {
+      let success = false;
+      
+      set(state => {
+        const node = state.nodes.find(n => n.id === conceptId);
+        
+        if (!node) {
+          console.warn(`Cannot unlock concept: Concept ${conceptId} not found`);
+          return;
+        }
+        
+        if (!node.discovered) {
+          console.warn(`Cannot unlock concept: Concept ${conceptId} not yet discovered`);
+          return;
+        }
+        
+        if (node.unlocked) {
+          console.warn(`Concept ${conceptId} is already unlocked`);
+          success = true;
+          return;
+        }
+        
+        console.log(`[Knowledge] Attempting to unlock concept: ${conceptId}, name: ${node.name}, SP cost: ${node.spCost}, current SP: ${state.starPoints}`);
+        
+        // Check if player has enough SP
+        if (state.starPoints < node.spCost) {
+          console.warn(`Not enough SP to unlock concept ${conceptId}. Required: ${node.spCost}, Available: ${state.starPoints}`);
+          return;
+        }
+        
+        // Spend the required SP
+        const previousSP = state.starPoints;
+        state.starPoints -= node.spCost;
+        
+        // Mark the concept as unlocked and also activate it
+        const nodeIndex = state.nodes.findIndex(n => n.id === conceptId);
+        state.nodes[nodeIndex].unlocked = true;
+        state.nodes[nodeIndex].active = true; // Automatically activate newly unlocked concepts
+        
+        // Update connections - only unlocked concepts can form connections
+        const updatedConnections = buildInitialConnections(state.nodes);
+        state.connections = updatedConnections;
+        
+        console.log(`[Knowledge] Successfully unlocked concept: ${conceptId}, SP spent: ${node.spCost}, SP remaining: ${state.starPoints}`);
+        
+        // Count connections for debugging
+        const nodeConnections = updatedConnections.filter(c => c.source === conceptId || c.target === conceptId);
+        console.log(`[Knowledge] Concept ${conceptId} connected to ${nodeConnections.length} other concepts after unlocking`);
+        
+        // Recalculate domain mastery
+        state.domainMastery = calculateDomainMastery(state.nodes);
+        state.totalMastery = calculateTotalMastery(state.domainMastery, state.nodes);
+        
+        // Log SP expenditure
+        try {
+          safeDispatch(
+            GameEventType.RESOURCE_CHANGED,
+            {
+              resourceType: 'sp',
+              previousValue: previousSP,
+              newValue: state.starPoints,
+              change: -node.spCost,
+              source: `unlock_concept_${conceptId}`
+            },
+            'knowledgeStore.unlockConcept'
+          );
+        } catch (e) {
+          console.error('Error dispatching SP spent event:', e);
+        }
+        
+        // Emit unlock event
+        try {
+          safeDispatch(
+            CUSTOM_EVENTS.CONCEPT_UNLOCKED,
+            { 
+              conceptId,
+              cost: node.spCost,
+              isAutoActivated: true
+            },
+            'knowledgeStore.unlockConcept'
+          );
+        } catch (e) {
+          console.error('Error dispatching concept unlock event:', e);
+        }
+        
+        success = true;
+      });
+      
+      return success;
+    },
+    
+    // New: Toggle activation state
+    setConceptActivation: (conceptId: string, isActive: boolean) => {
+      set(state => {
+        const node = state.nodes.find(n => n.id === conceptId);
+        
+        if (!node || !node.discovered) {
+          console.warn(`Cannot set activation: Concept ${conceptId} not found or not discovered`);
+          return;
+        }
+        
+        if (!node.unlocked) {
+          console.warn(`Cannot set activation: Concept ${conceptId} is discovered but not unlocked yet`);
+          return;
+        }
+        
+        console.log(`[Knowledge] Setting concept activation: ${conceptId}, name: ${node.name}, active=${isActive}`);
+        
+        // Mark the concept as active or inactive
+        state.nodes[state.nodes.findIndex(n => n.id === conceptId)].active = isActive;
+        
+        // Emit activation event
+        try {
+          safeDispatch(
+            CUSTOM_EVENTS.CONCEPT_ACTIVATED,
+            { conceptId, isActive },
+            'knowledgeStore.setConceptActivation'
+          );
+        } catch (e) {
+          console.error('Error dispatching concept activation event:', e);
+        }
+      });
+    },
+    
+    // New: Check if concept is discovered
+    isConceptDiscovered: (conceptId: string) => {
+      return get().nodes.some(n => n.id === conceptId && n.discovered);
+    },
+    
+    // New: Check if concept is unlocked
+    isConceptUnlocked: (conceptId: string) => {
+      return get().nodes.some(n => n.id === conceptId && n.unlocked);
+    },
+    
+    // New: Check if concept is active
+    isConceptActive: (conceptId: string) => {
+      return get().nodes.some(n => n.id === conceptId && n.active);
     }
   }))
 );

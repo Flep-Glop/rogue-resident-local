@@ -1,8 +1,9 @@
 // app/components/journal/Journal.tsx
 'use client';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useJournalStore } from '@/app/store/journalStore';
 import { useGameStore } from '@/app/store/gameStore';
+import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { useEventSubscription } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { PixelText } from '../PixelThemeProvider';
@@ -34,12 +35,21 @@ interface GameState {
   [key: string]: any;
 }
 
-// Remove the old type definitions that are now in journalTypes.ts
+// Create stable selectors to prevent re-renders
+const journalHasJournalSelector = (state: JournalStoreState) => state.hasJournal;
+const journalIsOpenSelector = (state: JournalStoreState) => state.isJournalOpen;
+const journalUpgradeSelector = (state: JournalStoreState) => state.currentUpgrade;
+const journalPageSelector = (state: JournalStoreState) => state.currentPage;
+const gamePhaseSelector = (state: GameState) => state.gamePhase;
 
-// Remove placeholder components since we're importing the real ones
+// Knowledge store selectors
+const knowledgeTotalMasterySelector = (state) => state.totalMastery;
+const knowledgeNewlyDiscoveredCountSelector = (state) => state.newlyDiscovered.length;
+const knowledgeDiscoveredNodeCountSelector = (state) => state.nodes.filter(n => n.discovered).length;
+const knowledgeTotalNodeCountSelector = (state) => state.nodes.length;
 
 /**
- * Journal Component - Refactored with Chamber Transition Pattern
+ * Journal Component - Refactored with Knowledge System Integration
  * 
  * Follows key architectural principles:
  * 1. Uses primitive value extraction for store data
@@ -47,11 +57,11 @@ interface GameState {
  * 3. Stable function references with minimal dependencies
  * 4. Refs for non-rendered state
  * 
- * FIXES:
- * 1. CRITICAL: Using consistent default values to prevent hydration mismatch
- * 2. Improved error handling for missing methods
- * 3. Enhanced stability with better refs tracking
- * 4. Added explicit logging for debugging
+ * FEATURES:
+ * 1. Real-time knowledge tracking and visualization
+ * 2. Integrated with knowledge constellation system
+ * 3. Dynamic content based on game progress
+ * 4. Fixed infinite loop issues with stable selectors
  */
 export default function Journal() {
   // PATTERN: DOM refs for direct manipulation
@@ -62,6 +72,7 @@ export default function Journal() {
   // PATTERN: Refs for internal state
   const isMountedRef = useRef(true);
   const animationTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const resetNewlyDiscoveredRef = useRef(false);
   const internalStateRef = useRef({
     isAnimating: false,
     showFloatingButton: false,
@@ -72,38 +83,78 @@ export default function Journal() {
   // PATTERN: Extract primitive values with CONSISTENT DEFAULTS to prevent hydration mismatch
   const hasJournal = usePrimitiveStoreValue(
     useJournalStore,
-    (state: JournalStoreState) => state.hasJournal,
+    journalHasJournalSelector,
     false
   );
   
   const isJournalOpen = usePrimitiveStoreValue(
     useJournalStore,
-    (state: JournalStoreState) => state.isJournalOpen,
+    journalIsOpenSelector,
     false
   );
   
   // CRITICAL FIX: Always use 'base' as default for consistent hydration
   const currentUpgrade = usePrimitiveStoreValue(
     useJournalStore,
-    (state: JournalStoreState) => state.currentUpgrade,
+    journalUpgradeSelector,
     'base' as JournalTier
   );
   
   const currentPage = usePrimitiveStoreValue(
     useJournalStore,
-    (state: JournalStoreState) => state.currentPage, 
+    journalPageSelector,
     'knowledge' as JournalPageType
   );
   
   // PATTERN: Extract game state primitives
   const gamePhase = usePrimitiveStoreValue(
     useGameStore,
-    (state: GameState) => state.gamePhase,
+    gamePhaseSelector,
     'day'
   );
   
+  // Knowledge system integration with stable selectors
+  const totalMastery = usePrimitiveStoreValue(
+    useKnowledgeStore,
+    knowledgeTotalMasterySelector,
+    0
+  );
+  
+  const newlyDiscoveredCount = usePrimitiveStoreValue(
+    useKnowledgeStore,
+    knowledgeNewlyDiscoveredCountSelector,
+    0
+  );
+  
+  const discoveredNodeCount = usePrimitiveStoreValue(
+    useKnowledgeStore,
+    knowledgeDiscoveredNodeCountSelector,
+    0
+  );
+  
+  const totalNodeCount = usePrimitiveStoreValue(
+    useKnowledgeStore,
+    knowledgeTotalNodeCountSelector,
+    0
+  );
+  
+  // Memoize the resetNewlyDiscovered function to prevent re-creation
+  const resetNewlyDiscovered = useCallback(() => {
+    if (resetNewlyDiscoveredRef.current) return;
+    
+    try {
+      const knowledgeStore = useKnowledgeStore.getState();
+      if (knowledgeStore.resetNewlyDiscovered) {
+        knowledgeStore.resetNewlyDiscovered();
+        resetNewlyDiscoveredRef.current = true;
+      }
+    } catch (e) {
+      console.error('[Journal] Error resetting newly discovered concepts:', e);
+    }
+  }, []);
+  
   // PATTERN: Safe store actions extraction with fallbacks
-  const toggleJournal = useCallback(() => {
+  const toggleJournal = useStableCallback(() => {
     console.log('[Journal] Toggling journal open/closed');
     try {
       const journalStore = useJournalStore.getState();
@@ -118,9 +169,9 @@ export default function Journal() {
     } catch (e) {
       console.error('[Journal] Error toggling journal:', e);
     }
-  }, [isJournalOpen]);
+  });
   
-  const setCurrentPage = useCallback((page: JournalPageType) => {
+  const setCurrentPage = useStableCallback((page: JournalPageType) => {
     console.log(`[Journal] Setting page to: ${page}`);
     try {
       const journalStore = useJournalStore.getState();
@@ -132,18 +183,18 @@ export default function Journal() {
     } catch (e) {
       console.error('[Journal] Error setting journal page:', e);
     }
-  }, []);
+  });
   
   // PATTERN: Cleanup timers helper with stable reference
-  const clearAllTimers = useCallback(() => {
+  const clearAllTimers = useStableCallback(() => {
     Object.values(animationTimersRef.current).forEach(timer => {
       clearTimeout(timer);
     });
     animationTimersRef.current = {};
-  }, []);
+  });
   
   // PATTERN: DOM-based animation helpers
-  const startJournalAnimation = useCallback(() => {
+  const startJournalAnimation = useStableCallback(() => {
     console.log('[Journal] Starting journal animation');
     if (!journalContainerRef.current) {
       console.warn('[Journal] Cannot start animation - container ref is null');
@@ -163,9 +214,9 @@ export default function Journal() {
         internalStateRef.current.isAnimating = false;
       }
     }, 300);
-  }, []);
+  });
   
-  const startParticleEffects = useCallback(() => {
+  const startParticleEffects = useStableCallback(() => {
     if (!particlesContainerRef.current) return;
     
     const container = particlesContainerRef.current;
@@ -196,9 +247,9 @@ export default function Journal() {
         });
       }
     }, 5000);
-  }, []);
+  });
   
-  const showFloatingButton = useCallback(() => {
+  const showFloatingButton = useStableCallback(() => {
     console.log('[Journal] Showing floating button');
     if (!floatingButtonRef.current) {
       console.warn('[Journal] Cannot show floating button - ref is null');
@@ -213,7 +264,32 @@ export default function Journal() {
     
     // Update internal state
     internalStateRef.current.showFloatingButton = true;
-  }, []);
+  });
+  
+  // Determine journal cover style based on upgrade level
+  const getJournalCoverStyle = () => {
+    switch(currentUpgrade) {
+      case 'base': return 'bg-gradient-to-b from-amber-800 to-amber-900';
+      case 'technical': return 'bg-gradient-to-b from-clinical-dark to-clinical';
+      case 'annotated': return 'bg-gradient-to-b from-clinical-dark to-clinical-light';
+      default: return 'bg-gradient-to-b from-amber-800 to-amber-900'; // Fallback to base
+    }
+  };
+  
+  // Memoize journal page components to prevent re-rendering
+  // IMPORTANT: This must be declared before any useEffect or conditional returns
+  const currentPageContent = useMemo(() => {
+    if (currentPage === 'knowledge') {
+      return <JournalKnowledgePage onElementClick={(e) => e.stopPropagation()} />;
+    } else if (currentPage === 'characters') {
+      return <JournalCharactersPage onElementClick={(e) => e.stopPropagation()} />;
+    } else if (currentPage === 'notes') {
+      return <JournalNotesPage onElementClick={(e) => e.stopPropagation()} />;
+    } else if (currentPage === 'references') {
+      return <JournalReferencesPage onElementClick={(e) => e.stopPropagation()} />;
+    }
+    return null;
+  }, [currentPage]);
   
   // PATTERN: Handle body overflow when journal is open
   useEffect(() => {
@@ -224,6 +300,21 @@ export default function Journal() {
       
       // Lock the background
       document.body.style.overflow = 'hidden';
+      
+      // Reset the reset flag when journal is closed and reopened
+      resetNewlyDiscoveredRef.current = false;
+      
+      // Reset newly discovered concepts when opening journal
+      if (newlyDiscoveredCount > 0 && currentPage === 'knowledge') {
+        // Delay to ensure concepts are seen first
+        const timer = setTimeout(() => {
+          if (isMountedRef.current) {
+            resetNewlyDiscovered();
+          }
+        }, 5000);
+        
+        animationTimersRef.current.resetNewlyDiscovered = timer;
+      }
       
       // Start open animation
       startJournalAnimation();
@@ -238,9 +329,9 @@ export default function Journal() {
         document.body.style.overflow = internalStateRef.current.originalBodyOverflow;
       }
     };
-  }, [isJournalOpen, startJournalAnimation]);
+  }, [isJournalOpen, startJournalAnimation, resetNewlyDiscovered]);
   
-  // PATTERN: Night phase particle effects
+  // PATTERN: Night phase particle effects - use a separate effect
   useEffect(() => {
     if (isJournalOpen && gamePhase === 'night') {
       startParticleEffects();
@@ -250,7 +341,7 @@ export default function Journal() {
   // PATTERN: Event subscription for journal acquisition
   useEventSubscription(
     GameEventType.JOURNAL_ACQUIRED,
-    useCallback((event) => {
+    useStableCallback((event) => {
       console.log('[Journal] Received JOURNAL_ACQUIRED event', event);
       
       if (!isMountedRef.current) {
@@ -303,10 +394,10 @@ export default function Journal() {
           }
         }, 3000);
       }
-    }, [showFloatingButton])
+    })
   );
   
-  // Special effect to ensure floating button shows even if animation was missed
+  // PATTERN: Floating button check - use a separate effect with minimal dependencies
   useEffect(() => {
     if (hasJournal && !isJournalOpen && !internalStateRef.current.showFloatingButton) {
       console.log('[Journal] Journal exists but floating button not shown - showing now');
@@ -378,6 +469,34 @@ export default function Journal() {
           from { opacity: 0; }
           to { opacity: 1; }
         }
+        
+        .knowledge-indicator {
+          position: relative;
+          height: 4px;
+          background-color: rgba(255,255,255,0.2);
+          border-radius: 2px;
+          overflow: hidden;
+        }
+        
+        .knowledge-progress {
+          position: absolute;
+          top: 0;
+          left: 0;
+          height: 100%;
+          background-color: var(--clinical-color);
+          transition: width 0.5s ease-out;
+        }
+        
+        .badge-new {
+          display: inline-block;
+          background-color: var(--educational-color);
+          color: white;
+          font-size: 0.75rem;
+          padding: 0.125rem 0.375rem;
+          border-radius: 9999px;
+          margin-left: 0.5rem;
+          animation: pulse 2s infinite;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -394,32 +513,10 @@ export default function Journal() {
     };
   }, [clearAllTimers, hasJournal]);
   
-  // DEBUGGING: Log key states to help track hydration mismatches
-  useEffect(() => {
-    console.log('[Journal] Render with tier:', currentUpgrade, 'hasJournal:', hasJournal, 'isOpen:', isJournalOpen);
-  }, [currentUpgrade, hasJournal, isJournalOpen]);
-  
   // Don't render anything if player doesn't have journal or it's not open
   if (!hasJournal || !isJournalOpen) {
-    if (!hasJournal) {
-      console.log('[Journal] Not rendering - player doesn\'t have journal yet');
-    } else if (!isJournalOpen) {
-      console.log('[Journal] Not rendering - journal is not open');
-    }
     return null;
   }
-  
-  console.log('[Journal] Rendering open journal');
-  
-  // Determine journal cover style based on upgrade level
-  const getJournalCoverStyle = () => {
-    switch(currentUpgrade) {
-      case 'base': return 'bg-gradient-to-b from-amber-800 to-amber-900';
-      case 'technical': return 'bg-gradient-to-b from-clinical-dark to-clinical';
-      case 'annotated': return 'bg-gradient-to-b from-clinical-dark to-clinical-light';
-      default: return 'bg-gradient-to-b from-amber-800 to-amber-900'; // Fallback to base
-    }
-  };
   
   return (
     <div
@@ -496,11 +593,28 @@ export default function Journal() {
                     tabIndex={0}
                     onClick={() => setCurrentPage(tabId as JournalPageType)}
                   >
-                    <div className="p-2">
+                    <div className="p-2 flex justify-between items-center">
                       <PixelText>{tabId.charAt(0).toUpperCase() + tabId.slice(1)}</PixelText>
+                      {tabId === 'knowledge' && newlyDiscoveredCount > 0 && (
+                        <span className="badge-new">{newlyDiscoveredCount}</span>
+                      )}
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Knowledge progress indicator */}
+            <div className="absolute bottom-16 left-4 w-[180px]">
+              <div className="p-2 bg-surface-dark/70">
+                <PixelText className="text-xs mb-1">Knowledge Progress</PixelText>
+                <div className="flex items-center justify-between mb-1 text-xs">
+                  <span>{discoveredNodeCount}/{totalNodeCount} Concepts</span>
+                  <span>{totalMastery}%</span>
+                </div>
+                <div className="knowledge-indicator">
+                  <div className="knowledge-progress" style={{ width: `${totalMastery}%` }}></div>
+                </div>
               </div>
             </div>
 
@@ -516,15 +630,12 @@ export default function Journal() {
             </div>
           </div>
 
-          {/* Journal pages */}
+          {/* Journal pages - Use memoized page component to prevent re-renders */}
           <div
             className="flex-1 bg-surface overflow-y-auto p-6 relative z-20"
             onClick={(e) => e.stopPropagation()}
           >
-            {currentPage === 'knowledge' && <JournalKnowledgePage onElementClick={(e) => e.stopPropagation()} />}
-            {currentPage === 'characters' && <JournalCharactersPage onElementClick={(e) => e.stopPropagation()} />}
-            {currentPage === 'notes' && <JournalNotesPage onElementClick={(e) => e.stopPropagation()} />}
-            {currentPage === 'references' && <JournalReferencesPage onElementClick={(e) => e.stopPropagation()} />}
+            {currentPageContent}
           </div>
         </div>
       </div>

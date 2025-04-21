@@ -10,11 +10,19 @@ import MomentumParticles from '../effects/MomentumParticles';
 import InsightPopup from '../effects/InsightPopup';
 import MomentumPopup from '../effects/MomentumPopup';
 
+// Debug switch to completely disable this component
+const DISABLE_RESOURCE_FEEDBACK = true;
+
 /**
  * ResourceGainFeedback - Enhanced component that shows animated feedback when
  * resources are gained, including particles and popup notifications.
  */
 export default function ResourceGainFeedback() {
+  // Early return if disabled
+  if (DISABLE_RESOURCE_FEEDBACK) {
+    return null;
+  }
+
   // Debug mode to visualize component loading
   const [initialized, setInitialized] = useState(false);
   
@@ -45,93 +53,34 @@ export default function ResourceGainFeedback() {
   
   // Mark component as initialized to debug lifecycle
   useEffect(() => {
-    console.log("[ResourceGainFeedback] Component initialized");
+    // Disabled console logs
     setInitialized(true);
-    return () => console.log("[ResourceGainFeedback] Component unmounted");
+    return () => {};
   }, []);
   
   // Update insight meter and momentum counter positions on mount and resize
   useEffect(() => {
     const updatePositions = () => {
-      // Update insight meter position - try multiple selectors for better targeting
-      const insightMeter = document.querySelector('.insight-meter') || 
-                           document.querySelector('[data-testid="insight-meter"]') ||
-                           document.querySelector('div.p-2 .text-text-secondary+div');
+      // Fallback positions instead of trying to find elements
+      insightMeterRef.current = {
+        x: window.innerWidth - 100,
+        y: 150
+      };
       
-      if (insightMeter) {
-        const rect = insightMeter.getBoundingClientRect();
-        insightMeterRef.current = {
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2
-        };
-        console.log("[ResourceGainFeedback] Insight meter position updated:", insightMeterRef.current);
-      } else {
-        console.log("[ResourceGainFeedback] Insight meter not found, using fallback position");
-        // Fallback to right panel positioning to aim at player stats area
-        const rightPanel = document.querySelector('.w-full.lg\\:w-1\\/5:last-child');
-        if (rightPanel) {
-          const rect = rightPanel.getBoundingClientRect();
-          insightMeterRef.current = {
-            x: rect.left + rect.width / 2,
-            y: rect.top + rect.height / 3
-          };
-        } else {
-          // Last resort fallback
-          insightMeterRef.current = {
-            x: window.innerWidth - 100,
-            y: 150
-          };
-        }
-      }
-      
-      // Update momentum counter position
-      const momentumCounter = document.querySelector('#momentum-counter') || 
-                              document.querySelector('.momentum-counter') || 
-                              document.querySelector('[data-testid="momentum-counter"]');
-      
-      if (momentumCounter) {
-        const rect = momentumCounter.getBoundingClientRect();
-        momentumCounterRef.current = {
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2
-        };
-        const momentumValue = momentumCounter.getAttribute('data-momentum-value');
-        console.log(`[ResourceGainFeedback] Momentum counter position updated:`, momentumCounterRef.current, 
-                    `Current momentum value: ${momentumValue}`);
-      } else {
-        console.log("[ResourceGainFeedback] Momentum counter not found, using fallback position");
-        // More detailed logging to help debug
-        console.log("[ResourceGainFeedback] Available elements with similar classes:", 
-                    Array.from(document.querySelectorAll('[class*="momentum"]')).map(el => el.className));
-        
-        // Fallback to top-right area where momentum pips are displayed
-        momentumCounterRef.current = {
-          x: window.innerWidth - 120,
-          y: 100
-        };
-      }
+      momentumCounterRef.current = {
+        x: window.innerWidth - 120,
+        y: 100
+      };
     };
     
-    // Immediate update, then delayed update to catch post-render positions
+    // Immediate update
     updatePositions();
     
-    // Schedule multiple position updates to catch any layout changes
-    const timers = [
-      setTimeout(updatePositions, 100),
-      setTimeout(updatePositions, 500),
-      setTimeout(updatePositions, 1000)
-    ];
-    
-    // Update on resize
+    // Update on resize only - no frequent polling
     window.addEventListener('resize', updatePositions);
-    
-    // Schedule periodic updates to catch any layout changes
-    const intervalId = setInterval(updatePositions, 3000);
     
     return () => {
       window.removeEventListener('resize', updatePositions);
-      clearInterval(intervalId);
-      timers.forEach(timer => clearTimeout(timer));
     };
   }, []);
   
@@ -139,7 +88,6 @@ export default function ResourceGainFeedback() {
   useEventSubscription(
     GameEventType.UI_OPTION_SELECTED,
     (event) => {
-      console.log("[ResourceGainFeedback] UI_OPTION_SELECTED event received:", event);
       if (event.payload?.position) {
         setClickPosition(event.payload.position);
       }
@@ -151,14 +99,12 @@ export default function ResourceGainFeedback() {
   const handleResourceFeedback = (type: 'insight' | 'momentum', amount: number, eventTimestamp: number) => {
     // Check if already processing or if this is a duplicate event (within 100ms)
     if (processingRef.current) {
-      console.log(`[ResourceGainFeedback] Skipping ${type} event - already processing`);
       return;
     }
     
     // Check for duplicate events
     const lastTimestamp = lastEventTimestampRef.current[type];
     if (eventTimestamp - lastTimestamp < 100) {
-      console.log(`[ResourceGainFeedback] Skipping duplicate ${type} event - too close to previous event`);
       return;
     }
     
@@ -167,8 +113,6 @@ export default function ResourceGainFeedback() {
     
     // Set processing lock
     processingRef.current = true;
-    
-    console.log(`[ResourceGainFeedback] Processing ${type} gain event, amount: ${amount}`);
     
     // Set feedback data
     setFeedbackType(type);
@@ -232,34 +176,6 @@ export default function ResourceGainFeedback() {
     []
   );
   
-  // Debug trigger for development
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      // Add debug controls to window for manual testing
-      const debugObj = {
-        triggerInsightParticles: (amount = 10) => {
-          console.log(`[DEBUG] Manually triggering insight particles with amount: ${amount}`);
-          handleResourceFeedback('insight', amount, Date.now());
-        },
-        
-        triggerMomentumParticles: (amount = 1) => {
-          console.log(`[DEBUG] Manually triggering momentum particles with amount: ${amount}`);
-          handleResourceFeedback('momentum', amount, Date.now());
-        }
-      };
-      
-      // @ts-ignore
-      window.__RESOURCE_FEEDBACK_DEBUG__ = debugObj;
-      
-      console.log('[ResourceGainFeedback] Debug helpers available! Use window.__RESOURCE_FEEDBACK_DEBUG__.triggerInsightParticles() or triggerMomentumParticles()');
-      
-      return () => {
-        // @ts-ignore
-        delete window.__RESOURCE_FEEDBACK_DEBUG__;
-      };
-    }
-  }, []);
-  
   return (
     <>
       {initialized && (
@@ -321,7 +237,7 @@ export default function ResourceGainFeedback() {
                 sourcePosition={clickPosition}
                 targetPosition={insightMeterRef.current}
                 amount={feedbackAmount}
-                onComplete={() => console.log("[ResourceGainFeedback] Insight particles animation completed")}
+                onComplete={() => {}}
               />
             )}
           </AnimatePresence>
@@ -333,7 +249,7 @@ export default function ResourceGainFeedback() {
                 sourcePosition={clickPosition}
                 targetPosition={momentumCounterRef.current}
                 amount={feedbackAmount}
-                onComplete={() => console.log("[ResourceGainFeedback] Momentum particles animation completed")}
+                onComplete={() => {}}
               />
             )}
           </AnimatePresence>

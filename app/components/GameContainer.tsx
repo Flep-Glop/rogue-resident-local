@@ -32,6 +32,8 @@ import NodeCompletionHandler from '../core/events/NodeCompletionHandler';
 import EndDayButton from './EndDayButton';
 import ResourceGainFeedback from './gameplay/ResourceGainFeedback';
 import { useKnowledgeEventHandler } from '@/app/core/events/KnowledgeEventHandler';
+import FeedbackSystem from '../core/feedback/FeedbackSystem';
+// import FeedbackSystemTester from './debug/FeedbackSystemTester';
 
 // Import optimized store hooks
 import { 
@@ -675,6 +677,12 @@ export default function GameContainer() {
       
       {/* Resource Gain Feedback - Shows floating numbers when resources increase */}
       <ResourceGainFeedback />
+      
+      {/* FeedbackSystem - Added FeedbackSystem component */}
+      <FeedbackSystem />
+      
+      {/* Debug components - only rendered in development */}
+      {/* {process.env.NODE_ENV === 'development' && <FeedbackSystemTester />} */}
       
       <div className="flex-grow flex overflow-hidden">
         <div className="flex-grow relative overflow-hidden">

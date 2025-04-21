@@ -417,14 +417,9 @@ export function useCoreInitialization() {
       
       try {
         const knowledgeStore = useKnowledgeStore.getState();
-        // Discover core concepts as starting points
-        const coreConcepts = ['treatment-planning', 'radiation-therapy', 'linac-anatomy', 'dosimetry'];
-        coreConcepts.forEach(conceptId => {
-          knowledgeStore.discoverConcept(conceptId);
-          // Give some initial mastery
-          knowledgeStore.updateMastery(conceptId, 30);
-        });
-        logInit("Knowledge store initialized with core concepts", "success");
+        // No longer auto-discovering core concepts
+        // Players will discover them through gameplay
+        logInit("Knowledge store initialized", "success");
       } catch (e) {
         handleInitError(e);
         return;

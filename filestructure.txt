@@ -1,9 +1,14 @@
 .
 ├── README.md
 ├── app
+│   ├── api
+│   │   └── pixelate
+│   │       └── route.ts
 │   ├── components
 │   │   ├── CharacterPortrait.tsx
 │   │   ├── DayNightTransition.tsx
+│   │   ├── DialogueTierConnector.tsx
+│   │   ├── EndDayButton.tsx
 │   │   ├── FontPreLoader.tsx
 │   │   ├── GameContainer.tsx
 │   │   ├── HillHomeScene.tsx
@@ -19,13 +24,24 @@
 │   │   │   ├── ChamberDebugInitializer.tsx
 │   │   │   ├── ClientBuildInfo.tsx
 │   │   │   ├── ClientDashboardWrapper.tsx
+│   │   │   ├── ConstellationD3Visualization.tsx
 │   │   │   ├── ConstellationDebugControls.tsx
+│   │   │   ├── FeedbackSystemTester.tsx
+│   │   │   ├── KnowledgeDiscoveryDebugger.tsx
+│   │   │   ├── KnowledgeSystemDebug.tsx
 │   │   │   ├── PerformanceDashboard.tsx
+│   │   │   ├── SimpleConstellationTest.tsx
+│   │   │   ├── SimplePatterns.ts
 │   │   │   ├── UnifiedDebugPanel.tsx
 │   │   │   └── VerticalSliceDebugPanel.tsx
 │   │   ├── dialogue
 │   │   │   ├── DialogueContainer.tsx
 │   │   │   └── DialogueModeExample.tsx
+│   │   ├── effects
+│   │   │   ├── InsightParticles.tsx
+│   │   │   ├── InsightPopup.tsx
+│   │   │   ├── MomentumParticles.tsx
+│   │   │   └── MomentumPopup.tsx
 │   │   ├── extensions
 │   │   │   ├── ChallengeCeremony.tsx
 │   │   │   ├── ExtensionRenderer.tsx
@@ -34,14 +50,17 @@
 │   │   │   │   ├── anatomical.ts
 │   │   │   │   ├── calculations.ts
 │   │   │   │   ├── equipment.ts
+│   │   │   │   ├── equipmentIdentification.js
+│   │   │   │   ├── equipmentIdentification.ts
 │   │   │   │   ├── errors.ts
 │   │   │   │   ├── extensionContentRegistry.ts
 │   │   │   │   └── measurements.ts
+│   │   │   ├── index.ts
 │   │   │   ├── types
 │   │   │   │   ├── AnatomicalIdentification.tsx
 │   │   │   │   ├── CalculationInterface.tsx
 │   │   │   │   ├── DosimetricPatternRecognition.tsx
-│   │   │   │   ├── EquipmentIdentification.tsx
+│   │   │   │   ├── EquipmentIdentificationInterface.tsx
 │   │   │   │   ├── ErrorIdentification.tsx
 │   │   │   │   ├── MeasurementReading.tsx
 │   │   │   │   └── TreatmentPlanOptimization.tsx
@@ -52,6 +71,7 @@
 │   │   ├── gameplay
 │   │   │   ├── InsightMeter.tsx
 │   │   │   ├── MomentumCounter.tsx
+│   │   │   ├── ResourceGainFeedback.tsx
 │   │   │   └── StrategicActions.tsx
 │   │   ├── journal
 │   │   │   ├── Journal.tsx
@@ -69,18 +89,26 @@
 │   │   │   ├── KnowledgeUpdate.tsx
 │   │   │   ├── constellationCanvasUtils.ts
 │   │   │   └── ui
+│   │   │       ├── ConnectionHelpTooltip.tsx
+│   │   │       ├── ConnectionModeIndicator.tsx
+│   │   │       ├── ConnectionPanel.tsx
 │   │   │       ├── ConnectionSuggestionsPanel.tsx
 │   │   │       ├── ConstellationActions.tsx
 │   │   │       ├── ConstellationControls.tsx
 │   │   │       ├── ConstellationInfoPanel.tsx
 │   │   │       ├── HelpOverlay.tsx
 │   │   │       ├── JournalOverlay.tsx
+│   │   │       ├── SPCost.tsx
 │   │   │       ├── SPMeter.tsx
 │   │   │       └── SelectedNodePanel.tsx
 │   │   ├── map
 │   │   │   └── SimplifiedKapoorMap.tsx
+│   │   ├── testing
+│   │   │   └── MomentumTester.tsx
 │   │   └── tools
 │   │       └── DialogueNodeSelector.tsx
+│   ├── constellation-test
+│   │   └── page.tsx
 │   ├── core
 │   │   ├── dialogue
 │   │   │   ├── ActionIntegration.ts
@@ -92,10 +120,16 @@
 │   │   │   ├── EventSubscriptionHooks.ts
 │   │   │   ├── EventTypes.ts
 │   │   │   ├── JournalEventHandler.ts
+│   │   │   ├── KnowledgeEventHandler.ts
 │   │   │   └── NodeCompletionHandler.ts
+│   │   ├── feedback
+│   │   │   └── FeedbackSystem.tsx
 │   │   ├── init.ts
 │   │   ├── progression
 │   │   │   └── ProgressionResolver.ts
+│   │   ├── resources
+│   │   │   ├── README.md
+│   │   │   └── ResourceTierSystem.ts
 │   │   ├── statemachine
 │   │   │   └── GameStateMachine.ts
 │   │   ├── themeConstants.ts
@@ -122,6 +156,10 @@
 │   │   └── items.ts
 │   ├── dialogue-mode-demo
 │   │   └── page.tsx
+│   ├── docs
+│   │   └── ResourceTierIntegration.md
+│   ├── examples
+│   │   └── DialogueTierExample.tsx
 │   ├── favicon.ico
 │   ├── globals.css
 │   ├── hooks
@@ -140,6 +178,9 @@
 │   ├── styles
 │   │   ├── globals.css
 │   │   └── pixel-borders.css
+│   ├── tools
+│   │   └── pixelate
+│   │       └── page.tsx
 │   ├── types
 │   │   ├── game.ts
 │   │   └── player.ts
@@ -148,18 +189,25 @@
 ├── clear-storage.js
 ├── combined_tsx.txt
 ├── components
+│   ├── PixelateImage.tsx
+│   ├── PixelateImage.tsx.bak
 │   └── ui
 │       └── button.tsx
 ├── components.json
 ├── deep-reset.sh
 ├── docs
 │   ├── chamber-pattern-comprehensive-guide.md
+│   ├── constellation-id-mappings.md
 │   ├── constellation-system-doc (1).md
-│   └── updated-gdd.md
+│   ├── lessons_learned.md
+│   ├── updated-gdd.md
+│   ├── updated-vertical-slice-guide.md
+│   └── vertical-slice-dev-guide.md
 ├── eslint.config.mjs
 ├── filestructure.txt
 ├── jest-config.js
 ├── lib
+│   ├── imageUtils.ts
 │   └── utils.ts
 ├── next-env.d.ts
 ├── next.config.ts
@@ -180,4 +228,4 @@
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-41 directories, 140 files
+52 directories, 177 files

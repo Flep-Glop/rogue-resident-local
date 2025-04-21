@@ -19,6 +19,7 @@ import {
   ResourceTier, 
   getResourceTierForSuccess
 } from '@/app/core/resources/ResourceTierSystem';
+import KnowledgeDiscoveryDebugger from './KnowledgeDiscoveryDebugger';
 
 // Type declarations for window extensions
 declare global {
@@ -48,7 +49,7 @@ declare global {
 export default function UnifiedDebugPanel() {
   // Panel state
   const [isExpanded, setIsExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState<'game' | 'map' | 'actions' | 'system' | 'events' | 'constellation' | 'reactions' | 'knowledge' | 'resources'>('game');
+  const [activeTab, setActiveTab] = useState<'game' | 'map' | 'actions' | 'system' | 'events' | 'constellation' | 'reactions' | 'knowledge' | 'resources' | 'knowledge-discovery'>('game');
   const [clickPending, setClickPending] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{message: string, type: 'success'|'error'|'info'|null}>({
     message: '',
@@ -754,7 +755,8 @@ export default function UnifiedDebugPanel() {
     { id: 'constellation', label: 'Constellation' },
     { id: 'reactions', label: 'Reactions' },
     { id: 'knowledge', label: 'Knowledge' },
-    { id: 'resources', label: 'Resources' }
+    { id: 'resources', label: 'Resources' },
+    { id: 'knowledge-discovery', label: 'K-Discovery' },
   ];
   
   // Tab renderers
@@ -1725,6 +1727,15 @@ export default function UnifiedDebugPanel() {
     );
   };
   
+  // Add a new render function for our knowledge discovery tab
+  const renderKnowledgeDiscoveryTab = () => {
+    return (
+      <div className="p-2">
+        <KnowledgeDiscoveryDebugger />
+      </div>
+    );
+  };
+  
   // Render active tab content
   const renderTabContent = () => {
     // Don't call refreshStateValues during render
@@ -1740,6 +1751,7 @@ export default function UnifiedDebugPanel() {
       case 'reactions': return renderReactionsTab();
       case 'knowledge': return <KnowledgeSystemDebug />;
       case 'resources': return renderResourcesTab();
+      case 'knowledge-discovery': return renderKnowledgeDiscoveryTab();
       default: return renderGameTab();
     }
   };

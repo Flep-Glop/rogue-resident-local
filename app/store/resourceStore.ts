@@ -26,6 +26,15 @@ export const RESOURCE_THRESHOLDS = {
 
 export const MAX_MOMENTUM_LEVEL = 3;
 
+// Standard tiers with default values from the guide
+export const ResourceTiers = {
+  MINOR: { insight: 5, momentumEffect: 'maintain' as const },
+  STANDARD: { insight: 10, momentumEffect: 'increment' as const },
+  MAJOR: { insight: 15, momentumEffect: 'increment' as const },
+  CRITICAL: { insight: 25, momentumEffect: 'increment' as const },
+  FAILURE: { insight: 0, momentumEffect: 'reset' as const }
+}
+
 // Enable/disable debug logging
 const DEBUG_LOGGING = process.env.NODE_ENV !== 'production';
 
@@ -39,6 +48,21 @@ export type StrategicActionType =
   | 'reframe'
   | 'peer_review'
   | 'boast';
+
+// Define types for the Resource Tiers
+export type ResourceTierName = keyof typeof ResourceTiers;
+export type MomentumEffect = 'maintain' | 'increment' | 'reset';
+export interface TierOutcome {
+  insight: number;
+  momentumEffect: MomentumEffect;
+}
+
+// Interface for potentially custom outcomes (optional knowledge gain)
+export interface StandardizedOutcome extends TierOutcome {
+  tierName?: ResourceTierName; // Optional: track which tier was used
+  source?: string; // Where did this outcome originate?
+  // knowledgeGain?: Array<{ conceptId: string, amount: number }>; // Decided to handle knowledge gain separately
+}
 
 interface ActionHistoryRecord {
   actionType: StrategicActionType;
@@ -103,6 +127,9 @@ interface ResourceState {
   clearEffect: (resourceType: ResourceType) => void;
   getThresholdProximity: (actionType: StrategicActionType) => number;
   resetResources: () => void;
+  
+  // Standardized outcome application
+  applyStandardizedOutcome: (outcomeOrTier: StandardizedOutcome | ResourceTierName, source?: string) => void;
   
   // Interface alignment methods
   setResource: (resourceType: ResourceType, amount: number) => void;
@@ -192,6 +219,48 @@ export const useResourceStore = create<ResourceState>()(
       ...initialState,
 
       // ======== ACTION IMPLEMENTATIONS ========
+      
+      /**
+       * Applies a standardized resource outcome based on predefined tiers or a custom outcome object.
+       * Handles Insight adjustment and Momentum effects (increment, reset, maintain).
+       * Knowledge gain should be handled separately by the calling system.
+       */
+      applyStandardizedOutcome: (outcomeOrTier: StandardizedOutcome | ResourceTierName, source: string = 'standard_outcome') => {
+        let outcome: StandardizedOutcome;
+
+        // Determine the outcome details (either from tier name or direct object)
+        if (typeof outcomeOrTier === 'string') {
+          const tierName = outcomeOrTier as ResourceTierName;
+          if (!ResourceTiers[tierName]) {
+            console.error(`[ResourceStore] Invalid ResourceTierName provided: ${tierName}`);
+            return;
+          }
+          outcome = { ...ResourceTiers[tierName], tierName, source };
+        } else {
+          outcome = { ...outcomeOrTier, source: outcomeOrTier.source || source };
+        }
+        
+        if (DEBUG_LOGGING) {
+          console.log(`[ResourceStore] Applying Standardized Outcome: ${outcome.tierName || 'Custom'}`, outcome);
+        }
+
+        // Apply Insight change
+        if (outcome.insight !== undefined && outcome.insight !== 0) {
+          get().updateInsight(outcome.insight, outcome.source);
+        }
+
+        // Apply Momentum effect
+        if (outcome.momentumEffect === 'increment') {
+          get().incrementMomentum(); // Let incrementMomentum handle logging/events
+        } else if (outcome.momentumEffect === 'reset') {
+          get().resetMomentum(); // Let resetMomentum handle logging/events
+        }
+        // 'maintain' requires no action
+        
+        // Note: Feedback (triggerEffect, lastResourceChange) is handled 
+        // within updateInsight, incrementMomentum, and resetMomentum actions.
+        // No need to duplicate feedback logic here.
+      },
       
       /**
        * Update insight value by a specific amount
@@ -360,9 +429,10 @@ export const useResourceStore = create<ResourceState>()(
           return;
         }
         
-        // Directly update consecutive count and calculate new momentum
+        // Increment consecutive count
         const newConsecutive = consecutiveCorrect + 1;
-        const newMomentum = Math.min(MAX_MOMENTUM_LEVEL, Math.floor(newConsecutive / 2));
+        // Calculate new momentum level by incrementing current level, capped at max
+        const newMomentum = Math.min(MAX_MOMENTUM_LEVEL, momentum + 1);
         
         if (DEBUG_LOGGING) {
           console.log(`[ResourceStore] Incrementing momentum: ${momentum} -> ${newMomentum} (consecutive: ${consecutiveCorrect} -> ${newConsecutive})`);
@@ -394,6 +464,11 @@ export const useResourceStore = create<ResourceState>()(
             },
             'resourceStore.incrementMomentum'
           );
+        } else {
+           // If momentum level didn't change (e.g., already at max but still incrementing consecutive),
+           // still dispatch a generic effect to pulse the counter maybe?
+           // Or perhaps only dispatch effect when level actually changes.
+           // Current logic dispatches effect only on level increase.
         }
         
         // Set the momentum state

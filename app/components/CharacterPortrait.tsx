@@ -49,6 +49,9 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
   const [isShaking, setIsShaking] = useState(shake);
   const [isOscillating, setIsOscillating] = useState(oscillate);
   
+  // Internal state for click interactions
+  const [clickReaction, setClickReaction] = useState<ReactionType>(null);
+  
   // Track initial load to prevent reaction at startup
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
@@ -98,11 +101,49 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
     setIsOscillating(oscillate);
   }, [oscillate]);
   
+  // Handle click interactions
+  const handlePortraitClick = () => {
+    // Trigger shake animation
+    setIsShaking(true);
+    
+    // Auto-stop shake after 500ms
+    if (animationTimers.current.shake) {
+      clearTimeout(animationTimers.current.shake);
+    }
+    
+    animationTimers.current.shake = setTimeout(() => {
+      if (isMountedRef.current) {
+        setIsShaking(false);
+      }
+    }, 500);
+    
+    // Select a random reaction
+    const reactions: ReactionType[] = ['positive', 'negative', 'question', 'surprise', 'thinking', 'idea'];
+    const randomReaction = reactions[Math.floor(Math.random() * reactions.length)];
+    
+    // Set click reaction
+    setClickReaction(randomReaction);
+    
+    // Clear click reaction after a delay
+    if (animationTimers.current.reaction) {
+      clearTimeout(animationTimers.current.reaction);
+    }
+    
+    animationTimers.current.reaction = setTimeout(() => {
+      if (isMountedRef.current) {
+        setClickReaction(null);
+      }
+    }, 2000);
+  };
+  
   // Get facial expression based on reaction
   const getFaceImage = () => {
     if (characterId !== 'kapoor') return characterData.sprite;
     
-    switch (reaction) {
+    // Prioritize click reaction over prop reaction
+    const activeReaction = clickReaction || reaction;
+    
+    switch (activeReaction) {
       case 'positive':
         return '/characters/kapoor-happy.png';
       case 'negative':
@@ -122,9 +163,13 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
   
   // Get hand gesture based on reaction
   const getHandGesture = () => {
-    if (characterId !== 'kapoor' || !reaction) return null;
+    if (characterId !== 'kapoor') return null;
     
-    switch (reaction) {
+    // Prioritize click reaction over prop reaction
+    const activeReaction = clickReaction || reaction;
+    if (!activeReaction) return null;
+    
+    switch (activeReaction) {
       case 'positive':
         return '/characters/kapoor-hand-right-palm.png';
       case 'negative':
@@ -144,7 +189,10 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
   
   // Get hand position based on reaction type
   const getHandPosition = () => {
-    switch (reaction) {
+    // Prioritize click reaction over prop reaction
+    const activeReaction = clickReaction || reaction;
+    
+    switch (activeReaction) {
       case 'positive':
         return { bottom: '0px', right: '0px' };
       case 'negative':
@@ -190,7 +238,7 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
       {/* Mentor reaction indicator - Positioned as a sibling outside the portrait container */}
       <div className="absolute w-full" style={{ right: '-1.5rem', top: '-2rem', zIndex: 100 }}>
         <MentorReaction 
-          reaction={isInitialLoad ? null : reaction} 
+          reaction={isInitialLoad ? null : (clickReaction || reaction)} 
           color={characterData.primaryColor}
         />
       </div>
@@ -215,8 +263,10 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
         }
         style={{
           transition: 'background-color 8s cubic-bezier(0.05, 0.1, 0.3, 1), border-color 8s cubic-bezier(0.05, 0.1, 0.3, 1), box-shadow 8s cubic-bezier(0.05, 0.1, 0.3, 1)',
-          borderRadius: '4px'
+          borderRadius: '4px',
+          cursor: 'pointer'
         }}
+        onClick={handlePortraitClick}
       >
         {/* Character image */}
         <div 
@@ -234,7 +284,7 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
         
         {/* Hand gesture overlay */}
         <AnimatePresence>
-          {getHandGesture() && reaction && (
+          {getHandGesture() && (clickReaction || reaction) && (
             <motion.div
               className="absolute pointer-events-none"
               style={{
@@ -455,6 +505,17 @@ const CharacterPortrait: React.FC<CharacterPortraitProps> = ({
             z-index: 0;
             pointer-events: none;
             transition: background-color 8s cubic-bezier(0.05, 0.1, 0.3, 1);
+          }
+          
+          /* Shake animation for character click */
+          @keyframes character-shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+            20%, 40%, 60%, 80% { transform: translateX(2px); }
+          }
+          
+          .character-shake {
+            animation: character-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
           }
         `}</style>
       )}

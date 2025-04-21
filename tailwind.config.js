@@ -110,6 +110,7 @@ module.exports = {
         'crt-flicker': 'crt-flicker 0.15s infinite alternate',
         'float-slow': 'float 3s ease-in-out infinite',
         'pulse-slow': 'pulse 4s ease-in-out infinite',
+        'ping-slow': 'ping 3s cubic-bezier(0, 0, 0.2, 1) infinite',
       },
       // Pixel-specific sizing
       spacing: {
@@ -120,5 +121,14 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    function({ addUtilities }) {
+      const newUtilities = {
+        '.pixelated': {
+          'image-rendering': 'pixelated',
+        },
+      }
+      addUtilities(newUtilities)
+    }
+  ],
 }

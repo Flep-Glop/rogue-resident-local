@@ -40,6 +40,9 @@ export enum GameEventType {
   DIALOGUE_CRITICAL_PATH = 'dialogue:critical:path',
   DIALOGUE_ERROR = 'dialogue:error',
 
+  // ===== Strategic Actions Events =====
+  TANGENT_ACTIVATED = 'action:tangent:activated',
+
   // ===== Map & Navigation Events =====
   NODE_CLICKED = 'node:clicked',
   NODE_COMPLETED = 'node:completed',
@@ -73,10 +76,13 @@ export enum GameEventType {
   JOURNAL_OPENED = 'journal:opened',
   JOURNAL_CLOSED = 'journal:closed',
   PATTERN_DISCOVERED = 'knowledge:pattern:discovered', // Added for constellation pattern system
+  CONCEPT_UNLOCKED = 'knowledge:concept:unlocked', // Added for two-phase knowledge system
+  CONCEPT_ACTIVATION_CHANGED = 'knowledge:concept:activation:changed', // Added for star activation
 
   // ===== Progression Events =====
   KNOWLEDGE_GAINED = 'progression:knowledge:gained',
   KNOWLEDGE_TRANSFERRED = 'progression:knowledge:transferred',
+  KNOWLEDGE_DISCOVERED = 'knowledge-discovered',
   CHALLENGE_COMPLETED = 'challenge:completed',
   CHALLENGE_FAILED = 'challenge:failed',
   MASTERY_INCREASED = 'progression:mastery:increased',

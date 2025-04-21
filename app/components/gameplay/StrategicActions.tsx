@@ -3,21 +3,39 @@
 
 import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useResourceStore } from '../../store/resourceStore';
+import { useResourceStore, StrategicActionType } from '../../store/resourceStore';
 import { usePrimitiveStoreValue, useStableStoreValue } from '../../core/utils/storeHooks';
 import { PixelText } from '../PixelThemeProvider';
 
 // Type definitions
-type StrategicActionType = 'tangent' | 'reframe' | 'peer_review' | 'boast';
+type ActionTypeProp = StrategicActionType;
 
 interface StrategicActionsProps {
   characterId: string;
   stageId: string;
   className?: string;
-  onActionActivate?: (actionType: StrategicActionType) => void;
-  onActionComplete?: (actionType: StrategicActionType, successful: boolean) => void;
-  onActionCancel?: (actionType: StrategicActionType) => void;
+  onActionActivate?: (actionType: ActionTypeProp) => void;
+  onActionComplete?: (actionType: ActionTypeProp, successful: boolean) => void;
+  onActionCancel?: (actionType: ActionTypeProp) => void;
 }
+
+// ======== CONSTANTS ========
+
+// insight cost thresholds
+const INSIGHT_COSTS: Record<StrategicActionType, number> = {
+  tangent: 25,
+  reframe: 50,
+  peer_review: 75,
+  boast: 0 // Boast uses momentum instead of insight
+};
+
+// Momentum requirements
+const MOMENTUM_REQUIREMENTS: Record<StrategicActionType, number> = {
+  tangent: 0,
+  reframe: 2,
+  peer_review: 0,
+  boast: 3 // Max momentum assumed to be 3
+};
 
 /**
  * Strategic Actions Component - Refactored with Pattern Implementation
@@ -41,17 +59,17 @@ export default function StrategicActions({
   const tooltipRef = useRef<HTMLDivElement>(null);
   
   // PATTERN: Extract primitive values using specialized hooks
-  const insight = usePrimitiveStoreValue(useResourceStore, state => state.insight, 0);
+  const insight = usePrimitiveStoreValue(useResourceStore, (state: any) => state.insight, 0);
   const activeAction = usePrimitiveStoreValue(
     useResourceStore, 
-    state => state.activeAction as StrategicActionType | null, 
+    (state: any) => state.activeAction as StrategicActionType | null, 
     null
   );
   
   // PATTERN: Extract available actions with stable reference
   const availableActions = useStableStoreValue(
     useResourceStore,
-    state => state.availableActions || {
+    (state: any) => state.availableActions || {
       tangent: false,
       reframe: false,
       peer_review: false,
@@ -71,7 +89,7 @@ export default function StrategicActions({
     tangent: {
       label: 'Tangent',
       description: 'Swap the current question for a different concept',
-      cost: 25,
+      cost: INSIGHT_COSTS.tangent,
       bgClass: 'bg-blue-800',
       borderClass: 'border-blue-900',
       iconPath: "M4,5 L12,13 M12,5 L4,13" // X-shape for swap
@@ -79,7 +97,7 @@ export default function StrategicActions({
     reframe: {
       label: 'Reframe',
       description: 'Change the context of the current problem',
-      cost: 50,
+      cost: INSIGHT_COSTS.reframe,
       bgClass: 'bg-purple-800',
       borderClass: 'border-purple-900',
       iconPath: "M4,4 H12 M4,8 H12 M4,12 H10" // Simple text-line icon SVG path
@@ -87,7 +105,7 @@ export default function StrategicActions({
     peer_review: {
       label: 'Peer-Review',
       description: 'Summon a different mentor for a helpful hint',
-      cost: 75,
+      cost: INSIGHT_COSTS.peer_review,
       bgClass: 'bg-green-700',
       borderClass: 'border-green-900',
       iconPath: "M5,5 L8,3 L11,5 M8,3 V9 M5,11 L8,13 L11,11" // Person icon
@@ -95,7 +113,7 @@ export default function StrategicActions({
     boast: {
       label: 'Challenge',
       description: 'Take on a high-difficulty alternative',
-      cost: 0, // Uses momentum instead
+      cost: INSIGHT_COSTS.boast, // Uses momentum instead
       bgClass: 'bg-orange-700',
       borderClass: 'border-orange-800',
       iconPath: "M8,3 L12,7 L8,11 L4,7 Z" // Diamond shape
@@ -260,16 +278,12 @@ export default function StrategicActions({
             <div className="p-3 w-48">
               <PixelText className="text-sm mb-2 text-white">
                 {activeAction === 'reframe' && 'Reframing Conversation'}
-                {activeAction === 'extrapolate' && 'Extrapolating Connections'}
                 {activeAction === 'boast' && 'Challenge Mode Active'}
-                {activeAction === 'synthesis' && 'Synthesizing Knowledge'}
               </PixelText>
               
               <div className="text-xs text-gray-300">
                 {activeAction === 'reframe' && 'Simpler topics now available.'}
-                {activeAction === 'extrapolate' && 'Form connections between concepts.'}
                 {activeAction === 'boast' && 'Expert-level questions with higher rewards.'}
-                {activeAction === 'synthesis' && 'Discover new knowledge areas.'}
               </div>
               
               {/* Optional cancel button */}
@@ -331,7 +345,7 @@ export function StrategicActionsContainer(props: StrategicActionsProps) {
   // PATTERN: Extract primitive value for active action
   const activeAction = usePrimitiveStoreValue(
     useResourceStore, 
-    state => state.activeAction as StrategicActionType | null, 
+    (state: any) => state.activeAction as StrategicActionType | null, 
     null
   );
   
