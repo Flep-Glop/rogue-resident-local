@@ -75,12 +75,167 @@ export default function VerticalSlicePage() {
       // Set final duration when initialization completes
       setInitDuration(Date.now() - initStartTimeRef.current);
       
-      // After successful initialization, hide debug panel after 2 seconds
-      setTimeout(() => {
-        setShowDebugPanel(false);
-      }, 2000);
+      // No longer auto-hiding the debug panel - wait for user to click "Continue to Game"
     }
   }, [initialized]);
+  
+  // Create refs for the audio elements
+  const introMusicRef = useRef<HTMLAudioElement | null>(null);
+  const backgroundLoopRef = useRef<HTMLAudioElement | null>(null);
+  const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const crossFadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isPlayingRef = useRef<boolean>(false);
+  
+  // Initialize the audio elements when the component mounts
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Setup intro music
+      introMusicRef.current = new Audio('/sounds/rogue.calm-intro.mp3');
+      introMusicRef.current.volume = 0.3;
+      
+      // Setup background loop
+      backgroundLoopRef.current = new Audio('/sounds/rogue.background-loop.mp3');
+      backgroundLoopRef.current.volume = 0; // Start with volume at 0 for fade-in
+      // Not using loop=true because we'll implement our own cross-fade looping
+    }
+    
+    return () => {
+      // Clean up audio on unmount
+      if (introMusicRef.current) {
+        introMusicRef.current.pause();
+        introMusicRef.current = null;
+      }
+      
+      if (backgroundLoopRef.current) {
+        backgroundLoopRef.current.pause();
+        backgroundLoopRef.current = null;
+      }
+      
+      if (fadeIntervalRef.current) {
+        clearInterval(fadeIntervalRef.current);
+        fadeIntervalRef.current = null;
+      }
+      
+      if (crossFadeIntervalRef.current) {
+        clearInterval(crossFadeIntervalRef.current);
+        crossFadeIntervalRef.current = null;
+      }
+    };
+  }, []);
+  
+  // Set up cross-fade looping for background audio
+  const handleBackgroundLoop = () => {
+    if (!backgroundLoopRef.current) return;
+    
+    // Save the duration to calculate when to start the crossfade
+    const audioDuration = backgroundLoopRef.current.duration;
+    const crossFadeDuration = 2; // 2 seconds crossfade
+    
+    // Calculate when to start preparing the next loop (2 seconds before end)
+    const timeToStartCrossfade = audioDuration - crossFadeDuration;
+    
+    // Set up a timer to check current time and start crossfade when needed
+    const checkTime = () => {
+      if (backgroundLoopRef.current && backgroundLoopRef.current.currentTime >= timeToStartCrossfade && isPlayingRef.current) {
+        // Create new audio element for the next loop while current one is still playing
+        const nextLoop = new Audio('/sounds/rogue.background-loop.mp3');
+        nextLoop.volume = 0; // Start silent for fade-in
+        
+        // Start playing the new loop
+        nextLoop.play().catch(e => console.warn('Background loop restart failed:', e));
+        
+        // Crossfade between the two audio elements
+        const startFadeTime = Date.now();
+        const fadeDuration = crossFadeDuration * 1000; // Convert to milliseconds
+        const targetVolume = 0.2;
+        
+        if (crossFadeIntervalRef.current) {
+          clearInterval(crossFadeIntervalRef.current);
+        }
+        
+        crossFadeIntervalRef.current = setInterval(() => {
+          // Calculate progress (0 to 1)
+          const progress = Math.min((Date.now() - startFadeTime) / fadeDuration, 1);
+          
+          // Fade out current loop
+          if (backgroundLoopRef.current) {
+            backgroundLoopRef.current.volume = targetVolume * (1 - progress);
+          }
+          
+          // Fade in next loop
+          nextLoop.volume = targetVolume * progress;
+          
+          // When crossfade is complete
+          if (progress >= 1) {
+            if (crossFadeIntervalRef.current) {
+              clearInterval(crossFadeIntervalRef.current);
+              crossFadeIntervalRef.current = null;
+            }
+            
+            // Stop the old audio
+            if (backgroundLoopRef.current) {
+              backgroundLoopRef.current.pause();
+            }
+            
+            // Replace the reference with the new audio
+            backgroundLoopRef.current = nextLoop;
+            
+            // Set up the next loop check
+            setTimeout(checkTime, 100);
+          }
+        }, 50); // Update every 50ms for smoother crossfade
+        
+        return;
+      }
+      
+      // Continue checking if not time to crossfade yet
+      setTimeout(checkTime, 100);
+    };
+    
+    // Start the loop checking
+    isPlayingRef.current = true;
+    setTimeout(checkTime, 100);
+  };
+
+  // Play intro music function - will be called on user interaction
+  const playIntroMusic = () => {
+    if (introMusicRef.current) {
+      introMusicRef.current.play().catch(e => 
+        console.warn('Intro music playback failed:', e)
+      );
+      
+      // Start background loop after 8 seconds with fade-in
+      setTimeout(() => {
+        if (backgroundLoopRef.current) {
+          backgroundLoopRef.current.play().catch(e => 
+            console.warn('Background loop playback failed:', e)
+          );
+          
+          // Implement gradual fade-in
+          let volume = 0;
+          const targetVolume = 0.2; // Target volume (20%)
+          const fadeStep = 0.01;
+          const fadeInterval = 100; // Increase volume every 100ms
+          
+          fadeIntervalRef.current = setInterval(() => {
+            volume = Math.min(volume + fadeStep, targetVolume);
+            if (backgroundLoopRef.current) {
+              backgroundLoopRef.current.volume = volume;
+            }
+            
+            // Clear interval when target volume is reached
+            if (volume >= targetVolume && fadeIntervalRef.current) {
+              clearInterval(fadeIntervalRef.current);
+              fadeIntervalRef.current = null;
+              
+              // Start the cross-fade looping system once initial fade-in is complete
+              handleBackgroundLoop();
+            }
+          }, fadeInterval);
+        }
+      }, 8000); // 8 seconds after intro music starts
+    }
+  };
   
   // Make the reinitialize function available globally for emergency recovery
   useEffect(() => {
@@ -184,7 +339,10 @@ export default function VerticalSlicePage() {
           {initialized && (
             <button 
               className={debugStyles.button}
-              onClick={() => setShowDebugPanel(false)}
+              onClick={() => {
+                playIntroMusic();
+                setShowDebugPanel(false);
+              }}
             >
               Continue to Game
             </button>
