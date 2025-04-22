@@ -9,6 +9,7 @@ import InsightParticles from '../effects/InsightParticles';
 import MomentumParticles from '../effects/MomentumParticles';
 import InsightPopup from '../effects/InsightPopup';
 import MomentumPopup from '../effects/MomentumPopup';
+import { playSound } from '@/app/core/sound/SoundManager';
 
 // Debug switch to completely disable this component
 const DISABLE_RESOURCE_FEEDBACK = true;
@@ -117,6 +118,13 @@ export default function ResourceGainFeedback() {
     // Set feedback data
     setFeedbackType(type);
     setFeedbackAmount(amount);
+    
+    // Play appropriate sound based on type and amount
+    if (type === 'insight') {
+      playSound('success');
+    } else {
+      playSound('connection');
+    }
     
     // Use tracked click position if available, otherwise use default position
     const position = clickPosition || { 

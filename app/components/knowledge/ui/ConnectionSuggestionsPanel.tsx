@@ -1,43 +1,101 @@
+'use client';
 // app/components/knowledge/ui/ConnectionSuggestionsPanel.tsx
 import React from 'react';
 import { PixelText } from '../../PixelThemeProvider';
-import { ConceptNode } from '../../../store/knowledgeStore';
+import { ConceptNode, ConceptConnection, KnowledgeDomain, useKnowledgeStore } from '../../../store/knowledgeStore';
+import { DOMAIN_COLORS } from '../../../core/themeConstants';
+import { playSound } from '@/app/core/sound/SoundManager';
 
 interface ConnectionSuggestionsPanelProps {
-  suggestions: ConceptNode[];
-  onSelect: (nodeId: string) => void;
-  pendingConnection: string | null;
+  selectedNode: ConceptNode | null;
+  discoveredNodes: ConceptNode[];
+  discoveredConnections: ConceptConnection[];
+  setPendingConnection: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 /**
- * Renders a panel with suggested connections for the currently selected node.
+ * Displays suggested connections for the selected node.
  */
 export const ConnectionSuggestionsPanel: React.FC<ConnectionSuggestionsPanelProps> = ({
-  suggestions,
-  onSelect,
-  pendingConnection,
+  selectedNode,
+  discoveredNodes,
+  discoveredConnections,
+  setPendingConnection,
 }) => {
-  // Don't render if there are no suggestions or no pending connection
-  if (!pendingConnection || suggestions.length === 0) return null;
+  if (!selectedNode) return null;
 
-  // Handle suggestion click
-  const handleSuggestionClick = (node: ConceptNode) => {
-    onSelect(node.id);
+  // Zustand actions
+  const createConnection = useKnowledgeStore(state => state.createConnection);
+  const updateMastery = useKnowledgeStore(state => state.updateMastery);
+
+  // Find possible connections
+  const possibleConnections = discoveredNodes.filter(node =>
+    // Must be a different node than selected
+    node.id !== selectedNode.id &&
+    // Must not already be connected
+    !discoveredConnections.some(conn =>
+      (conn.source === selectedNode.id && conn.target === node.id) ||
+      (conn.target === selectedNode.id && conn.source === node.id)
+    )
+  );
+
+  // If no suggestions, don't render anything
+  if (possibleConnections.length === 0) return null;
+
+  // Take up to 3 suggestions
+  const suggestions = possibleConnections.slice(0, 3);
+
+  const handleSuggestionClick = (targetNode: ConceptNode) => {
+    if (!selectedNode) return;
+
+    // Start the connection process visually
+    setPendingConnection(selectedNode.id);
+
+    // Use setTimeout to allow UI update before creating connection
+    setTimeout(() => {
+      try {
+        // Create the connection in the store
+        createConnection(selectedNode.id, targetNode.id);
+
+        // Boost mastery slightly for both nodes
+        updateMastery(selectedNode.id, 3);
+        updateMastery(targetNode.id, 3);
+
+        // Play connection sound
+        playSound('connection');
+
+        // Reset pending connection state after successful creation
+        setPendingConnection(null);
+      } catch (error) {
+        console.error("Error creating connection from suggestion:", error);
+        setPendingConnection(null); // Reset even on error
+      }
+    }, 50); // Short delay
   };
 
   return (
-    <div className="absolute bottom-4 right-4 z-10">
-      <div className="pixel-panel-overlay pixel-borders-thin">
-        <PixelText className="text-text-primary mb-1">Suggested Connections</PixelText>
-        <div className="max-h-40 overflow-y-auto">
+    <div className="absolute top-4 right-4 w-64 z-10">
+      <div className="bg-surface-dark/80 p-3 pixel-borders-thin">
+        <PixelText className="text-text-primary mb-2">Suggested Connections</PixelText>
+        <div className="space-y-2">
           {suggestions.map(node => (
             <div
               key={node.id}
-              className="cursor-pointer p-2 my-1 pixel-borders-thin pixel-panel-darker"
+              className="bg-surface p-2 hover:bg-surface-dark cursor-pointer pixel-borders-thin"
               onClick={() => handleSuggestionClick(node)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && handleSuggestionClick(node)}
             >
-              <div className="text-text-primary">{node.name}</div>
-              <div className="text-text-secondary text-xs">{node.domain}</div>
+              <div className="flex items-center">
+                {/* Domain color indicator */}
+                <div
+                  className="w-2 h-2 rounded-full mr-2 flex-shrink-0"
+                  style={{ backgroundColor: DOMAIN_COLORS[node.domain] }}
+                ></div>
+                {/* Node name */}
+                <PixelText className="text-sm text-text-primary truncate">{node.name}</PixelText>
+              </div>
             </div>
           ))}
         </div>

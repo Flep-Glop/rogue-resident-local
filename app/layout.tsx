@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import PixelThemeProvider from './components/PixelThemeProvider';
 import FontPreLoader from './components/FontPreLoader';
 import { Inter } from 'next/font/google';
+import ClientSoundManager from './components/ClientSoundManager';
 
 // Optional: Using the Next.js built-in font system
 const inter = Inter({ 
@@ -92,6 +93,9 @@ export default function RootLayout({
         <PixelThemeProvider>
           {/* FontPreLoader is a client component that doesn't render anything visible */}
           <FontPreLoader />
+          
+          {/* Sound Manager */}
+          <ClientSoundManager />
           
           {/* Main content */}
           <main className="bg-black">

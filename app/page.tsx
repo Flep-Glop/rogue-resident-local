@@ -147,7 +147,7 @@ export default function VerticalSlicePage() {
         // Crossfade between the two audio elements
         const startFadeTime = Date.now();
         const fadeDuration = crossFadeDuration * 1000; // Convert to milliseconds
-        const targetVolume = 0.2;
+        const targetVolume = 0.05;
         
         if (crossFadeIntervalRef.current) {
           clearInterval(crossFadeIntervalRef.current);
@@ -213,7 +213,7 @@ export default function VerticalSlicePage() {
           
           // Implement gradual fade-in
           let volume = 0;
-          const targetVolume = 0.2; // Target volume (20%)
+          const targetVolume = 0.05; // Target volume (5%)
           const fadeStep = 0.01;
           const fadeInterval = 100; // Increase volume every 100ms
           

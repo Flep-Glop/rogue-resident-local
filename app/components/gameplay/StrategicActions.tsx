@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useResourceStore, StrategicActionType } from '../../store/resourceStore';
 import { usePrimitiveStoreValue, useStableStoreValue } from '../../core/utils/storeHooks';
 import { PixelText } from '../PixelThemeProvider';
+import { playSound } from '../../core/sound/SoundManager';
 
 // Type definitions
 type ActionTypeProp = StrategicActionType;
@@ -209,7 +210,17 @@ export default function StrategicActions({
             action-button
           `}
           disabled={!isAvailable || (def.cost > 0 && insight < def.cost)}
-          onClick={() => isAvailable && handleActionActivate(type)}
+          onClick={() => {
+            if (isAvailable) {
+              if (def.cost > 0 && insight < def.cost) {
+                playSound('error');
+              } else {
+                handleActionActivate(type);
+              }
+            } else {
+              playSound('error');
+            }
+          }}
           onMouseEnter={() => handleActionHover(type)}
           onMouseLeave={() => handleActionHover(null)}
           whileHover={{ y: isAvailable ? -2 : 0 }}

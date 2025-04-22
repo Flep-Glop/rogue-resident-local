@@ -28,6 +28,7 @@ import { useKnowledgeStore } from '../../../store/knowledgeStore';
 import { useJournalStore } from '../../../store/journalStore';
 import Image from 'next/image';
 import GameTooltip from '../../ui/GameTooltip';
+import { playSound } from '../../../core/sound/SoundManager';
 
 // Import the dialogue registry instead of individual dialogues
 import { getDialogueById, getDialogueByNodeId } from '../../../data/dialogueRegistry';
@@ -399,6 +400,14 @@ function ConversationFormat({
     // Get the selected option
     const option = currentStage.options[index];
     
+    // Check if option has relationship change or approach
+    const relationshipChange = (option as any).relationshipChange || 0;
+    
+    // Only play select sound for positive/neutral options
+    if (relationshipChange >= 0) {
+      playSound('select');
+    }
+    
     // Record the selection
     setSelectedOptionIndex(index);
     setShowResponse(true);
@@ -426,8 +435,6 @@ function ConversationFormat({
       setResponseText(option.responseText);
     }
     
-    // Check if option has relationship change or approach
-    const relationshipChange = (option as any).relationshipChange || 0;
     const approach = (option as any).approach || null;
     
     // Determine resource outcome based on option properties
@@ -465,6 +472,8 @@ function ConversationFormat({
       console.log('[ConversationFormat] Boast question answered correctly! Boosting insight gain to 40');
       insightGained = 40; // Set insight gain to 40 for correctly answered boast questions
       outcomeOrTier = 'CRITICAL'; // Use the CRITICAL tier to ensure maximum momentum/effect
+      // Play suspense resolution sound for successful boast
+      playSound('/sounds/rogue.suspense.mp3');
     }
     
     // Apply the standardized outcome to resources
@@ -535,6 +544,8 @@ function ConversationFormat({
       // Negative reaction
       triggerMentorReaction('negative', 3000);
       setIsShaking(true);
+      // Play wrong sound for negative dialogue options
+      playSound('/sounds/rogue.wrong.mp3');
     } else if (approach === 'question') {
       // Question reaction
       triggerMentorReaction('question', 3000);
@@ -620,6 +631,8 @@ function ConversationFormat({
     
     if (playerInsight < requiredInsight) {
       console.log(`[ConversationFormat] Not enough insight for ${abilityType}. Need ${requiredInsight}, have ${playerInsight}`);
+      // Play "no" sound effect
+      playSound('error');
       return;
     }
     
@@ -798,6 +811,10 @@ function ConversationFormat({
   const handleContinue = useCallback(() => {
     if (!currentStage) return;
     
+    // Play select sound
+    playSound('select');
+    
+    // If we're showing a response, move to the nextStageId based on the selected option
     // If we're showing a response, move to the nextStageId based on the selected option
     if (showResponse && selectedOptionIndex !== null && currentStage.options) {
       const selectedOption = currentStage.options[selectedOptionIndex];
@@ -939,20 +956,29 @@ function ConversationFormat({
   
   // Modify the handleBoastOption function to add a fallback method
   const handleBoastOption = useCallback(async (event: React.MouseEvent) => {
+    // Skip if an option is already selected
     if (selectedOptionIndex !== null) {
       console.log('[ConversationFormat] Cannot boast with option already selected');
+      playSound('error');
       return;
     }
     
+    // Validate stage
     if (!currentStage) {
       console.error('[ConversationFormat] Cannot boast - no current stage');
+      playSound('error');
       return;
     }
     
+    // Validate stage ID
     if (!currentStageId) {
       console.error('[ConversationFormat] Cannot boast - no current stage ID');
+      playSound('error');
       return;
     }
+    
+    // Play suspense sound for boast activation
+    playSound('/sounds/rogue.suspense.mp3');
     
     // Record activation of boast
     setBoastActivated(true);
@@ -1038,36 +1064,34 @@ function ConversationFormat({
       console.error('[ConversationFormat] Error applying boast action:', error);
     }
     
-    // Fallback: Try a more direct approach if the action system fails
-    try {
-      // Check if current stage has a boastStageId
-      if (currentStage.boastStageId) {
-        const boastStageId = currentStage.boastStageId;
-        console.log(`[ConversationFormat] Direct navigation to boast stage: ${boastStageId}`);
-        
-        // Navigate directly to the boast stage
-        setCurrentStageId(boastStageId);
-        if (onStageChange) {
-          onStageChange(boastStageId, currentStageId);
-        }
-        
-        // Update results tracking
-        setResults(prev => ({
-          ...prev,
-          actionsUsed: [...(prev.actionsUsed || []), 'boast']
-        }));
-        
-        return; // Exit if successful
-      } else {
-        console.error(`[ConversationFormat] No boastStageId defined for current stage: ${currentStageId}`);
+    // Third, fallback method
+    // Check if current stage has a boastStageId
+    if (currentStage.boastStageId) {
+      const boastStageId = currentStage.boastStageId;
+      console.log(`[ConversationFormat] Direct navigation to boast stage: ${boastStageId}`);
+      
+      // Navigate directly to the boast stage
+      setCurrentStageId(boastStageId);
+      if (onStageChange) {
+        onStageChange(boastStageId, currentStageId);
       }
-    } catch (directError) {
-      console.error('[ConversationFormat] Error with direct stage navigation:', directError);
+      
+      // Record ability use
+      setResults(prev => ({
+        ...prev,
+        actionsUsed: [...(prev.actionsUsed || []), 'boast']
+      }));
+    } else {
+      console.error(`[ConversationFormat] No boastStageId defined for current stage: ${currentStageId}`);
+      playSound('error');
     }
-    
-    // If we get here, both approaches failed
-    console.error('[ConversationFormat] All boast activation methods failed');
-    setBoastActivated(false); // Reset boast activation
+  
+    // If we get here, all methods failed
+    if (!boastActivated) {
+      console.error('[ConversationFormat] All boast activation methods failed');
+      setBoastActivated(false); // Reset boast activation
+      playSound('error');
+    }
   }, [currentStage, currentStageId, selectedOptionIndex, normalizedCharacterId, triggerMentorReaction, applyAction, onStageChange, setCurrentStageId]);
   
   // ===== COMPONENT LIFECYCLE =====
