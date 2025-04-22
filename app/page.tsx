@@ -41,9 +41,6 @@ export default function VerticalSlicePage() {
   // Initialize core systems with enhanced return values
   const { initialized, reinitialize, initError, initPhase, initProgress } = useCoreInitialization();
   
-  // Track journal animation state
-  const [journalAnimationCompleted, setJournalAnimationCompleted] = useState(false);
-  
   // Debug state
   const [showDebugPanel, setShowDebugPanel] = useState(true);
   const [debugInfo, setDebugInfo] = useState<any>({});
@@ -473,10 +470,6 @@ export default function VerticalSlicePage() {
         {initialized ? (
           <>
             <GameContainer />
-            {/* Journal acquisition animation overlay */}
-            <JournalAcquisitionAnimation 
-              onComplete={() => setJournalAnimationCompleted(true)} 
-            />
             
             {/* Add the extension test selector in non-production environments */}
             {process.env.NODE_ENV !== 'production' && <DialogueNodeSelector />}

@@ -261,7 +261,7 @@ export default function GameContainer() {
   
   // Mount/unmount tracking - FIRST EFFECT
   useEffect(() => {
-    console.log('[GameContainer] Component mounted');
+    console.log('[GameContainer Debug] Component mounted');
     mountedRef.current = true;
     componentMountedRef.current = true;
     
@@ -282,7 +282,7 @@ export default function GameContainer() {
     }
     
     return () => {
-      console.log('[GameContainer] Component unmounted');
+      console.log('[GameContainer Debug] Component unmounted');
       mountedRef.current = false;
       componentMountedRef.current = false;
       
@@ -650,6 +650,9 @@ export default function GameContainer() {
     emergencyResetPerformed
   ]);
   
+  // Memoize the JournalAcquisitionAnimation component element to potentially stabilize mounting
+  const memoizedJournalAnimation = useMemo(() => <JournalAcquisitionAnimation />, []);
+  
   // ======== COMPONENT RENDER ========
   return (
     <div 
@@ -673,7 +676,7 @@ export default function GameContainer() {
       {useKnowledgeEventHandler()}
       
       {/* Journal acquisition animation - Shown when journal is acquired */}
-      <JournalAcquisitionAnimation />
+      {memoizedJournalAnimation}
       
       {/* Resource Gain Feedback - Shows floating numbers when resources increase */}
       <ResourceGainFeedback />

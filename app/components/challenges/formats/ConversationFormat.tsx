@@ -405,7 +405,7 @@ function ConversationFormat({
     
     // Only play select sound for positive/neutral options
     if (relationshipChange >= 0) {
-      playSound('select');
+      playRandomBoopSound();
     }
     
     // Record the selection
@@ -472,8 +472,6 @@ function ConversationFormat({
       console.log('[ConversationFormat] Boast question answered correctly! Boosting insight gain to 40');
       insightGained = 40; // Set insight gain to 40 for correctly answered boast questions
       outcomeOrTier = 'CRITICAL'; // Use the CRITICAL tier to ensure maximum momentum/effect
-      // Play suspense resolution sound for successful boast
-      playSound('/sounds/rogue.suspense.mp3');
     }
     
     // Apply the standardized outcome to resources
@@ -811,8 +809,8 @@ function ConversationFormat({
   const handleContinue = useCallback(() => {
     if (!currentStage) return;
     
-    // Play select sound
-    playSound('select');
+    // Play random boop sound instead of select sound
+    playRandomBoopSound();
     
     // If we're showing a response, move to the nextStageId based on the selected option
     // If we're showing a response, move to the nextStageId based on the selected option
@@ -1843,7 +1841,7 @@ function ConversationFormat({
         
         @keyframes oscillate {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-5px); }
+          50% { transform: translateY(-3px); }
         }
         
         .oscillate-animation {
@@ -2191,4 +2189,10 @@ const BoastModeIndicator = () => {
       </motion.div>
     </GameTooltip>
   );
+};
+
+// Helper function to play a random boop sound
+const playRandomBoopSound = () => {
+  const randomNumber = Math.floor(Math.random() * 8) + 1;
+  playSound(`/sounds/rogue.boop-${randomNumber}.mp3`);
 };

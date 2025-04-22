@@ -518,6 +518,26 @@ export default function Journal() {
     return null;
   }
   
+  if (hasJournal && !isJournalOpen) {
+    return (
+      <div 
+        ref={floatingButtonRef}
+        className="fixed bottom-6 right-6 z-50 cursor-pointer animate-float"
+        onClick={toggleJournal}
+        style={{ display: 'none' }} // Initially hidden, will be shown by showFloatingButton()
+      >
+        <div className="w-14 h-14 bg-clinical text-white flex items-center justify-center rounded-full pixel-borders shadow-lg">
+          <img 
+            src="/icons/educational.png" 
+            alt="Journal" 
+            className="w-8 h-8 object-contain"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-[9999] bg-black/70"
