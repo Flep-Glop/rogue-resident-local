@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useResourceStore, StrategicActionType } from '../../store/resourceStore';
 import { usePrimitiveStoreValue, useStableStoreValue } from '../../core/utils/storeHooks';
 import { PixelText } from '../PixelThemeProvider';
-import { playSound } from '../../core/sound/SoundManager';
+import { playSound } from '../../core/sound/SoundManager.js';
 
 // Type definitions
 type ActionTypeProp = StrategicActionType;

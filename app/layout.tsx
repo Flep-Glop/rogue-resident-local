@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import PixelThemeProvider from './components/PixelThemeProvider';
 import FontPreLoader from './components/FontPreLoader';
 import { Inter } from 'next/font/google';
-import ClientSoundManager from './components/ClientSoundManager';
+import ClientSoundManager from './components/ClientSoundManager.js';
 
 // Optional: Using the Next.js built-in font system
 const inter = Inter({ 

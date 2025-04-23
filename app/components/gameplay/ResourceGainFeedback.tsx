@@ -9,7 +9,7 @@ import InsightParticles from '../effects/InsightParticles';
 import MomentumParticles from '../effects/MomentumParticles';
 import InsightPopup from '../effects/InsightPopup';
 import MomentumPopup from '../effects/MomentumPopup';
-import { playSound } from '@/app/core/sound/SoundManager';
+import { playSound } from '@/app/core/sound/SoundManager.js';
 
 // Debug switch to completely disable this component
 const DISABLE_RESOURCE_FEEDBACK = true;

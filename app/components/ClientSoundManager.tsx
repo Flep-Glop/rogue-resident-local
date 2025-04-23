@@ -2,10 +2,11 @@
 
 import dynamic from 'next/dynamic';
 
-// Dynamically import SoundManager with no SSR
-const SoundManager = dynamic(() => import('../core/sound/SoundManager'), {
-  ssr: false,
-});
+// Dynamic import of SoundManager with no SSR
+const SoundManager = dynamic(
+  () => import('../core/sound/SoundManager.js').then(mod => mod.default),
+  { ssr: false }
+);
 
 export default function ClientSoundManager() {
   return <SoundManager />;

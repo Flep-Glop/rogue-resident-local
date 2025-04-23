@@ -2,7 +2,7 @@
 import React, { forwardRef, ButtonHTMLAttributes, RefObject } from 'react';
 import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { playSound } from '@/app/core/sound/SoundManager';
+import { playSound } from '@/app/core/sound/SoundManager.js';
 
 // Button variants defined using class-variance-authority
 export const buttonVariants = cva(

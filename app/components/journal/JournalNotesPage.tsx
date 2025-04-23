@@ -6,7 +6,7 @@ import { safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { usePrimitiveStoreValue, useStableCallback, asJournalValue } from '@/app/core/utils/storeHooks';
 import { JournalPageProps, JournalStoreState, JournalEntry } from '@/app/core/utils/journalTypes';
-import { playSound } from '@/app/core/sound/SoundManager';
+import { playSound } from '@/app/core/sound/SoundManager.js';
 
 /**
  * Journal Notes Page Component

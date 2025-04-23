@@ -28,7 +28,7 @@ import { useKnowledgeStore } from '../../../store/knowledgeStore';
 import { useJournalStore } from '../../../store/journalStore';
 import Image from 'next/image';
 import GameTooltip from '../../ui/GameTooltip';
-import { playSound } from '../../../core/sound/SoundManager';
+import { playSound } from '../../../core/sound/SoundManager.js';
 
 // Import the dialogue registry instead of individual dialogues
 import { getDialogueById, getDialogueByNodeId } from '../../../data/dialogueRegistry';
