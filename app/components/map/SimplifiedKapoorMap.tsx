@@ -10,7 +10,7 @@ import { safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { usePrimitiveStoreValue, useStableCallback } from '@/app/core/utils/storeHooks';
 import Image from 'next/image';
-import { playSound } from '@/app/core/sound/SoundManager.js';
+import { playSound } from '@/app/core/sound/SoundManager.tsx';
 
 // Add this at the top level of the file, before the component
 declare global {

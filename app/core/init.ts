@@ -23,7 +23,7 @@ import { useKnowledgeStore } from '../store/knowledgeStore';
 import { useResourceStore } from '../store/resourceStore';
 import { useEventBus, safeDispatch } from './events/CentralEventBus';
 import { useDialogueStateMachine } from './dialogue/DialogueStateMachine';
-import { useSoundStore } from './sound/SoundManager.js';
+import { useSoundStore } from './sound/SoundManager.tsx';
 
 // Specific utilities
 import CentralEventBus from './events/CentralEventBus';
