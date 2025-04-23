@@ -562,11 +562,13 @@ export async function POST(req: NextRequest) {
           if (!startColor) return { pixels: [] as [number, number][], colorKey: '' };
           
           const startColorKey = getColorKey(startColor);
-          const queue = [[startX, startY]];
+          const queue: [number, number][] = [[startX, startY]];
           const pixels: [number, number][] = [];
           
           while (queue.length > 0) {
-            const [x, y] = queue.shift();
+            const item = queue.shift();
+            if (!item) continue;
+            const [x, y] = item;
             const idx = y * width + x;
             
             if (visited[idx]) continue;
