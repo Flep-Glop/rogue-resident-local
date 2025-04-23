@@ -184,14 +184,14 @@ export async function POST(req: NextRequest) {
       const outputData = Buffer.alloc(inputData.length);
       
       // Simple helper to get pixel color from input
-      const getInputPixel = (x, y) => {
+      const getInputPixel = (x: number, y: number) => {
         if (x < 0 || y < 0 || x >= inputWidth || y >= inputHeight) return null;
         const i = (y * inputWidth + x) * inputChannels;
         return [inputData[i], inputData[i + 1], inputData[i + 2]];
       };
       
       // Helper to set pixel in output
-      const setOutputPixel = (x, y, color) => {
+      const setOutputPixel = (x: number, y: number, color: number[]) => {
         const i = (y * inputWidth + x) * inputChannels;
         outputData[i] = color[0];
         outputData[i + 1] = color[1];
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
       };
       
       // Color distance function
-      const colorDistance = (color1, color2) => {
+      const colorDistance = (color1: number[] | null, color2: number[] | null) => {
         if (!color1 || !color2) return 999;
         return Math.sqrt(
           Math.pow(color1[0] - color2[0], 2) +
@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
       };
       
       // Simple dithering function (if enabled)
-      const dither = (x, y, originalColor, mappedColor) => {
+      const dither = (x: number, y: number, originalColor: number[], mappedColor: number[]) => {
         if (!dithering) return;
         
         // Calculate error
@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
         ];
         
         // Apply error diffusion (Floyd-Steinberg dithering)
-        const applyError = (targetX, targetY, factor) => {
+        const applyError = (targetX: number, targetY: number, factor: number) => {
           if (targetX < 0 || targetY < 0 || targetX >= inputWidth || targetY >= inputHeight) return;
           
           const targetIdx = (targetY * inputWidth + targetX) * inputChannels;
@@ -326,20 +326,20 @@ export async function POST(req: NextRequest) {
       console.log(`Processing image: ${width}x${height}, ${channels} channels`);
       
       // Helper functions
-      const getPixel = (x, y) => {
+      const getPixel = (x: number, y: number) => {
         if (x < 0 || y < 0 || x >= width || y >= height) return null;
         const i = (y * width + x) * channels;
         return [data[i], data[i + 1], data[i + 2]];
       };
       
-      const setPixel = (x, y, color) => {
+      const setPixel = (x: number, y: number, color: number[]) => {
         const i = (y * width + x) * channels;
         data[i] = color[0];
         data[i + 1] = color[1];
         data[i + 2] = color[2];
       };
       
-      const colorDistance = (color1, color2) => {
+      const colorDistance = (color1: number[] | null, color2: number[] | null) => {
         if (!color1 || !color2) return 999;
         return Math.sqrt(
           Math.pow(color1[0] - color2[0], 2) +
@@ -361,7 +361,7 @@ export async function POST(req: NextRequest) {
         const GRID_SIZE = Math.max(8, Math.min(24, Math.floor(width / 20)));
         const cellWidth = Math.ceil(width / GRID_SIZE);
         const cellHeight = Math.ceil(height / GRID_SIZE);
-        const gridCells = Array(GRID_SIZE * GRID_SIZE).fill().map(() => ({ r: 0, g: 0, b: 0, count: 0 }));
+        const gridCells = Array(GRID_SIZE * GRID_SIZE).fill(null).map(() => ({ r: 0, g: 0, b: 0, count: 0 }));
         
         // Calculate average color for each grid cell
         for (let y = 0; y < height; y++) {
@@ -554,16 +554,16 @@ export async function POST(req: NextRequest) {
         const visited = new Uint8Array(width * height).fill(0);
         
         // Helper to get region color key
-        const getColorKey = (color) => `${color[0]},${color[1]},${color[2]}`;
+        const getColorKey = (color: number[]) => `${color[0]},${color[1]},${color[2]}`;
         
         // Flood fill to identify connected regions
-        const floodFill = (startX, startY) => {
+        const floodFill = (startX: number, startY: number) => {
           const startColor = getPixel(startX, startY);
-          if (!startColor) return { pixels: [], colorKey: '' };
+          if (!startColor) return { pixels: [] as [number, number][], colorKey: '' };
           
           const startColorKey = getColorKey(startColor);
           const queue = [[startX, startY]];
-          const pixels = [];
+          const pixels: [number, number][] = [];
           
           while (queue.length > 0) {
             const [x, y] = queue.shift();
@@ -662,7 +662,7 @@ export async function POST(req: NextRequest) {
         for (let iter = 0; iter < smoothingIterations; iter++) {
           const tempData = Buffer.from(data);
           
-          const getTempPixel = (x, y) => {
+          const getTempPixel = (x: number, y: number) => {
             if (x < 0 || y < 0 || x >= width || y >= height) return null;
             const i = (y * width + x) * channels;
             return [tempData[i], tempData[i + 1], tempData[i + 2]];
@@ -678,7 +678,7 @@ export async function POST(req: NextRequest) {
                 getTempPixel(x + 1, y),
                 getTempPixel(x, y - 1),
                 getTempPixel(x, y + 1)
-              ].filter(Boolean);
+              ].filter((color): color is number[] => Boolean(color));
               
               // Count color occurrences
               const colorCounts = new Map();
