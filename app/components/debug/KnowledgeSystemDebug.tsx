@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import useKnowledgeStore from '@/app/store/knowledgeStore';
+import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
+import { Button } from '@/components/ui/button';
 
 /**
  * Debug component for testing and monitoring the knowledge system
@@ -119,6 +120,38 @@ export default function KnowledgeSystemDebug() {
   const handleUpdateMastery = useCallback((conceptId: string, amount: number) => {
     updateMastery(conceptId, amount);
   }, [updateMastery]);
+
+  // Get some sample concept IDs for testing
+  const sampleConceptIds = nodes
+    .filter(node => !node.discovered)
+    .slice(0, 3)
+    .map(node => node.id);
+  
+  // Handler for test discovery
+  const handleDiscoverConceptSample = (conceptId: string) => {
+    console.log(`🧪 [DEBUG] Testing concept discovery for: ${conceptId}`);
+    discoverConcept(conceptId);
+  };
+
+  // Handler for direct event dispatch testing
+  const handleDirectEventDispatch = () => {
+    console.log(`🧪 [DEBUG] Testing direct event dispatch for KNOWLEDGE_DISCOVERED`);
+    
+    // Create a test payload with a real concept ID
+    const testConceptId = nodes[0]?.id || 'test-concept';
+    
+    // Dispatch directly to test event bus
+    safeDispatch(
+      GameEventType.KNOWLEDGE_DISCOVERED,
+      { 
+        conceptId: testConceptId,
+        source: 'debug-panel'
+      },
+      'knowledgeSystemDebug.testDispatch'
+    );
+    
+    console.log(`🧪 [DEBUG] Direct event dispatch completed`);
+  };
 
   return (
     <div className="p-3 bg-gray-900 text-white rounded-lg max-h-[80vh] overflow-auto text-sm">
@@ -305,6 +338,28 @@ export default function KnowledgeSystemDebug() {
           </div>
         </div>
       )}
+
+      <div className="mt-4">
+        <h4 className="font-semibold">Test Concept Discovery</h4>
+        <div className="grid grid-cols-1 gap-2 mt-2">
+          {sampleConceptIds.map(conceptId => (
+            <Button
+              key={conceptId}
+              onClick={() => handleDiscoverConceptSample(conceptId)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Discover Concept: {conceptId}
+            </Button>
+          ))}
+          
+          <Button
+            onClick={handleDirectEventDispatch}
+            className="bg-purple-600 hover:bg-purple-700 mt-2"
+          >
+            Test Direct Event Dispatch
+          </Button>
+        </div>
+      </div>
     </div>
   );
 } 

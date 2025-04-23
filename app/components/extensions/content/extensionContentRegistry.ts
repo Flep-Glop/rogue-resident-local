@@ -77,31 +77,31 @@ export async function getExtensionContent(
     // Each extension type has its own content module
     switch (type) {
       case 'calculation':
-        contentPromise = import('./calculations.js').then(module => 
+        contentPromise = import('./calculations.ts').then(module => 
           getContentFromModule(module as ContentModule, contentId)
         );
         break;
         
       case 'anatomical-identification':
-        contentPromise = import('./anatomical.js').then(module => 
+        contentPromise = import('./anatomical.ts').then(module => 
           getContentFromModule(module as ContentModule, contentId)
         );
         break;
         
       case 'equipment-identification':
-        contentPromise = import('./equipmentIdentification.js').then(module => 
+        contentPromise = import('./equipmentIdentification.ts').then(module => 
           getContentFromModule(module as ContentModule, contentId)
         );
         break;
         
       case 'measurement-reading':
-        contentPromise = import('./measurements.js').then(module => 
+        contentPromise = import('./measurements.ts').then(module => 
           getContentFromModule(module as ContentModule, contentId)
         );
         break;
         
       case 'error-identification':
-        contentPromise = import('./errors.js').then(module => 
+        contentPromise = import('./errors.ts').then(module => 
           getContentFromModule(module as ContentModule, contentId)
         );
         break;

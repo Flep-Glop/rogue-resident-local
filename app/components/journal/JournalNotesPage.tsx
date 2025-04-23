@@ -6,6 +6,7 @@ import { safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { usePrimitiveStoreValue, useStableCallback, asJournalValue } from '@/app/core/utils/storeHooks';
 import { JournalPageProps, JournalStoreState, JournalEntry } from '@/app/core/utils/journalTypes';
+import { playSound } from '@/app/core/sound/SoundManager';
 
 /**
  * Journal Notes Page Component
@@ -153,16 +154,8 @@ export default function JournalNotesPage({ onElementClick }: JournalPageProps) {
     setNewEntryTags('');
     setIsCreatingEntry(false);
     
-    // Play sound effect via event
-    safeDispatch(
-      GameEventType.UI_BUTTON_CLICKED,
-      {
-        componentId: 'journalNotes',
-        action: 'playSound',
-        metadata: { sound: 'success' }
-      },
-      'journalNotesPage'
-    );
+    // Play success sound
+    playSound('success');
     
     // Animate the container
     if (notesContainerRef.current) {

@@ -1,5 +1,5 @@
 // app/core/dialogue/ActionIntegration.ts
-import { StrategicActionType } from "../../store/resourceStore";
+import { StrategicActionType, useResourceStore, MAX_MOMENTUM_LEVEL } from "../../store/resourceStore";
 import { useDialogueStateMachine, DialogueState, DialogueOption } from "./DialogueStateMachine";
 
 /**
@@ -286,32 +286,119 @@ const actionHandlers: Record<StrategicActionType, ActionHandlerFn> = {
   },
   
   /**
-   * Boast - Challenge mode with higher difficulty and rewards
+   * Boast - Challenge yourself with harder questions for higher rewards
    */
   boast: async (context: ActionContext) => {
-    const { characterId } = context;
+    const { characterId, stageId } = context;
     
-    // Character-specific challenge text
-    let challengeText = "Let me demonstrate my expertise on this topic...";
-    
-    switch (characterId) {
-      case 'kapoor':
-        challengeText = "I believe I can address this at a more advanced technical level.";
-        break;
-      case 'jesse':
-        challengeText = "I have hands-on experience with this - let me show you.";
-        break;
-      case 'quinn':
-        challengeText = "This connects to some cutting-edge research I've been following.";
-        break;
-    }
-    
-    // Boast doesn't change options, just makes them more difficult
-    return {
-      stateUpdate: {
-        text: challengeText
+    try {
+      // First check if we have a stageId in the context
+      if (!stageId) {
+        console.error(`[ActionIntegration] Cannot apply boast - no stageId provided in context`);
+        return {
+          stateUpdate: {
+            text: "I'll demonstrate my expertise on this topic."
+          },
+          newOptions: [] // Empty array will keep current options
+        };
       }
-    };
+      
+      console.log(`[ActionIntegration] Handling boast action for stage ID: ${stageId}`);
+      
+      // We need a direct approach that doesn't require accessing the internal state
+      // of the DialogueStateMachine, which might be encapsulated
+      
+      // Check if the boast stage exists in known dialogues
+      // First try kapoor dialogue since that's our main one for the vertical slice
+      const kapoorDialogue = require('../../data/dialogues/calibrations/kapoor-calibration').default;
+      
+      // Log the stageId we're looking for
+      console.log(`[ActionIntegration] Looking for boast stage for stageId: ${stageId}`);
+      
+      // First look for the current stage
+      const currentStage = kapoorDialogue.find((stage: any) => stage.id === stageId);
+      
+      if (currentStage && currentStage.boastStageId) {
+        const boastStageId = currentStage.boastStageId;
+        console.log(`[ActionIntegration] Found boast stage ID: ${boastStageId} for stage: ${stageId}`);
+        
+        return {
+          stateUpdate: {
+            currentStageId: boastStageId
+          }
+        };
+      }
+      
+      // If no boast stage ID is defined, create a hardcoded challenging option based on character
+      console.log(`[ActionIntegration] No boastStageId defined for stage: ${stageId}, using fallback options`);
+      
+      let challengeOptions: DialogueOption[] = [];
+      
+      switch (characterId) {
+        case 'kapoor':
+          challengeOptions = [
+            {
+              id: "boast-kapoor-advanced",
+              text: "This relates to the electron spectral changes at depth, which affect the depth-dose curve through fluence perturbations.",
+              responseText: "Impressive grasp of advanced dosimetry. The fluence perturbations do indeed affect the depth-dose relationship in complex ways.",
+              relationshipChange: 3,
+              insightGain: 30, // Higher rewards
+              approach: 'precision',
+              isCriticalPath: true,
+              knowledgeGain: {
+                conceptId: "electron_equilibrium_understood",
+                domainId: "radiation-physics",
+                amount: 25
+              }
+            },
+            {
+              id: "boast-kapoor-wrong",
+              text: "The buildup effect is primarily a result of back-scattered radiation from deeper tissues.",
+              responseText: "That's incorrect. Buildup is predominantly related to forward-scattered secondary electrons. This is a fundamental concept that should be well understood.",
+              relationshipChange: -2,
+              insightGain: 0,
+              momentumEffect: 'reset',
+              approach: 'confidence'
+            }
+          ];
+          break;
+          
+        default:
+          challengeOptions = [
+            {
+              id: "boast-generic-advanced",
+              text: "I believe I can demonstrate a more advanced understanding of this topic.",
+              responseText: "Your confidence is admirable, but technical accuracy is crucial in medical physics.",
+              relationshipChange: 1,
+              insightGain: 20,
+              approach: 'confidence'
+            },
+            {
+              id: "boast-generic-wrong",
+              text: "I'd like to propose an alternative explanation based on emerging research.",
+              responseText: "Interesting approach, though I'd caution against relying on unverified concepts.",
+              relationshipChange: -1,
+              insightGain: 5,
+              approach: 'creative'
+            }
+          ];
+      }
+      
+      return { 
+        stateUpdate: {
+          text: "Prove your expertise with a more advanced response."
+        },
+        newOptions: challengeOptions
+      };
+    } catch (error) {
+      console.error(`[ActionIntegration] Error in boast handler:`, error);
+      return {
+        stateUpdate: {
+          text: "I'll demonstrate my expertise on this topic."
+        },
+        newOptions: [] // Empty array will keep current options
+      };
+    }
   },
   
   /**
@@ -501,9 +588,11 @@ const actionHandlers: Record<StrategicActionType, ActionHandlerFn> = {
  * Registry of option enhancement functions for different action types
  */
 const optionEnhancers: Record<StrategicActionType, OptionEnhancementFn> = {
-  reframe: (options, _) => {
-    // No special enhancement needed for reframe
-    return options;
+  reframe: (options: DialogueOption[]): DialogueOption[] => {
+    return options.map(option => ({
+      ...option,
+      text: option.text + " [Reframed]"
+    }));
   },
   
   extrapolate: (options, _) => {
@@ -511,12 +600,13 @@ const optionEnhancers: Record<StrategicActionType, OptionEnhancementFn> = {
     return options;
   },
   
-  boast: (options, _) => {
-    // Double insight gain and mark as expert level for boast
+  boast: (options: DialogueOption[]): DialogueOption[] => {
+    // The boast handler will be triggered separately, this just adds the visual indicator
     return options.map(option => ({
       ...option,
-      insightGain: option.insightGain ? option.insightGain * 2 : 0,
-      text: `[Expert] ${option.text}`
+      text: option.text + " [Challenge Mode]",
+      // Add visual styling indicators for the UI
+      boastMode: true
     }));
   },
   
@@ -527,15 +617,16 @@ const optionEnhancers: Record<StrategicActionType, OptionEnhancementFn> = {
 };
 
 /**
- * Apply a strategic action to the dialogue system in a non-invasive way
+ * Apply a strategic action to the current dialogue
  * 
- * This function uses a try-catch pattern to gracefully handle errors and
- * falls back to simpler methods if more sophisticated ones aren't available.
+ * This function is called when a player activates a strategic action during dialogue.
+ * It retrieves the current dialogue state, calls the appropriate action handler,
+ * and then updates the dialogue state with the result.
  * 
  * @param actionType Type of strategic action to apply
- * @param characterId Current character ID
- * @param stageId Current dialogue stage ID
- * @returns Promise resolving to success/failure of action application
+ * @param characterId ID of the character in the dialogue
+ * @param stageId ID of the current dialogue stage
+ * @returns Promise<boolean> indicating success/failure
  */
 export async function applyStrategicAction(
   actionType: StrategicActionType,
@@ -543,109 +634,116 @@ export async function applyStrategicAction(
   stageId: string
 ): Promise<boolean> {
   try {
-    // Get current dialogue state
-    const dialogueState = useDialogueStateMachine.getState();
-    
-    // Ensure we have an active dialogue
-    if (!dialogueState.currentState || !dialogueState.context) {
-      console.error('Cannot apply action - no active dialogue');
+    // First, validate that we have the required parameters
+    if (!actionType) {
+      console.error('Cannot apply action - no action type specified');
       return false;
     }
     
-    // Get current options with graceful fallback
-    let currentOptions: DialogueOption[] = [];
-    try {
-      // Try the preferred method first
-      currentOptions = dialogueState.getAvailableOptions();
-    } catch (optionsError) {
-      // Fall back to the current state's options if available
-      console.warn('Failed to get options via getAvailableOptions, falling back to current state options');
-      currentOptions = dialogueState.currentState.options || [];
+    if (!characterId) {
+      console.error('Cannot apply action - no character ID specified');
+      return false;
     }
     
-    // Create context for handler
+    if (!stageId) {
+      console.error('Cannot apply action - no stage ID specified');
+      return false;
+    }
+    
+    // Log the action application attempt
+    console.log(`[ActionIntegration] Applying ${actionType} action for character ${characterId} at stage ${stageId}`);
+    
+    // Create sanitized context
     const context: ActionContext = {
       characterId,
       stageId,
       actionType,
-      currentOptions
+      currentOptions: [] // Will be populated below if possible
     };
     
-    // Get handler for this action type
+    // Try to get the current dialogue state
+    try {
+      // Get the current dialogue state
+      const dialogueState = useDialogueStateMachine.getState();
+      
+      if (!dialogueState) {
+        console.error('Cannot apply action - no dialogue state available');
+        return false;
+      }
+      
+      // Get the current options if available
+      try {
+        const currentOptions = dialogueState.getCurrentOptions() || [];
+        context.currentOptions = currentOptions;
+        console.log(`[ActionIntegration] Retrieved ${currentOptions.length} current options`);
+      } catch (optionsError) {
+        console.warn('Could not get current options:', optionsError);
+        // Continue without options - the handler will use defaults
+      }
+    } catch (stateError) {
+      console.error('Error accessing dialogue state:', stateError);
+      // Continue with empty context
+    }
+    
+    // Get the handler for this action type
     const handler = actionHandlers[actionType];
     if (!handler) {
-      console.error(`No handler for action type: ${actionType}`);
+      console.error(`No handler available for action type ${actionType}`);
       return false;
     }
     
-    // Call handler to get state updates
-    const { stateUpdate, newOptions } = await handler(context);
+    // Call the handler
+    const result = await handler(context);
     
-    // Apply updates using the most appropriate method available
+    // Update the dialogue state with the result
     let updateSuccessful = false;
     
-    // Try multiple update methods in order of preference
-    if (stateUpdate || newOptions) {
-      // Method 1: Use UPDATE_CONTEXT action if dispatch is available
-      if (typeof dialogueState.dispatch === 'function') {
-        try {
-          dialogueState.dispatch({
-            type: 'UPDATE_CONTEXT',
-            update: {
-              customText: stateUpdate?.text,
-              customOptions: newOptions
+    try {
+      if (result.stateUpdate) {
+        const dialogueState = useDialogueStateMachine.getState();
+        
+        // Use update method if it exists
+        if (typeof dialogueState.update === 'function') {
+          dialogueState.update(result.stateUpdate);
+          updateSuccessful = true;
+        } 
+        // If there's no update method, try direct property updates
+        else {
+          Object.keys(result.stateUpdate).forEach(key => {
+            try {
+              if (key === 'currentStageId' && result.stateUpdate.currentStageId) {
+                // Most common update - navigate to a new stage
+                console.log(`[ActionIntegration] Navigating to stage: ${result.stateUpdate.currentStageId}`);
+                dialogueState.setCurrentStageId(result.stateUpdate.currentStageId);
+                updateSuccessful = true;
+              } else {
+                // Try generic property update
+                (dialogueState as any)[key] = (result.stateUpdate as any)[key];
+                updateSuccessful = true;
+              }
+            } catch (updateError) {
+              console.error(`Failed to update ${key}:`, updateError);
             }
           });
-          updateSuccessful = true;
-        } catch (dispatchError) {
-          console.warn('Failed to update via dispatch method:', dispatchError);
         }
       }
       
-      // Method 2: If dispatch failed or isn't available, try direct state update
-      if (!updateSuccessful && stateUpdate) {
-        try {
-          // Create updated state by merging current state with updates
-          const updatedState = {
-            ...dialogueState.currentState,
-            ...(stateUpdate.text ? { text: stateUpdate.text } : {})
-          };
-          
-          // Apply via set state if available
-          if ('currentState' in dialogueState && typeof (dialogueState as any).set === 'function') {
-            (dialogueState as any).set((state: any) => {
-              state.currentState = updatedState;
-              return state;
-            });
-            updateSuccessful = true;
-          }
-        } catch (directUpdateError) {
-          console.warn('Failed to update state directly:', directUpdateError);
-        }
-      }
-      
-      // Method 3: Last resort - create a custom event to signal the change
-      if (!updateSuccessful) {
-        try {
-          // Dispatch a custom event that components can listen for
-          const event = new CustomEvent('strategic-action-applied', {
-            detail: {
-              actionType,
-              stateUpdate,
-              newOptions,
-              stageId,
-              characterId
-            }
-          });
-          window.dispatchEvent(event);
+      if (result.newOptions) {
+        const dialogueState = useDialogueStateMachine.getState();
+        
+        // Use setOptions method if it exists
+        if (typeof dialogueState.setOptions === 'function') {
+          dialogueState.setOptions(result.newOptions);
           updateSuccessful = true;
-        } catch (eventError) {
-          console.error('All update methods failed:', eventError);
+        } 
+        // Otherwise try to find another way to update options
+        else {
+          console.warn('No direct setOptions method available - options update may not work');
         }
       }
-    } else {
-      // No updates needed, consider it successful
-      updateSuccessful = true;
+    } catch (updateError) {
+      console.error('Failed to update dialogue state:', updateError);
+      return false;
     }
     
     // Log action application

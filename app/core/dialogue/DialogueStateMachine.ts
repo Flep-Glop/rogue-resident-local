@@ -18,6 +18,8 @@ import { shallow } from 'zustand/shallow';
 import { safeDispatch } from '../events/CentralEventBus';
 import { GameEventType } from '../events/EventTypes';
 import { useCallback, useMemo } from 'react';
+import { ResourceTierName, useResourceStore } from '@/app/store/resourceStore';
+import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 
 // ========== Core Types ==========
 
@@ -53,13 +55,14 @@ export interface DialogueOption {
   text: string;
   responseText?: string;
   nextStateId?: string;
-  insightGain?: number;
+  resourceTier?: ResourceTierName;
   relationshipChange?: number;
   knowledgeGain?: {
     conceptId: string;
     domainId: string;
     amount: number;
   };
+  discoverConcepts?: string[];
   triggersBackstory?: boolean;
   isCriticalPath?: boolean;
   condition?: (context: DialogueContext) => boolean;
@@ -368,8 +371,25 @@ export const useDialogueStateMachine = create<DialogueStateMachineState>((set, g
         return;
       }
       
+      // Log option selection for debugging
+      console.log(`[DialogueStateMachine] Option selected: ${optionId}`, option);
+      
       // Create updated context with option effects
       const updatedContext = { ...context };
+      
+      // Apply standardized resource outcome if specified
+      if (option.resourceTier) {
+        const source = `dialogue-${activeFlow.id}-${currentState.id}-${option.id}`;
+        // Get resourceStore instance and call applyStandardizedOutcome
+        // NOTE: Accessing another Zustand store's actions directly inside a Zustand action
+        // can sometimes be tricky, but usually works. Ensure resourceStore is initialized.
+        try {
+          useResourceStore.getState().applyStandardizedOutcome(option.resourceTier, source);
+        } catch (resourceError) {
+          console.error(`[DialogueMachine] Error applying resource outcome for option ${option.id}:`, resourceError);
+          // Potentially dispatch a specific error event here
+        }
+      }
       
       // Update player score if relationshipChange is defined
       if (option.relationshipChange !== undefined) {
@@ -394,6 +414,42 @@ export const useDialogueStateMachine = create<DialogueStateMachineState>((set, g
           ...updatedContext.knowledgeGained,
           [conceptId]: (updatedContext.knowledgeGained[conceptId] || 0) + amount
         };
+      }
+      
+      // Handle concept discovery if specified
+      if (option.discoverConcepts && option.discoverConcepts.length > 0) {
+        console.log(`[DialogueStateMachine] Discovering concepts:`, option.discoverConcepts);
+        
+        try {
+          const knowledgeStore = useKnowledgeStore.getState();
+          option.discoverConcepts.forEach(conceptId => {
+            console.log(`[DialogueStateMachine] Attempting to discover concept: ${conceptId}`);
+            
+            // Check if concept already discovered to prevent duplicate notifications
+            if (!knowledgeStore.isConceptDiscovered(conceptId)) {
+              // First make sure the concept exists
+              const conceptExists = knowledgeStore.nodes.some(node => node.id === conceptId);
+              if (!conceptExists) {
+                console.warn(`[DialogueStateMachine] Concept ${conceptId} doesn't exist in the knowledge store, skipping discovery`);
+                return;
+              }
+              
+              // Discover the concept
+              knowledgeStore.discoverConcept(conceptId);
+              
+              // Add a special log for domain stars
+              if (conceptId === 'dosimetry' || conceptId === 'treatment-planning' || 
+                  conceptId === 'radiation-therapy' || conceptId === 'linac-anatomy') {
+                console.log(`[DialogueStateMachine] 🌟 DOMAIN STAR DISCOVERED: ${conceptId}`);
+              }
+            } else {
+              console.log(`[DialogueStateMachine] Concept already discovered: ${conceptId}`);
+            }
+          });
+          console.log(`[DialogueStateMachine] Concept discovery complete`);
+        } catch (error) {
+          console.error(`[DialogueStateMachine] Error discovering concepts:`, error);
+        }
       }
       
       // Check for backstory
@@ -425,7 +481,7 @@ export const useDialogueStateMachine = create<DialogueStateMachineState>((set, g
         flowId: activeFlow.id,
         stageId: currentState.id,
         character: context.characterId,
-        insightGain: option.insightGain || 0,
+        resourceTier: option.resourceTier,
         relationshipChange: option.relationshipChange || 0,
         knowledgeGain: option.knowledgeGain
       });
@@ -867,14 +923,16 @@ export function createKapoorCalibrationFlow(nodeId: string): DialogueFlow & { st
             text: "I'm looking forward to learning the procedures.", 
             nextStateId: 'basics',
             responseText: "A positive attitude toward learning is the foundation of good practice. Let's begin with the fundamentals.",
-            relationshipChange: 1
+            relationshipChange: 1,
+            resourceTier: 'STANDARD'
           },
           { 
             id: "confident-intro",
             text: "I've done calibrations before during my internship.", 
             nextStateId: 'basics',
             responseText: "Previous experience is useful, but each facility has specific protocols. I'd advise against assuming familiarity prematurely.",
-            relationshipChange: -1
+            relationshipChange: -1,
+            resourceTier: 'FAILURE'
           }
         ],
         nextStateId: 'basics'
@@ -891,14 +949,16 @@ export function createKapoorCalibrationFlow(nodeId: string): DialogueFlow & { st
             text: "Could you walk me through the protocol?",
             nextStateId: 'journal-presentation',
             responseText: "Certainly. First, we must understand how to properly document our findings.",
-            relationshipChange: 1
+            relationshipChange: 1,
+            resourceTier: 'MINOR'
           },
           {
             id: "confident-approach",
             text: "I'd like to try the calibration myself.",
             nextStateId: 'journal-presentation',
             responseText: "Enthusiasm is commendable, but proper documentation must precede action.",
-            relationshipChange: 0
+            relationshipChange: 0,
+            resourceTier: 'MINOR'
           }
         ]
       },
@@ -927,7 +987,8 @@ export function createKapoorCalibrationFlow(nodeId: string): DialogueFlow & { st
           text: "I'm looking forward to learning the procedures.", 
           nextStageId: 'basics',
           responseText: "A positive attitude toward learning is the foundation of good practice. Let's begin with the fundamentals.",
-          relationshipChange: 1
+          relationshipChange: 1,
+          resourceTier: 'STANDARD'
         },
         { 
           id: "confident-intro",
@@ -989,14 +1050,16 @@ export function createJesseEquipmentFlow(nodeId: string): DialogueFlow & { stage
             text: "I'd like to learn the safety protocols first.", 
             nextStateId: 'safety',
             responseText: "Smart choice! That's always the right place to start.",
-            relationshipChange: 1
+            relationshipChange: 1,
+            resourceTier: 'STANDARD'
           },
           { 
             id: "hands-on",
             text: "Can we jump right into the hands-on work?", 
             nextStateId: 'safety',
             responseText: "Enthusiasm is good, but we always start with safety here. Let me walk you through that first.",
-            relationshipChange: 0
+            relationshipChange: 0,
+            resourceTier: 'MINOR'
           }
         ],
         nextStateId: 'safety'
@@ -1013,14 +1076,16 @@ export function createJesseEquipmentFlow(nodeId: string): DialogueFlow & { stage
             text: "Makes sense. Patient safety comes first.",
             nextStateId: 'equipment-safety',
             responseText: "Exactly! You're catching on quick.",
-            relationshipChange: 1
+            relationshipChange: 1,
+            resourceTier: 'MAJOR'
           },
           {
             id: "seems-excessive",
             text: "Isn't that being a bit over-cautious?",
             nextStateId: 'equipment-safety',
             responseText: "Not when a calibration error could result in a treatment error. This is why these protocols exist.",
-            relationshipChange: -1
+            relationshipChange: -1,
+            resourceTier: 'FAILURE'
           }
         ]
       },
@@ -1049,14 +1114,16 @@ export function createJesseEquipmentFlow(nodeId: string): DialogueFlow & { stage
           text: "I'd like to learn the safety protocols first.", 
           nextStageId: 'safety',
           responseText: "Smart choice! That's always the right place to start.",
-          relationshipChange: 1
+          relationshipChange: 1,
+          resourceTier: 'STANDARD'
         },
         { 
           id: "hands-on",
           text: "Can we jump right into the hands-on work?", 
           nextStageId: 'safety',
           responseText: "Enthusiasm is good, but we always start with safety here. Let me walk you through that first.",
-          relationshipChange: 0
+          relationshipChange: 0,
+          resourceTier: 'MINOR'
         }
       ]
     },
@@ -1069,14 +1136,16 @@ export function createJesseEquipmentFlow(nodeId: string): DialogueFlow & { stage
           text: "Makes sense. Patient safety comes first.",
           nextStageId: 'equipment-safety',
           responseText: "Exactly! You're catching on quick.",
-          relationshipChange: 1
+          relationshipChange: 1,
+          resourceTier: 'MAJOR'
         },
         {
           id: "seems-excessive",
           text: "Isn't that being a bit over-cautious?",
           nextStageId: 'equipment-safety',
           responseText: "Not when a calibration error could result in a treatment error. This is why these protocols exist.",
-          relationshipChange: -1
+          relationshipChange: -1,
+          resourceTier: 'FAILURE'
         }
       ]
     },

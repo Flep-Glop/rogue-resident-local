@@ -23,6 +23,7 @@ import { useKnowledgeStore } from '../store/knowledgeStore';
 import { useResourceStore } from '../store/resourceStore';
 import { useEventBus, safeDispatch } from './events/CentralEventBus';
 import { useDialogueStateMachine } from './dialogue/DialogueStateMachine';
+import { useSoundStore } from './sound/SoundManager';
 
 // Specific utilities
 import CentralEventBus from './events/CentralEventBus';
@@ -417,14 +418,9 @@ export function useCoreInitialization() {
       
       try {
         const knowledgeStore = useKnowledgeStore.getState();
-        // Discover core concepts as starting points
-        const coreConcepts = ['treatment-planning', 'radiation-therapy', 'linac-anatomy', 'dosimetry'];
-        coreConcepts.forEach(conceptId => {
-          knowledgeStore.discoverConcept(conceptId);
-          // Give some initial mastery
-          knowledgeStore.updateMastery(conceptId, 30);
-        });
-        logInit("Knowledge store initialized with core concepts", "success");
+        // No longer auto-discovering core concepts
+        // Players will discover them through gameplay
+        logInit("Knowledge store initialized", "success");
       } catch (e) {
         handleInitError(e);
         return;
@@ -820,3 +816,40 @@ export function useCoreInitialization() {
     initProgress
   };
 }
+
+/**
+ * Initialize the game state
+ */
+export const initializeGameState = async () => {
+  console.log('[INIT] Starting game initialization');
+  
+  // Prevent double initialization
+  if (INIT_STATE.completed || INIT_STATE.inProgress) {
+    console.log('[INIT] Game already initialized or initializing, skipping');
+    return;
+  }
+  
+  // Set initializing flag
+  INIT_STATE.inProgress = true;
+  
+  try {
+    // Initialize stores in the correct order to manage dependencies
+    console.log('[INIT] Initializing stores');
+    
+    // First, initialize the event system
+    useEventBus.getState();
+    console.log('[INIT] Event bus initialized');
+    
+    // Initialize sound store
+    if (typeof window !== 'undefined') {
+      useSoundStore.getState();
+      console.log('[INIT] Sound system initialized');
+    }
+    
+    // ... rest of the existing initialization code ...
+  } catch (error) {
+    console.error('[INIT] Error during initialization:', error);
+    INIT_STATE.inProgress = false;
+    INIT_STATE.lastError = error as any;
+  }
+};

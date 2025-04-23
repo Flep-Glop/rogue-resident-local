@@ -96,10 +96,10 @@ export default function ChallengeRouter() {
   const handleTransitionComplete = useStableCallback(() => {
     if (!isMountedRef.current) return;
     
-    console.log('[ChallengeRouter] Transition animation completed', { 
-      isExiting: transitionState.isExiting,
-      currentNodeId
-    });
+    // console.log('[ChallengeRouter] Transition animation completed', { 
+    //   isExiting: transitionState.isExiting,
+    //   currentNodeId
+    // });
     
     // Mark transition as completed to hide animations
     transitionCompletedRef.current = true;
@@ -108,9 +108,9 @@ export default function ChallengeRouter() {
       // Navigate back to map
       const gameStore = useGameStore.getState();
       if (gameStore && gameStore.setCurrentNode) {
-        console.log('[ChallengeRouter] Transition exit complete - returning to map');
+        // console.log('[ChallengeRouter] Transition exit complete - returning to map');
         gameStore.setCurrentNode(null);
-        console.log('✅ Returning to map after transition animation');
+        // console.log('✅ Returning to map after transition animation');
         
         // Remove transition classes from body
         if (typeof document !== 'undefined') {
@@ -118,7 +118,7 @@ export default function ChallengeRouter() {
         }
       }
     } else {
-      console.log('[ChallengeRouter] Entrance transition complete - challenge ready');
+      // console.log('[ChallengeRouter] Entrance transition complete - challenge ready');
     }
   }, [transitionState.isExiting, currentNodeId]);
   

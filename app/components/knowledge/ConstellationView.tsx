@@ -5,18 +5,16 @@
  * 
  * Simplified version based on SimpleConstellationTest implementation
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import useKnowledgeStore, { KnowledgeDomain } from '../../store/knowledgeStore';
 import { DOMAIN_COLORS } from '../../core/themeConstants';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { safeDispatch, useEventBus } from '@/app/core/events/CentralEventBus';
 import * as d3 from 'd3';
-// Import PixelText for consistent font styling
-import { PixelText, PixelButton } from '../PixelThemeProvider';
+import { Connection, predefinedConnections } from '../../data/concepts/medical-physics-connections';
 
 // Import visualization control
 import { ConstellationDebugOptions } from './ConstellationVisualizationControl';
-import CollapsibleKnowledgePanel from './CollapsibleKnowledgePanel';
 
 // Import pattern detection system
 import { detectPatterns, PatternFormation } from './ConstellationPatternSystem';
@@ -35,7 +33,6 @@ interface ConstellationViewProps {
   fullscreen?: boolean;
   enableJournal?: boolean;
   debugOptions?: ConstellationDebugOptions; // For debug visualization controls
-  showKnowledgePanel?: boolean; // Whether to show the knowledge panel
 }
 
 interface Node {
@@ -46,12 +43,17 @@ interface Node {
   radius: number;
   domain: string;
   discovered: boolean;
+  unlocked: boolean; // New property: whether the node is unlocked after discovery
+  active: boolean;   // New property: whether the node is activated
   mastery: number;
   patterns: string[];
+  isNewlyDiscovered?: boolean; // Track if node is newly discovered
+  hasBeenViewed?: boolean;     // Track if newly discovered node has been viewed
   vx?: number;
   vy?: number;
   fx?: number | null;
   fy?: number | null;
+  isPotentialConnection: boolean;
 }
 
 interface Link {
@@ -59,31 +61,19 @@ interface Link {
   target: string;
   strength: number;
   discovered: boolean;
+  isActiveConnection?: boolean; // New property to indicate connections between active nodes
   patternIds: string[];
 }
 
-// Add style to custom button props for pattern buttons
-interface PatternButtonProps {
-  patternId: string;
-  isActive: boolean;
-  onClick: () => void;
-  color: string;
-  name: string;
+// Connection details interface
+interface SelectedConnection {
+  sourceId: string;
+  targetId: string;
+  sourceName: string;
+  targetName: string;
+  strength: number;
+  patternIds: string[];
 }
-
-// Custom pattern button component with inline styling
-const PatternButton = ({ patternId, isActive, onClick, color, name }: PatternButtonProps) => (
-  <PixelButton
-    key={patternId}
-    size="sm"
-    className={`rounded ${isActive ? 'ring-2 ring-white' : 'hover:bg-opacity-80'}`}
-    onClick={onClick}
-  >
-    <div style={{ backgroundColor: color }} className="px-3 py-1">
-      {name}
-    </div>
-  </PixelButton>
-);
 
 /**
  * Enhanced ConstellationView with D3 visualization
@@ -98,12 +88,8 @@ export default function ConstellationView({
   fullscreen = true,
   nightMode = false,
   showLabels = true,
-  debugOptions,
-  showKnowledgePanel = false
+  debugOptions
 }: ConstellationViewProps) {
-  // Log for debugging
-  console.log("ConstellationView rendering with showKnowledgePanel:", showKnowledgePanel);
-
   // ========= REFS AND STATE =========
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -116,19 +102,12 @@ export default function ConstellationView({
   const [simulationNodes, setSimulationNodes] = useState<Node[]>([]);
   const [simulationLinks, setSimulationLinks] = useState<Link[]>([]);
   const [showHelp, setShowHelp] = useState(false);
-  const [isPanelVisible, setIsPanelVisible] = useState(true);
+  const [starPoints, setStarPoints] = useState<number>(50); // Default 50 SP
+  const [viewedNodes, setViewedNodes] = useState<Set<string>>(new Set()); // Track nodes that have been viewed
 
-  // Update panel visibility when prop changes
-  useEffect(() => {
-    if (!showKnowledgePanel) {
-      setIsPanelVisible(false);
-    }
-  }, [showKnowledgePanel]);
-
-  // Toggle panel visibility
-  const togglePanel = () => {
-    setIsPanelVisible(prev => !prev);
-  };
+  // State for selected connection
+  const [selectedConnection, setSelectedConnection] = useState<SelectedConnection | null>(null);
+  const [selectedConnectionDescription, setSelectedConnectionDescription] = useState<string>('');
 
   // ========= STORE ACCESS =========
   const { 
@@ -138,7 +117,8 @@ export default function ConstellationView({
     updateMastery, 
     createConnection,
     addStarPoints,
-    starPoints
+    starPoints: storeStarPoints,
+    newlyDiscovered
   } = useKnowledgeStore();
   
   // Derived data - use React.useMemo to prevent recalculations on every render
@@ -202,10 +182,31 @@ export default function ConstellationView({
     const patterns = detectPatterns(nodes, connections, new Set()).allComplete;
     const patternNodeIds = patterns.flatMap(p => p.starIds);
     
-    // Filter nodes to include
-    const filteredNodes = nodes.filter(n => 
-      n.discovered || (interactive && patternNodeIds.includes(n.id))
-    );
+    // Find potentially connectable nodes - undiscovered nodes that could connect to discovered ones
+    const discoveredNodeIds = new Set(nodes.filter(n => n.discovered).map(n => n.id));
+    const potentiallyConnectable = new Set<string>();
+    
+    // For each discovered node, find undiscovered nodes it could connect to
+    nodes.filter(n => n.discovered).forEach(discoveredNode => {
+      // Look at each undiscovered node
+      nodes.filter(n => !n.discovered).forEach(undiscoveredNode => {
+        // Check if they're in the same domain or have other connection potential
+        if (discoveredNode.domain === undiscoveredNode.domain || 
+            // Check if they're part of the same pattern
+            patterns.some(p => 
+              p.starIds.includes(discoveredNode.id) && 
+              p.starIds.includes(undiscoveredNode.id)
+            )) {
+          potentiallyConnectable.add(undiscoveredNode.id);
+        }
+      });
+    });
+    
+    // Filter nodes to include:
+    // 1. All discovered nodes
+    // 2. All undiscovered nodes
+    // 3. Pattern nodes if in interactive mode
+    const filteredNodes = nodes;
     
     // Transform to simulation nodes
     const d3Nodes: Node[] = filteredNodes.map(node => {
@@ -214,9 +215,49 @@ export default function ConstellationView({
         .filter(p => p.starIds.includes(node.id))
         .map(p => p.id);
       
-      // Use node position if available, or calculate initial position
-      const x = node.position?.x || (Math.random() - 0.5) * 500;
-      const y = node.position?.y || (Math.random() - 0.5) * 500;
+      // Calculate a more structured initial position based on patterns
+      let x, y;
+      
+      // Place nodes in a more structured way based on patterns they belong to
+      if (nodePatterns.length > 0) {
+        // Use the first pattern to determine initial position
+        const pattern = patterns.find(p => p.id === nodePatterns[0]);
+        const patternFormation = pattern?.formation || 'circuit';
+        const patternIndex = patterns.findIndex(p => p.id === nodePatterns[0]);
+        const angleOffset = (patternIndex / patterns.length) * Math.PI * 2;
+        
+        if (patternFormation === 'circuit' || patternFormation === 'triangle') {
+          const nodeIndex = pattern?.starIds.indexOf(node.id) || 0;
+          const totalNodes = pattern?.starIds.length || 3;
+          const angle = (nodeIndex / totalNodes) * Math.PI * 2 + angleOffset;
+          const radius = 150;
+          x = Math.cos(angle) * radius;
+          y = Math.sin(angle) * radius;
+        } else if (patternFormation === 'chain') {
+          const nodeIndex = pattern?.starIds.indexOf(node.id) || 0;
+          const totalNodes = pattern?.starIds.length || 4;
+          x = ((nodeIndex / (totalNodes - 1)) * 300 - 150) * Math.cos(angleOffset);
+          y = ((nodeIndex / (totalNodes - 1)) * 300 - 150) * Math.sin(angleOffset);
+        } else {
+          // Random position for other formation types
+          x = (Math.random() - 0.5) * 300;
+          y = (Math.random() - 0.5) * 300;
+        }
+      } else {
+        // Use node position if available, or calculate random position
+        x = node.position?.x || (Math.random() - 0.5) * 500;
+        y = node.position?.y || (Math.random() - 0.5) * 500;
+      }
+      
+      // Determine if this is a potentially connectable but undiscovered node
+      const isPotentialConnection = !node.discovered && potentiallyConnectable.has(node.id);
+      
+      // Check if node is active (from activeNodes prop or from node.active property)
+      const isActive = activeNodes.includes(node.id) || !!node.active;
+      
+      // Check if this node is newly discovered and hasn't been viewed yet
+      const isNewlyDiscovered = newlyDiscovered.includes(node.id);
+      const hasBeenViewed = viewedNodes.has(node.id);
       
       return {
         id: node.id,
@@ -225,40 +266,193 @@ export default function ConstellationView({
         y: y,
         radius: node.discovered ? 
           Math.max(10, 5 + (node.mastery / 10)) : 
-          7,
+          3, // Smaller radius for undiscovered nodes (3px for the little blips)
         domain: node.domain,
         discovered: node.discovered,
+        unlocked: node.unlocked || false, // Default to false if property doesn't exist
+        active: isActive, // Use the determined active status
+        isPotentialConnection, // Add this flag for rendering
         mastery: node.mastery,
-        patterns: nodePatterns
+        patterns: nodePatterns,
+        isNewlyDiscovered,
+        hasBeenViewed
       };
     });
     
-    // Transform connections to links - using discoveredConnections from the memoized value
-    const d3Links: Link[] = discoveredConnections.map(conn => {
-      // Find which patterns this connection belongs to
-      const connPatterns: string[] = [];
-      
-      for (const pattern of patterns) {
-        const sourceInPattern = pattern.starIds.includes(conn.source);
-        const targetInPattern = pattern.starIds.includes(conn.target);
+    // Transform connections to links - only for discovered and unlocked nodes
+    const d3Links: Link[] = discoveredConnections
+      .filter(conn => {
+        // Get the source and target nodes
+        const sourceNode = filteredNodes.find(n => n.id === conn.source);
+        const targetNode = filteredNodes.find(n => n.id === conn.target);
         
-        if (sourceInPattern && targetInPattern) {
-          connPatterns.push(pattern.id);
+        // Only include links between discovered nodes, and BOTH must be unlocked
+        return sourceNode?.discovered && targetNode?.discovered && 
+               sourceNode?.unlocked && targetNode?.unlocked;
+      })
+      .map(conn => {
+        // Find which patterns this connection belongs to
+        const connPatterns: string[] = [];
+        
+        for (const pattern of patterns) {
+          const sourceInPattern = pattern.starIds.includes(conn.source);
+          const targetInPattern = pattern.starIds.includes(conn.target);
+          
+          if (sourceInPattern && targetInPattern) {
+            connPatterns.push(pattern.id);
+          }
         }
-      }
-      
-      return {
-        source: conn.source,
-        target: conn.target,
-        strength: conn.strength,
-        discovered: conn.discovered,
-        patternIds: connPatterns
-      };
-    });
+        
+        // Get the nodes to determine active status
+        const sourceNode = filteredNodes.find(n => n.id === conn.source);
+        const targetNode = filteredNodes.find(n => n.id === conn.target);
+        const isActiveConnection = sourceNode?.active && targetNode?.active;
+        
+        return {
+          source: conn.source,
+          target: conn.target,
+          strength: conn.strength,
+          discovered: conn.discovered,
+          isActiveConnection, // Add flag for active connections
+          patternIds: connPatterns
+        };
+      });
     
     setSimulationNodes(d3Nodes);
     setSimulationLinks(d3Links);
-  }, [nodes, connections, interactive]); // Remove discoveredConnections as it's derived from connections
+  }, [nodes, connections, interactive, activeNodes]); // Added activeNodes as dependency
+
+  // Define gradient for active connections
+  const createActiveConnectionGradient = (defs: d3.Selection<SVGDefsElement, unknown, null, undefined>) => {
+    // Create a gradient for active connections
+    const gradient = defs.append('linearGradient')
+      .attr('id', 'activeConnectionGradient')
+      .attr('gradientUnits', 'userSpaceOnUse')
+      .attr('x1', '0%')
+      .attr('y1', '0%')
+      .attr('x2', '100%')
+      .attr('y2', '0%');
+      
+    // Add gradient stops
+    gradient.append('stop')
+      .attr('offset', '0%')
+      .attr('stop-color', 'rgba(255, 220, 60, 0.9)');
+      
+    gradient.append('stop')
+      .attr('offset', '50%')
+      .attr('stop-color', 'rgba(255, 255, 200, 0.9)');
+      
+    gradient.append('stop')
+      .attr('offset', '100%')
+      .attr('stop-color', 'rgba(255, 220, 60, 0.9)');
+
+    // Animation for gradient
+    const animateGradient = () => {
+      gradient.attr('x1', '0%')
+        .attr('x2', '100%')
+        .transition()
+        .duration(3000)
+        .attr('x1', '100%')
+        .attr('x2', '200%')
+        .transition()
+        .duration(3000)
+        .attr('x1', '0%')
+        .attr('x2', '100%')
+        .on('end', animateGradient);
+    };
+    
+    animateGradient();
+  };
+
+  // Add glow filter for active connections
+  const createActiveConnectionFilter = (defs: d3.Selection<SVGDefsElement, unknown, null, undefined>) => {
+    const activeConnectionGlow = defs.append('filter')
+      .attr('id', 'active-connection-glow')
+      .attr('x', '-40%')
+      .attr('y', '-40%')
+      .attr('width', '180%')
+      .attr('height', '180%');
+      
+    activeConnectionGlow.append('feGaussianBlur')
+      .attr('stdDeviation', '4')
+      .attr('result', 'blur');
+      
+    activeConnectionGlow.append('feFlood')
+      .attr('flood-color', '#ffdc3c')
+      .attr('flood-opacity', '0.5')
+      .attr('result', 'color');
+      
+    activeConnectionGlow.append('feComposite')
+      .attr('in', 'color')
+      .attr('in2', 'blur')
+      .attr('operator', 'in')
+      .attr('result', 'coloredBlur');
+      
+    activeConnectionGlow.append('feMerge')
+      .html(`
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      `);
+  };
+
+  // Add SVG marker for exclamation mark
+  const createExclamationMark = (defs: d3.Selection<SVGDefsElement, unknown, null, undefined>) => {
+    // Add exclamation mark pattern
+    const exclamationPattern = defs.append('pattern')
+      .attr('id', 'exclamationPattern')
+      .attr('patternUnits', 'objectBoundingBox')
+      .attr('width', 1)
+      .attr('height', 1);
+      
+    // Create the exclamation mark
+    const g = exclamationPattern.append('g');
+    
+    // Draw the exclamation mark
+    g.append('circle')
+      .attr('cx', 12)
+      .attr('cy', 12)
+      .attr('r', 10)
+      .attr('fill', 'rgba(255, 255, 0, 0.8)');
+      
+    g.append('text')
+      .attr('x', 12)
+      .attr('y', 16)
+      .attr('text-anchor', 'middle')
+      .attr('fill', 'black')
+      .attr('font-weight', 'bold')
+      .attr('font-family', 'Arial')
+      .attr('font-size', '16px')
+      .text('!');
+      
+    // Add glow filter for exclamation mark
+    const glowFilter = defs.append('filter')
+      .attr('id', 'exclamation-glow')
+      .attr('x', '-50%')
+      .attr('y', '-50%')
+      .attr('width', '200%')
+      .attr('height', '200%');
+      
+    glowFilter.append('feGaussianBlur')
+      .attr('stdDeviation', '2')
+      .attr('result', 'blur');
+      
+    glowFilter.append('feFlood')
+      .attr('flood-color', 'yellow')
+      .attr('flood-opacity', '0.7')
+      .attr('result', 'color');
+      
+    glowFilter.append('feComposite')
+      .attr('in', 'color')
+      .attr('in2', 'blur')
+      .attr('operator', 'in')
+      .attr('result', 'coloredBlur');
+      
+    glowFilter.append('feMerge')
+      .html(`
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      `);
+  };
 
   // ========= D3 VISUALIZATION =========
   useEffect(() => {
@@ -330,6 +524,82 @@ export default function ConstellationView({
       .attr('in2', 'blur')
       .attr('operator', 'over');
     
+    // Add stronger glow filter for active stars
+    const activeGlowFilter = defs.append('filter')
+      .attr('id', 'active-glow')
+      .attr('x', '-50%')
+      .attr('y', '-50%')
+      .attr('width', '200%')
+      .attr('height', '200%');
+      
+    activeGlowFilter.append('feGaussianBlur')
+      .attr('stdDeviation', '5')
+      .attr('result', 'blur');
+      
+    activeGlowFilter.append('feFlood')
+      .attr('flood-color', '#ffcc00')
+      .attr('flood-opacity', '0.7')
+      .attr('result', 'color');
+      
+    activeGlowFilter.append('feComposite')
+      .attr('in', 'color')
+      .attr('in2', 'blur')
+      .attr('operator', 'in')
+      .attr('result', 'coloredBlur');
+      
+    activeGlowFilter.append('feMerge')
+      .html(`
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      `);
+    
+    // Add stronger glow filter for domain stars
+    const domainGlowFilter = defs.append('filter')
+      .attr('id', 'domain-glow')
+      .attr('x', '-50%')
+      .attr('y', '-50%')
+      .attr('width', '200%')
+      .attr('height', '200%');
+      
+    domainGlowFilter.append('feGaussianBlur')
+      .attr('stdDeviation', '4')
+      .attr('result', 'blur');
+      
+    domainGlowFilter.append('feComposite')
+      .attr('in', 'SourceGraphic')
+      .attr('in2', 'blur')
+      .attr('operator', 'over');
+      
+    // Add drop shadow filter for 3D effect
+    const dropShadowFilter = defs.append('filter')
+      .attr('id', 'drop-shadow')
+      .attr('x', '-50%')
+      .attr('y', '-50%')
+      .attr('width', '200%')
+      .attr('height', '200%');
+      
+    dropShadowFilter.append('feGaussianBlur')
+      .attr('in', 'SourceAlpha')
+      .attr('stdDeviation', '3')
+      .attr('result', 'blur');
+      
+    dropShadowFilter.append('feOffset')
+      .attr('in', 'blur')
+      .attr('dx', '0')
+      .attr('dy', '4')
+      .attr('result', 'offsetBlur');
+      
+    dropShadowFilter.append('feComponentTransfer')
+      .append('feFuncA')
+      .attr('type', 'linear')
+      .attr('slope', '0.6');
+      
+    const feMerge = dropShadowFilter.append('feMerge');
+    feMerge.append('feMergeNode')
+      .attr('in', 'offsetBlur');
+    feMerge.append('feMergeNode')
+      .attr('in', 'SourceGraphic');
+
     // Create pattern-specific glow filters
     const uniquePatternIds = Array.from(new Set(
       simulationNodes.flatMap(n => n.patterns)
@@ -366,6 +636,13 @@ export default function ConstellationView({
           <feMergeNode in="SourceGraphic"/>
         `);
     });
+    
+    // Add exclamation mark pattern and filter
+    createExclamationMark(defs as d3.Selection<SVGDefsElement, unknown, null, undefined>);
+    
+    // Add gradient and glow filter for active connections
+    createActiveConnectionGradient(defs as d3.Selection<SVGDefsElement, unknown, null, undefined>);
+    createActiveConnectionFilter(defs as d3.Selection<SVGDefsElement, unknown, null, undefined>);
     
     // Main visualization container, centered in the SVG
     const container = svg.append('g')
@@ -447,65 +724,126 @@ export default function ConstellationView({
     // Links first (so they're behind nodes)
     const linkGroup = container.append('g').attr('class', 'links');
     const nodeGroup = container.append('g').attr('class', 'nodes');
+    // Small dots for undiscovered nodes
+    const dotGroup = container.append('g').attr('class', 'undiscovered-dots');
     
-    // Process links
+    // Process links - only show connections based on their states
     const linkElements = linkGroup.selectAll('line')
       .data(simulationLinks)
       .enter()
       .append('line')
-      .attr('stroke', function(d) {
-        const link = d as unknown as Link;
-        // If we have a selected node, highlight its connections
-        if (selectedNodeId && (link.source === selectedNodeId || link.target === selectedNodeId)) {
-          return 'rgba(255, 255, 255, 0.8)';
+      .attr('stroke', d => {
+        // Active connections between two active nodes get special treatment
+        const sourceNode = simulationNodes.find(n => n.id === d.source);
+        const targetNode = simulationNodes.find(n => n.id === d.target);
+        const bothActive = sourceNode?.active && targetNode?.active;
+        
+        if (bothActive) {
+          return 'url(#activeConnectionGradient)'; // Use gradient for connections between active nodes
+        }
+        // Active connections get special treatment
+        if (d.isActiveConnection) {
+          return 'rgba(255, 220, 60, 0.8)'; // Bright gold for active connections
         }
         // If we have an active pattern, highlight links belonging to it
-        if (activePatternId && link.patternIds.includes(activePatternId)) {
+        if (activePatternId && d.patternIds.includes(activePatternId)) {
           return getPatternColor(activePatternId);
         }
         // Default link color based on connection strength
-        return `rgba(180, 180, 255, ${0.3 + (link.strength / 200)})`;
+        return `rgba(180, 180, 255, ${0.3 + (d.strength / 200)})`;
       })
-      .attr('stroke-width', function(d) {
-        const link = d as unknown as Link;
-        // Thicker lines for selected node connections
-        if (selectedNodeId && (link.source === selectedNodeId || link.target === selectedNodeId)) {
-          return 2;
+      .attr('stroke-width', d => {
+        // Determine if both nodes are active
+        const sourceNode = simulationNodes.find(n => n.id === d.source);
+        const targetNode = simulationNodes.find(n => n.id === d.target);
+        const bothActive = sourceNode?.active && targetNode?.active;
+        
+        // Thicker lines for active connections between active nodes
+        if (bothActive) {
+          return 4;
         }
-        // Thicker lines for pattern links when a pattern is active
-        if (activePatternId && link.patternIds.includes(activePatternId)) {
+        // Thicker lines for active connections
+        if (d.isActiveConnection) {
           return 3;
         }
-        return 1.5;
+        // Thicker lines for pattern links when a pattern is active
+        if (activePatternId && d.patternIds.includes(activePatternId)) {
+          return 2;
+        }
+        return 1;
       })
-      .attr('opacity', function(d) {
-        const link = d as unknown as Link;
-        // Full opacity for selected node connections
-        if (selectedNodeId && (link.source === selectedNodeId || link.target === selectedNodeId)) {
+      .attr('opacity', d => {
+        // Determine if both nodes are active
+        const sourceNode = simulationNodes.find(n => n.id === d.source);
+        const targetNode = simulationNodes.find(n => n.id === d.target);
+        const bothActive = sourceNode?.active && targetNode?.active;
+        
+        // Full opacity for connections between active nodes
+        if (bothActive) {
+          return 1;
+        }
+        // Full opacity for active connections
+        if (d.isActiveConnection) {
           return 1;
         }
         // Full opacity for active pattern links
-        if (activePatternId && link.patternIds.includes(activePatternId)) {
-          return 1;
-        }
-        // Lower opacity for unrelated links when a node is selected
-        if (selectedNodeId) {
-          return 0.3;
-        }
-        return 0.6;
-      });
-    
-    // Add light glow to links
-    linkGroup.selectAll('line')
-      .each(function(d: any) {
         if (activePatternId && d.patternIds.includes(activePatternId)) {
-          d3.select(this).attr('filter', `url(#glow-${activePatternId})`);
+          return 0.8;
+        }
+        return 0.3; // Faded links by default
+      })
+      .style('transition', 'stroke 0.3s ease, stroke-width 0.3s ease, opacity 0.3s ease')
+      .style('filter', d => {
+        // Apply glow effect to connections between active nodes
+        const sourceNode = simulationNodes.find(n => n.id === d.source);
+        const targetNode = simulationNodes.find(n => n.id === d.target);
+        const bothActive = sourceNode?.active && targetNode?.active;
+        
+        if (bothActive) {
+          return 'url(#active-connection-glow)';
+        }
+        return 'none';
+      })
+      .style('cursor', 'pointer') // Add pointer cursor to show connections are clickable
+      .on('click', function(this: SVGLineElement, event: MouseEvent, d: Link) {
+        event.stopPropagation(); // Prevent SVG background click
+        
+        // Find source and target nodes
+        const sourceId = typeof d.source === 'string' ? d.source : (d.source as any).id;
+        const targetId = typeof d.target === 'string' ? d.target : (d.target as any).id;
+        
+        const sourceNode = simulationNodes.find(n => n.id === sourceId);
+        const targetNode = simulationNodes.find(n => n.id === targetId);
+        
+        if (!sourceNode || !targetNode) return;
+        
+        // Show connection info
+        setSelectedConnection({
+          sourceId: sourceNode.id,
+          targetId: targetNode.id,
+          sourceName: sourceNode.name,
+          targetName: targetNode.name,
+          strength: d.strength,
+          patternIds: d.patternIds || []
+        });
+        
+        // Find connection from predefined connections to get description
+        const connection = predefinedConnections.find((conn: Connection) => 
+          (conn.sourceId === sourceNode.id && conn.targetId === targetNode.id) ||
+          (conn.sourceId === targetNode.id && conn.targetId === sourceNode.id)
+        );
+        
+        if (connection) {
+          setSelectedConnectionDescription(connection.description);
         }
       });
     
-    // Process nodes - use image elements instead of circles
+    // Instead of manually creating dots for undiscovered nodes,
+    // we'll let them participate in the force simulation
+    
+    // Process discovered nodes - different visualization based on state
     const nodeElements = nodeGroup.selectAll('image')
-      .data(simulationNodes)
+      .data(simulationNodes.filter(n => n.discovered))
       .enter()
       .append('image')
       .attr('href', (d: Node) => {
@@ -527,20 +865,28 @@ export default function ConstellationView({
         return '/star.png';
       })
       .attr('width', (d: Node) => {
-        // Increase size for domain stars
-        return d.id === d.domain ? d.radius * 3 : d.radius * 2;
+        // Increase size for domain stars and active stars
+        if (d.id === d.domain) return d.radius * 3;
+        if (d.active) return d.radius * 2.5;
+        return d.radius * 2;
       })
       .attr('height', (d: Node) => {
-        // Increase size for domain stars
-        return d.id === d.domain ? d.radius * 3 : d.radius * 2;
+        // Increase size for domain stars and active stars
+        if (d.id === d.domain) return d.radius * 3;
+        if (d.active) return d.radius * 2.5;
+        return d.radius * 2;
       })
       .attr('x', (d: Node) => {
-        // Adjust position for increased size of domain stars
-        return d.id === d.domain ? -d.radius * 1.5 : -d.radius;
+        // Adjust position for increased size
+        if (d.id === d.domain) return -d.radius * 1.5;
+        if (d.active) return -d.radius * 1.25;
+        return -d.radius;
       })
       .attr('y', (d: Node) => {
-        // Adjust position for increased size of domain stars
-        return d.id === d.domain ? -d.radius * 1.5 : -d.radius;
+        // Adjust position for increased size
+        if (d.id === d.domain) return -d.radius * 1.5;
+        if (d.active) return -d.radius * 1.25;
+        return -d.radius;
       })
       .attr('image-rendering', 'pixelated') // Ensure pixel art stays sharp
       .style('filter', (d: Node) => {
@@ -549,49 +895,64 @@ export default function ConstellationView({
           return 'url(#glow) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))';
         }
         
-        // Check if this node is connected to the selected node
-        if (selectedNodeId) {
-          const isConnected = simulationLinks.some(link => 
-            (link.source === selectedNodeId && link.target === d.id) || 
-            (link.target === selectedNodeId && link.source === d.id)
-          );
-          
-          if (isConnected) {
-            return 'url(#glow)';
-          }
-          // Grey out unconnected nodes
-          return 'url(#glow) saturate(50%)';
+        // Active stars get special glow
+        if (d.active) {
+          return 'url(#active-glow) url(#drop-shadow)';
         }
         
         if (activePatternId && d.patterns.includes(activePatternId)) {
           return `url(#glow-${activePatternId})`;
         }
-        return 'url(#glow)';
-      })
-      .style('cursor', 'pointer')
-      .style('opacity', (d: Node) => {
-        // Selected node is fully visible
-        if (d.id === selectedNodeId) return 1;
         
-        // When a node is selected, adjust opacity based on connection
-        if (selectedNodeId) {
-          // Check if connected to selected node
-          const isConnected = simulationLinks.some(link => 
-            (link.source === selectedNodeId && link.target === d.id) || 
-            (link.target === selectedNodeId && link.source === d.id)
-          );
-          
-          // Connected nodes are fully visible, others are faded
-          return isConnected ? 1 : 0.5;
+        // Special glow for domain stars
+        if (d.id === d.domain && d.unlocked) {
+          return 'url(#domain-glow) url(#drop-shadow)';
         }
         
-        // Normal opacity rules for other nodes
-        return d.discovered ? 1 : 0.5;
+        // Locked stars have reduced effects
+        if (!d.unlocked) {
+          return 'saturate(30%) brightness(60%)';
+        }
+        
+        // Standard glow for normal stars (no special effect for newly discovered)
+        return 'url(#glow)';
       })
+      .style('cursor', d => d.discovered ? 'pointer' : 'default') // Allow clicking any discovered node
+      .style('opacity', (d: Node) => {
+        // Full opacity for selected node
+        if (d.id === selectedNodeId) return 1;
+        
+        // Active stars are fully visible
+        if (d.active) return 1;
+        
+        // Unlocked stars are more visible than locked ones
+        if (d.unlocked) return 0.8;
+        
+        // Locked stars are faded
+        return 0.4;
+      })
+      .style('transition', 'opacity 0.3s ease, filter 0.3s ease')
       .on('click', (event: any, d: Node) => {
         event.stopPropagation(); // Prevent SVG background click
-        if (interactive) {
+        // Allow clicking any discovered node, regardless of locked status
+        if (interactive && d.discovered) {
           setSelectedNodeId(prev => prev === d.id ? null : d.id);
+          
+          // Mark this node as viewed if it's newly discovered
+          if (d.isNewlyDiscovered) {
+            setViewedNodes(prev => {
+              const newSet = new Set(prev);
+              newSet.add(d.id);
+              return newSet;
+            });
+            
+            // Update the local simulation nodes to remove the "newly discovered" visual immediately
+            setSimulationNodes(prevNodes => 
+              prevNodes.map(node => 
+                node.id === d.id ? {...node, hasBeenViewed: true} : node
+              )
+            );
+          }
           
           // Dispatch node selection event
           if (d.id !== selectedNodeId) {
@@ -604,7 +965,117 @@ export default function ConstellationView({
         }
       });
     
-    // Node labels (if enabled) - Update to use pixel font
+    // Add exclamation marks for newly discovered nodes that haven't been viewed
+    const exclamationMarks = nodeGroup.selectAll('.exclamation-mark')
+      .data(simulationNodes.filter(n => n.discovered && n.isNewlyDiscovered && !n.hasBeenViewed))
+      .enter()
+      .append('g')
+      .attr('class', 'exclamation-mark')
+      .attr('transform', d => `translate(${d.x + d.radius*0.8}, ${d.y - d.radius*1.2})`);
+      
+    exclamationMarks.append('circle')
+      .attr('r', 8)
+      .attr('fill', 'rgba(255, 255, 0, 0.9)')
+      .attr('filter', 'url(#exclamation-glow)');
+      
+    exclamationMarks.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'central')
+      .attr('font-weight', 'bold')
+      .attr('font-size', '12px')
+      .attr('fill', 'black')
+      .text('!');
+      
+    // Add pulsating animation
+    exclamationMarks.each(function() {
+      const mark = d3.select(this);
+      
+      // Apply pulsating animation
+      const pulse = () => {
+        mark.selectAll('circle')
+          .transition()
+          .duration(800)
+          .attr('r', 10)
+          .style('opacity', 1)
+          .transition()
+          .duration(800)
+          .attr('r', 8)
+          .style('opacity', 0.7)
+          .on('end', pulse);
+      };
+      
+      pulse();
+    });
+    
+    // Add undiscovered node dots to force simulation
+    const undiscoveredDots = dotGroup.selectAll('circle')
+      .data(simulationNodes.filter(n => !n.discovered))
+      .enter()
+      .append('circle')
+      .attr('r', 1.5) // Tiny pixel-like blips
+      .attr('fill', 'rgba(255, 255, 255, 0.8)') // Higher opacity
+      .attr('opacity', 0.8) // Higher default opacity
+      .style('transition', 'opacity 0.3s ease');
+    
+    // Highlight connections for selected node
+    if (selectedNodeId) {
+      linkElements
+        .style('stroke-width', d => {
+          const isSelected = d.source === selectedNodeId || d.target === selectedNodeId;
+          return isSelected ? 2 : d.patternIds.includes(activePatternId!) ? 3 : 1.5;
+        })
+        .style('opacity', d => {
+          const isSelected = d.source === selectedNodeId || d.target === selectedNodeId;
+          return isSelected ? 1 : 0.3;
+        })
+        .style('stroke', d => {
+          const isSelected = d.source === selectedNodeId || d.target === selectedNodeId;
+          if (isSelected) {
+            return 'rgba(255, 255, 255, 0.8)';
+          }
+          if (activePatternId && d.patternIds.includes(activePatternId)) {
+            return getPatternColor(activePatternId);
+          }
+          return `rgba(180, 180, 255, ${0.3 + (d.strength / 200)})`;
+        });
+        
+      // Apply greying effect to nodes not related to selection
+      nodeElements
+        .style('opacity', (d: Node) => {
+          // Selected node is fully visible
+          if (d.id === selectedNodeId) return 1;
+          
+          // Check if connected to selected node
+          const isConnected = simulationLinks.some(link => 
+            (link.source === selectedNodeId && link.target === d.id) || 
+            (link.target === selectedNodeId && link.source === d.id)
+          );
+          
+          // Connected nodes are fully visible, others are faded
+          return isConnected ? 1 : 0.5;
+        })
+        .style('filter', (d: Node) => {
+          // Strong glow for selected node
+          if (d.id === selectedNodeId) {
+            return 'url(#glow) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))';
+          }
+          
+          // Normal glow for connected nodes or pattern nodes
+          const isConnected = simulationLinks.some(link => 
+            (link.source === selectedNodeId && link.target === d.id) || 
+            (link.target === selectedNodeId && link.source === d.id)
+          );
+          
+          if (isConnected) {
+            return 'url(#glow)';
+          }
+          
+          // Grey out unconnected nodes
+          return 'url(#glow) saturate(50%)';
+        });
+    }
+
+    // Node labels (if enabled)
     if (showLabels) {
       const nodeLabels = nodeGroup.selectAll('text')
         .data(simulationNodes)
@@ -612,10 +1083,9 @@ export default function ConstellationView({
         .append('text')
         .text(d => d.name)
         .attr('font-size', '10px')
-        .attr('font-family', "'Press Start 2P', monospace") // Use pixel font
-        .attr('class', 'font-pixel') // Add font-pixel class
+        .attr('font-family', 'Inter, system-ui, sans-serif')
         .attr('fill', d => {
-          if (activePatternId && d.patterns.includes(activePatternId)) {
+          if (activePatternId && d.patterns.includes(activePatternId) && d.discovered) {
             return '#ffffff';
           }
           return d.discovered ? 'rgba(255, 255, 255, 0.8)' : 'rgba(150, 150, 200, 0.4)';
@@ -624,27 +1094,31 @@ export default function ConstellationView({
         .attr('dy', d => -d.radius - 5)
         .style('pointer-events', 'none')
         .style('text-shadow', '0px 1px 2px rgba(0,0,0,0.8)')
-        .style('image-rendering', 'pixelated') // Keep pixel font crisp
         .style('opacity', d => {
-          // Selected node's label is always visible
-          if (d.id === selectedNodeId) return 1;
+          // Never show labels for potential connections
+          if (d.isPotentialConnection) return 0;
           
-          // When a node is selected, only show labels for it and connected nodes
+          // Only show labels for selected node and its connections when a node is selected
           if (selectedNodeId) {
-            // Check if connected to selected node
+            // This is the selected node
+            if (d.id === selectedNodeId) return 1;
+            
+            // Check if this node is connected to the selected node
             const isConnected = simulationLinks.some(link => 
               (link.source === selectedNodeId && link.target === d.id) || 
               (link.target === selectedNodeId && link.source === d.id)
             );
             
-            return isConnected ? 1 : 0;
+            return isConnected && d.discovered ? 1 : 0;
           }
           
-          // Show labels for nodes in active pattern
-          if (activePatternId && d.patterns.includes(activePatternId)) return 1;
+          // When no node is selected and a pattern is active
+          if (activePatternId && d.patterns.includes(activePatternId) && d.discovered) {
+            return 1;
+          }
           
-          // Default label visibility based on showLabels prop
-          return showLabels ? 0.7 : 0;
+          // Default: depend on showLabels setting, but only for discovered nodes
+          return d.discovered && showLabels ? 0.7 : 0;
         });
     }
     
@@ -665,7 +1139,95 @@ export default function ConstellationView({
       .force('center', d3.forceCenter(0, 0).strength(0.15))
       .force('x', d3.forceX(0).strength(0.1))
       .force('y', d3.forceY(0).strength(0.1))
-      .force('collision', d3.forceCollide().radius((d: any) => d.radius + 15));
+      .force('collision', d3.forceCollide().radius((d: any) => {
+        // Give undiscovered nodes a smaller collision radius
+        if (!d.discovered) {
+          return 5;  // Smaller collision radius for undiscovered nodes
+        }
+        return d.radius + 15;
+      }));
+    
+    // Custom force to create space around selected node
+    if (selectedNodeId && interactive) {
+      // Find the selected node's position
+      const selectedNode = simulationNodes.find(n => n.id === selectedNodeId);
+      if (selectedNode) {
+        // Strengthen the collision force for better separation
+        simulation.force('collision', d3.forceCollide().radius((d: any) => {
+          if (d.id === selectedNodeId) {
+            return d.radius + 30; // Larger collision radius for selected node
+          }
+          
+          // Direct connections get medium collision radius
+          const isConnected = simulationLinks.some(link => 
+            (link.source === selectedNodeId && link.target === d.id) || 
+            (link.target === selectedNodeId && link.source === d.id)
+          );
+          
+          if (isConnected) {
+            return d.radius + 20;
+          }
+          
+          // For unrelated nodes, calculate distance-based collision radius
+          // Further nodes get smaller collision radius (can overlap more)
+          const dx = d.x - selectedNode.x;
+          const dy = d.y - selectedNode.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          // Max influence distance - beyond this, minimum spacing
+          const maxDistance = 300;
+          // Calculate scaling factor based on distance
+          const scaleFactor = Math.max(0.5, 1 - (distance / maxDistance));
+          
+          // Scale collision radius - closer = bigger radius (more spacing)
+          // Further = smaller radius (more dense packing)
+          return d.radius + 15 * scaleFactor;
+        }).strength(0.8)); // Increase collision strength for better enforcement
+        
+        // Also add a custom repulsion force to create more dramatic space near selected node
+        simulation.force('clearSpace', alpha => {
+          for (const node of simulationNodes) {
+            // Skip the selected node and its direct connections
+            if (node.id === selectedNodeId) continue;
+            
+            // Check if connected to selected node
+            const isConnected = simulationLinks.some(link => 
+              (link.source === selectedNodeId && link.target === node.id) || 
+              (link.target === selectedNodeId && link.source === node.id)
+            );
+            
+            // Don't repel connected nodes
+            if (isConnected) continue;
+            
+            // Calculate vector from selected node to this node
+            const dx = node.x - selectedNode.x;
+            const dy = node.y - selectedNode.y;
+            
+            // Calculate distance
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Define the repulsion radius - larger than normal collision distance
+            const repulsionRadius = 200; // Increased for wider effect
+            
+            // Only repel if within radius
+            if (distance < repulsionRadius) {
+              // Normalized direction vector
+              const unitX = dx / distance || 0;
+              const unitY = dy / distance || 0;
+              
+              // Repulsion strength decreases with distance - sharper falloff
+              // Use quadratic falloff for more dramatic near-field effect
+              const proximityFactor = 1 - (distance / repulsionRadius);
+              const strength = (0.8 * alpha) * proximityFactor * proximityFactor;
+              
+              // Apply force - stronger when closer
+              node.vx = (node.vx || 0) + unitX * strength;
+              node.vy = (node.vy || 0) + unitY * strength;
+            }
+          }
+        });
+      }
+    }
     
     // Add pattern-specific forces
     if (activePatternId) {
@@ -757,17 +1319,16 @@ export default function ConstellationView({
           return d.y + baseOffset;
         });
       
+      // Update undiscovered dots position
+      undiscoveredDots
+        .attr('cx', d => d.x)
+        .attr('cy', d => d.y);
+      
       // Update labels if showing
       if (showLabels) {
         nodeGroup.selectAll('text')
-          .attr('x', function(d) {
-            const node = d as unknown as Node;
-            return node.x;
-          })
-          .attr('y', function(d) {
-            const node = d as unknown as Node;
-            return node.y;
-          });
+          .attr('x', d => d.x)
+          .attr('y', d => d.y);
       }
       
       // Update pattern shapes
@@ -797,26 +1358,55 @@ export default function ConstellationView({
           }
         }
       }
+      
+      // Keep center point centered for patterns
+      if (activePatternId) {
+        const patternNodes = simulationNodes.filter(n => n.patterns.includes(activePatternId));
+        if (patternNodes.length > 0) {
+          // Calculate center of pattern
+          const centroidX = patternNodes.reduce((sum, n) => sum + n.x, 0) / patternNodes.length;
+          const centroidY = patternNodes.reduce((sum, n) => sum + n.y, 0) / patternNodes.length;
+          
+          // Translate all nodes to keep pattern centered
+          if (Math.abs(centroidX) > 10 || Math.abs(centroidY) > 10) {
+            simulationNodes.forEach(node => {
+              node.x -= centroidX * 0.1;
+              node.y -= centroidY * 0.1;
+            });
+          }
+        }
+      }
+      
+      // Update exclamation mark positions
+      nodeGroup.selectAll('.exclamation-mark')
+        .attr('transform', d => `translate(${d.x + d.radius*0.8}, ${d.y - d.radius*1.2})`);
     });
     
     // Set link force data
     const linkForce = simulation.force('link') as d3.ForceLink<any, any>;
     if (linkForce) {
       linkForce.links(simulationLinks.map(link => {
-        const sourceNode = simulationNodes.find(n => n.id === link.source);
-        const targetNode = simulationNodes.find(n => n.id === link.target);
-        if (sourceNode && targetNode) {
-          // Use different variable names to avoid the "specified more than once" error
-          return { 
-            source: sourceNode, 
-            target: targetNode, 
-            strength: link.strength,
-            discovered: link.discovered,
-            patternIds: link.patternIds
-          };
+        const source = simulationNodes.find(n => n.id === link.source);
+        const target = simulationNodes.find(n => n.id === link.target);
+        if (source && target) {
+          return { source, target, ...link };
         }
         return null;
       }).filter(Boolean) as any);
+    }
+    
+    // Apply initial force simulation tick
+    // This helps ensure undiscovered nodes start in better positions
+    for (let i = 0; i < 50; i++) {
+      simulation.tick();
+    }
+    
+    // Apply shadow effect to the selected node
+    if (selectedNodeId) {
+      const selectedNodeElement = nodeElements.filter((d: Node) => d.id === selectedNodeId);
+      // Add shadow underneath the selected star for 3D effect
+      selectedNodeElement
+        .style('filter', 'url(#glow) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))');
     }
     
     // Cleanup
@@ -834,7 +1424,8 @@ export default function ConstellationView({
     nightMode,
     detectPatterns,
     nodes,
-    connections
+    connections,
+    viewedNodes
   ]);
 
   // ========= LIFECYCLE MANAGEMENT =========
@@ -900,6 +1491,94 @@ export default function ConstellationView({
     detectPatterns(nodes, connections, new Set()).allComplete,
   [nodes, connections]);
 
+  // Add these functions to update node states
+  const unlockNode = (nodeId: string) => {
+    // Check if we have enough SP
+    if (starPoints < 1) {
+      // Show feedback that player doesn't have enough SP
+      safeDispatch(
+        GameEventType.UI_NOTIFICATION,
+        { message: "Not enough Star Points to unlock", type: "error" },
+        'constellation'
+      );
+      return;
+    }
+
+    // Attempt to spend star points
+    const success = useKnowledgeStore.getState().spendStarPoints(1, `unlock_node_${nodeId}`);
+    
+    if (!success) {
+      safeDispatch(
+        GameEventType.UI_NOTIFICATION,
+        { message: "Failed to unlock node", type: "error" },
+        'constellation'
+      );
+      return;
+    }
+    
+    // Update the simulationNodes directly to see immediate effect
+    const updatedNodes = simulationNodes.map(node => {
+      if (node.id === nodeId) {
+        return { ...node, unlocked: true };
+      }
+      return node;
+    });
+    
+    // Update the simulation nodes
+    setSimulationNodes(updatedNodes);
+    
+    // Update the actual node in the store
+    const storeNodes = useKnowledgeStore.getState().nodes;
+    const updatedStoreNodes = storeNodes.map(node => {
+      if (node.id === nodeId) {
+        return { ...node, unlocked: true };
+      }
+      return node;
+    });
+    
+    // Update the store with the modified nodes
+    useKnowledgeStore.getState().importKnowledgeData({ nodes: updatedStoreNodes });
+    
+    // Dispatch event for any listeners
+    safeDispatch(
+      GameEventType.KNOWLEDGE_NODE_UNLOCKED,
+      { nodeId, spRemaining: starPoints - 1 },
+      'constellation'
+    );
+  };
+
+  const toggleNodeActive = (nodeId: string, isActive: boolean) => {
+    // Update the simulationNodes directly to see immediate effect
+    const updatedNodes = simulationNodes.map(node => {
+      if (node.id === nodeId) {
+        return { ...node, active: isActive };
+      }
+      return node;
+    });
+    
+    // Update the simulation nodes
+    setSimulationNodes(updatedNodes);
+    
+    // In a real implementation, this would update the store
+    // For now, we'll just modify the local nodes state
+    const updatedStoreNodes = nodes.map(node => {
+      if (node.id === nodeId) {
+        return { ...node, active: isActive };
+      }
+      return node;
+    });
+    
+    // This is simulating what would happen in a real implementation
+    safeDispatch(
+      GameEventType.KNOWLEDGE_NODE_ACTIVATION_CHANGED, 
+      { nodeId, isActive },
+      'constellation'
+    );
+    
+    // In a production app, you would call a store method like:
+    // useKnowledgeStore.getState().setNodeActive(nodeId, isActive);
+  };
+
   // ========= COMPONENT RENDER =========
   return (
     <div
@@ -921,73 +1600,74 @@ export default function ConstellationView({
         className="w-full h-full"
       ></svg>
       
-      {/* Debug indicator - visible during development */}
-      <div className="fixed bottom-2 right-2 bg-black bg-opacity-70 text-xs p-1 rounded font-pixel text-white z-50">
-        Panel prop: {showKnowledgePanel ? 'ON' : 'OFF'} | 
-        Panel state: {isPanelVisible ? 'VISIBLE' : 'HIDDEN'}
-      </div>
-      
-      {/* Simple UI elements - Updated with PixelButton */}
+      {/* Simple UI elements */}
       <div className="absolute top-4 right-4 flex space-x-2">
-        {/* Always show knowledge panel toggle button */}
-        <PixelButton 
-          onClick={togglePanel}
-          className="bg-indigo-700 hover:bg-indigo-600 text-white rounded-md flex items-center"
-          size="sm"
-        >
-          <span className="mr-1">{isPanelVisible ? "📚" : "📖"}</span>
-          <span>{isPanelVisible ? "Hide Panel" : "Show Panel"}</span>
-        </PixelButton>
+        {/* SP Currency Display */}
+        <div className="bg-gray-800 text-white px-3 py-1 rounded-full flex items-center mr-2">
+          <span className="text-yellow-400 mr-1">★</span>
+          <span>{starPoints} SP</span>
+        </div>
+        
         {interactive && onClose && (
-          <PixelButton 
+          <button 
             onClick={onClose}
-            className="bg-gray-800 hover:bg-gray-700 text-white rounded-full"
-            size="sm"
+            className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-full"
           >
             ✕
-          </PixelButton>
+          </button>
         )}
       </div>
       
-      {/* Pattern Selection - only if we have patterns - Updated with PatternButton */}
-      {patterns.length > 0 && (
+      {/* Help text at bottom */}
+      {false && (
+        <div className="absolute bottom-2 right-2 text-xs text-gray-400 flex flex-wrap gap-4">
+          <span className="flex items-center">
+            <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current mr-1">
+              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+            </svg>
+            Nodes: Drag to reposition
+          </span>
+          <span className="flex items-center">
+            <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current mr-1">
+              <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+            </svg>
+            Click star to view details
+          </span>
+        </div>
+      )}
+      
+      {/* Pattern Selection - only if we have patterns */}
+      {false && patterns.length > 0 && (
         <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-          <PixelButton
-            size="sm"
-            className={`rounded bg-gray-700 hover:bg-gray-600`}
+          <button
+            className={`px-3 py-1 text-sm rounded bg-gray-700 hover:bg-gray-600`}
             onClick={() => handlePatternSelect(null)}
           >
             Show All
-          </PixelButton>
+          </button>
           
           {patterns.map(pattern => (
-            <PatternButton
+            <button
               key={pattern.id}
-              patternId={pattern.id}
-              isActive={activePatternId === pattern.id}
+              className={`px-3 py-1 text-sm rounded ${
+                activePatternId === pattern.id 
+                  ? 'ring-2 ring-white' 
+                  : 'hover:bg-opacity-80'
+              }`}
+              style={{ backgroundColor: getPatternColor(pattern.id) }}
               onClick={() => handlePatternSelect(pattern.id)}
-              color={getPatternColor(pattern.id)}
-              name={pattern.name}
-            />
+            >
+              {pattern.name}
+            </button>
           ))}
         </div>
       )}
       
-      {/* Knowledge Panel - improved visibility */}
-      {isPanelVisible && (
-        <div className="fixed right-4 top-20 w-80 sm:w-96 md:w-80 lg:w-96 z-20 max-h-[70vh] overflow-auto bg-gray-900 bg-opacity-95 rounded-lg shadow-lg border border-gray-700">
-          <CollapsibleKnowledgePanel 
-            onNodeSelect={(nodeId) => setSelectedNodeId(nodeId)}
-            onPatternSelect={(patternId) => handlePatternSelect(patternId)}
-          />
-        </div>
-      )}
-      
-      {/* Selected Node Info - Updated with PixelText */}
+      {/* Selected Node Info */}
       {selectedNode && (
-        <div className="absolute right-4 top-16 w-64 bg-gray-900 bg-opacity-90 p-3 rounded-md shadow-lg border border-gray-700">
+        <div className="absolute right-4 top-16 w-64 bg-gray-900 bg-opacity-90 p-3 rounded-md shadow-lg border border-gray-700 text-sm">
           <div className="flex justify-between items-center mb-2">
-            <PixelText className="font-bold text-white">{selectedNode.name}</PixelText>
+            <h4 className="font-bold text-md text-white">{selectedNode.name}</h4>
             <button 
               className="text-gray-400 hover:text-white"
               onClick={() => setSelectedNodeId(null)}
@@ -996,7 +1676,7 @@ export default function ConstellationView({
             </button>
           </div>
           
-          <div className="text-xs mb-2 flex items-center text-white font-pixel">
+          <div className="text-xs mb-2 flex items-center text-white">
             <div 
               className="w-3 h-3 rounded-full mr-1" 
               style={{ backgroundColor: DOMAIN_COLORS[selectedNode.domain as KnowledgeDomain] }}
@@ -1005,25 +1685,150 @@ export default function ConstellationView({
             <span className="ml-auto">{selectedNode.mastery}% mastery</span>
           </div>
           
+          {/* Status badges */}
+          <div className="flex flex-wrap gap-1 mt-1 mb-2">
+            {selectedNode.unlocked ? (
+              <span className="px-2 py-0.5 bg-green-800 text-green-100 rounded-full text-xs">Unlocked</span>
+            ) : (
+              <span className="px-2 py-0.5 bg-gray-700 text-gray-300 rounded-full text-xs">Locked</span>
+            )}
+            
+            {selectedNode.active ? (
+              <span className="px-2 py-0.5 bg-yellow-600 text-yellow-100 rounded-full text-xs">Active</span>
+            ) : (
+              <span className="px-2 py-0.5 bg-gray-700 text-gray-300 rounded-full text-xs">Inactive</span>
+            )}
+          </div>
+          
+          <div className="mt-3">
+            <h5 className="text-xs font-bold mb-1 text-gray-400">CONNECTIONS ({
+              discoveredConnections.filter(conn => 
+                conn.source === selectedNode.id || conn.target === selectedNode.id
+              ).length
+            })</h5>
+            
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {discoveredConnections
+                .filter(conn => conn.source === selectedNode.id || conn.target === selectedNode.id)
+                .map(conn => {
+                  const connectedNodeId = conn.source === selectedNode.id ? conn.target : conn.source;
+                  const connectedNode = nodes.find(n => n.id === connectedNodeId);
+                  if (!connectedNode) return null;
+                  
+                  return (
+                    <div 
+                      key={connectedNodeId} 
+                      className="flex items-center p-1 hover:bg-gray-800 rounded"
+                      onClick={() => {
+                        // Allow clicking any discovered node, regardless of locked status
+                        if (connectedNode.discovered) {
+                          setSelectedNodeId(connectedNodeId);
+                        }
+                      }}
+                      style={{ 
+                        cursor: connectedNode.discovered ? 'pointer' : 'default',
+                        opacity: connectedNode.discovered ? (connectedNode.unlocked ? 1 : 0.7) : 0.3
+                      }}
+                    >
+                      <div 
+                        className="w-2 h-2 rounded-full mr-1" 
+                        style={{ backgroundColor: DOMAIN_COLORS[connectedNode.domain as KnowledgeDomain] }}
+                      ></div>
+                      <span className="text-white">{connectedNode.name}</span>
+                      <span className="ml-auto text-xs text-gray-400">{Math.round(conn.strength)}%</span>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+          
           {interactive && (
             <div className="mt-2 grid grid-cols-2 gap-1">
-              <PixelButton 
+              <button 
                 onClick={() => updateMastery(selectedNode.id, 10)}
-                className="bg-blue-800 rounded hover:bg-blue-700 text-white"
-                size="sm"
+                className="p-1 bg-blue-800 rounded hover:bg-blue-700 text-white text-sm"
               >
                 +10% Mastery
-              </PixelButton>
-              <PixelButton 
-                onClick={() => {
-                  // Show a simplified connection UI
-                  alert('Connection feature would go here');
-                }}
-                className="bg-orange-800 rounded hover:bg-orange-700 text-white"
-                size="sm"
-              >
-                Connect
-              </PixelButton>
+              </button>
+              
+              {selectedNode.unlocked ? (
+                // For unlocked stars, show activate/deactivate button
+                <button 
+                  onClick={() => toggleNodeActive(selectedNode.id, !selectedNode.active)}
+                  className={`p-1 rounded text-white text-sm ${
+                    selectedNode.active 
+                      ? 'bg-gray-700 hover:bg-gray-600' 
+                      : 'bg-yellow-700 hover:bg-yellow-600'
+                  }`}
+                >
+                  {selectedNode.active ? 'Deactivate' : 'Activate'}
+                </button>
+              ) : (
+                // For locked stars, show unlock button with cost
+                <button 
+                  onClick={() => unlockNode(selectedNode.id)}
+                  className={`p-1 rounded text-white text-sm ${
+                    starPoints >= 1 
+                      ? 'bg-green-800 hover:bg-green-700' 
+                      : 'bg-gray-700 cursor-not-allowed'
+                  }`}
+                  disabled={starPoints < 1}
+                >
+                  Unlock (1 SP)
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add ConnectionDetails component */}
+      {selectedConnection && (
+        <div className="absolute right-4 top-1/4 bg-gray-800 bg-opacity-90 p-4 rounded-lg shadow-lg border border-gray-600 max-w-xs text-white z-10">
+          <div className="flex justify-between mb-2">
+            <h3 className="font-semibold text-lg">Connection</h3>
+            <button 
+              onClick={() => setSelectedConnection(null)} 
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="mb-3">
+            <div className="text-sm text-gray-300">Between</div>
+            <div className="flex items-center justify-between">
+              <div className="font-medium">{selectedConnection.sourceName}</div>
+              <div className="mx-2">↔</div>
+              <div className="font-medium">{selectedConnection.targetName}</div>
+            </div>
+          </div>
+          <div className="mb-3">
+            <div className="text-sm text-gray-300">Description</div>
+            <div className="text-sm">{selectedConnectionDescription}</div>
+          </div>
+          <div className="mb-1">
+            <div className="text-sm text-gray-300">Mastery</div>
+            <div className="w-full bg-gray-700 h-2 rounded-full">
+              <div 
+                className="bg-blue-500 h-2 rounded-full" 
+                style={{ width: `${selectedConnection.strength}%` }}
+              />
+            </div>
+            <div className="text-xs text-right text-gray-400">{Math.round(selectedConnection.strength)}%</div>
+          </div>
+          {selectedConnection.patternIds.length > 0 && (
+            <div className="mt-2">
+              <div className="text-sm text-gray-300">Part of pattern:</div>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {selectedConnection.patternIds.map(patternId => (
+                  <span 
+                    key={patternId}
+                    className="text-xs bg-indigo-800 px-2 py-1 rounded"
+                  >
+                    {patternId}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -23,6 +23,7 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
       description: "LINAC 2, the Varian TrueBeam used primarily for head and neck treatments."
     },
     isMandatory: true, // Must be visited for proper progression
+    tangentStageId: 'intro-tangent', // Added for tangent ability
     options: [
       { 
         id: "humble-intro",
@@ -45,6 +46,38 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
     ]
   },
   
+  // Tangent stage for intro
+  {
+    id: 'intro-tangent',
+    text: "Actually, that's an excellent opportunity to discuss the broader context of QA protocols. As you know, medical physics spans diagnostic imaging, nuclear medicine, and radiation therapy. What's your primary interest area?",
+    contextNote: "Kapoor sets down the chamber and turns to face you directly, showing rare interest.",
+    equipment: {
+      itemId: "linac",
+      alt: "Linear Accelerator",
+      description: "LINAC 2, the Varian TrueBeam used primarily for head and neck treatments."
+    },
+    options: [
+      { 
+        id: "tangent-radiation-therapy",
+        text: "Radiation therapy - I'm fascinated by the technical aspects of treatment delivery systems.", 
+        nextStageId: 'basics',
+        approach: 'precision',
+        insightGain: 15, // Higher insight for engaging with the tangent
+        relationshipChange: 1,
+        responseText: "An excellent focus area. The technical challenges in treatment delivery systems provide endless opportunities for innovation. Let's return to our calibration, which is fundamental to that field."
+      },
+      { 
+        id: "tangent-imaging",
+        text: "Diagnostic imaging - I'm interested in the intersection of physics and diagnostic medicine.", 
+        nextStageId: 'basics',
+        approach: 'creative',
+        insightGain: 15,
+        relationshipChange: 1,
+        responseText: "The imaging field is rapidly evolving. Many principles we'll cover in treatment QA have parallels in imaging. Now, let's return to our calibration work."
+      }
+    ]
+  },
+  
   // Stage 1: Basic calibration setup
   {
     id: 'basics',
@@ -56,6 +89,8 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
       description: "A calibrated Farmer-type ionization chamber with PMMA buildup cap."
     },
     isMandatory: true, // Must be visited for proper progression
+    tangentStageId: 'basics-tangent', // Added for tangent ability
+    boastStageId: 'basics-boast', // Added for boast ability
     options: [
       { 
         id: "correct-buildup",
@@ -69,8 +104,9 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 15
         },
+        discoverConcepts: ['output-calibration', 'dosimetry'],
         isCriticalPath: true, // Mark as critical path option
-        responseText: "Precisely. Electronic equilibrium is essential for accurate dosimetry. The buildup material ensures charged particle equilibrium at the measurement point."
+        responseText: "Precisely. Electronic equilibrium is essential for accurate dosimetry. The buildup material ensures charged particle equilibrium at the measurement point. You've also discovered a key concept in our knowledge system."
       },
       { 
         id: "engaged-learner",
@@ -103,6 +139,107 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
     ]
   },
   
+  // Boast stage for basics
+  {
+    id: 'basics-boast',
+    text: "Since you're confident in your knowledge, let's delve deeper. Can you explain the relationship between electron fluence perturbation and ionization chamber measurements in the buildup region?",
+    contextNote: "Kapoor raises an eyebrow, watching you carefully as he presents a more technically challenging question.",
+    equipment: {
+      itemId: 'farmer-chamber',
+      alt: "Farmer Chamber",
+      description: "A calibrated Farmer-type ionization chamber with PMMA buildup cap."
+    },
+    options: [
+      { 
+        id: "boast-advanced-correct",
+        text: "The chamber wall perturbs electron fluence, creating over-response in the pre-equilibrium region. The effective point of measurement shift requires depth-dependent corrections.", 
+        nextStageId: 'correction-factors',
+        approach: 'precision',
+        insightGain: 30, // Higher insight for boast success
+        relationshipChange: 2,
+        knowledgeGain: { 
+          conceptId: 'electron_equilibrium_understood',
+          domainId: 'radiation-physics',
+          amount: 25
+        },
+        discoverConcepts: ['output-calibration', 'dosimetry', 'chamber-perturbation'],
+        isCriticalPath: true,
+        responseText: "Excellent technical analysis. The electron fluence perturbation indeed creates complex dosimetric effects in the buildup region. Your understanding of the effective point of measurement shift demonstrates advanced knowledge of chamber dosimetry."
+      },
+      { 
+        id: "boast-partial-correct",
+        text: "Chamber walls increase electron fluence locally, which causes the chamber to over-respond in the buildup region compared to the actual dose at that point.", 
+        nextStageId: 'correction-factors',
+        approach: 'precision',
+        insightGain: 20,
+        relationshipChange: 1,
+        knowledgeGain: { 
+          conceptId: 'electron_equilibrium_understood',
+          domainId: 'radiation-physics',
+          amount: 15
+        },
+        responseText: "That's generally correct. The chamber wall does cause electron fluence perturbation and over-response, though there are additional factors at play regarding the effective point of measurement."
+      },
+      { 
+        id: "boast-incorrect",
+        text: "The wall thickness of the chamber eliminates low-energy scatter, resulting in more accurate readings than would occur in tissue at the same depth.", 
+        nextStageId: 'correction-factors',
+        approach: 'confidence',
+        insightGain: 0, // No insight for incorrect answer
+        relationshipChange: -1,
+        momentumEffect: 'reset', // Reset momentum for failed boast
+        knowledgeGain: { 
+          conceptId: 'electron_equilibrium_understood',
+          domainId: 'radiation-physics',
+          amount: 0
+        },
+        responseText: "That's incorrect. Chamber walls actually increase electron fluence locally, causing over-response rather than increased accuracy. This is a fundamental concept in chamber dosimetry that requires review."
+      }
+    ]
+  },
+  
+  // Tangent stage for basics
+  {
+    id: 'basics-tangent',
+    text: "Since you're asking about buildup, it might be useful to take a step back and consider the fundamental physics. At its core, what do you think is the key principle that governs dose deposition in tissue?",
+    contextNote: "Kapoor's eyes light up with academic interest as he steps away from the equipment.",
+    equipment: {
+      itemId: 'farmer-chamber',
+      alt: "Farmer Chamber",
+      description: "A calibrated Farmer-type ionization chamber with PMMA buildup cap."
+    },
+    options: [
+      { 
+        id: "tangent-kerma",
+        text: "The relationship between kerma and dose - which is in equilibrium at sufficient depth.", 
+        nextStageId: 'correction-factors',
+        approach: 'precision',
+        insightGain: 20,
+        relationshipChange: 2,
+        knowledgeGain: { 
+          conceptId: 'kerma_dose_relationship',
+          domainId: 'radiation-physics',
+          amount: 15
+        },
+        responseText: "Excellent insight. The kerma-dose relationship is indeed fundamental. At shallow depths, kerma exceeds dose due to energy transported away by secondary electrons. At dmax and beyond, charged particle equilibrium is established. Let's return to our calibration discussion."
+      },
+      { 
+        id: "tangent-energy-transfer",
+        text: "Energy transfer mechanisms - primarily through Compton scattering at clinical energies.", 
+        nextStageId: 'correction-factors',
+        approach: 'precision',
+        insightGain: 15,
+        relationshipChange: 1,
+        knowledgeGain: { 
+          conceptId: 'energy_transfer_mechanisms',
+          domainId: 'radiation-physics',
+          amount: 10
+        },
+        responseText: "Good observation. Compton scattering dominates in the megavoltage range, while photoelectric effect is more significant in kilovoltage beams and with high-Z materials. These interaction mechanisms create the secondary electrons that deposit dose. Now, back to our calibration."
+      }
+    ]
+  },
+  
   // Stage 2: PTP Correction Factors
   {
     id: 'correction-factors',
@@ -113,6 +250,8 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
       alt: "Electrometer",
       description: "Standard Therapy Electrometer with digital readout displaying charge collection."
     },
+    tangentStageId: 'correction-factors-tangent', // Added for tangent ability
+    boastStageId: 'correction-factors-boast', // Added for boast ability
     options: [
       { 
         id: "correct-ptp",
@@ -156,6 +295,107 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
     ]
   },
   
+  // Boast stage for correction factors
+  {
+    id: 'correction-factors-boast',
+    text: "For someone with your confidence, let's discuss the correction factors more rigorously. Can you provide the mathematical relationship between pressure-temperature correction and the mass stopping power ratio in absolute dosimetry?",
+    contextNote: "Kapoor's expression turns serious as he challenges you with an advanced dosimetry question.",
+    equipment: {
+      itemId: 'electrometer',
+      alt: "Electrometer",
+      description: "Standard Therapy Electrometer with digital readout displaying charge collection."
+    },
+    options: [
+      { 
+        id: "boast-correction-expert",
+        text: "The PTP correction accounts for air density variations but is independent of the stopping power ratio. However, both factors appear in the full dose equation: D = M × NK × PTP × Pion × Ppol × kQ × (SW,air)med", 
+        nextStageId: 'measurement-tolerance',
+        approach: 'precision',
+        insightGain: 30,
+        relationshipChange: 2,
+        knowledgeGain: { 
+          conceptId: 'dosimetry_correction_factors',
+          domainId: 'dosimetry',
+          amount: 25
+        },
+        discoverConcepts: ['correction-factors', 'absolute-dosimetry'],
+        isCriticalPath: true,
+        responseText: "Very impressive. Your formulation correctly separates the environmental corrections from the beam quality factors while understanding how they integrate in the complete dosimetry equation. This level of understanding is essential for clinical medical physics."
+      },
+      { 
+        id: "boast-correction-partial",
+        text: "The PTP correction normalizes readings to standard temperature and pressure of 22°C and 101.325 kPa. It's calculated as (273.2+T)/(273.2+T0) × (P0/P), while stopping power ratios are determined separately.", 
+        nextStageId: 'measurement-tolerance',
+        approach: 'precision',
+        insightGain: 20,
+        relationshipChange: 1,
+        knowledgeGain: { 
+          conceptId: 'dosimetry_correction_factors',
+          domainId: 'dosimetry',
+          amount: 15
+        },
+        responseText: "Your formula for PTP is correct, though standard temperature is typically defined as 20°C rather than 22°C. You're right that stopping power ratios are determined separately, as they relate to beam quality rather than environmental conditions."
+      },
+      { 
+        id: "boast-correction-incorrect",
+        text: "The stopping power ratio is directly proportional to the PTP correction since both account for the density effect on electron transport in the chamber.", 
+        nextStageId: 'measurement-tolerance',
+        approach: 'confidence',
+        insightGain: 0,
+        relationshipChange: -1,
+        momentumEffect: 'reset',
+        knowledgeGain: { 
+          conceptId: 'dosimetry_correction_factors',
+          domainId: 'dosimetry',
+          amount: 0
+        },
+        responseText: "That's incorrect. The PTP correction accounts for air density variations in the chamber due to environmental conditions, while stopping power ratios account for differences in radiation interaction properties between media. They are independent corrections with different physical bases."
+      }
+    ]
+  },
+  
+  // Tangent stage for correction factors
+  {
+    id: 'correction-factors-tangent',
+    text: "The correction factors we use today evolved from decades of research. Historically speaking, do you know which international protocol first standardized the PTP correction methodology we're using?",
+    contextNote: "Kapoor examines the electrometer with a nostalgic expression, remembering earlier days in the field.",
+    equipment: {
+      itemId: 'electrometer',
+      alt: "Electrometer",
+      description: "Standard Therapy Electrometer with digital readout displaying charge collection."
+    },
+    options: [
+      { 
+        id: "tangent-iaea398",
+        text: "IAEA TRS-398, which unified previous approaches from different national protocols.", 
+        nextStageId: 'measurement-tolerance',
+        approach: 'precision',
+        insightGain: 20,
+        relationshipChange: 1,
+        knowledgeGain: { 
+          conceptId: 'dosimetry_protocols',
+          domainId: 'radiation-physics',
+          amount: 15
+        },
+        responseText: "Good answer. While TRS-398 did unify many approaches, these corrections actually date back to the earlier ICRU Report 14 in 1969, which established the basic framework. Nevertheless, your knowledge of the protocols is impressive. Let's return to our current measurements."
+      },
+      { 
+        id: "tangent-aapm",
+        text: "I believe it was AAPM TG-51, though various countries had their own protocols before that.", 
+        nextStageId: 'measurement-tolerance',
+        approach: 'humble',
+        insightGain: 15,
+        relationshipChange: 1,
+        knowledgeGain: { 
+          conceptId: 'dosimetry_protocols',
+          domainId: 'radiation-physics',
+          amount: 10
+        },
+        responseText: "A reasonable guess. TG-51 did standardize these corrections for North America, though the European protocols like DIN and the UK's IPEMB had similar approaches. The concepts trace back even further to ICRU Report 14. Now, back to our practical application."
+      }
+    ]
+  },
+  
   // Backstory Stage
   {
     id: 'backstory-ptp',
@@ -174,6 +414,7 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
       alt: "Measurement Log",
       description: "Digital measurement log showing consistent 101.2% output readings."
     },
+    tangentStageId: 'tolerance-tangent', // Added for tangent ability
     options: [
       { 
         id: "correct-tolerance",
@@ -200,18 +441,55 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
         responseText: "That would be unnecessary. Our protocols follow TG-142 guidelines which specify a ±2% tolerance. Frequent recalibration can introduce more variability over time."
       },
       { 
-        id: "incorrect-uncertainty",
-        text: "Repeat the measurement to reduce uncertainty.", 
+        id: "incorrect-follow-up",
+        text: "We should repeat the measurement with a different chamber to confirm.", 
         nextStageId: 'clinical-significance',
-        approach: 'humble',
+        approach: 'question',
         insightGain: 5,
         relationshipChange: 0,
+        responseText: "While cross-verification is generally good practice, it's not required for a reading that's well within tolerance. That would be necessary if we were closer to the 2% threshold or if we had inconsistent readings."
+      }
+    ]
+  },
+  
+  // Tangent stage for tolerance
+  {
+    id: 'tolerance-tangent',
+    text: "The tolerance values we use have interesting statistical and clinical foundations. In your opinion, should tolerance levels be based primarily on statistical capability of the machines or on clinical outcome thresholds?",
+    contextNote: "Kapoor leans back against the wall, clearly enjoying this philosophical detour from routine measurements.",
+    equipment: {
+      itemId: 'measurement-log',
+      alt: "Measurement Log",
+      description: "Digital measurement log showing consistent 101.2% output readings."
+    },
+    options: [
+      { 
+        id: "tangent-clinical-focus",
+        text: "Clinical outcome thresholds should drive tolerances - we should establish what dose variation is clinically significant.", 
+        nextStageId: 'clinical-significance',
+        approach: 'confidence',
+        insightGain: 20,
+        relationshipChange: 2,
         knowledgeGain: { 
-          conceptId: 'output_calibration_tolerance',
+          conceptId: 'clinical_significance_thresholds',
           domainId: 'radiation-physics',
-          amount: 5
+          amount: 15
         },
-        responseText: "We already performed three measurements with excellent reproducibility. At 101.2%, we're well within the ±2% tolerance specified by TG-142. Additional measurements would not change our action plan."
+        responseText: "An excellent perspective. Indeed, some have argued that our current tolerances are more historically based on what was achievable rather than what is clinically necessary. Modern SBRT treatments particularly challenge this balance. Very insightful - let's return to our measurements."
+      },
+      { 
+        id: "tangent-balanced-approach",
+        text: "A balanced approach - we need statistically achievable tolerances that still guarantee clinical safety.", 
+        nextStageId: 'clinical-significance',
+        approach: 'humble',
+        insightGain: 15,
+        relationshipChange: 1,
+        knowledgeGain: { 
+          conceptId: 'clinical_significance_thresholds',
+          domainId: 'radiation-physics',
+          amount: 10
+        },
+        responseText: "A practical viewpoint. This balance is indeed what most protocols attempt to achieve. The challenge comes when treatments like SBRT push the boundaries of what's clinically necessary versus what's reliably achievable. Good discussion - now back to our task."
       }
     ]
   },

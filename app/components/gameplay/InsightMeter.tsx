@@ -34,11 +34,11 @@ export default function InsightMeter({
   showAnimation = false
 }: InsightMeterProps) {
   // PATTERN: Extract primitive values using specialized hooks
-  const insight = usePrimitiveStoreValue(useResourceStore, state => state.insight, 0);
-  const insightMax = usePrimitiveStoreValue(useResourceStore, state => state.insightMax, 100);
+  const insight = usePrimitiveStoreValue(useResourceStore, (state: any) => state.insight, 0);
+  const insightMax = usePrimitiveStoreValue(useResourceStore, (state: any) => state.insightMax, 100);
   
   // Stable extraction of the effect object to avoid reference changes
-  const insightEffect = useStableStoreValue(useResourceStore, state => state.insightEffect || { 
+  const insightEffect = useStableStoreValue(useResourceStore, (state: any) => state.insightEffect || { 
     active: false, 
     duration: 2000, 
     intensity: 'medium' 
@@ -385,9 +385,9 @@ export default function InsightMeter({
       {size === 'lg' && !compact && !vertical && (
         <div className="flex justify-between text-2xs mt-1 px-1">
           <div className="text-gray-400">0</div>
-          <div className={fillPercentage >= 25 ? 'text-blue-400' : 'text-gray-600'}>25◆</div>
-          <div className={fillPercentage >= 50 ? 'text-purple-400' : 'text-gray-600'}>50◆</div>
-          <div className={fillPercentage >= 75 ? 'text-teal-400' : 'text-gray-600'}>75◆</div>
+          <div className={insight >= 25 ? 'text-blue-400' : 'text-gray-400'}>25◆</div>
+          <div className={insight >= 50 ? 'text-purple-400' : 'text-gray-400'}>50◆</div>
+          <div className={insight >= 75 ? 'text-teal-400' : 'text-gray-400'}>75◆</div>
           <div className="text-gray-400">100</div>
         </div>
       )}
@@ -396,9 +396,9 @@ export default function InsightMeter({
       {size === 'lg' && !compact && vertical && (
         <div className="flex flex-col justify-between text-2xs text-gray-400 ml-1 py-1 h-full">
           <div>100</div>
-          <div className={fillPercentage >= 75 ? 'text-teal-400' : 'text-gray-600'}>75◆</div>
-          <div className={fillPercentage >= 50 ? 'text-purple-400' : 'text-gray-600'}>50◆</div>
-          <div className={fillPercentage >= 25 ? 'text-blue-400' : 'text-gray-600'}>25◆</div>
+          <div className={insight >= 75 ? 'text-teal-400' : 'text-gray-400'}>75◆</div>
+          <div className={insight >= 50 ? 'text-purple-400' : 'text-gray-400'}>50◆</div>
+          <div className={insight >= 25 ? 'text-blue-400' : 'text-gray-400'}>25◆</div>
           <div>0</div>
         </div>
       )}

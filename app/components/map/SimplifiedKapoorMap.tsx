@@ -10,6 +10,7 @@ import { safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { usePrimitiveStoreValue, useStableCallback } from '@/app/core/utils/storeHooks';
 import Image from 'next/image';
+import { playSound } from '@/app/core/sound/SoundManager';
 
 // Add this at the top level of the file, before the component
 declare global {
@@ -610,12 +611,8 @@ const SimplifiedKapoorMap: React.FC = () => {
       nodeAnimationTimerRef.current = null;
     }
     
-    // Play selection sound
-    if (typeof window !== 'undefined') {
-      const audio = new Audio('/sounds/node-select.mp3');
-      audio.volume = 0.5;
-      audio.play().catch(e => console.warn('Audio play failed:', e));
-    }
+    // Play selection sound using the new SoundManager
+    playSound('select');
     
     // Create a more efficient fade overlay with fewer opacity steps
     const fadeOverlay = document.createElement('div');

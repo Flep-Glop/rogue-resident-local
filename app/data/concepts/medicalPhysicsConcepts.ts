@@ -76,8 +76,11 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
       'treatment-delivery', 'radiation-therapy', 'dosimetry'
     ],
     discovered: false,
+    unlocked: false,
+    active: false,
     position: calculatePosition(0, 'TREATMENT_PLANNING'),
-    orbit: 0
+    orbit: 0,
+    spCost: 10 // Core concept SP cost
   },
 
   // Radiation Therapy Core
@@ -92,8 +95,11 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
       'delivery-techniques', 'patient-positioning'
     ],
     discovered: false,
+    unlocked: false,
+    active: false,
     position: calculatePosition(0, 'RADIATION_THERAPY'),
-    orbit: 0
+    orbit: 0,
+    spCost: 10 // Core concept SP cost
   },
 
   // Linac Anatomy Core
@@ -108,8 +114,11 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
       'beam-generation', 'beam-modification', 'imaging-systems'
     ],
     discovered: false,
+    unlocked: false,
+    active: false,
     position: calculatePosition(0, 'LINAC_ANATOMY'),
-    orbit: 0
+    orbit: 0,
+    spCost: 10 // Core concept SP cost
   },
 
   // Dosimetry Core
@@ -124,8 +133,11 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
       'output-calibration', 'relative-dosimetry', 'patient-qa'
     ],
     discovered: false,
+    unlocked: false,
+    active: false,
     position: calculatePosition(0, 'DOSIMETRY'),
-    orbit: 0
+    orbit: 0,
+    spCost: 10 // Core concept SP cost
   },
 
   // =================================================================================
@@ -143,8 +155,11 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     mastery: 0,
     connections: ['treatment-planning', 'organs-at-risk', 'prescription', 'contour-analysis'],
     discovered: false,
+    unlocked: false,
+    active: false,
     position: calculatePosition(1, 'TREATMENT_PLANNING', -1),
-    orbit: 1
+    orbit: 1,
+    spCost: 15 // Orbit 1 concept SP cost
   },
   
   // Prescription
@@ -236,8 +251,11 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     mastery: 0,
     connections: ['plan-evaluation', 'multi-criteria-optimization', 'dose-constraints'],
     discovered: false,
+    unlocked: false,
+    active: false,
     position: calculatePosition(2, 'TREATMENT_PLANNING', 2),
-    orbit: 2
+    orbit: 2,
+    spCost: 25 // Orbit 2 concept SP cost
   },
   
   // Plan QA
@@ -264,8 +282,11 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     mastery: 0,
     connections: ['contour-analysis'],
     discovered: false,
+    unlocked: false,
+    active: false,
     position: calculatePosition(3, 'TREATMENT_PLANNING', -2),
-    orbit: 3
+    orbit: 3,
+    spCost: 40 // Orbit 3 concept SP cost
   },
   
   // OAR Prioritization
@@ -952,9 +973,9 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     name: 'Radiation Dosimetry',
     domain: KNOWLEDGE_DOMAINS.DOSIMETRY,
     description: 'The measurement of absorbed dose delivered by ionizing radiation.',
-    mastery: 25, // Initially discovered concept
+    mastery: 0, // Set to 0 initially
     connections: ['linear-energy-transfer', 'dosimetry'],
-    discovered: true, // Initially discovered
+    discovered: false, // Set to undiscovered by default
     position: calculatePosition(1, 'DOSIMETRY', -1),
     orbit: 1
   },

@@ -35,178 +35,145 @@ export default function ConstellationDebugControls({
     setShowShootingStars
   );
 
-  // Handle discovering all nodes
-  const handleDiscoverAll = useStableCallback(() => {
+  // Handle discovering a specific number of nodes
+  const handleDiscoverNodes = useStableCallback((count: number | null) => {
     try {
       const knowledgeStore = useKnowledgeStore.getState();
       const nodes = knowledgeStore.nodes;
       
-      // Add debug info
-      console.log('DEBUG: Current discovered nodes:', 
-        nodes.filter(n => n.discovered).map(n => ({id: n.id, name: n.name, position: n.position}))
-      );
-      
-      // Set to the opposite of current state
-      const newState = !allDiscovered;
-      setAllDiscovered(newState);
-      
-      // First update the visualization control
-      constellationVisualizationControl.toggleDiscovery(newState);
-      
-      if (newState) {
-        // Discover all nodes
-        console.log('DEBUG: Discovering all nodes...');
-        let discoveredCount = 0;
-        
-        nodes.forEach(node => {
-          if (!node.discovered) {
-            console.log(`DEBUG: Discovering node: ${node.id} - ${node.name}, current position:`, node.position);
-            knowledgeStore.discoverConcept(node.id);
-            discoveredCount++;
-          }
-        });
-        
-        // Log after discovery
-        console.log(`DEBUG: Discovered ${discoveredCount} new nodes`);
-        console.log('DEBUG: Post-discovery nodes:',
-          knowledgeStore.nodes
-            .filter(n => n.discovered)
-            .map(n => ({id: n.id, name: n.name, position: n.position}))
-        );
-        
-        showFeedback(`All nodes discovered (${discoveredCount} new)`, 'success');
-      } else {
-        // Reset to original discovered state - this requires reimporting the original data
+      // If count is null, we're resetting discoveries
+      if (count === null) {
+        setAllDiscovered(false);
+        constellationVisualizationControl.toggleDiscovery(false);
         knowledgeStore.resetKnowledge();
         showFeedback('Knowledge reset to initial state', 'info');
-        
-        // Check post-reset
-        console.log('DEBUG: After reset, discovered nodes:', 
-          knowledgeStore.nodes.filter(n => n.discovered).map(n => n.id)
-        );
+        return;
       }
-    } catch (error) {
-      console.error('Error toggling node discovery:', error);
-      showFeedback('Error toggling node discovery', 'error');
-    }
-  });
-
-  // Handle setting mastery level for all nodes
-  const handleSetMastery = useStableCallback((level: number) => {
-    try {
-      const knowledgeStore = useKnowledgeStore.getState();
-      const nodes = knowledgeStore.nodes;
       
-      setMasteryLevel(level);
+      // Get undiscovered nodes
+      const undiscoveredNodes = nodes.filter(node => !node.discovered);
       
-      // Update visualization control first
-      constellationVisualizationControl.setMasteryLevel(level);
+      // If there are no undiscovered nodes, show a message
+      if (undiscoveredNodes.length === 0) {
+        showFeedback('All nodes are already discovered', 'info');
+        return;
+      }
       
-      // Filter nodes by domain if needed
-      const nodesToUpdate = selectedDomain === 'all' 
-        ? nodes 
-        : nodes.filter(node => node.domain === selectedDomain);
+      // Determine how many nodes to discover
+      const nodesToDiscover = count === -1 
+        ? undiscoveredNodes 
+        : undiscoveredNodes.slice(0, count);
       
-      // Count how many nodes were updated for feedback
-      let updatedCount = 0;
+      // Discover the nodes
+      let discoveredCount = 0;
       
-      // Update mastery for all filtered nodes
-      nodesToUpdate.forEach(node => {
-        if (node.discovered) {
-          // Calculate difference to reach the desired level
-          const diff = level - node.mastery;
-          if (diff !== 0) {
-            knowledgeStore.updateMastery(node.id, diff);
-            updatedCount++;
-          }
-        }
+      nodesToDiscover.forEach(node => {
+        knowledgeStore.discoverConcept(node.id);
+        discoveredCount++;
       });
       
-      const domainText = selectedDomain === 'all' ? 'all domains' : selectedDomain;
-      showFeedback(`Mastery set to ${level}% for ${updatedCount} nodes in ${domainText}`, 'success');
+      // If we discovered all nodes, update the state
+      if (count === -1 || nodesToDiscover.length === undiscoveredNodes.length) {
+        setAllDiscovered(true);
+        constellationVisualizationControl.toggleDiscovery(true);
+      }
+      
+      const message = count === -1 
+        ? `All nodes discovered (${discoveredCount} new)` 
+        : `${discoveredCount} nodes discovered`;
+      
+      showFeedback(message, 'success');
     } catch (error) {
-      console.error('Error setting mastery level:', error);
-      showFeedback('Error setting mastery level', 'error');
+      console.error('Error discovering nodes:', error);
+      showFeedback('Error discovering nodes', 'error');
     }
   });
 
-  // Handle connecting all possible nodes
-  const handleConnectAll = useStableCallback(() => {
+  // Handle connecting a specific number of node pairs
+  const handleConnectNodes = useStableCallback((count: number | null) => {
     try {
       const knowledgeStore = useKnowledgeStore.getState();
       const nodes = knowledgeStore.nodes;
       const connections = knowledgeStore.connections;
       
-      // Set to the opposite of current state
-      const newState = !allConnections;
-      setAllConnections(newState);
-      
-      // Update visualization control first
-      constellationVisualizationControl.toggleConnections(newState);
-      
-      if (newState) {
-        // Track pairs to avoid duplicates
-        const processedPairs = new Set<string>();
-        
-        // Get discovered nodes
-        const discoveredNodes = nodes.filter(node => node.discovered);
-        
-        // Create all possible connections between discovered nodes
-        discoveredNodes.forEach(node => {
-          discoveredNodes.forEach(targetNode => {
-            if (node.id !== targetNode.id) {
-              // Create a unique key for the node pair
-              const pairKey = [node.id, targetNode.id].sort().join('-');
-              
-              // Skip if we've already processed this pair
-              if (processedPairs.has(pairKey)) return;
-              processedPairs.add(pairKey);
-              
-              // Check if connection already exists
-              const connectionExists = connections.some(
-                conn => (conn.source === node.id && conn.target === targetNode.id) ||
-                       (conn.source === targetNode.id && conn.target === node.id)
-              );
-              
-              // Create connection if it doesn't exist
-              if (!connectionExists) {
-                knowledgeStore.createConnection(node.id, targetNode.id);
-              }
-            }
-          });
-        });
-        
-        showFeedback('All possible connections created', 'success');
-      } else {
-        // We can't easily revert connections, so we'll reset the knowledge state
+      // If count is null, we're resetting connections
+      if (count === null) {
+        setAllConnections(false);
+        constellationVisualizationControl.toggleConnections(false);
         knowledgeStore.resetKnowledge();
         showFeedback('Knowledge reset to initial state', 'info');
+        return;
       }
-    } catch (error) {
-      console.error('Error toggling connections:', error);
-      showFeedback('Error toggling connections', 'error');
-    }
-  });
-
-  // Handle toggling shooting stars (simulated - trigger particle effects)
-  const handleToggleShootingStars = useStableCallback(() => {
-    try {
-      // Toggle shooting stars state
-      const newState = !showShootingStars;
-      setShowShootingStars(newState);
       
-      // Update visualization control
-      constellationVisualizationControl.toggleShootingStars(newState);
+      // Track pairs to avoid duplicates
+      const processedPairs = new Set<string>();
       
-      showFeedback(`Shooting stars ${newState ? 'enabled' : 'disabled'}`, 'info');
+      // Get discovered nodes
+      const discoveredNodes = nodes.filter(node => node.discovered);
       
-      // The visualization control will handle triggering the actual particle effects
-      if (newState) {
-        console.log('DEBUG: Shooting stars activated across the constellation');
+      // Create a list of potential connections (node pairs that aren't already connected)
+      const potentialConnections: { source: string, target: string }[] = [];
+      
+      discoveredNodes.forEach(node => {
+        discoveredNodes.forEach(targetNode => {
+          if (node.id !== targetNode.id) {
+            // Create a unique key for the node pair
+            const pairKey = [node.id, targetNode.id].sort().join('-');
+            
+            // Skip if we've already processed this pair
+            if (processedPairs.has(pairKey)) return;
+            processedPairs.add(pairKey);
+            
+            // Check if connection already exists
+            const connectionExists = connections.some(
+              conn => (conn.source === node.id && conn.target === targetNode.id) ||
+                     (conn.source === targetNode.id && conn.target === node.id)
+            );
+            
+            // Add to potential connections if not already connected
+            if (!connectionExists) {
+              potentialConnections.push({ 
+                source: node.id, 
+                target: targetNode.id 
+              });
+            }
+          }
+        });
+      });
+      
+      // If there are no potential connections, show a message
+      if (potentialConnections.length === 0) {
+        showFeedback('All possible connections already exist', 'info');
+        return;
       }
+      
+      // Determine how many connections to create
+      const connectionsToCreate = count === -1 
+        ? potentialConnections 
+        : potentialConnections.slice(0, count);
+      
+      // Create the connections
+      let connectionCount = 0;
+      
+      connectionsToCreate.forEach(conn => {
+        knowledgeStore.createConnection(conn.source, conn.target);
+        connectionCount++;
+      });
+      
+      // If we connected all possible connections, update the state
+      if (count === -1 || connectionsToCreate.length === potentialConnections.length) {
+        setAllConnections(true);
+        constellationVisualizationControl.toggleConnections(true);
+      }
+      
+      const message = count === -1 
+        ? `All possible connections created (${connectionCount} new)` 
+        : `${connectionCount} connections created`;
+      
+      showFeedback(message, 'success');
     } catch (error) {
-      console.error('Error toggling shooting stars:', error);
-      showFeedback('Error toggling shooting stars', 'error');
+      console.error('Error connecting nodes:', error);
+      showFeedback('Error connecting nodes', 'error');
     }
   });
 
@@ -311,118 +278,70 @@ export default function ConstellationDebugControls({
       {/* Domain selector */}
       {renderDomainSelector()}
       
-      {/* Discovery toggle */}
+      {/* Discovery buttons */}
       <div className="mb-3">
-        <button
-          className={`px-2 py-1 w-full text-xs rounded pixel-button ${
-            allDiscovered ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'
-          } text-white`}
-          onClick={handleDiscoverAll}
-        >
-          {allDiscovered ? 'Reset Discoveries' : 'Discover All Nodes'}
-        </button>
-      </div>
-      
-      {/* Mastery level setter */}
-      <div className="mb-3">
-        <label className="block text-xs mb-1 text-gray-300">Set Mastery Level:</label>
-        <div className="grid grid-cols-5 gap-2">
-          {[0, 25, 50, 75, 100].map(level => (
-            <button
-              key={level}
-              className={`px-2 py-1 text-xs rounded pixel-button ${
-                masteryLevel === level 
-                  ? 'bg-purple-600 hover:bg-purple-500' 
-                  : 'bg-gray-600 hover:bg-gray-500'
-              } text-white`}
-              onClick={() => handleSetMastery(level)}
-            >
-              {level}%
-            </button>
-          ))}
+        <h4 className="text-xs mb-1 text-gray-300">Discover Stars:</h4>
+        <div className="grid grid-cols-4 gap-2">
+          <button
+            className="px-2 py-1 text-xs rounded pixel-button bg-blue-600 hover:bg-blue-500 text-white"
+            onClick={() => handleDiscoverNodes(1)}
+          >
+            1 Star
+          </button>
+          <button
+            className="px-2 py-1 text-xs rounded pixel-button bg-blue-600 hover:bg-blue-500 text-white"
+            onClick={() => handleDiscoverNodes(5)}
+          >
+            5 Stars
+          </button>
+          <button
+            className="px-2 py-1 text-xs rounded pixel-button bg-blue-600 hover:bg-blue-500 text-white"
+            onClick={() => handleDiscoverNodes(10)}
+          >
+            10 Stars
+          </button>
+          <button
+            className={`px-2 py-1 text-xs rounded pixel-button ${
+              allDiscovered ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'
+            } text-white`}
+            onClick={() => allDiscovered ? handleDiscoverNodes(null) : handleDiscoverNodes(-1)}
+          >
+            {allDiscovered ? 'Reset' : 'All'}
+          </button>
         </div>
       </div>
       
-      {/* Connection toggle */}
+      {/* Connection buttons */}
       <div className="mb-3">
-        <button
-          className={`px-2 py-1 w-full text-xs rounded pixel-button ${
-            allConnections ? 'bg-orange-600 hover:bg-orange-500' : 'bg-blue-600 hover:bg-blue-500'
-          } text-white`}
-          onClick={handleConnectAll}
-        >
-          {allConnections ? 'Reset Connections' : 'Connect All Nodes'}
-        </button>
-      </div>
-      
-      {/* Shooting stars toggle */}
-      <div className="mb-3">
-        <button
-          className={`px-2 py-1 w-full text-xs rounded pixel-button ${
-            showShootingStars ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-blue-600 hover:bg-blue-500'
-          } text-white`}
-          onClick={handleToggleShootingStars}
-        >
-          {showShootingStars ? 'Disable Shooting Stars' : 'Enable Shooting Stars'}
-        </button>
-      </div>
-      
-      {/* Layout section */}
-      <div className="mb-3">
-        <button
-          className="px-2 py-1 w-full text-xs rounded pixel-button bg-indigo-600 hover:bg-indigo-500 text-white"
-          onClick={handleApplyLayout}
-        >
-          Apply Orbital Layout
-        </button>
-      </div>
-      
-      {/* Pattern detection */}
-      <div className="mb-3">
-        <button
-          className="px-2 py-1 w-full text-xs rounded pixel-button bg-teal-600 hover:bg-teal-500 text-white"
-          onClick={handleDetectPatterns}
-        >
-          Detect Patterns
-        </button>
-        
-        {/* Display detected patterns */}
-        {detectedPatterns.length > 0 && (
-          <div className="mt-2 p-2 bg-gray-700 rounded text-xs">
-            <div className="font-semibold mb-1 text-teal-300">Detected Patterns:</div>
-            <ul className="list-disc pl-4 space-y-1">
-              {detectedPatterns.map(pattern => (
-                <li key={pattern.id} className="text-teal-100">
-                  {pattern.name}
-                  <span className="text-gray-400 ml-1">({pattern.formation})</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-      
-      {/* Reset all */}
-      <div>
-        <button
-          className="px-2 py-1 w-full text-xs rounded pixel-button bg-red-600 hover:bg-red-500 text-white"
-          onClick={() => {
-            // Reset all toggles and knowledge state
-            setAllDiscovered(false);
-            setMasteryLevel(0);
-            setAllConnections(false);
-            setShowShootingStars(false);
-            
-            // Reset visualization control
-            constellationVisualizationControl.resetOptions();
-            
-            // Reset knowledge store
-            useKnowledgeStore.getState().resetKnowledge();
-            showFeedback('All constellation settings reset', 'info');
-          }}
-        >
-          Reset All Settings
-        </button>
+        <h4 className="text-xs mb-1 text-gray-300">Connect Stars:</h4>
+        <div className="grid grid-cols-4 gap-2">
+          <button
+            className="px-2 py-1 text-xs rounded pixel-button bg-blue-600 hover:bg-blue-500 text-white"
+            onClick={() => handleConnectNodes(1)}
+          >
+            1 Conn
+          </button>
+          <button
+            className="px-2 py-1 text-xs rounded pixel-button bg-blue-600 hover:bg-blue-500 text-white"
+            onClick={() => handleConnectNodes(5)}
+          >
+            5 Conn
+          </button>
+          <button
+            className="px-2 py-1 text-xs rounded pixel-button bg-blue-600 hover:bg-blue-500 text-white"
+            onClick={() => handleConnectNodes(10)}
+          >
+            10 Conn
+          </button>
+          <button
+            className={`px-2 py-1 text-xs rounded pixel-button ${
+              allConnections ? 'bg-orange-600 hover:bg-orange-500' : 'bg-blue-600 hover:bg-blue-500'
+            } text-white`}
+            onClick={() => allConnections ? handleConnectNodes(null) : handleConnectNodes(-1)}
+          >
+            {allConnections ? 'Reset' : 'All'}
+          </button>
+        </div>
       </div>
     </div>
   );

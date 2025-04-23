@@ -734,53 +734,52 @@ export function useEventSubscription<T = any>(
   callback: EventCallback<T>,
   dependencies: any[] = []
 ) {
-  // Store callback in ref for latest version
-  const callbackRef = useRef(callback);
+  // Get the event bus
+  const eventBus = CentralEventBus.getInstance();
   
-  // Update ref when callback changes
-  useEffect(() => {
-    callbackRef.current = callback;
-  }, [callback]);
-  
-  // Create stable callback that uses latest reference
+  // Keep a stable callback reference
+  // Uses useCallback with dependencies array to avoid infinite subscription cycles
   const stableCallback = useCallback((event: GameEvent<T>) => {
-    try {
-      callbackRef.current(event);
-    } catch (error) {
-      logEvent(
-        EVENT_CONFIG.DEBUG_LEVEL.ERROR,
-        `Error in event subscription callback:`,
-        error
-      );
+    // Special logging for knowledge discovery events
+    if (event.type === GameEventType.KNOWLEDGE_DISCOVERED) {
+      console.log(`🔍 [useEventSubscription] Received KNOWLEDGE_DISCOVERED event:`, event);
+      console.log(`🔍 [useEventSubscription] Event payload:`, event.payload);
     }
-  }, []); // Empty dependency array for stable reference
+    
+    // Call the actual handler
+    callback(event);
+  }, [callback, ...dependencies]);
   
-  // Set up subscription
+  // Ref to track the unsubscribe function
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  
+  // Set up subscription on mount/changes
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
-    
-    try {
-      // Handle array of event types or single event type
-      if (Array.isArray(eventType)) {
-        unsubscribe = useEventBus.getState().subscribeMany(eventType, stableCallback as any);
-      } else {
-        unsubscribe = useEventBus.getState().subscribe(eventType, stableCallback as any);
-      }
-    } catch (error) {
-      logEvent(EVENT_CONFIG.DEBUG_LEVEL.ERROR, `Error subscribing to event:`, error);
+    // Special logging for knowledge subscription
+    if (
+      (Array.isArray(eventType) && eventType.includes(GameEventType.KNOWLEDGE_DISCOVERED)) ||
+      eventType === GameEventType.KNOWLEDGE_DISCOVERED
+    ) {
+      console.log(`🔍 [useEventSubscription] Setting up subscription for KNOWLEDGE_DISCOVERED`);
     }
     
-    // Clean up subscription when component unmounts or dependencies change
+    // Handle subscription by type
+    if (Array.isArray(eventType)) {
+      // For multiple event types
+      unsubscribeRef.current = eventBus.subscribeMany(eventType, stableCallback);
+    } else {
+      // For a single event type
+      unsubscribeRef.current = eventBus.subscribe(eventType, stableCallback);
+    }
+    
+    // Cleanup subscription on unmount or dependencies change
     return () => {
-      try {
-        if (unsubscribe) {
-          unsubscribe();
-        }
-      } catch (error) {
-        logEvent(EVENT_CONFIG.DEBUG_LEVEL.ERROR, `Error unsubscribing from event:`, error);
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
       }
     };
-  }, [eventType, stableCallback, ...dependencies]); // Include dependencies
+  }, [eventType, stableCallback]);
 }
 
 // ========= EVENT HELPER FUNCTIONS =========
@@ -790,10 +789,29 @@ export function useEventSubscription<T = any>(
  */
 export function safeDispatch<T>(eventType: GameEventType, payload: T, source?: string) {
   try {
-    useEventBus.getState().dispatch(eventType, payload, source);
-    return true;
+    // Special logging for knowledge discovery events
+    if (eventType === GameEventType.KNOWLEDGE_DISCOVERED) {
+      console.log(`🔍 [CentralEventBus] safeDispatch called for KNOWLEDGE_DISCOVERED event`);
+      console.log(`🔍 [CentralEventBus] Event payload:`, payload);
+      console.log(`🔍 [CentralEventBus] Event source:`, source);
+    }
+    
+    // Get the event bus instance
+    const bus = CentralEventBus.getInstance();
+    if (bus) {
+      bus.dispatch(eventType, payload, source);
+      
+      // Log successful dispatch for knowledge discovery
+      if (eventType === GameEventType.KNOWLEDGE_DISCOVERED) {
+        console.log(`🔍 [CentralEventBus] Successfully dispatched KNOWLEDGE_DISCOVERED event`);
+      }
+      return true;
+    } else {
+      console.error(`[CentralEventBus] Cannot dispatch ${eventType}: EventBus not initialized`);
+      return false;
+    }
   } catch (error) {
-    logEvent(EVENT_CONFIG.DEBUG_LEVEL.ERROR, `Error in safeDispatch ${eventType}:`, error);
+    console.error(`[CentralEventBus] Error dispatching ${eventType}:`, error);
     return false;
   }
 }
