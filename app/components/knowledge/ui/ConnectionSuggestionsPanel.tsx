@@ -4,7 +4,7 @@ import React from 'react';
 import { PixelText } from '../../PixelThemeProvider';
 import { ConceptNode, ConceptConnection, KnowledgeDomain, useKnowledgeStore } from '../../../store/knowledgeStore';
 import { DOMAIN_COLORS } from '../../../core/themeConstants';
-import { playSound } from '@/app/core/sound/SoundManager.js';
+import { playSound } from '@/app/core/sound/SoundManager.tsx';
 
 interface ConnectionSuggestionsPanelProps {
   selectedNode: ConceptNode | null;

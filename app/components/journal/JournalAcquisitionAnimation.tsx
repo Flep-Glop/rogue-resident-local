@@ -15,7 +15,7 @@ import { useEventSubscription } from '../../core/events/CentralEventBus';
 import { GameEventType } from '../../core/events/EventTypes';
 import { usePrimitiveStoreValue, useStableCallback } from '../../core/utils/storeHooks';
 import { motion, AnimatePresence } from 'framer-motion';
-import { playSound } from '../../core/sound/SoundManager.js';
+import { playSound } from '../../core/sound/SoundManager.tsx';
 
 interface JournalAcquisitionAnimationProps {
   onComplete?: () => void;
