@@ -1,252 +1,230 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-
-/**
- * Defines the possible modes of dialogue presentation
- * Each mode has its own visual styling and animations
- */
-export enum DialogueMode {
-  NARRATIVE = 'narrative',       // Basic storytelling text
-  CHALLENGE_INTRO = 'challenge', // Introduction to a challenge
-  QUESTION = 'question',         // A direct question to the player
-  INSTRUCTION = 'instruction',   // Guidance or how-to information
-  REACTION = 'reaction',         // Feedback or response to player actions
-  CRITICAL = 'critical'          // Important information that shouldn't be missed
-}
-
-// Styling maps for different dialogue modes
-const modeStyles = {
-  [DialogueMode.NARRATIVE]: {
-    container: 'border-blue-800/60 bg-black/90',
-    header: 'bg-blue-900/40 text-blue-300',
-    animation: 'dialogue-pulse-blue',
-    icon: (
-      <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-      </svg>
-    )
-  },
-  [DialogueMode.CHALLENGE_INTRO]: {
-    container: 'border-amber-700/70 bg-black/90',
-    header: 'bg-amber-900/40 text-amber-300',
-    animation: 'dialogue-pulse-amber',
-    icon: (
-      <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-      </svg>
-    )
-  },
-  [DialogueMode.QUESTION]: {
-    container: 'border-purple-700/70 bg-black/90',
-    header: 'bg-purple-900/40 text-purple-300',
-    animation: 'dialogue-pulse-purple',
-    icon: (
-      <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    )
-  },
-  [DialogueMode.INSTRUCTION]: {
-    container: 'border-green-700/70 bg-black/90',
-    header: 'bg-green-900/40 text-green-300',
-    animation: 'dialogue-pulse-green',
-    icon: (
-      <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-      </svg>
-    )
-  },
-  [DialogueMode.REACTION]: {
-    container: 'border-pink-700/70 bg-black/90',
-    header: 'bg-pink-900/40 text-pink-300',
-    animation: 'dialogue-pulse-pink',
-    icon: (
-      <svg className="w-5 h-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    )
-  },
-  [DialogueMode.CRITICAL]: {
-    container: 'border-red-700/70 bg-black/90',
-    header: 'bg-red-900/40 text-red-300',
-    animation: 'dialogue-pulse-red',
-    icon: (
-      <svg className="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-    )
-  }
-};
+import { useState, useEffect } from 'react';
+import { useDialogueStore } from '@/app/store/dialogueStore';
+import { DialogueOption } from '@/app/data/dialogueData';
+import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 
 interface DialogueContainerProps {
-  mode: DialogueMode;
-  title?: string;
-  children: React.ReactNode;
-  className?: string;
-  showIcon?: boolean;
-  animationEnabled?: boolean;
-  containsExtension?: boolean;
+  dialogueId: string;
+  onComplete?: (results: any) => void;
 }
 
-/**
- * DialogueContainer component
- * Provides consistent visual styling for different types of dialogue
- * with animations, icons, and mode-specific color schemes
- */
-const DialogueContainer: React.FC<DialogueContainerProps> = ({
-  mode = DialogueMode.NARRATIVE,
-  title,
-  children,
-  className = '',
-  showIcon = true,
-  animationEnabled = true,
-  containsExtension = false
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const style = modeStyles[mode] || modeStyles[DialogueMode.NARRATIVE];
-
-  // Apply animation class when mounted
+export default function DialogueContainer({ dialogueId, onComplete }: DialogueContainerProps) {
+  const [initialized, setInitialized] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [typedText, setTypedText] = useState('');
+  const [currentCharIndex, setCurrentCharIndex] = useState(0);
+  const typingSpeed = 30; // ms per character
+  
+  // Dialogue store selectors
+  const {
+    startDialogue,
+    getCurrentNode,
+    getActiveDialogue,
+    getAvailableOptions,
+    selectOption,
+    endDialogue,
+    getMentor
+  } = useDialogueStore();
+  
+  // Get current dialogue state
+  const currentNode = getCurrentNode();
+  const activeDialogue = getActiveDialogue();
+  const availableOptions = getAvailableOptions();
+  
+  // Knowledge store for checking star requirements
+  const stars = useKnowledgeStore(state => state.stars);
+  
+  // Start dialogue when component mounts
   useEffect(() => {
-    if (!animationEnabled || !containerRef.current) return;
+    if (!initialized) {
+      startDialogue(dialogueId);
+      setInitialized(true);
+    }
+  }, [dialogueId, initialized, startDialogue]);
+  
+  // Type out text effect
+  useEffect(() => {
+    if (!currentNode) return;
     
-    const container = containerRef.current;
-    container.classList.add(`${style.animation}`);
+    setIsTyping(true);
+    setTypedText('');
+    setCurrentCharIndex(0);
     
-    return () => {
-      container.classList.remove(`${style.animation}`);
-    };
-  }, [style.animation, animationEnabled]);
-
-  return (
-    <motion.div
-      ref={containerRef}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      transition={{ duration: 0.3 }}
-      className={`${style.container} border-2 rounded-md overflow-hidden ${containsExtension ? 'mb-0 pb-0' : 'mb-4'} ${className}`}
-      style={{ 
-        transition: 'background-color 8s cubic-bezier(0.05, 0.1, 0.3, 1), border-color 8s cubic-bezier(0.05, 0.1, 0.3, 1), box-shadow 8s cubic-bezier(0.05, 0.1, 0.3, 1)'
-      }}
-    >
-      {title && !containsExtension && (
-        <div className={`${style.header} px-4 py-2 flex items-center`} style={{ transition: 'background-color 8s cubic-bezier(0.05, 0.1, 0.3, 1)' }}>
-          {showIcon && <div className="mr-2">{style.icon}</div>}
-          <h3 className="text-sm font-pixel">{title}</h3>
-        </div>
-      )}
-      <div className={containsExtension ? 'p-0 m-0 overflow-visible' : 'p-4'}>
-        {children}
+    const text = currentNode.text;
+    const intervalId = setInterval(() => {
+      if (currentCharIndex < text.length) {
+        setTypedText(prev => prev + text[currentCharIndex]);
+        setCurrentCharIndex(prev => prev + 1);
+      } else {
+        setIsTyping(false);
+        clearInterval(intervalId);
+      }
+    }, typingSpeed);
+    
+    return () => clearInterval(intervalId);
+  }, [currentNode]);
+  
+  // Handle dialogue completion
+  useEffect(() => {
+    if (initialized && !currentNode && onComplete) {
+      onComplete({
+        dialogueId,
+        completed: true
+      });
+    }
+  }, [currentNode, dialogueId, initialized, onComplete]);
+  
+  // Skip typing animation
+  const handleSkipTyping = () => {
+    if (isTyping && currentNode) {
+      setTypedText(currentNode.text);
+      setCurrentCharIndex(currentNode.text.length);
+      setIsTyping(false);
+    }
+  };
+  
+  // Handle selecting an option
+  const handleSelectOption = (option: DialogueOption) => {
+    selectOption(option.id);
+  };
+  
+  // Cancel dialogue
+  const handleCancel = () => {
+    endDialogue();
+    if (onComplete) {
+      onComplete({
+        dialogueId,
+        completed: false
+      });
+    }
+  };
+  
+  // Check if option should be disabled
+  const isOptionDisabled = (option: DialogueOption) => {
+    if (!option.requiredStarId) return false;
+    
+    const star = stars[option.requiredStarId];
+    return !star || !star.active;
+  };
+  
+  // If dialogue not initialized or no current node, show loading
+  if (!initialized || !currentNode || !activeDialogue) {
+    return (
+      <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-3xl mx-auto shadow-lg animate-pulse">
+        <div className="h-6 bg-slate-700 rounded w-3/4 mb-4"></div>
+        <div className="h-4 bg-slate-700 rounded w-1/2 mb-2"></div>
+        <div className="h-4 bg-slate-700 rounded w-5/6 mb-2"></div>
+        <div className="h-4 bg-slate-700 rounded w-2/3 mb-6"></div>
+        <div className="h-10 bg-slate-700 rounded w-1/3"></div>
       </div>
-
-      {/* Animation styles */}
-      <style jsx global>{`
-        @keyframes pulse-border-blue {
-          0%, 100% { 
-            border-color: rgba(59, 130, 246, 0.5);
-            box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
-            background-color: rgba(30, 58, 138, 0.85);
-          }
-          50% { 
-            border-color: rgba(59, 130, 246, 0.7);
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
-            background-color: rgba(30, 58, 138, 0.9);
-          }
-        }
-        
-        @keyframes pulse-border-amber {
-          0%, 100% { 
-            border-color: rgba(217, 119, 6, 0.5);
-            box-shadow: 0 0 12px rgba(217, 119, 6, 0.4);
-            background-color: rgba(120, 53, 15, 0.85);
-          }
-          50% { 
-            border-color: rgba(217, 119, 6, 0.7);
-            box-shadow: 0 0 20px rgba(217, 119, 6, 0.5);
-            background-color: rgba(120, 53, 15, 0.9);
-          }
-        }
-        
-        @keyframes pulse-border-purple {
-          0%, 100% { 
-            border-color: rgba(147, 51, 234, 0.5);
-            box-shadow: 0 0 12px rgba(147, 51, 234, 0.4);
-            background-color: rgba(88, 28, 135, 0.85);
-          }
-          50% { 
-            border-color: rgba(147, 51, 234, 0.7);
-            box-shadow: 0 0 20px rgba(147, 51, 234, 0.5);
-            background-color: rgba(88, 28, 135, 0.9);
-          }
-        }
-        
-        @keyframes pulse-border-green {
-          0%, 100% { 
-            border-color: rgba(16, 185, 129, 0.5);
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
-            background-color: rgba(6, 95, 70, 0.85);
-          }
-          50% { 
-            border-color: rgba(16, 185, 129, 0.7);
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
-            background-color: rgba(6, 95, 70, 0.9);
-          }
-        }
-        
-        @keyframes pulse-border-pink {
-          0%, 100% { 
-            border-color: rgba(236, 72, 153, 0.5);
-            box-shadow: 0 0 12px rgba(236, 72, 153, 0.4);
-            background-color: rgba(157, 23, 77, 0.85);
-          }
-          50% { 
-            border-color: rgba(236, 72, 153, 0.7);
-            box-shadow: 0 0 20px rgba(236, 72, 153, 0.5);
-            background-color: rgba(157, 23, 77, 0.9);
-          }
-        }
-        
-        @keyframes pulse-border-red {
-          0%, 100% { 
-            border-color: rgba(239, 68, 68, 0.5);
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
-            background-color: rgba(153, 27, 27, 0.85);
-          }
-          50% { 
-            border-color: rgba(239, 68, 68, 0.7);
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
-            background-color: rgba(153, 27, 27, 0.9);
-          }
-        }
-        
-        .dialogue-pulse-blue {
-          animation: pulse-border-blue 15s cubic-bezier(0.05, 0.1, 0.3, 1) infinite;
-        }
-        
-        .dialogue-pulse-amber {
-          animation: pulse-border-amber 15s cubic-bezier(0.05, 0.1, 0.3, 1) infinite;
-        }
-        
-        .dialogue-pulse-purple {
-          animation: pulse-border-purple 15s cubic-bezier(0.05, 0.1, 0.3, 1) infinite;
-        }
-        
-        .dialogue-pulse-green {
-          animation: pulse-border-green 15s cubic-bezier(0.05, 0.1, 0.3, 1) infinite;
-        }
-        
-        .dialogue-pulse-pink {
-          animation: pulse-border-pink 15s cubic-bezier(0.05, 0.1, 0.3, 1) infinite;
-        }
-        
-        .dialogue-pulse-red {
-          animation: pulse-border-red 15s cubic-bezier(0.05, 0.1, 0.3, 1) infinite;
-        }
-      `}</style>
-    </motion.div>
+    );
+  }
+  
+  // Get the current mentor
+  const mentor = getMentor(currentNode.mentorId);
+  
+  return (
+    <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-3xl mx-auto shadow-lg">
+      {/* Dialogue header with mentor info */}
+      <div className="flex items-center mb-4">
+        {mentor && (
+          <>
+            <div className="w-12 h-12 rounded-full bg-slate-700 overflow-hidden mr-3">
+              {mentor.portrait && (
+                <img 
+                  src={mentor.portrait} 
+                  alt={mentor.name} 
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+            <div>
+              <h3 className="font-bold text-white">{mentor.name}</h3>
+              <p className="text-sm text-slate-400">{mentor.title}</p>
+            </div>
+          </>
+        )}
+        <div className="ml-auto">
+          <span className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-300">
+            {activeDialogue.title}
+          </span>
+        </div>
+      </div>
+      
+      {/* Dialogue text with typing effect */}
+      <div 
+        className="bg-slate-900 border border-slate-700 rounded-lg p-4 mb-4 min-h-[100px]"
+        onClick={handleSkipTyping}
+      >
+        <p className="text-slate-300 leading-relaxed">
+          {typedText}
+          {isTyping && <span className="animate-pulse">▋</span>}
+        </p>
+      </div>
+      
+      {/* Options */}
+      <div className="space-y-2">
+        {!isTyping && availableOptions.map((option) => (
+          <button
+            key={option.id}
+            onClick={() => handleSelectOption(option)}
+            disabled={isOptionDisabled(option)}
+            className={`w-full text-left p-3 rounded-lg border ${
+              isOptionDisabled(option)
+                ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
+                : 'bg-slate-700 border-slate-600 text-white hover:bg-slate-600 transition-colors'
+            }`}
+          >
+            <div className="flex items-center">
+              <span>{option.text}</span>
+              {/* Show resource effects if any */}
+              <div className="ml-auto flex space-x-2">
+                {option.insightChange !== undefined && option.insightChange !== 0 && (
+                  <span className={`text-xs px-1 rounded ${
+                    option.insightChange > 0 ? 'text-emerald-400' : 'text-red-400'
+                  }`}>
+                    {option.insightChange > 0 ? '+' : ''}{option.insightChange} ◆
+                  </span>
+                )}
+                {option.momentumChange !== undefined && option.momentumChange !== 0 && (
+                  <span className={`text-xs px-1 rounded ${
+                    option.momentumChange > 0 ? 'text-amber-400' : 'text-red-400'
+                  }`}>
+                    {option.momentumChange > 0 ? '+' : ''}{option.momentumChange} ⚡
+                  </span>
+                )}
+                {option.relationshipChange !== undefined && option.relationshipChange !== 0 && (
+                  <span className={`text-xs px-1 rounded ${
+                    option.relationshipChange > 0 ? 'text-blue-400' : 'text-red-400'
+                  }`}>
+                    {option.relationshipChange > 0 ? '+' : ''}{option.relationshipChange} 👥
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            {/* Show lock icon for disabled options */}
+            {isOptionDisabled(option) && (
+              <div className="mt-1 text-xs text-slate-500 flex items-center">
+                <span className="mr-1">🔒</span>
+                <span>Requires knowledge in this area</span>
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
+      
+      {/* Cancel button */}
+      <div className="mt-4 text-center">
+        <button
+          onClick={handleCancel}
+          className="text-xs text-slate-400 hover:text-slate-300 transition-colors"
+        >
+          Cancel dialogue
+        </button>
+      </div>
+    </div>
   );
-};
-
-export default DialogueContainer;
+} 

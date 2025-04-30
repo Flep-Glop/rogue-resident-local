@@ -1,1772 +1,346 @@
-// app/store/gameStore.ts
-/**
- * Unified Game State Management
- * 
- * This store consolidates all core game systems into a cohesive state machine
- * with discrete, composable slices. The architecture follows the "composed stores"
- * pattern where each slice manages a specific domain while maintaining
- * cross-slice communication through a central event bus.
- * 
- * Updated with Chamber Pattern optimizations for maximum rendering performance
- * using primitive extraction and stable references.
- */
-
-'use client';
-
 import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import { shallow } from 'zustand/shallow';
-import CentralEventBus, { useEventBus, safeDispatch } from '@/app/core/events/CentralEventBus';
-import { GameEventType } from '@/app/core/events/EventTypes';
-import { GameStateMachine } from '@/app/core/statemachine/GameStateMachine';
-import { progressionResolver } from '@/app/core/progression/ProgressionResolver';
-import DialogueStateMachine, { useDialogueStateMachine } from '@/app/core/dialogue/DialogueStateMachine';
+import { GamePhase, Resources, Season, TimeBlock, Difficulty } from '@/app/types';
+import { TimeManager } from '@/app/core/time/TimeManager';
+import { centralEventBus } from '@/app/core/events/CentralEventBus';
+import { GameEventType } from '@/app/types';
 
-// Import related stores for cross-store actions
-import { useKnowledgeStore } from './knowledgeStore';
-import { useJournalStore } from './journalStore';
-import { useResourceStore } from './resourceStore';
-
-// Import player entity type
-import { PlayerEntity, DEFAULT_PLAYER_ENTITY, PlayerActions } from '../types/player';
-import { GameState as GameStateType, DialogueState, NodeType } from '../types/game';
-
-// Import Chamber pattern hooks
-import { 
-  usePrimitiveStoreValue, 
-  useStableStoreValue, 
-  createStableSelector,
-  usePrimitiveValues
-} from '@/app/core/utils/storeHooks';
-import { useStableCallback } from '../core/utils/storeHooks';
-
-// Type imports - explicitly defining to address TS errors
-import type {
-  KnowledgeDomain
-} from '@/app/store/knowledgeStore';
-
-// Type definitions - some of these may be redefined here to fix TypeScript errors
-// In production, you'd import these from the types file
-
-// Resource type definition for type safety
-type ResourceType = 'insight' | 'momentum' | string;
-
-// Types
-export type GameNodeId = string;
-export type CharacterId = 'kapoor' | 'jesse' | 'quinn' | 'garcia';
-
-// Game state types
+// State interface for the game store
 interface GameState {
-  stateMachine: any | null;
-  progressionResolver: any | null;
-  currentMode: 'exploration' | 'challenge' | 'tutorial';
-  map: {
-    seed: string;
-    nodes: any[];
-    connections: any[];
-    currentLocation: string;
-    discoveredLocations: string[];
-  } | null;
-  inventory: any[];
-  isLoading: boolean;
-  error: string | null;
-  currentNodeId: string | null;
-  currentNodeType: NodeType | null;
-  currentCharacterId: CharacterId | null;
-  completedNodeIds: string[];
-  currentSystem?: string;
-}
-
-interface GameStateActions {
-  setCurrentNode: (nodeId: string | null) => void;
-  setGameMode: (mode: GameState['currentMode']) => void;
-  setLoading: (isLoading: boolean) => void;
-  setError: (error: string | null) => void;
-  initializeGame: (initialState: { startingMode?: GameState['currentMode'] }) => void;
-  completeNode?: (nodeId: string) => void;
-  startNodeChallenge: (nodeId: GameNodeId, characterId: CharacterId, nodeType: NodeType) => void;
-}
-
-interface DialogueState {
-  dialogueStateMachine: any | null;
-  currentDialogueId: string | null;
-  currentNodeId: string | null;
-  currentSpeaker: string | null;
-  currentText: string;
-  currentMood: string | null;
-  currentChoices: any[];
-  isDialogueActive: boolean;
-  isDialogueLoading: boolean;
-  dialogueError: string | null;
-}
-
-interface DialogueActions {
-  initializeDialogueSystem: (config: any) => void;
-  startDialogue: (dialogueId: string) => void;
-  advanceDialogue: (choiceIndex?: number) => void;
-  endDialogue: () => void;
-  setCurrentDialogueId: (id: string | null) => void;
-}
-
-interface EventBusState {
-  instance: any;
-}
-
-interface EventBusActions {
-  emit: <T = any>(eventType: GameEventType, payload?: T) => void;
-}
-
-interface KnowledgeState {
-  knownInsights: Record<string, any>;
-  insightConnections: any[];
-  unlockedTopics: Set<string>;
-  isConstellationVisible: boolean;
-  activeInsightId: string | null;
-  resetState: () => void;
-  transferInsights: () => void;
-  resetNewlyDiscovered: () => void;
-  addInsight: (insightId: string) => void;
-  createConnection: (fromId: string, toId: string) => void;
-  unlockTopic: (topicId: string) => void;
-  setConstellationVisibility: (isVisible: boolean) => void;
-  setActiveInsight: (insightId: string | null) => void;
-}
-
-interface ResourceState {
-  resources: Record<string, number>;
-}
-
-interface ResourceActions {
-  addResource: (resourceId: ResourceType, amount: number) => void;
-  setResource: (resourceId: ResourceType, amount: number) => void;
-  hasEnoughResource: (resourceId: ResourceType, amount: number) => boolean;
-  resetResources: () => void;
-}
-
-interface JournalState {
-  entries: any[];
-  lastEntryTimestamp: Date | null;
-  isJournalOpen: boolean;
-}
-
-interface JournalActions {
-  addJournalEntry: (entryData: any) => void;
-  addEntry: (entryData: any) => void;
-  setJournalOpen: (isOpen: boolean) => void;
-}
-
-// Combined state type definition
-interface CombinedState extends 
-  EventBusState, EventBusActions,
-  GameState, GameStateActions,
-  DialogueState, DialogueActions,
-  KnowledgeState, KnowledgeActions,
-  ResourceState, ResourceActions,
-  JournalState, JournalActions {
-  // Additional player-related state and actions
-  player: PlayerEntity;
-  updateInsight: (amount: number, source?: string) => void;
-  setMomentum: (level: number) => void;
-  incrementMomentum: () => void;
+  // Core game state
+  currentPhase: GamePhase;
+  currentSeason: Season;
+  daysPassed: number;
+  playerName: string;
+  
+  // Time management
+  timeManager: TimeManager;
+  currentTime: TimeBlock;
+  
+  // Resources
+  resources: Resources;
+  
+  // Actions
+  setPhase: (phase: GamePhase) => void;
+  setSeason: (season: Season) => void;
+  incrementDay: () => void;
+  advanceTime: (minutes: number) => void;
+  resetDay: () => void;
+  
+  // Resource management
+  addMomentum: (amount: number) => void;
   resetMomentum: () => void;
-  updateKnowledgeMastery: (conceptId: string, amount: number, domainId: string) => void;
-  addToInventory: (itemId: string) => void;
-  applyBuff: (buffId: string, duration?: number) => void;
-  removeBuff: (buffId: string) => void;
+  addInsight: (amount: number) => void;
+  spendInsight: (amount: number) => boolean;
+  convertInsightToSP: () => void;
+  addStarPoints: (amount: number) => void;
+  spendStarPoints: (amount: number) => boolean;
   
-  // Narrative event handler
-  handleNarrativeEvent: (event: NarrativeEvent) => void;
+  // Difficulty management
+  difficulty: Difficulty;
+  setDifficulty: (difficulty: Difficulty) => void;
   
-  // Reset game state
-  resetGame: () => boolean;
+  // Player data
+  setPlayerName: (name: string) => void;
 }
 
-// Narrative event type definition
-interface NarrativeEvent {
-  type: GameEventType;
-  payload: any;
-}
-
-// =======================================================
-// Player State Slice - Player Entity Management
-// =======================================================
-
-interface PlayerActions {
-  updateInsight: (amount: number, source?: string) => void;
-  setMomentum: (level: number) => void;
-  incrementMomentum: () => void;
-  resetMomentum: () => void;
-  updateKnowledgeMastery: (conceptId: string, amount: number, domainId: string) => void;
-  addToInventory: (itemId: string) => void;
-  applyBuff: (buffId: string, duration?: number) => void;
-  removeBuff: (buffId: string) => void;
-}
-
-const createPlayerSlice = (
-  set: (fn: (state: CombinedState) => void) => void,
-  get: () => CombinedState
-): { player: PlayerEntity } & PlayerActions => ({
-  // Default player state
-  player: { ...DEFAULT_PLAYER_ENTITY },
+// Create the game store
+export const useGameStore = create<GameState>((set, get) => ({
+  // Initialize core game state
+  currentPhase: GamePhase.DAY,
+  currentSeason: Season.SPRING,
+  daysPassed: 0,
+  playerName: '',
   
-  /**
-   * Update player insight directly
-   * Primary interface for resource management
-   */
-  updateInsight: (amount: number, source?: string) => {
-    console.log(`[Player] Updating insight by ${amount} from ${source || 'unknown'}`);
+  // Initialize time management
+  timeManager: new TimeManager(),
+  currentTime: { hour: 8, minute: 0 }, // Start at 8:00 AM
+  
+  // Initialize resources
+  resources: {
+    momentum: 0, // 0-3 scale
+    insight: 0, // 0-100 points
+    starPoints: 0,
+  },
+  
+  // Phase management
+  setPhase: (phase: GamePhase) => {
+    set({ currentPhase: phase });
     
-    set(state => {
-      // Calculate new insight with min/max bounds
-      const current = state.player.insight;
-      const newValue = Math.max(0, Math.min(state.player.insightMax, current + amount));
-      const actualChange = newValue - current;
+    // Dispatch phase transition event
+    if (phase === GamePhase.DAY) {
+      centralEventBus.dispatch(
+        GameEventType.DAY_PHASE_STARTED,
+        { day: get().daysPassed + 1 },
+        'gameStore.setPhase'
+      );
+    } else if (phase === GamePhase.NIGHT) {
+      centralEventBus.dispatch(
+        GameEventType.NIGHT_PHASE_STARTED,
+        { day: get().daysPassed },
+        'gameStore.setPhase'
+      );
+    }
+  },
+  
+  // Season management
+  setSeason: (season: Season) => set({ currentSeason: season }),
+  
+  // Day management
+  incrementDay: () => {
+    set((state) => ({ daysPassed: state.daysPassed + 1 }));
+    
+    centralEventBus.dispatch(
+      GameEventType.DAY_PHASE_STARTED,
+      { day: get().daysPassed + 1 },
+      'gameStore.incrementDay'
+    );
+  },
+  
+  // Time management
+  advanceTime: (minutes: number) => {
+    const { timeManager } = get();
+    const newTime = timeManager.advanceTime(minutes);
+    set({ currentTime: newTime });
+    
+    // Dispatch time advanced event
+    centralEventBus.dispatch(
+      GameEventType.TIME_ADVANCED,
+      { 
+        hour: newTime.hour, 
+        minute: newTime.minute,
+        minutes: minutes 
+      },
+      'gameStore.advanceTime'
+    );
+    
+    // Check if day has ended
+    if (timeManager.isDayEnded()) {
+      set({ currentPhase: GamePhase.NIGHT });
       
-      // Only update if there's an actual change
-      if (actualChange !== 0) {
-        state.player.insight = newValue;
-        
-        // Emit the resource changed event using the event bus
-        if (Math.abs(actualChange) >= 1) {
-          get().emit(GameEventType.RESOURCE_CHANGED, {
-            resourceType: 'insight',
-            previousValue: current,
-            newValue,
-            change: actualChange,
-            source
-          });
+      centralEventBus.dispatch(
+        GameEventType.END_OF_DAY_REACHED,
+        { day: get().daysPassed },
+        'gameStore.advanceTime'
+      );
+      
+      centralEventBus.dispatch(
+        GameEventType.NIGHT_PHASE_STARTED,
+        { day: get().daysPassed },
+        'gameStore.advanceTime'
+      );
+    }
+  },
+  
+  resetDay: () => {
+    const { timeManager } = get();
+    const newTime = timeManager.resetToStartOfDay();
+    
+    // Convert any remaining insight to SP before resetting
+    get().convertInsightToSP();
+    
+    set({ 
+      currentTime: newTime,
+      currentPhase: GamePhase.DAY,
+      resources: {
+        ...get().resources,
+        momentum: 0,
+        insight: 0,
+      }
+    });
+    
+    // Increment day counter
+    set((state) => ({ daysPassed: state.daysPassed + 1 }));
+    
+    centralEventBus.dispatch(
+      GameEventType.DAY_PHASE_STARTED,
+      { day: get().daysPassed + 1 },
+      'gameStore.resetDay'
+    );
+  },
+  
+  // Resource management
+  addMomentum: (amount: number) => {
+    set((state) => {
+      // Calculate new momentum, capped at 3
+      const currentMomentum = state.resources.momentum;
+      const newMomentum = Math.min(3, Math.max(0, currentMomentum + amount));
+      
+      // Only dispatch event if there's a change
+      if (newMomentum !== currentMomentum) {
+        centralEventBus.dispatch(
+          GameEventType.MOMENTUM_GAINED,
+          { 
+            previous: currentMomentum,
+            current: newMomentum,
+            change: newMomentum - currentMomentum
+          },
+          'gameStore.addMomentum'
+        );
+      }
+      
+      return {
+        resources: {
+          ...state.resources,
+          momentum: newMomentum,
         }
-      }
+      };
     });
   },
   
-  /**
-   * Set player momentum level
-   */
-  setMomentum: (level: number) => {
-    console.log(`[Player] Setting momentum to ${level}`);
-    
-    set(state => {
-      // Ensure level is within bounds
-      const newLevel = Math.max(0, Math.min(state.player.maxMomentum, level));
-      const currentLevel = state.player.momentum;
-      
-      // Only update if there's a change
-      if (newLevel !== currentLevel) {
-        state.player.momentum = newLevel;
-        
-        // Emit the momentum changed event
-        get().emit(GameEventType.RESOURCE_CHANGED, {
-          resourceType: 'momentum',
-          previousValue: currentLevel,
-          newValue: newLevel,
-          change: newLevel - currentLevel
-        });
-      }
-    });
-  },
-  
-  /**
-   * Increment momentum (typically after correct answers)
-   */
-  incrementMomentum: () => {
-    console.log('[Player] Incrementing momentum');
-    
-    set(state => {
-      const currentMomentum = state.player.momentum;
-      if (currentMomentum < state.player.maxMomentum) {
-        state.player.momentum = currentMomentum + 1;
-        
-        // Emit the momentum increased event
-        get().emit(GameEventType.MOMENTUM_INCREASED, { 
-          newLevel: state.player.momentum 
-        });
-      }
-    });
-  },
-  
-  /**
-   * Reset momentum (typically after incorrect answers or boast failures)
-   */
   resetMomentum: () => {
-    console.log('[Player] Resetting momentum');
-    
-    set(state => {
-      if (state.player.momentum > 0) {
-        state.player.momentum = 0;
-        
-        // Emit the momentum reset event
-        get().emit(GameEventType.MOMENTUM_RESET, {});
-      }
-    });
-  },
-  
-  /**
-   * Update knowledge mastery (delegate to knowledge store)
-   */
-  updateKnowledgeMastery: (conceptId: string, amount: number, domainId: string) => {
-    // Delegate to knowledge store
-    const knowledgeStore = useKnowledgeStore.getState();
-    if (knowledgeStore && knowledgeStore.updateMastery) {
-      knowledgeStore.updateMastery(conceptId, amount);
+    set((state) => {
+      const currentMomentum = state.resources.momentum;
       
-      // Sync player's knowledge summary
-      set(state => {
-        // Add to recently mastered if significant gain
-        if (amount >= 15) {
-          state.player.knowledgeMastery.recentlyMastered = 
-            [conceptId, ...state.player.knowledgeMastery.recentlyMastered].slice(0, 5);
-        }
-        
-        // Sync with knowledge store values
-        if (knowledgeStore.totalMastery !== undefined) {
-          state.player.knowledgeMastery.overall = knowledgeStore.totalMastery;
-        }
-        
-        // Sync domain mastery - casting domainId as KnowledgeDomain to fix TypeScript error
-        if (knowledgeStore.domainMastery && domainId) {
-          // Safe access with type casting for domain indexing - fixes TS7053
-          const domainKey = domainId as KnowledgeDomain;
-          const masteryValue = knowledgeStore.domainMastery[domainKey] || 0;
-          state.player.knowledgeMastery.byDomain[domainId] = masteryValue;
-        }
-      });
-    }
-  },
-  
-  /**
-   * Add an item to player inventory (simplified for vertical slice)
-   */
-  addToInventory: (itemId: string) => {
-    console.log(`[Player] Adding item to inventory: ${itemId}`);
-    
-    set(state => {
-      if (!state.player.inventory.includes(itemId)) {
-        state.player.inventory.push(itemId);
-        
-        // Emit item acquired event - Using a valid event type (RESOURCE_CHANGED)
-        // since ITEM_ACQUIRED doesn't exist in GameEventType
-        get().emit(GameEventType.RESOURCE_CHANGED, { 
-          resourceType: 'item',
-          itemId,
-          change: 1,
-          previousValue: state.player.inventory.length - 1,
-          newValue: state.player.inventory.length
-        });
+      if (currentMomentum > 0) {
+        centralEventBus.dispatch(
+          GameEventType.MOMENTUM_RESET,
+          { previous: currentMomentum },
+          'gameStore.resetMomentum'
+        );
       }
-    });
-  },
-  
-  /**
-   * Apply a temporary buff to the player
-   */
-  applyBuff: (buffId: string, duration?: number) => {
-    console.log(`[Player] Applying buff: ${buffId}`);
-    
-    set(state => {
-      if (!state.player.activeBuffs.includes(buffId)) {
-        state.player.activeBuffs.push(buffId);
-        
-        // Emit buff applied event - Using RESOURCE_CHANGED instead of BUFF_APPLIED
-        // since BUFF_APPLIED doesn't exist in GameEventType
-        get().emit(GameEventType.RESOURCE_CHANGED, { 
-          resourceType: 'buff',
-          buffId, 
-          duration,
-          change: 1,
-          previousValue: state.player.activeBuffs.length - 1,
-          newValue: state.player.activeBuffs.length
-        });
-        
-        // If duration provided, schedule removal
-        if (duration && typeof window !== 'undefined') {
-          setTimeout(() => {
-            get().removeBuff(buffId);
-          }, duration);
-        }
-      }
-    });
-  },
-  
-  /**
-   * Remove a buff from the player
-   */
-  removeBuff: (buffId: string) => {
-    console.log(`[Player] Removing buff: ${buffId}`);
-    
-    set(state => {
-      state.player.activeBuffs = state.player.activeBuffs.filter(id => id !== buffId);
       
-      // Emit buff removed event - Using RESOURCE_CHANGED instead of BUFF_REMOVED
-      // since BUFF_REMOVED doesn't exist in GameEventType
-      get().emit(GameEventType.RESOURCE_CHANGED, { 
-        resourceType: 'buff',
-        buffId,
-        change: -1,
-        action: 'removed'
-      });
-    });
-  }
-});
-
-// =======================================================
-// Event Bus Slice - Core Communication Layer
-// =======================================================
-
-const createEventBusSlice = (
-  set: (fn: (state: CombinedState) => void) => void,
-  get: () => CombinedState
-): EventBusState & EventBusActions => {
-  // Get singleton instance
-  const busInstance = CentralEventBus.getInstance();
-  
-  return {
-    instance: busInstance,
-    
-    /**
-     * Emit an event to the bus
-     * Abstraction layer that could include game-specific event processing
-     */
-    emit: <T = any>(eventType: GameEventType, payload?: T) => {
-      console.log(`[GameStore] Emitting event: ${eventType}`);
-      busInstance.dispatch(eventType, payload, 'gameStore');
-    },
-  };
-};
-
-// =======================================================
-// Game State Machine Slice - Core Game Flow
-// =======================================================
-
-const createGameStateSlice = (
-  set: (fn: (state: CombinedState) => void) => void,
-  get: () => CombinedState
-): GameState & GameStateActions => ({
-  // Core state
-  stateMachine: null,
-  progressionResolver: null,
-  currentMode: 'exploration',
-  map: null,
-  inventory: [],
-  isLoading: true,
-  error: null,
-  currentNodeId: null,
-  currentNodeType: null,
-  currentCharacterId: null,
-  completedNodeIds: [],
-  currentSystem: 'default',
-  
-  /**
-   * Set the current node in the game
-   * Critical for map functionality
-   */
-  setCurrentNode: (nodeId: string | null) => {
-    console.log(`[GameState] Setting current node to: ${nodeId}`);
-    
-    // Get previous node for event
-    const previousNodeId = get().currentNodeId;
-    
-    // Update state
-    set(state => {
-      state.currentNodeId = nodeId;
-    });
-    
-    // Mark the node as visited in the map if it exists
-    if (nodeId && get().map) {
-      set(state => {
-        if (state.map && !state.map.discoveredLocations.includes(nodeId)) {
-          state.map.discoveredLocations.push(nodeId);
+      return {
+        resources: {
+          ...state.resources,
+          momentum: 0,
         }
-      });
-    }
-    
-    // Emit the correctly typed node selection event
-    // IMPORTANT: Fixed from undefined event type to proper GameEventType
-    get().emit(GameEventType.NODE_CLICKED, { 
-      nodeId, 
-      previousNodeId,
-      interactionType: 'selection' 
-    });
-    
-    // Emit UI_NODE_CLICKED event as this is what challenges listen for
-    get().emit(GameEventType.UI_NODE_CLICKED, {
-      nodeId,
-      interactionType: 'selection',
-      source: 'gameStore'
+      };
     });
   },
   
-  /**
-   * Change the current game mode
-   */
-  setGameMode: (mode: GameState['currentMode']) =>
+  addInsight: (amount: number) => {
     set((state) => {
-      state.currentMode = mode;
-      console.log(`[GameState] Mode set to: ${mode}`);
-      get().emit(GameEventType.GAME_MODE_CHANGED, { mode });
-    }),
-  
-  /**
-   * Set loading state
-   */
-  setLoading: (isLoading: boolean) =>
-    set((state) => {
-      state.isLoading = isLoading;
-    }),
-  
-  /**
-   * Set error state
-   */
-  setError: (error: string | null) =>
-    set((state) => {
-      state.error = error;
-    }),
-  
-  /**
-   * Initialize the game state
-   */
-  initializeGame: (initialState) =>
-    set((state) => {
-      console.log(`[GameState] Initializing game with mode: ${initialState.startingMode || 'default'}`);
-      if (initialState.startingMode) {
-        state.currentMode = initialState.startingMode;
+      const currentInsight = state.resources.insight;
+      const newInsight = Math.max(0, currentInsight + amount);
+      
+      // Only dispatch event if there's a change
+      if (newInsight !== currentInsight) {
+        centralEventBus.dispatch(
+          GameEventType.INSIGHT_GAINED,
+          { 
+            previous: currentInsight,
+            current: newInsight,
+            change: newInsight - currentInsight
+          },
+          'gameStore.addInsight'
+        );
       }
-      state.isLoading = false;
-    }),
-    
-  /**
-   * Start a node challenge
-   * @param nodeId - The node ID to start
-   * @param characterId - The character for the challenge
-   * @param nodeType - The type of node challenge
-   */
-  startNodeChallenge: (nodeId: GameNodeId, characterId: CharacterId, nodeType: NodeType) => {
-    console.log(`[GameState] Starting node challenge: ${nodeId}, character: ${characterId}, type: ${nodeType}`);
-    
-    set(state => {
-      state.currentNodeId = nodeId;
-      state.currentCharacterId = characterId;
-      state.currentNodeType = nodeType;
-    });
-    
-    // Dispatch event
-    get().emit(GameEventType.NODE_STARTED, {
-      nodeId,
-      characterId,
-      nodeType
+      
+      return {
+        resources: {
+          ...state.resources,
+          insight: newInsight,
+        }
+      };
     });
   },
   
-  // Add completeNode method for challenge completion
-  completeNode: (nodeId: string) => {
-    console.log(`[GameState] Marking node as completed: ${nodeId}`);
-    
-    set(state => {
-      if (!state.completedNodeIds.includes(nodeId)) {
-        state.completedNodeIds.push(nodeId);
-      }
-      state.currentNodeId = null;
-      state.currentCharacterId = null;
-      state.currentNodeType = null;
-    });
-    
-    // Emit node completed event
-    get().emit(GameEventType.NODE_COMPLETED, {
-      nodeId,
-      result: {
-        successful: true
-      }
-    });
-  }
-});
-
-// =======================================================
-// Dialogue System Slice - Conversation State & Flow
-// =======================================================
-
-const createDialogueSlice = (
-  set: (fn: (state: CombinedState) => void) => void,
-  get: () => CombinedState
-): DialogueState & DialogueActions => ({
-  // Core state
-  dialogueStateMachine: null,
-  currentDialogueId: null,
-  currentNodeId: null,
-  currentSpeaker: null,
-  currentText: '',
-  currentMood: null,
-  currentChoices: [],
-  isDialogueActive: false,
-  isDialogueLoading: false,
-  dialogueError: null,
-
-  /**
-   * Initialize the dialogue system
-   * Creates the dialogue state machine with provided configuration
-   */
-  initializeDialogueSystem: (config: any) =>
-    set((state) => {
-      if (!state.dialogueStateMachine) {
-        try {
-          console.log('[Dialogue] Initializing dialogue system...');
-          // Use our hybrid implementation to get dialogue state machine
-          state.dialogueStateMachine = DialogueStateMachine;
-          get().emit(GameEventType.DIALOGUE_SYSTEM_INITIALIZED, { config });
-        } catch (error: any) {
-          console.error('[Dialogue] Failed to initialize dialogue system:', error);
-          state.dialogueError = error.message || 'Failed to initialize dialogue system';
-          get().emit(GameEventType.ERROR_LOGGED, { 
-            component: 'dialogueSystem',
-            message: state.dialogueError
-          });
-        }
-      } else {
-        console.warn('[Dialogue] Dialogue system already initialized');
-      }
-    }),
-
-  /**
-   * Start a dialogue sequence
-   * Activates a specific dialogue tree by ID and loads the initial node
-   */
-  startDialogue: (dialogueId: string) => {
-    console.log(`[Dialogue] Starting dialogue: ${dialogueId}`);
-    const dialogueStateMachine = get().dialogueStateMachine;
-    
-    // Validate dialogue system is ready
-    if (!dialogueStateMachine) {
-      console.error('[Dialogue] Dialogue state machine not initialized');
+  spendInsight: (amount: number) => {
+    const { resources } = get();
+    if (resources.insight >= amount) {
       set((state) => {
-        state.dialogueError = 'Dialogue system not ready';
-        state.isDialogueActive = false;
-      });
-      const currentError = get().dialogueError;
-      get().emit(GameEventType.DIALOGUE_ERROR, { error: currentError });
-      return;
-    }
-
-    // Begin dialogue transaction
-    set((state) => {
-      state.isDialogueLoading = true;
-      state.dialogueError = null;
-    });
-
-    try {
-      // Start the dialogue in the state machine
-      dialogueStateMachine.start(dialogueId);
-      const currentNode = dialogueStateMachine.getCurrentNode();
-      
-      // Validate node was retrieved
-      if (!currentNode) {
-        throw new Error(`Dialogue "${dialogueId}" or its start node not found`);
-      }
-      
-      // Update store with dialogue node details
-      console.log(`[Dialogue] ${dialogueId} started. Current node: ${currentNode.id}`);
-      set((state) => {
-        state.isDialogueActive = true;
-        state.currentDialogueId = dialogueId;
-        state.currentNodeId = currentNode.id;
-        // Fixed TS error by using explicit null handling for optional fields
-        state.currentSpeaker = currentNode.speaker || null;
-        state.currentText = currentNode.text || '';
-        state.currentMood = currentNode.mood || null;
-        state.currentChoices = currentNode.choices || [];
-        state.isDialogueLoading = false;
-      });
-      
-      // Emit events
-      get().emit(GameEventType.DIALOGUE_STARTED, { dialogueId });
-      get().emit(GameEventType.DIALOGUE_NODE_CHANGED, { node: currentNode });
-
-    } catch (error: any) {
-      // Handle startup failure gracefully
-      console.error(`[Dialogue] Error starting dialogue ${dialogueId}:`, error);
-      set((state) => {
-        state.dialogueError = error.message || 'Failed to start dialogue';
-        state.isDialogueActive = false;
-        state.isDialogueLoading = false;
-      });
-      const currentError = get().dialogueError;
-      get().emit(GameEventType.DIALOGUE_ERROR, { error: currentError });
-    }
-  },
-
-  /**
-   * Advance dialogue to next node
-   * Progresses conversation based on player choice (if applicable)
-   */
-  advanceDialogue: (choiceIndex?: number) => {
-    console.log(`[Dialogue] Advancing dialogue with choice: ${choiceIndex !== undefined ? choiceIndex : 'auto'}`);
-    const dialogueStateMachine = get().dialogueStateMachine;
-    const isDialogueActive = get().isDialogueActive;
-
-    // Validate dialogue is active and system ready
-    if (!dialogueStateMachine || !isDialogueActive) {
-      console.warn('[Dialogue] Cannot advance dialogue: Not active or not initialized');
-      return;
-    }
-
-    // Begin advance transaction
-    set((state) => { state.isDialogueLoading = true; });
-
-    try {
-      // Advance the state machine
-      dialogueStateMachine.advance(choiceIndex);
-      const currentNode = dialogueStateMachine.getCurrentNode();
-
-      // Check for dialogue end
-      if (!currentNode || currentNode.isEndingNode) {
-        console.log('[Dialogue] Reached ending node - concluding dialogue');
-        get().endDialogue();
-        return;
-      }
-
-      // Update store with new node details
-      console.log(`[Dialogue] Advanced to node: ${currentNode.id}`);
-      set((state) => {
-        state.currentNodeId = currentNode.id;
-        // Fixed TS error by using explicit null handling for optional fields
-        state.currentSpeaker = currentNode.speaker || null;
-        state.currentText = currentNode.text || '';
-        state.currentMood = currentNode.mood || null;
-        state.currentChoices = currentNode.choices || [];
-        state.isDialogueLoading = false;
-      });
-
-      // Handle special node types and events
-      const isPause = currentNode && 'isPauseNode' in currentNode && !!currentNode.isPauseNode;
-      
-      // Emit appropriate events
-      if (isPause) {
-        console.log("[Dialogue] Pause node encountered");
-        get().emit(GameEventType.DIALOGUE_PAUSED, { nodeId: currentNode.id });
-      } else {
-        get().emit(GameEventType.DIALOGUE_NODE_CHANGED, { node: currentNode });
-      }
-
-      // Process node-specific events if any
-      if (currentNode.events && currentNode.events.length > 0) {
-        console.log(`[Dialogue] Processing ${currentNode.events.length} events for node ${currentNode.id}`);
-        currentNode.events.forEach((event: NarrativeEvent) => {
-          get().handleNarrativeEvent(event);
-        });
-      }
-
-    } catch (error: any) {
-      // Handle advancement failure gracefully
-      console.error('[Dialogue] Error advancing dialogue:', error);
-      set((state) => {
-        state.dialogueError = error.message || 'Failed to advance dialogue';
-        state.isDialogueLoading = false;
-      });
-      const currentError = get().dialogueError;
-      get().emit(GameEventType.DIALOGUE_ERROR, { error: currentError });
-    }
-  },
-
-  /**
-   * End the current dialogue sequence
-   * Cleans up dialogue state and emits appropriate events
-   */
-  endDialogue: () => {
-    const currentDialogueId = get().currentDialogueId;
-    console.log(`[Dialogue] Ending dialogue: ${currentDialogueId}`);
-    
-    set((state) => {
-      if (state.isDialogueActive) {
-        // Reset all dialogue state
-        state.isDialogueActive = false;
-        state.currentDialogueId = null;
-        state.currentNodeId = null;
-        state.currentSpeaker = null;
-        state.currentText = '';
-        state.currentMood = null;
-        state.currentChoices = [];
-        state.dialogueError = null;
-        state.isDialogueLoading = false;
-      } else {
-        console.warn("[Dialogue] Attempted to end dialogue that wasn't active");
-      }
-    });
-    
-    // Emit completion event
-    get().emit(GameEventType.DIALOGUE_ENDED, { dialogueId: currentDialogueId });
-  },
-
-  /**
-   * Update current dialogue ID
-   * Utility method for dialogue management
-   */
-  setCurrentDialogueId: (id: string | null) => {
-    set((state) => { state.currentDialogueId = id; });
-  },
-});
-
-// =======================================================
-// Knowledge System Slice - Player Understanding Tracking
-// =======================================================
-
-const createKnowledgeSlice = (
-  set: (fn: (state: CombinedState) => void) => void,
-  get: () => CombinedState
-): KnowledgeState & KnowledgeActions => ({
-  // Core knowledge state
-  knownInsights: {},
-  insightConnections: [],
-  unlockedTopics: new Set(),
-  isConstellationVisible: false,
-  activeInsightId: null,
-  resetState: () => {
-    // Implementation of resetState method
-  },
-  
-  /**
-   * Add a new insight to player knowledge
-   * @deprecated Use unlockKnowledge instead
-   */
-  addInsight: (insightId: string) => {
-    console.log(`[Knowledge] Adding insight: ${insightId}`);
-    
-    // Delegate to knowledge store
-    const knowledgeStore = useKnowledgeStore.getState();
-    if (knowledgeStore && knowledgeStore.addInsight) {
-      knowledgeStore.addInsight(insightId);
-    } else {
-      console.warn(`[Knowledge] Knowledge store not available for addInsight`);
-    }
-  },
-  
-  /**
-   * Unlock knowledge node (new interface-aligned method)
-   */
-  unlockKnowledge: (knowledgeId: string) => {
-    console.log(`[Knowledge] Unlocking knowledge: ${knowledgeId}`);
-    
-    // Delegate to knowledge store
-    const knowledgeStore = useKnowledgeStore.getState();
-    if (knowledgeStore && knowledgeStore.unlockKnowledge) {
-      // Call the implementation method
-      knowledgeStore.unlockKnowledge(knowledgeId);
-    } else {
-      console.warn(`[Knowledge] Knowledge store not available for unlockKnowledge`);
-    }
-    
-    // Emit consistent event - fixed the undefined event issue
-    get().emit(GameEventType.KNOWLEDGE_GAINED, { 
-      conceptId: knowledgeId,
-      amount: 10,
-      source: 'gameStore'
-    });
-  },
-  
-  /**
-   * Create a connection between insights
-   */
-  createConnection: (fromId: string, toId: string) => {
-    console.log(`[Knowledge] Adding connection: ${fromId} → ${toId}`);
-    
-    // Delegate to knowledge store - using createConnection instead of addConnection
-    const knowledgeStore = useKnowledgeStore.getState();
-    if (knowledgeStore && knowledgeStore.createConnection) {
-      knowledgeStore.createConnection(fromId, toId);
-      
-      // Emit connection event
-      get().emit(GameEventType.INSIGHT_CONNECTED, { 
-        connection: {
-          from: fromId,
-          to: toId
-        }
-      });
-    } else {
-      console.warn(`[Knowledge] Knowledge store not available for createConnection`);
-    }
-  },
-  
-  /**
-   * Unlock a topic in the knowledge system
-   */
-  unlockTopic: (topicId: string) => {
-    console.log(`[Knowledge] Unlocking topic: ${topicId}`);
-    
-    // Delegate to knowledge store
-    const knowledgeStore = useKnowledgeStore.getState();
-    if (knowledgeStore && knowledgeStore.unlockTopic) {
-      knowledgeStore.unlockTopic(topicId);
-      
-      // Update local state for quick access
-      set(state => {
-        state.unlockedTopics.add(topicId);
-      });
-      
-      // Emit domain unlocked event
-      get().emit(GameEventType.DOMAIN_UNLOCKED, { 
-        domainId: topicId 
-      });
-    } else {
-      console.warn(`[Knowledge] Knowledge store not available for unlockTopic`);
-    }
-  },
-  
-  /**
-   * Toggle constellation visibility
-   */
-  setConstellationVisibility: (isVisible: boolean) => {
-    console.log(`[Knowledge] Setting constellation visibility: ${isVisible}`);
-    
-    // Delegate to knowledge store
-    const knowledgeStore = useKnowledgeStore.getState();
-    if (knowledgeStore && knowledgeStore.setConstellationVisibility) {
-      knowledgeStore.setConstellationVisibility(isVisible);
-      
-      // Update local state for quick access
-      set(state => {
-        state.isConstellationVisible = isVisible;
-      });
-      
-      // Emit constellation updated event when visibility changes
-      get().emit(GameEventType.CONSTELLATION_UPDATED, { 
-        visibilityChanged: true,
-        isVisible
-      });
-    } else {
-      console.warn(`[Knowledge] Knowledge store not available for setConstellationVisibility`);
-    }
-  },
-  
-  /**
-   * Set active insight node for focused interaction
-   */
-  setActiveInsight: (insightId: string | null) => {
-    console.log(`[Knowledge] Setting active insight: ${insightId}`);
-    
-    // Delegate to knowledge store
-    const knowledgeStore = useKnowledgeStore.getState();
-    if (knowledgeStore && knowledgeStore.setActiveInsight) {
-      knowledgeStore.setActiveInsight(insightId);
-      
-      // Update local state for quick access
-      set(state => {
-        state.activeInsightId = insightId;
-      });
-      
-      // Emit insight selection event
-      if (insightId) {
-        get().emit(GameEventType.UI_NODE_CLICKED, { 
-          nodeId: insightId,
-          type: 'insight'
-        });
-      }
-    } else {
-      console.warn(`[Knowledge] Knowledge store not available for setActiveInsight`);
-    }
-  },
-});
-
-// =======================================================
-// Resource System Slice - Player Resources & Actions
-// =======================================================
-
-const createResourceSlice = (
-  set: (fn: (state: CombinedState) => void) => void,
-  get: () => CombinedState
-): ResourceState & ResourceActions => ({
-  // Core resource state
-  resources: {},
-  
-  /**
-   * Add to a resource value
-   */
-  addResource: (resourceId: ResourceType, amount: number) => {
-    console.log(`[Resources] Adding ${amount} to ${resourceId}`);
-    
-    // Delegate to resource store or update directly
-    try {
-      const resourceStore = useResourceStore.getState();
-      // Get current value or default to 0
-      const currentValue = get().resources[resourceId] || 0;
-      const newValue = currentValue + amount;
-      
-      // Update resources in state
-      set(state => {
-        state.resources[resourceId] = newValue;
-      });
-      
-      // Emit resource changed event
-      get().emit(GameEventType.RESOURCE_CHANGED, {
-        resourceId,
-        amount,
-        previousValue: currentValue,
-        newValue,
-        reason: 'add'
-      });
-      
-      // Emit specific resource events based on resource type
-      if (resourceId === 'insight' && amount > 0) {
-        get().emit(GameEventType.INSIGHT_GAINED, { amount });
-      } else if (resourceId === 'insight' && amount < 0) {
-        get().emit(GameEventType.INSIGHT_SPENT, { amount: Math.abs(amount) });
-      } else if (resourceId === 'momentum' && amount > 0) {
-        get().emit(GameEventType.MOMENTUM_INCREASED, { amount });
-      } else if (resourceId === 'momentum' && amount < 0) {
-        get().emit(GameEventType.MOMENTUM_RESET, {});
-      }
-    } catch (error) {
-      console.warn(`[Resources] Error adding resource: ${error}`);
-    }
-  },
-  
-  /**
-   * Set a resource to specific value
-   */
-  setResource: (resourceId: ResourceType, amount: number) => {
-    console.log(`[Resources] Setting ${resourceId} to ${amount}`);
-    
-    // Update directly in state
-    try {
-      // Get current value
-      const previousValue = get().resources[resourceId] || 0;
-      
-      // Update resources in state
-      set(state => {
-        state.resources[resourceId] = amount;
-      });
-      
-      // Emit resource changed event
-      get().emit(GameEventType.RESOURCE_CHANGED, {
-        resourceId,
-        amount,
-        previousValue,
-        newValue: amount,
-        reason: 'set'
-      });
-    } catch (error) {
-      console.warn(`[Resources] Error setting resource: ${error}`);
-    }
-  },
-  
-  /**
-   * Check if player has enough of a resource
-   */
-  hasEnoughResource: (resourceId: ResourceType, amount: number): boolean => {
-    try {
-      const currentValue = get().resources[resourceId] || 0;
-      return currentValue >= amount;
-    } catch (error) {
-      console.warn(`[Resources] Error checking resource: ${error}`);
-      return false;
-    }
-  },
-  
-  /**
-   * Reset resources to initial values
-   */
-  resetResources: () => {
-    console.log(`[Resources] Resetting all resources to initial values`);
-    
-    try {
-      // Reset insight and momentum to 0
-      set(state => {
-        state.resources = {
-          insight: 0,
-          momentum: 0
+        centralEventBus.dispatch(
+          GameEventType.INSIGHT_SPENT,
+          { amount },
+          'gameStore.spendInsight'
+        );
+        
+        return {
+          resources: {
+            ...state.resources,
+            insight: state.resources.insight - amount,
+          }
         };
       });
-      
-      // Emit resource reset event
-      get().emit(GameEventType.RESOURCE_CHANGED, {
-        reason: 'reset',
-        affectedResources: ['insight', 'momentum']
-      });
-    } catch (error) {
-      console.warn(`[Resources] Error resetting resources: ${error}`);
-    }
-  },
-});
-
-// =======================================================
-// Journal System Slice - Player Notes & Discoveries
-// =======================================================
-
-const createJournalSlice = (
-  set: (fn: (state: CombinedState) => void) => void,
-  get: () => CombinedState
-): JournalState & JournalActions => ({
-  // Core journal state
-  entries: [],
-  lastEntryTimestamp: null,
-  isJournalOpen: false,
-  
-  /**
-   * Add a new journal entry (original method)
-   */
-  addJournalEntry: (entryData: any) => {
-    console.log(`[Journal] Adding entry via addJournalEntry: ${entryData.title || 'Untitled'}`);
-    
-    // Forward to the unified implementation
-    get().addEntry(entryData);
-  },
-  
-  /**
-   * Add a new journal entry (interface-aligned method)
-   */
-  addEntry: (entryData: any) => {
-    console.log(`[Journal] Adding entry via addEntry: ${entryData.title || 'Untitled'}`);
-    
-    // Delegate to journal store
-    const journalStore = useJournalStore.getState();
-    if (journalStore && journalStore.addEntry) {
-      // Call implementation method
-      journalStore.addEntry(entryData);
-      
-      // Update local timestamp for quick access
-      set(state => {
-        state.lastEntryTimestamp = new Date();
-      });
-      
-      // Emit journal entry added event
-      get().emit(GameEventType.JOURNAL_ENTRY_ADDED, { 
-        title: entryData.title,
-        category: entryData.category,
-        timestamp: new Date().toISOString()
-      });
-    } else {
-      console.warn(`[Journal] Journal store not available for addEntry`);
-    }
-  },
-  
-  /**
-   * Toggle journal UI visibility
-   */
-  setJournalOpen: (isOpen: boolean) => {
-    console.log(`[Journal] Setting journal open: ${isOpen}`);
-    
-    // Delegate to journal store
-    const journalStore = useJournalStore.getState();
-    if (journalStore && journalStore.setJournalOpen) {
-      journalStore.setJournalOpen(isOpen);
-      
-      // Update local state for quick access
-      set(state => {
-        state.isJournalOpen = isOpen;
-      });
-      
-      // Emit appropriate event
-      if (isOpen) {
-        get().emit(GameEventType.JOURNAL_OPENED, {});
-      } else {
-        get().emit(GameEventType.JOURNAL_CLOSED, {});
-      }
-    } else {
-      console.warn(`[Journal] Journal store not available for setJournalOpen`);
-    }
-  },
-});
-
-// =======================================================
-// Combined Game Store - Unified State Management
-// =======================================================
-
-/**
- * Main game store combining all slices
- * Uses immer for immutable updates with mutable syntax
- */
-export const useGameStore = create<CombinedState>()(
-  immer((set, get) => ({
-    // Combine all slices
-    ...createEventBusSlice(set, get),
-    ...createGameStateSlice(set, get),
-    ...createDialogueSlice(set, get),
-    ...createKnowledgeSlice(set, get),
-    ...createResourceSlice(set, get),
-    ...createJournalSlice(set, get),
-    ...createPlayerSlice(set, get),
-
-    /**
-     * Global narrative event handler
-     * Processes events from dialogue system and other narrative triggers
-     */
-    handleNarrativeEvent: (event: NarrativeEvent) => {
-      console.log(`[NarrativeEvent] Handling: ${event.type}`, event.payload);
-      
-      // Access other stores for cross-store operations
-      const knowledgeStore = useKnowledgeStore.getState();
-      const journalStore = useJournalStore.getState();
-      const resourceStore = useResourceStore.getState();
-      
-      // Handle different event types
-      switch (event.type) {
-        // === Knowledge events ===
-        case GameEventType.INSIGHT_REVEALED:
-          const insightPayload = event.payload as { 
-            insightId: string; 
-            connection?: { from: string; to: string } 
-          };
-          
-          // Add the insight to knowledge using interface-aligned method
-          if (insightPayload?.insightId && knowledgeStore) {
-            // Use unlockKnowledge (via delegation to the aligned method)
-            get().unlockKnowledge(insightPayload.insightId);
-            
-            // Emit a mastery increased event
-            get().emit(GameEventType.MASTERY_INCREASED, {
-              conceptId: insightPayload.insightId,
-              amount: 25 // Default mastery gain
-            });
-          }
-          
-          // Add connection if specified - using createConnection
-          if (insightPayload?.connection && knowledgeStore) {
-            get().createConnection(
-              insightPayload.connection.from, 
-              insightPayload.connection.to
-            );
-            console.log("Connection added via INSIGHT_REVEALED event");
-          }
-          break;
-
-        // === Journal events ===
-        case GameEventType.JOURNAL_ENTRY_TRIGGERED:
-          const journalPayload = event.payload as any;
-          
-          // Add the journal entry using interface-aligned method
-          if (journalPayload) {
-            // Use addEntry (the aligned interface method)
-            get().addEntry(journalPayload);
-            
-            // Auto-open journal when important entries are added
-            if (journalPayload.isNew) {
-              get().setJournalOpen(true);
-            }
-          }
-          break;
-          
-        // === Resource events ===
-        case GameEventType.RESOURCE_CHANGED:
-          const resourcePayload = event.payload as {
-            resourceId: string;
-            amount: number;
-            reason?: string;
-          };
-          
-          // Update resources
-          if (resourcePayload && resourceStore) {
-            if (resourcePayload.amount > 0) {
-              // Using cast to ResourceType for type safety
-              get().addResource(
-                resourcePayload.resourceId as ResourceType, 
-                resourcePayload.amount
-              );
-            } else {
-              // Using cast to ResourceType for type safety
-              get().setResource(
-                resourcePayload.resourceId as ResourceType, 
-                resourcePayload.amount
-              );
-            }
-          }
-          break;
-          
-        // === Strategic action events ===
-        case GameEventType.STRATEGIC_ACTION_ACTIVATED:
-          const actionPayload = event.payload as {
-            actionType: string;
-            insightCost: number;
-          };
-          
-          // Apply resource cost
-          if (actionPayload && resourceStore && actionPayload.insightCost > 0) {
-            get().addResource('insight', -actionPayload.insightCost);
-          }
-          break;
-
-        // === Add cases for other event types ===
-        default:
-          console.warn(`[NarrativeEvent] Unhandled event type: ${event.type}`);
-          break;
-      }
-    },
-
-    /**
-     * Reset game state to initial values
-     * Used for testing and debugging
-     */
-    resetGame: () => {
-      console.log('[GameStore] Resetting game state...');
-      set(state => {
-        // Reset player
-        state.player = { ...DEFAULT_PLAYER_ENTITY };
-        
-        // Reset game state
-        if (state.stateMachine) {
-          try {
-            state.stateMachine.resetState(false);
-          } catch (e) {
-            console.warn('[GameStore] Error resetting state machine:', e);
-          }
-        }
-        
-        // Reset other core state
-        state.currentMode = 'exploration';
-        state.isLoading = false;
-        state.error = null;
-        state.currentNodeId = null; // Reset current node ID
-        
-        // Reset resources via dedicated method
-        get().resetResources();
-        
-        // Emit reset event
-        get().emit(GameEventType.GAME_RESET, {
-          timestamp: Date.now()
-        });
-      });
-      
-      // Reset other stores
-      try {
-        if (useKnowledgeStore.getState().resetState) {
-          useKnowledgeStore.getState().resetState();
-        }
-        
-        if (useJournalStore.getState().clearJournal) {
-          useJournalStore.getState().clearJournal();
-        }
-      } catch (e) {
-        console.warn('[GameStore] Error resetting related stores:', e);
-      }
-      
       return true;
     }
-  }))
-);
-
-/**
- * Initialize game store
- * Helper function to bootstrap the game on app start
- */
-export function initializeGameStore(config?: { startingMode?: GameState['currentMode'] }) {
-  const gameStore = useGameStore.getState();
-  
-  // Initialize game systems
-  console.log('[GameStore] Initializing game store...');
-  gameStore.initializeGame({
-    startingMode: config?.startingMode || 'exploration'
-  });
-  
-  return gameStore;
-}
-
-// ======== CHAMBER PATTERN SELECTORS & BRIDGE ========
-
-/**
- * ================================================================
- * CHAMBER PATTERN SELECTORS AND BRIDGE
- * ================================================================
- * 
- * This section implements the Chamber Pattern for the game store,
- * providing a comprehensive set of primitive value selectors and
- * bridge functions to optimize rendering performance.
- */
-
-// ======== PRIMITIVE SELECTORS ========
-// Export these for use with usePrimitiveStoreValue
-
-export const selectors = {
-  // Game state selectors
-  getGamePhase: (state: any) => state.gamePhase || state.stateMachine?.getCurrentState().gamePhase || 'day',
-  getCurrentNodeId: (state: any) => state.currentNodeId,
-  getIsLoading: (state: any) => state.isLoading || false,
-  getCurrentDay: (state: any) => state.currentDay || state.stateMachine?.getCurrentState().currentDay || 1,
-  getCompletedNodeCount: (state: any) => state.completedNodeIds?.length || state.stateMachine?.getCompletedNodeIds()?.length || 0,
-  getIsTransitioning: (state: any) => !!state.isTransitioning || (state.stateMachine?.getCurrentState().isTransitioning) || false,
-  getGameState: (state: any) => state.gameState || state.stateMachine?.getCurrentState().gameState || 'not_started',
-  getErrorMessage: (state: any) => state.error,
-  getGameMode: (state: any) => state.currentMode || 'exploration',
-
-  // Player selectors
-  getPlayerInsight: (state: any) => state.player?.insight || 0,
-  getPlayerMomentum: (state: any) => state.player?.momentum || 0,
-  getPlayerHealth: (state: any) => state.player?.health || 100,
-  getPlayerMaxHealth: (state: any) => state.player?.maxHealth || 100,
-  getPlayerInventorySize: (state: any) => state.player?.inventory?.length || 0,
-  getPlayerHasActiveBuffs: (state: any) => (state.player?.activeBuffs?.length || 0) > 0,
-  getPlayerActiveBuffCount: (state: any) => state.player?.activeBuffs?.length || 0,
-  getPlayerActiveBuffs: (state: any) => state.player?.activeBuffs || [],
-  getPlayerMasteryPercent: (state: any) => state.player?.knowledgeMastery?.overall || 0,
-  
-  // Map selectors
-  getMapNodeCount: (state: any) => state.map?.nodes?.length || 0,
-  getMapLocation: (state: any) => state.map?.currentLocation,
-  getMapSeed: (state: any) => state.map?.seed || '0',
-  getDiscoveredLocationCount: (state: any) => state.map?.discoveredLocations?.length || 0,
-  
-  // Knowledge selectors
-  getKnownInsightCount: (state: any) => Object.keys(state.knownInsights || {}).length,
-  getNewlyDiscoveredCount: (state: any) => state.newlyDiscovered?.length || 0,
-  getTotalMastery: (state: any) => state.totalMastery || 0,
-  getIsConstellationVisible: (state: any) => !!state.isConstellationVisible,
-  getActiveInsightId: (state: any) => state.activeInsightId,
-  getUnlockedTopicCount: (state: any) => state.unlockedTopics?.size || 0,
-  
-  // Dialogue selectors
-  getIsDialogueActive: (state: any) => !!state.isDialogueActive,
-  getCurrentDialogueId: (state: any) => state.currentDialogueId,
-  getCurrentSpeaker: (state: any) => state.currentSpeaker,
-  getCurrentMood: (state: any) => state.currentMood,
-  getDialogueChoiceCount: (state: any) => state.currentChoices?.length || 0,
-  getIsDialogueLoading: (state: any) => !!state.isDialogueLoading,
-  getHasDialogueError: (state: any) => !!state.dialogueError,
-  getDialogueErrorMessage: (state: any) => state.dialogueError,
-  
-  // Resource selectors
-  getResource: (resourceId: string) => (state: any) => 
-    state.resources?.[resourceId] || 0,
-  getInsightResource: (state: any) => 
-    state.resources?.insight || state.player?.insight || 0,
-  getMomentumResource: (state: any) => 
-    state.resources?.momentum || state.player?.momentum || 0,
-  
-  // Journal selectors
-  getLastEntryTimestamp: (state: any) => state.lastEntryTimestamp,
-  getIsJournalOpen: (state: any) => !!state.isJournalOpen,
-  
-  // Combined selectors (still return primitives)
-  getGameSummary: (state: any) => ({
-    phase: state.gamePhase || 'day',
-    day: state.currentDay || 1,
-    location: state.map?.currentLocation || 'unknown'
-  }),
-  
-  getPlayerHealthStatus: (state: any) => {
-    const health = state.player?.health || 0;
-    const maxHealth = state.player?.maxHealth || 100;
-    const percent = Math.floor((health / maxHealth) * 100);
-    return {
-      current: health,
-      max: maxHealth,
-      percent
-    };
+    return false;
   },
   
-  getResourceSummary: (state: any) => {
-    const insight = state.resources?.insight || state.player?.insight || 0;
-    const momentum = state.resources?.momentum || state.player?.momentum || 0;
-    return { insight, momentum };
-  }
-};
-
-// ======== CHAMBER ADAPTER HOOKS ========
-// These provide a transition path for components migrating to the pattern
-
-/**
- * Chamber Adapter for game state
- * Extracts common game state values with proper primitive handling
- */
-export function useGameState() {
-  // Extract primitive values with the new pattern
-  const state = usePrimitiveValues(
-    useGameStore,
-    {
-      phase: selectors.getGamePhase,
-      currentNodeId: selectors.getCurrentNodeId,
-      currentDay: selectors.getCurrentDay,
-      isLoading: selectors.getIsLoading,
-      gameState: selectors.getGameState,
-      isTransitioning: selectors.getIsTransitioning,
-      error: selectors.getErrorMessage,
-      gameMode: selectors.getGameMode
-    },
-    {
-      phase: 'day',
-      currentNodeId: null,
-      currentDay: 1,
-      isLoading: false,
-      gameState: 'not_started',
-      isTransitioning: false,
-      error: null,
-      gameMode: 'exploration'
+  convertInsightToSP: () => {
+    const { resources } = get();
+    const insightToConvert = resources.insight;
+    const spGain = Math.floor(insightToConvert / 5); // 5:1 conversion ratio
+    
+    if (spGain > 0) {
+      set((state) => {
+        centralEventBus.dispatch(
+          GameEventType.INSIGHT_CONVERTED,
+          { 
+            insightAmount: insightToConvert,
+            spGained: spGain
+          },
+          'gameStore.convertInsightToSP'
+        );
+        
+        return {
+          resources: {
+            ...state.resources,
+            insight: 0, // Reset insight
+            starPoints: state.resources.starPoints + spGain,
+          }
+        };
+      });
     }
-  );
+  },
   
-  // Extract key functions with stable references
-  const actions = useStableStoreValue(
-    useGameStore,
-    state => ({
-      setGameMode: state.setGameMode,
-      initializeGame: state.initializeGame,
-      setError: state.setError,
-      setCurrentNode: state.setCurrentNode // Added to expose setCurrentNode
-    })
-  );
+  addStarPoints: (amount: number) => {
+    set((state) => {
+      const currentSP = state.resources.starPoints;
+      const newSP = currentSP + amount;
+      
+      centralEventBus.dispatch(
+        GameEventType.SP_GAINED,
+        { 
+          previous: currentSP,
+          current: newSP,
+          change: amount
+        },
+        'gameStore.addStarPoints'
+      );
+      
+      return {
+        resources: {
+          ...state.resources,
+          starPoints: newSP,
+        }
+      };
+    });
+  },
   
-  return {
-    // Primitives
-    ...state,
-    
-    // Computed values
-    isDay: state.phase === 'day',
-    isNight: state.phase === 'night',
-    isDayTransition: state.phase === 'transition_to_day',
-    isNightTransition: state.phase === 'transition_to_night',
-    
-    // Actions (safely extracted)
-    setGameMode: actions?.setGameMode || ((mode) => console.warn('setGameMode not available')),
-    initializeGame: actions?.initializeGame || (() => console.warn('initializeGame not available')),
-    setError: actions?.setError || ((error) => console.warn('setError not available')),
-    setCurrentNode: actions?.setCurrentNode || ((nodeId) => console.warn('setCurrentNode not available')) // Added to expose setCurrentNode
-  };
-}
-
-/**
- * Chamber Adapter for player state
- * Extracts common player values with proper primitive handling
- */
-export function usePlayerState() {
-  // Extract primitive values
-  const playerState = usePrimitiveValues(
-    useGameStore,
-    {
-      insight: selectors.getPlayerInsight,
-      momentum: selectors.getPlayerMomentum,
-      health: selectors.getPlayerHealth,
-      maxHealth: selectors.getPlayerMaxHealth,
-      inventorySize: selectors.getPlayerInventorySize,
-      masteryPercent: selectors.getPlayerMasteryPercent,
-      activeBuffCount: selectors.getPlayerActiveBuffCount
-    },
-    {
-      insight: 0,
-      momentum: 0,
-      health: 100,
-      maxHealth: 100,
-      inventorySize: 0,
-      masteryPercent: 0,
-      activeBuffCount: 0
+  spendStarPoints: (amount: number) => {
+    const { resources } = get();
+    if (resources.starPoints >= amount) {
+      set((state) => {
+        centralEventBus.dispatch(
+          GameEventType.SP_SPENT,
+          { amount },
+          'gameStore.spendStarPoints'
+        );
+        
+        return {
+          resources: {
+            ...state.resources,
+            starPoints: state.resources.starPoints - amount,
+          }
+        };
+      });
+      return true;
     }
-  );
+    return false;
+  },
   
-  // Extract player actions
-  const actions = useStableStoreValue(
-    useGameStore,
-    state => ({
-      updateInsight: state.updateInsight,
-      incrementMomentum: state.incrementMomentum,
-      resetMomentum: state.resetMomentum,
-      updateKnowledgeMastery: state.updateKnowledgeMastery,
-      addToInventory: state.addToInventory,
-      applyBuff: state.applyBuff,
-      removeBuff: state.removeBuff
-    })
-  );
+  // Difficulty management
+  difficulty: Difficulty.STANDARD,
+  setDifficulty: (difficulty: Difficulty) => set({ difficulty }),
   
-  return {
-    // Primitives
-    ...playerState,
-    
-    // Computed values
-    healthPercent: playerState.health / playerState.maxHealth * 100,
-    healthStatus: playerState.health < 30 ? 'critical' : playerState.health < 60 ? 'warning' : 'good',
-    hasBuffs: playerState.activeBuffCount > 0,
-    
-    // Actions (safely extracted)
-    updateInsight: actions?.updateInsight || ((amount) => console.warn('updateInsight not available')),
-    incrementMomentum: actions?.incrementMomentum || (() => console.warn('incrementMomentum not available')),
-    resetMomentum: actions?.resetMomentum || (() => console.warn('resetMomentum not available')),
-    updateKnowledgeMastery: actions?.updateKnowledgeMastery || 
-      ((conceptId, amount, domainId) => console.warn('updateKnowledgeMastery not available')),
-    addToInventory: actions?.addToInventory || ((itemId) => console.warn('addToInventory not available')),
-    applyBuff: actions?.applyBuff || ((buffId, duration) => console.warn('applyBuff not available')),
-    removeBuff: actions?.removeBuff || ((buffId) => console.warn('removeBuff not available'))
-  };
-}
+  // Player data management
+  setPlayerName: (name: string) => set({ playerName: name }),
+}));
 
-/**
- * Chamber Adapter for knowledge state
- * Extracts common knowledge values with proper primitive handling
- */
-export function useKnowledgeState() {
-  // Extract primitive values
-  const state = usePrimitiveValues(
-    useKnowledgeStore,
-    {
-      totalMastery: selectors.getTotalMastery,
-      newlyDiscoveredCount: selectors.getNewlyDiscoveredCount,
-      knownInsightCount: selectors.getKnownInsightCount,
-      isConstellationVisible: selectors.getIsConstellationVisible,
-      activeInsightId: selectors.getActiveInsightId,
-      unlockedTopicCount: selectors.getUnlockedTopicCount
-    },
-    {
-      totalMastery: 0,
-      newlyDiscoveredCount: 0,
-      knownInsightCount: 0,
-      isConstellationVisible: false,
-      activeInsightId: null,
-      unlockedTopicCount: 0
-    }
-  );
-  
-  // Extract knowledge actions
-  const actions = useStableStoreValue(
-    useKnowledgeStore,
-    state => ({
-      transferInsights: state.transferInsights,
-      resetNewlyDiscovered: state.resetNewlyDiscovered,
-      addInsight: state.addInsight,
-      createConnection: state.createConnection,
-      unlockTopic: state.unlockTopic,
-      setConstellationVisibility: state.setConstellationVisibility,
-      setActiveInsight: state.setActiveInsight
-    })
-  );
-  
-  return {
-    // Primitives
-    ...state,
-    
-    // Computed values
-    hasNewConcepts: state.newlyDiscoveredCount > 0,
-    masteryLevel: state.totalMastery < 25 ? 'novice' : 
-                 state.totalMastery < 50 ? 'apprentice' : 
-                 state.totalMastery < 75 ? 'practitioner' : 'expert',
-    
-    // Actions (safely extracted)
-    transferInsights: actions?.transferInsights || (() => console.warn('transferInsights not available')),
-    resetNewlyDiscovered: actions?.resetNewlyDiscovered || (() => console.warn('resetNewlyDiscovered not available')),
-    addInsight: actions?.addInsight || ((insightId) => console.warn('addInsight not available')),
-    createConnection: actions?.createConnection || ((fromId, toId) => console.warn('createConnection not available')),
-    unlockTopic: actions?.unlockTopic || ((topicId) => console.warn('unlockTopic not available')),
-    setConstellationVisibility: actions?.setConstellationVisibility || 
-      ((isVisible) => console.warn('setConstellationVisibility not available')),
-    setActiveInsight: actions?.setActiveInsight || ((insightId) => console.warn('setActiveInsight not available'))
-  };
-}
-
-/**
- * Chamber Adapter for dialogue state
- * Extracts dialogue-related primitives and actions
- */
-export function useDialogueState() {
-  // Extract primitive values
-  const state = usePrimitiveValues(
-    useGameStore,
-    {
-      isActive: selectors.getIsDialogueActive,
-      currentDialogueId: selectors.getCurrentDialogueId,
-      currentSpeaker: selectors.getCurrentSpeaker,
-      currentMood: selectors.getCurrentMood,
-      choiceCount: selectors.getDialogueChoiceCount,
-      isLoading: selectors.getIsDialogueLoading,
-      hasError: selectors.getHasDialogueError,
-      errorMessage: selectors.getDialogueErrorMessage
-    },
-    {
-      isActive: false,
-      currentDialogueId: null,
-      currentSpeaker: null,
-      currentMood: null,
-      choiceCount: 0,
-      isLoading: false,
-      hasError: false,
-      errorMessage: null
-    }
-  );
-  
-  // Extract dialogue actions
-  const actions = useStableStoreValue(
-    useGameStore,
-    state => ({
-      startDialogue: state.startDialogue,
-      advanceDialogue: state.advanceDialogue,
-      endDialogue: state.endDialogue
-    })
-  );
-  
-  return {
-    // Primitives
-    ...state,
-    
-    // Computed values
-    hasChoices: state.choiceCount > 0,
-    
-    // Actions (safely extracted)
-    startDialogue: actions?.startDialogue || ((dialogueId) => console.warn('startDialogue not available')),
-    advanceDialogue: actions?.advanceDialogue || ((choiceIndex) => console.warn('advanceDialogue not available')),
-    endDialogue: actions?.endDialogue || (() => console.warn('endDialogue not available'))
-  };
-}
-
-/**
- * Map state adapter for Chamber Pattern
- * Extracts map-related primitives and actions
- */
-export function useMapState() {
-  // Extract primitive values
-  const mapState = usePrimitiveValues(
-    useGameStore,
-    {
-      currentLocation: selectors.getMapLocation,
-      nodeCount: selectors.getMapNodeCount,
-      seed: selectors.getMapSeed,
-      discoveredCount: selectors.getDiscoveredLocationCount
-    },
-    {
-      currentLocation: 'unknown',
-      nodeCount: 0,
-      seed: '0',
-      discoveredCount: 0
-    }
-  );
-  
-  // Extract map from store (this is an object, but we need it)
-  const mapObject = useGameStore(state => state.map);
-  
-  return {
-    // Primitives
-    ...mapState,
-    
-    // Needed objects (use carefully)
-    nodes: mapObject?.nodes || [],
-    connections: mapObject?.connections || [],
-    discoveredLocations: mapObject?.discoveredLocations || [],
-    
-    // Computed values
-    hasNodes: mapState.nodeCount > 0,
-    explorationPercent: mapObject ? 
-      Math.floor((mapObject.discoveredLocations.length / Math.max(mapObject.nodes.length, 1)) * 100) : 0
-  };
-}
-
-/**
- * Transitional store hook for gradual migration
- * Provides an escape hatch to choose between patterns
- */
-export function useTransitionalStore<T extends object, V extends string | number | boolean>(
-  store: any, 
-  selector: (state: T) => V,
-  defaultValue: V,
-  usePrimitives = false
-): V {
-  if (usePrimitives) {
-    return usePrimitiveStoreValue(store, selector, defaultValue);
-  }
-  return useStableStoreValue(store, selector);
-}
-
-// Add debug window access in development mode
-if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
-  (window as any).__GAME_STORE_DEBUG__ = {
-    getState: () => useGameStore.getState(),
-    getSelectors: () => selectors,
-    resetGame: () => useGameStore.getState().resetGame(),
-    setCurrentNode: (nodeId: string) => useGameStore.getState().setCurrentNode(nodeId),
-    inspectBridges: () => ({
-      gameState: useGameState(),
-      playerState: usePlayerState(),
-      knowledgeState: useKnowledgeState(),
-      dialogueState: useDialogueState(),
-      mapState: useMapState()
-    })
-  };
-}
-
-export default useGameStore;
+// Make the game store accessible globally
+// This function will be available for other parts of the app
+// to access the game store
+if (typeof window !== 'undefined') {
+  (window as any).getGameStore = () => useGameStore.getState();
+} 

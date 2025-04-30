@@ -1,0 +1,11 @@
+This is a placeholder file that should be replaced with an actual hospital background image.
+
+The image should depict a modern hospital setting, possibly:
+- A hospital exterior with entrance
+- A hospital reception area
+- A hallway with medical equipment
+
+Recommended specs:
+- Resolution: 1920x1080 or 1280x720
+- Format: JPG or PNG
+- Style: Consistent with the game's retro pixel art aesthetic, but with enough detail to be recognizable as a hospital 

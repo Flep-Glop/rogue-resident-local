@@ -1,0 +1,7 @@
+.git
+.github
+.next/cache
+node_modules
+README.md
+docs
+.DS_Store 
