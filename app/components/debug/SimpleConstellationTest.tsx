@@ -773,6 +773,180 @@ export default function SimpleConstellationTest() {
       : 0;
   };
 
+  // Add a new component to test connection mastery levels - after the ConnectionsDisplay component
+  const ConnectionMasteryTest = () => {
+    const [selectedConn, setSelectedConn] = useState<{ source: string, target: string } | null>(null);
+    const { connections, updateConnectionMastery } = useKnowledgeStore();
+    
+    // Get active connections
+    const activeConnections = connections.filter(c => c.discovered);
+    
+    // Handle connection mastery update
+    const handleMasteryUpdate = (amount: number) => {
+      if (!selectedConn) return;
+      
+      updateConnectionMastery(selectedConn.source, selectedConn.target, amount);
+      log(`Updated connection mastery between ${
+        nodes.find(n => n.id === selectedConn.source)?.name
+      } and ${
+        nodes.find(n => n.id === selectedConn.target)?.name
+      } by ${amount}%`);
+    };
+    
+    // Get mastery tier name
+    const getMasteryTierName = (mastery: number): string => {
+      if (mastery < 30) return 'Low';
+      if (mastery < 70) return 'Medium';
+      return 'High';
+    };
+    
+    // Get mastery tier color
+    const getMasteryTierColor = (mastery: number): string => {
+      if (mastery < 30) return 'bg-gray-400';
+      if (mastery < 70) return 'bg-blue-400';
+      return 'bg-green-400';
+    };
+    
+    return (
+      <div className="mt-6 p-3 bg-gray-800 rounded-lg shadow-lg">
+        <h3 className="text-lg font-semibold text-white mb-2">Connection Mastery Test</h3>
+        
+        <div className="flex flex-col space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <h4 className="text-sm font-medium text-gray-300 mb-1">Select Connection</h4>
+              <div className="max-h-48 overflow-y-auto space-y-1 bg-gray-900 p-2 rounded">
+                {activeConnections.length === 0 ? (
+                  <p className="text-gray-400 text-sm">No connections discovered yet</p>
+                ) : (
+                  activeConnections.map(conn => {
+                    const sourceNode = nodes.find(n => n.id === conn.source);
+                    const targetNode = nodes.find(n => n.id === conn.target);
+                    if (!sourceNode || !targetNode) return null;
+                    
+                    const isSelected = selectedConn && 
+                      ((selectedConn.source === conn.source && selectedConn.target === conn.target) ||
+                       (selectedConn.source === conn.target && selectedConn.target === conn.source));
+                    
+                    return (
+                      <div
+                        key={`${conn.source}-${conn.target}`}
+                        className={`flex items-center p-1 rounded cursor-pointer ${
+                          isSelected ? 'bg-indigo-700' : 'hover:bg-gray-700'
+                        }`}
+                        onClick={() => setSelectedConn({
+                          source: conn.source,
+                          target: conn.target
+                        })}
+                      >
+                        <div className="flex flex-col flex-1">
+                          <div className="flex items-center">
+                            <div 
+                              className="w-2 h-2 rounded-full mr-1" 
+                              style={{ backgroundColor: DOMAIN_COLORS[sourceNode.domain] }}
+                            ></div>
+                            <span className="text-white text-sm">{sourceNode.name}</span>
+                          </div>
+                          <div className="flex items-center">
+                            <div 
+                              className="w-2 h-2 rounded-full mr-1" 
+                              style={{ backgroundColor: DOMAIN_COLORS[targetNode.domain] }}
+                            ></div>
+                            <span className="text-white text-sm">{targetNode.name}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs text-gray-300">{Math.round(conn.strength)}%</span>
+                          <span className={`text-xs px-1 rounded ${getMasteryTierColor(conn.strength)} text-black`}>
+                            {getMasteryTierName(conn.strength)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="text-sm font-medium text-gray-300 mb-1">Mastery Controls</h4>
+              {selectedConn ? (
+                <div className="bg-gray-900 p-2 rounded">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-white">Selected Connection:</span>
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-300 mr-1">
+                          {nodes.find(n => n.id === selectedConn.source)?.name}
+                        </span>
+                        <span className="text-gray-400">↔</span>
+                        <span className="text-sm text-gray-300 ml-1">
+                          {nodes.find(n => n.id === selectedConn.target)?.name}
+                        </span>
+                      </div>
+                      
+                      {(() => {
+                        const conn = connections.find(c => 
+                          (c.source === selectedConn.source && c.target === selectedConn.target) ||
+                          (c.source === selectedConn.target && c.target === selectedConn.source)
+                        );
+                        if (!conn) return null;
+                        
+                        return (
+                          <div className="flex items-center">
+                            <div className="w-full bg-gray-700 rounded-full h-2 mr-2">
+                              <div 
+                                className={`h-2 rounded-full ${getMasteryTierColor(conn.strength)}`}
+                                style={{ width: `${Math.round(conn.strength)}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-white text-sm font-medium">
+                              {Math.round(conn.strength)}%
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      className="bg-purple-600 hover:bg-purple-700 text-white py-1 px-3 rounded text-sm"
+                      onClick={() => handleMasteryUpdate(5)}
+                    >
+                      +5%
+                    </button>
+                    <button
+                      className="bg-purple-700 hover:bg-purple-800 text-white py-1 px-3 rounded text-sm"
+                      onClick={() => handleMasteryUpdate(15)}
+                    >
+                      +15%
+                    </button>
+                    <button
+                      className="bg-purple-800 hover:bg-purple-900 text-white py-1 px-3 rounded text-sm"
+                      onClick={() => handleMasteryUpdate(30)}
+                    >
+                      +30%
+                    </button>
+                  </div>
+                  
+                  <p className="text-xs text-gray-400 mt-2">
+                    Mastery Tiers: &lt;30% Low, 30-70% Medium, &gt;70% High
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-gray-900 p-3 rounded flex items-center justify-center text-gray-400">
+                  Select a connection first
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-4 bg-gray-900 text-white rounded-lg overflow-auto">
       <h2 className="text-xl font-bold mb-4">Simple Constellation Test</h2>
@@ -908,6 +1082,9 @@ export default function SimpleConstellationTest() {
       
       {/* Connection Graph Display */}
       <ConnectionsDisplay />
+      
+      {/* Connection Mastery Test */}
+      <ConnectionMasteryTest />
       
       {/* Simplified Stars Display */}
       <div className="grid grid-cols-4 gap-4 mt-4">

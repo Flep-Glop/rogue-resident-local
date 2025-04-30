@@ -206,6 +206,21 @@ export default function ConstellationDebugControls({
     }
   });
   
+  // Handle adding Star Points
+  const handleAddStarPoints = useStableCallback((amount: number) => {
+    try {
+      const knowledgeStore = useKnowledgeStore.getState();
+      
+      // Add the specified amount of star points
+      knowledgeStore.addStarPoints(amount);
+      
+      showFeedback(`Added ${amount} Star Points`, 'success');
+    } catch (error) {
+      console.error('Error adding star points:', error);
+      showFeedback('Error adding star points', 'error');
+    }
+  });
+  
   // Apply orbital-quadrant layout
   const handleApplyLayout = useStableCallback(() => {
     try {
@@ -343,6 +358,80 @@ export default function ConstellationDebugControls({
           </button>
         </div>
       </div>
+      
+      {/* Star Points buttons */}
+      <div className="mb-3">
+        <h4 className="text-xs mb-1 text-gray-300">Add Star Points (SP):</h4>
+        <div className="grid grid-cols-4 gap-2">
+          <button
+            className="px-2 py-1 text-xs rounded pixel-button bg-yellow-600 hover:bg-yellow-500 text-white"
+            onClick={() => handleAddStarPoints(5)}
+          >
+            +5 SP
+          </button>
+          <button
+            className="px-2 py-1 text-xs rounded pixel-button bg-yellow-600 hover:bg-yellow-500 text-white"
+            onClick={() => handleAddStarPoints(15)}
+          >
+            +15 SP
+          </button>
+          <button
+            className="px-2 py-1 text-xs rounded pixel-button bg-yellow-600 hover:bg-yellow-500 text-white"
+            onClick={() => handleAddStarPoints(50)}
+          >
+            +50 SP
+          </button>
+          <button
+            className="px-2 py-1 text-xs rounded pixel-button bg-yellow-600 hover:bg-yellow-500 text-white"
+            onClick={() => handleAddStarPoints(100)}
+          >
+            +100 SP
+          </button>
+        </div>
+      </div>
+
+      {/* SP Cost Validation Button */}
+      <button 
+        onClick={() => {
+          console.log("Validating SP costs for all concepts...");
+          // Get all concepts from the store
+          const allConcepts = useKnowledgeStore.getState().nodes;
+          // Check for missing or invalid SP costs
+          const issuesConcepts = allConcepts.filter(concept => 
+            !concept.spCost || isNaN(concept.spCost)
+          );
+          
+          if (issuesConcepts.length === 0) {
+            console.log("✅ All concepts have valid SP costs!");
+          } else {
+            console.warn(`⚠️ Found ${issuesConcepts.length} concepts with missing or invalid SP costs:`);
+            issuesConcepts.forEach(concept => {
+              console.warn(`- ${concept.name} (${concept.id}): orbit=${concept.orbit}, spCost=${concept.spCost}`);
+            });
+          }
+          
+          // Log SP cost distribution by orbit
+          const orbitCounts = new Map<number, {count: number, avgCost: number}>();
+          allConcepts.forEach(concept => {
+            const orbit = concept.orbit || 0;
+            if (!orbitCounts.has(orbit)) {
+              orbitCounts.set(orbit, {count: 0, avgCost: 0});
+            }
+            const current = orbitCounts.get(orbit)!;
+            current.count++;
+            current.avgCost += concept.spCost || 0;
+          });
+          
+          console.log("SP Cost Distribution by Orbit:");
+          orbitCounts.forEach((data, orbit) => {
+            const avgCost = data.count > 0 ? data.avgCost / data.count : 0;
+            console.log(`Orbit ${orbit}: ${data.count} concepts, Avg Cost: ${avgCost.toFixed(1)} SP`);
+          });
+        }}
+        className="px-2 py-1 text-xs bg-blue-600 text-white rounded"
+      >
+        Validate SP Costs
+      </button>
     </div>
   );
 }

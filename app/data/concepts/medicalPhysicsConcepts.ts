@@ -8,6 +8,43 @@
 
 import { ConceptNode, KnowledgeDomain } from '@/app/store/knowledgeStore';
 
+/**
+ * Helper function to ensure all concepts have proper spCost based on orbit
+ * This is applied to all concepts to ensure consistent SP costs
+ */
+function updateConceptsWithOrbits(concepts: ConceptNode[]): ConceptNode[] {
+  // Define standard SP costs by orbit level
+  const orbitCosts = {
+    0: 10, // Core concepts - cheapest
+    1: 15, // Intermediate concepts
+    2: 20, // Advanced concepts
+    3: 25  // Specialized concepts - most expensive
+  };
+
+  // Ensure all concepts have spCost, unlocked, and active properties
+  return concepts.map(concept => {
+    // Make deep copy to avoid mutations
+    const updatedConcept = { ...concept };
+    
+    // Set spCost based on orbit if not already set
+    if (!updatedConcept.spCost || isNaN(updatedConcept.spCost)) {
+      const orbit = updatedConcept.orbit || 0;
+      updatedConcept.spCost = orbitCosts[orbit as keyof typeof orbitCosts] || 15;
+    }
+    
+    // Ensure these properties exist
+    if (updatedConcept.unlocked === undefined) {
+      updatedConcept.unlocked = false;
+    }
+    
+    if (updatedConcept.active === undefined) {
+      updatedConcept.active = false;
+    }
+    
+    return updatedConcept;
+  });
+}
+
 // Domain constants - matching domains from the knowledge store
 export const KNOWLEDGE_DOMAINS = {
   TREATMENT_PLANNING: 'treatment-planning' as KnowledgeDomain,
@@ -171,8 +208,11 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     mastery: 0,
     connections: ['treatment-planning', 'target-volumes', 'fractionation', 'clinical-dose'],
     discovered: false,
+    unlocked: false,
+    active: false,
     position: calculatePosition(1, 'TREATMENT_PLANNING', 0),
-    orbit: 1
+    orbit: 1,
+    spCost: 15 // Orbit 1 concept SP cost
   },
   
   // Plan Evaluation
@@ -184,8 +224,11 @@ export const medicalPhysicsConcepts: ConceptNode[] = [
     mastery: 0,
     connections: ['treatment-planning', 'dvh-analysis', 'plan-qa'],
     discovered: false,
+    unlocked: false,
+    active: false,
     position: calculatePosition(1, 'TREATMENT_PLANNING', 1),
-    orbit: 1
+    orbit: 1,
+    spCost: 15 // Orbit 1 concept SP cost
   },
   
   // === ORBIT 2: ADVANCED CONCEPTS ===
@@ -1229,4 +1272,8 @@ export const additionalConcepts: ConceptNode[] = [
 // Combine all concepts
 export const allConcepts = [...medicalPhysicsConcepts, ...additionalConcepts];
 
-export default allConcepts;
+// Apply orbit-based SP costs to all concepts
+const updatedConcepts = updateConceptsWithOrbits(allConcepts);
+
+// Export the updated concepts as default
+export default updatedConcepts;

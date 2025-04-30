@@ -6,7 +6,6 @@ import JournalAcquisitionAnimation from './components/journal/JournalAcquisition
 import { useCoreInitialization } from './core/init';
 import ChamberDebugInitializer from './components/debug/ChamberDebugInitializer';
 import UnifiedDebugPanel from './components/debug/UnifiedDebugPanel';
-import DialogueNodeSelector from './components/tools/DialogueNodeSelector';
 import { useKnowledgeStore } from './store/knowledgeStore';
 import { GameEventType } from './core/events/EventTypes';
 import { safeDispatch } from './core/events/CentralEventBus';
@@ -470,9 +469,6 @@ export default function VerticalSlicePage() {
         {initialized ? (
           <>
             <GameContainer />
-            
-            {/* Add the extension test selector in non-production environments */}
-            {process.env.NODE_ENV !== 'production' && <DialogueNodeSelector />}
           </>
         ) : null}
       </div>
@@ -484,16 +480,6 @@ export default function VerticalSlicePage() {
           onClick={() => setShowDebugPanel(prev => !prev)}
         >
           {showDebugPanel ? 'Hide Init Debug' : 'Show Init Debug'}
-        </button>
-      )}
-
-      {/* Debug button */}
-      {process.env.NODE_ENV !== 'production' && (
-        <button 
-          onClick={testDiscovery}
-          className="fixed bottom-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-sm opacity-50 hover:opacity-100 z-50"
-        >
-          Test Discovery
         </button>
       )}
     </ErrorBoundary>

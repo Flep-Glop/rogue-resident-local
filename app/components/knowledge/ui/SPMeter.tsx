@@ -21,7 +21,7 @@ export default function SPMeter({ compact = false }: SPMeterProps) {
   if (compact) {
     // Compact version for small spaces
     return (
-      <div className="bg-black/70 text-white px-3 py-1 rounded-full flex items-center space-x-1 text-sm">
+      <div className="bg-black/70 text-white px-3 py-1 rounded-full flex items-center space-x-1 text-sm sp-meter">
         <span className="text-yellow-400">✦</span>
         <span>{starPoints}</span>
       </div>
@@ -29,7 +29,7 @@ export default function SPMeter({ compact = false }: SPMeterProps) {
   }
 
   return (
-    <div className="bg-black/70 border border-yellow-500/50 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+    <div className="bg-black/70 border border-yellow-500/50 text-white px-4 py-2 rounded-lg flex items-center space-x-2 sp-meter">
       <div className="text-xl text-yellow-400">✦</div>
       <div>
         <div className="font-bold">{starPoints}</div>

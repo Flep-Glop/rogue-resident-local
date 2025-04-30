@@ -70,6 +70,7 @@ export enum GameEventType {
   INSIGHT_CONNECTED = 'knowledge:insight:connected',
   CONSTELLATION_UPDATED = 'knowledge:constellation:updated',
   KNOWLEDGE_CONNECTION_CREATED = 'knowledge:connection:created', // Added for constellation connections
+  CONNECTION_MASTERY_INCREASED = 'knowledge:connection:mastery:increased', // Added for automatic connection system
   JOURNAL_ACQUIRED = 'journal:acquired',
   JOURNAL_ENTRY_TRIGGERED = 'journal:entry:triggered',
   JOURNAL_ENTRY_ADDED = 'journal:entry:added',
@@ -159,12 +160,8 @@ export interface DialogueOptionPayload extends DialogueEventPayload {
 
 export interface NodeCompletionPayload {
   nodeId: string;
-  character?: string;
-  result?: {
-    relationshipChange?: number;
-    journalTier?: string;
-    isJournalAcquisition?: boolean;
-  };
+  narrativeContextId?: string;
+  timestamp: number;
 }
 
 export interface StateChangePayload {
@@ -252,12 +249,9 @@ export interface DebugCommandPayload {
 }
 
 export interface RecoveryEventPayload {
-  type: 'transition' | 'state' | 'journal' | 'knowledge';
-  source: string;
-  targetState?: string;
-  previousState?: string;
-  metadata?: Record<string, any>;
-  successful: boolean;
+  recoveryType: 'transition' | 'state' | 'consistency';
+  previousState?: any;
+  currentState?: any;
   timestamp: number;
 }
 
@@ -284,11 +278,20 @@ export interface ConnectionStartedPayload {
 }
 
 export interface KnowledgeConnectionPayload {
-  source: string;
-  target: string;
-  strength?: number;
-  domain?: string;
-  metadata?: Record<string, any>;
+  sourceNodeId: string;
+  targetNodeId: string;
+  connectionId: string;
+  connectionStrength?: number;
+  automatic?: boolean;
+}
+
+export interface ConnectionMasteryPayload {
+  connectionId: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  previousLevel: number;
+  newLevel: number;
+  automatic: boolean;
 }
 
 // ===== New Constellation Pattern System Payload =====

@@ -168,6 +168,9 @@ export interface KnowledgeState {
   // Development helpers
   importKnowledgeData: (data: Partial<KnowledgeState>) => void;
   resetKnowledge: () => void;
+  
+  // New: Update connection mastery
+  updateConnectionMastery: (sourceId: string, targetId: string, amount: number) => void;
 }
 
 /**
@@ -286,16 +289,53 @@ export const getMasteryLevel = (mastery: number): MasteryLevel => {
   return 'mastered';
 };
 
+/**
+ * Ensures all concepts have proper spCost values based on their orbit level
+ */
+function ensureConceptSpCosts(concepts: ConceptNode[]): ConceptNode[] {
+  // Define standard SP costs by orbit level
+  const orbitCosts = {
+    0: 10, // Core concepts - cheapest
+    1: 15, // Intermediate concepts
+    2: 20, // Advanced concepts
+    3: 25  // Specialized concepts - most expensive
+  };
+
+  return concepts.map(concept => {
+    const updatedConcept = { ...concept };
+    
+    // Set spCost based on orbit if not already set
+    if (!updatedConcept.spCost || isNaN(updatedConcept.spCost)) {
+      const orbit = updatedConcept.orbit || 0;
+      updatedConcept.spCost = orbitCosts[orbit as keyof typeof orbitCosts] || 15;
+    }
+    
+    // Ensure these properties exist
+    if (updatedConcept.unlocked === undefined) {
+      updatedConcept.unlocked = false;
+    }
+    
+    if (updatedConcept.active === undefined) {
+      updatedConcept.active = false;
+    }
+    
+    return updatedConcept;
+  });
+}
+
+// Apply SP costs to all concepts
+const processedConcepts = ensureConceptSpCosts(allConcepts);
+
 // Initial state preparation
-const initialConnections = buildInitialConnections(allConcepts);
-const initialDomainMastery = calculateDomainMastery(allConcepts);
-const initialTotalMastery = calculateTotalMastery(initialDomainMastery, allConcepts);
+const initialConnections = buildInitialConnections(processedConcepts);
+const initialDomainMastery = calculateDomainMastery(processedConcepts);
+const initialTotalMastery = calculateTotalMastery(initialDomainMastery, processedConcepts);
 
 // Create the knowledge store with Zustand and Immer
 export const useKnowledgeStore = create<KnowledgeState>()(
   immer((set, get) => ({
     // Initial state
-    nodes: allConcepts, // Nodes for visualization (concepts)
+    nodes: processedConcepts, // Use processed concepts with proper SP costs
     connections: initialConnections, // Connections for visualization
     journalEntries: [], // Journal entries linked to concepts
     pendingInsights: [],
@@ -758,7 +798,10 @@ export const useKnowledgeStore = create<KnowledgeState>()(
       
       set(state => {
         // Import provided data with fallbacks to current state
-        if (data.nodes) state.nodes = data.nodes;
+        if (data.nodes) {
+          // Apply ensureConceptSpCosts to make sure all imported nodes have valid SP costs
+          state.nodes = ensureConceptSpCosts(data.nodes);
+        }
         if (data.connections) {
           state.connections = data.connections;
         } else {
@@ -779,7 +822,8 @@ export const useKnowledgeStore = create<KnowledgeState>()(
     // Reset knowledge to initial state
     resetKnowledge: () => {
       // Start with a clean copy of all concepts but ensure they're all undiscovered
-      const resetConcepts = allConcepts.map(concept => ({
+      // and ensure they have proper SP costs
+      const resetConcepts = ensureConceptSpCosts(allConcepts).map(concept => ({
         ...concept,
         discovered: false,
         unlocked: false,
@@ -919,17 +963,40 @@ export const useKnowledgeStore = create<KnowledgeState>()(
           return;
         }
         
-        console.log(`[Knowledge] Attempting to unlock concept: ${conceptId}, name: ${node.name}, SP cost: ${node.spCost}, current SP: ${state.starPoints}`);
+        // Ensure node has a valid spCost - default to orbit-based cost if undefined or NaN
+        if (!node.spCost || isNaN(node.spCost)) {
+          const orbit = node.orbit || 0;
+          
+          // Define standard SP costs by orbit level
+          const orbitCosts = {
+            0: 10, // Core concepts - cheapest
+            1: 15, // Intermediate concepts
+            2: 20, // Advanced concepts
+            3: 25  // Specialized concepts - most expensive
+          };
+          
+          // Set the spCost based on orbit
+          const nodeIndex = state.nodes.findIndex(n => n.id === conceptId);
+          if (nodeIndex >= 0) {
+            state.nodes[nodeIndex].spCost = orbitCosts[orbit as keyof typeof orbitCosts] || 15;
+          }
+        }
+        
+        // Recalculate local node reference with potentially updated spCost
+        const updatedNode = state.nodes.find(n => n.id === conceptId);
+        if (!updatedNode) return; // Shouldn't happen
+        
+        console.log(`[Knowledge] Attempting to unlock concept: ${conceptId}, name: ${updatedNode.name}, SP cost: ${updatedNode.spCost}, current SP: ${state.starPoints}`);
         
         // Check if player has enough SP
-        if (state.starPoints < node.spCost) {
-          console.warn(`Not enough SP to unlock concept ${conceptId}. Required: ${node.spCost}, Available: ${state.starPoints}`);
+        if (state.starPoints < updatedNode.spCost) {
+          console.warn(`Not enough SP to unlock concept ${conceptId}. Required: ${updatedNode.spCost}, Available: ${state.starPoints}`);
           return;
         }
         
         // Spend the required SP
         const previousSP = state.starPoints;
-        state.starPoints -= node.spCost;
+        state.starPoints -= updatedNode.spCost;
         
         // Mark the concept as unlocked and also activate it
         const nodeIndex = state.nodes.findIndex(n => n.id === conceptId);
@@ -940,7 +1007,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         const updatedConnections = buildInitialConnections(state.nodes);
         state.connections = updatedConnections;
         
-        console.log(`[Knowledge] Successfully unlocked concept: ${conceptId}, SP spent: ${node.spCost}, SP remaining: ${state.starPoints}`);
+        console.log(`[Knowledge] Successfully unlocked concept: ${conceptId}, SP spent: ${updatedNode.spCost}, SP remaining: ${state.starPoints}`);
         
         // Count connections for debugging
         const nodeConnections = updatedConnections.filter(c => c.source === conceptId || c.target === conceptId);
@@ -958,7 +1025,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
               resourceType: 'sp',
               previousValue: previousSP,
               newValue: state.starPoints,
-              change: -node.spCost,
+              change: -updatedNode.spCost,
               source: `unlock_concept_${conceptId}`
             },
             'knowledgeStore.unlockConcept'
@@ -973,7 +1040,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
             CUSTOM_EVENTS.CONCEPT_UNLOCKED,
             { 
               conceptId,
-              cost: node.spCost,
+              cost: updatedNode.spCost,
               isAutoActivated: true
             },
             'knowledgeStore.unlockConcept'
@@ -1034,6 +1101,67 @@ export const useKnowledgeStore = create<KnowledgeState>()(
     // New: Check if concept is active
     isConceptActive: (conceptId: string) => {
       return get().nodes.some(n => n.id === conceptId && n.active);
+    },
+    
+    // New: Update connection mastery
+    updateConnectionMastery: (sourceId: string, targetId: string, amount: number) => {
+      set(state => {
+        // Find the connection
+        const connectionIndex = state.connections.findIndex(
+          conn => (conn.source === sourceId && conn.target === targetId) ||
+                  (conn.source === targetId && conn.target === sourceId)
+        );
+        
+        if (connectionIndex === -1) {
+          console.warn(`Cannot update mastery: Connection between ${sourceId} and ${targetId} not found`);
+          return;
+        }
+        
+        // Get old mastery for threshold checking
+        const oldMastery = state.connections[connectionIndex].strength;
+        
+        // Update the connection mastery (capped at 100)
+        state.connections[connectionIndex].strength = 
+          Math.min(100, state.connections[connectionIndex].strength + amount);
+        
+        // Mark as discovered if not already
+        if (!state.connections[connectionIndex].discovered) {
+          state.connections[connectionIndex].discovered = true;
+        }
+        
+        // Get the new mastery value
+        const newMastery = state.connections[connectionIndex].strength;
+        
+        // Calculate if we crossed a mastery threshold
+        const oldTier = getMasteryTier(oldMastery);
+        const newTier = getMasteryTier(newMastery);
+        
+        // If mastery crossed a threshold, emit an event
+        if (newTier > oldTier || oldMastery === 0) {
+          try {
+            // Get concept names for better feedback
+            const sourceNode = state.nodes.find(n => n.id === sourceId);
+            const targetNode = state.nodes.find(n => n.id === targetId);
+            
+            safeDispatch(
+              GameEventType.CONNECTION_MASTERY_INCREASED,
+              {
+                sourceId,
+                targetId,
+                sourceName: sourceNode?.name || sourceId,
+                targetName: targetNode?.name || targetId,
+                oldMastery,
+                newMastery,
+                amount,
+                threshold: newTier > oldTier
+              },
+              'knowledgeStore.updateConnectionMastery'
+            );
+          } catch (e) {
+            console.error('Error dispatching connection mastery event:', e);
+          }
+        }
+      });
     }
   }))
 );
@@ -1211,3 +1339,10 @@ export function useKnowledgeData() {
 }
 
 export default useKnowledgeStore;
+
+// Helper function to determine mastery tier (used for threshold detection)
+function getMasteryTier(mastery: number): number {
+  if (mastery < 30) return 0; // Low
+  if (mastery < 70) return 1; // Medium
+  return 2; // High
+}

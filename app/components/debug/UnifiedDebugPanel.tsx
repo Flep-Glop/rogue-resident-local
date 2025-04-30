@@ -20,6 +20,7 @@ import {
   getResourceTierForSuccess
 } from '@/app/core/resources/ResourceTierSystem';
 import KnowledgeDiscoveryDebugger from './KnowledgeDiscoveryDebugger';
+import AutoConnectionTester from './AutoConnectionTester';
 
 // Type declarations for window extensions
 declare global {
@@ -49,7 +50,7 @@ declare global {
 export default function UnifiedDebugPanel() {
   // Panel state
   const [isExpanded, setIsExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState<'game' | 'map' | 'actions' | 'system' | 'events' | 'constellation' | 'reactions' | 'knowledge' | 'resources' | 'knowledge-discovery'>('game');
+  const [activeTab, setActiveTab] = useState<'game' | 'map' | 'actions' | 'system' | 'events' | 'constellation' | 'reactions' | 'knowledge' | 'resources' | 'knowledge-discovery' | 'connections'>('game');
   const [clickPending, setClickPending] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{message: string, type: 'success'|'error'|'info'|null}>({
     message: '',
@@ -757,6 +758,7 @@ export default function UnifiedDebugPanel() {
     { id: 'knowledge', label: 'Knowledge' },
     { id: 'resources', label: 'Resources' },
     { id: 'knowledge-discovery', label: 'K-Discovery' },
+    { id: 'connections', label: 'Connections' },
   ];
   
   // Tab renderers
@@ -827,285 +829,198 @@ export default function UnifiedDebugPanel() {
     // refreshStateValues();
     const state = stateRef.current || {};
     
+    // Define node groups based on actual nodes in the SimplifiedKapoorMap.tsx
+    const nodeGroups = [
+      {
+        title: "Act 1",
+        nodes: [
+          { id: 'start', label: 'Start', color: 'green' },
+          { id: 'path-a1', label: 'Path A1', color: 'green' },
+          { id: 'path-a2', label: 'Path A2', color: 'green' },
+          { id: 'enc-1', label: 'Encounter 1', color: 'blue' },
+          { id: 'enc-3', label: 'Encounter 3', color: 'blue' },
+          { id: 'chal-1', label: 'Challenge 1', color: 'purple' },
+          { id: 'chal-3', label: 'Challenge 3', color: 'purple' },
+          { id: 'hub-1', label: 'Hub 1', color: 'yellow' },
+          { id: 'hub-2', label: 'Hub 2', color: 'yellow' },
+          { id: 'elite-1', label: 'Elite 1', color: 'red' },
+          { id: 'elite-2', label: 'Elite 2', color: 'red' },
+          { id: 'path-final-1', label: 'Path Final 1', color: 'green' },
+          { id: 'act1-boss', label: 'Act 1 Boss', color: 'orange' }
+        ]
+      },
+      {
+        title: "Between Acts",
+        nodes: [
+          { id: 'treasure', label: 'Treasure', color: 'amber' },
+          { id: 'rest', label: 'Rest', color: 'cyan' },
+          { id: 'recovery', label: 'Recovery', color: 'lime' }
+        ]
+      },
+      {
+        title: "Act 2",
+        nodes: [
+          { id: 'path-b1', label: 'Path B1', color: 'green' },
+          { id: 'path-b2', label: 'Path B2', color: 'green' },
+          { id: 'path-b3', label: 'Path B3', color: 'green' },
+          { id: 'b-chal-1', label: 'B-Challenge 1', color: 'purple' },
+          { id: 'b-chal-3', label: 'B-Challenge 3', color: 'purple' },
+          { id: 'b-chal-5', label: 'B-Challenge 5', color: 'purple' },
+          { id: 'b-hard-1', label: 'B-Hard 1', color: 'indigo' },
+          { id: 'b-hard-3', label: 'B-Hard 3', color: 'indigo' },
+          { id: 'b-hard-5', label: 'B-Hard 5', color: 'indigo' },
+          { id: 'b-elite-1', label: 'B-Elite 1', color: 'red' },
+          { id: 'b-elite-2', label: 'B-Elite 2', color: 'red' },
+          { id: 'b-elite-3', label: 'B-Elite 3', color: 'red' },
+          { id: 'final-boss', label: 'FINAL BOSS', color: 'rose' }
+        ]
+      }
+    ];
+    
+    const colorMap = {
+      'green': 'bg-green-600 hover:bg-green-500',
+      'blue': 'bg-blue-600 hover:bg-blue-500',
+      'purple': 'bg-purple-600 hover:bg-purple-500',
+      'yellow': 'bg-yellow-600 hover:bg-yellow-500',
+      'red': 'bg-red-600 hover:bg-red-500',
+      'orange': 'bg-orange-600 hover:bg-orange-500',
+      'amber': 'bg-amber-600 hover:bg-amber-500',
+      'cyan': 'bg-cyan-600 hover:bg-cyan-500',
+      'lime': 'bg-lime-600 hover:bg-lime-500',
+      'indigo': 'bg-indigo-600 hover:bg-indigo-500',
+      'rose': 'bg-rose-600 hover:bg-rose-500'
+    };
+    
+    // Helper function to get the appropriate color class
+    const getColorClass = (color) => colorMap[color] || 'bg-gray-600 hover:bg-gray-500';
+    
     return (
       <div className="p-3 bg-gray-800/80 rounded-md">
-        <h3 className="font-pixel text-sm mb-2 text-blue-400">Map Debug</h3>
-        <div className="bg-black/60 p-2 rounded pixel-borders mb-2">
+        <h3 className="font-pixel text-sm mb-2 text-blue-400">Map Status</h3>
+        <div className="bg-black/60 p-2 rounded pixel-borders mb-3">
           <div className="flex justify-between mb-1">
             <span>Current Node:</span>
             <span className="font-mono text-xs">{state.currentNodeId || 'none'}</span>
           </div>
-          <div className="flex justify-between mb-1">
-            <span>Click Count:</span>
-            <span>{clickCount}</span>
-          </div>
-          <div className="flex justify-between mb-1">
-            <span>Click Target:</span>
-            <span className="text-xs">{clickTarget}</span>
-          </div>
-          <div className="flex justify-between mb-1">
-            <span>Click Position:</span>
-            <span>{clickPosition ? `${clickPosition.x.toFixed(0)}, ${clickPosition.y.toFixed(0)}` : 'None'}</span>
-          </div>
           <div className="flex justify-between">
-            <span>Render Phase:</span>
-            <span>{state.renderPhase || 'idle'}</span>
+            <span>Completed Nodes:</span>
+            <span>{state.completedNodeIds ? state.completedNodeIds.length : 0}</span>
           </div>
         </div>
         
-        {/* Node State Management */}
-        <h3 className="font-pixel text-sm mb-2 text-blue-400">Node State Management</h3>
-        <div className="w-full mb-3 bg-black/60 p-2 rounded pixel-borders">
+        <div className="flex space-x-2 mb-3">
           <button 
-            className="w-full px-2 py-1 mb-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
+            className="flex-1 px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
             onClick={refreshMapState}
           >
-            Refresh Map State
+            Refresh Map
           </button>
-          <div className="flex justify-between mb-1">
-            <button 
-              className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
-              onClick={completeCurrentNode}
-              disabled={!state.currentNodeId}
-            >
-              Complete Current Node
-            </button>
-            <button 
-              className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs pixel-button"
-              onClick={clearCurrentNode}
-              disabled={!state.currentNodeId}
-            >
-              Close Node
-            </button>
-          </div>
-          
-          {/* Force Completion Buttons */}
-          <div className="mt-2 pt-2 border-t border-gray-700">
-            <h4 className="text-xs text-yellow-400 mb-1">Force Node Completion:</h4>
-            <div className="flex flex-wrap gap-2">
-              <button 
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-                onClick={() => markNodeCompleted('start')}
-              >
-                Mark Start Completed
-              </button>
-              <button 
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-                onClick={() => markNodeCompleted('path-a1')}
-              >
-                Mark Path A1 Completed
-              </button>
-              <button 
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-                onClick={() => markNodeCompleted('enc-1')}
-              >
-                Mark Enc-1 Completed
-              </button>
-              <button 
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-                onClick={() => markNodeCompleted('chal-1')}
-              >
-                Mark Chal-1 Completed
-              </button>
-              <button 
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-                onClick={() => markNodeCompleted('hub-1')}
-              >
-                Mark Hub-1 Completed
-              </button>
-              <button 
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-                onClick={() => markNodeCompleted('elite-1')}
-              >
-                Mark Elite-1 Completed
-              </button>
-            </div>
-          </div>
-          
-          {/* View Completed Nodes */}
-          <div className="mt-2 pt-2 border-t border-gray-700">
-            <h4 className="text-xs text-yellow-400 mb-1">Completed Nodes:</h4>
-            <div className="text-xs bg-black/50 p-2 rounded max-h-20 overflow-y-auto">
-              {state.completedNodeIds ? (
-                state.completedNodeIds.length > 0 ? 
-                  state.completedNodeIds.map((id: string) => (
-                    <div key={id} className="px-1 py-0.5 bg-green-900/30 rounded mb-1">
-                      {id}
-                    </div>
-                  )) : 
-                  <div className="text-gray-400">No completed nodes</div>
-              ) : (
-                <div className="text-gray-400">Loading...</div>
-              )}
-            </div>
-          </div>
+          <button 
+            className="flex-1 px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs pixel-button"
+            onClick={clearCurrentNode}
+            disabled={!state.currentNodeId}
+          >
+            Clear Selection
+          </button>
         </div>
         
+        {/* Completed Nodes Collapsible Section */}
+        <div className="mb-3">
+          <details className="bg-black/60 rounded pixel-borders">
+            <summary className="font-pixel text-xs text-yellow-400 p-2 cursor-pointer">
+              Completed Nodes ({state.completedNodeIds ? state.completedNodeIds.length : 0})
+            </summary>
+            <div className="p-2 border-t border-gray-700">
+              <div className="text-xs bg-black/50 p-2 rounded max-h-32 overflow-y-auto">
+                {state.completedNodeIds ? (
+                  state.completedNodeIds.length > 0 ? 
+                    state.completedNodeIds.map((id: string) => (
+                      <div key={id} className="px-2 py-1 bg-green-900/30 rounded mb-1 flex justify-between">
+                        <span>{id}</span>
+                        <button 
+                          className="text-red-400 hover:text-red-300 text-xs"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            // Add functionality to remove completion if needed
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )) : 
+                    <div className="text-gray-400">No completed nodes</div>
+                ) : (
+                  <div className="text-gray-400">Loading...</div>
+                )}
+              </div>
+            </div>
+          </details>
+        </div>
+        
+        {/* Node Selection with Accordion */}
         <h3 className="font-pixel text-sm mb-2 text-blue-400">Node Selection</h3>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {/* Kapoor Map Nodes Section */}
-          <div className="w-full mb-2">
-            <h4 className="text-xs text-yellow-400 mb-1">Map Nodes:</h4>
-            <div className="flex flex-wrap gap-2">
+        
+        {nodeGroups.map((group, groupIndex) => (
+          <details 
+            key={groupIndex} 
+            className="bg-black/60 rounded pixel-borders mb-2"
+            open={groupIndex === 0} // Open the first group by default
+          >
+            <summary className="font-pixel text-xs text-yellow-400 p-2 cursor-pointer">
+              {group.title} ({group.nodes.length} nodes)
+            </summary>
+            <div className="p-2 border-t border-gray-700 grid grid-cols-2 gap-2">
+              {group.nodes.map(node => (
+                <button 
+                  key={node.id}
+                  className={`px-2 py-1 ${getColorClass(node.color)} text-white rounded text-xs pixel-button ${
+                    state.currentNodeId === node.id ? 'ring-2 ring-white' : ''
+                  } ${state.completedNodeIds?.includes(node.id) ? 'opacity-75' : ''}`}
+                  onClick={() => selectNode(node.id)}
+                >
+                  {node.label}
+                  {state.completedNodeIds?.includes(node.id) && 
+                    <span className="ml-1 text-yellow-300">✓</span>
+                  }
+                </button>
+              ))}
+            </div>
+            
+            {/* Quick completion actions for this group */}
+            <div className="px-2 pb-2 flex justify-end">
               <button 
-                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('start')}
+                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button text-xs"
+                onClick={() => {
+                  // Mark all nodes in this group as completed
+                  group.nodes.forEach(node => markNodeCompleted(node.id));
+                }}
               >
-                Start Node
+                Complete All
               </button>
-              
-              {/* First Row - Paths */}
-              <div className="w-full mt-1 mb-1 border-t border-gray-700"></div>
-              <h5 className="text-xs text-blue-300 w-full">First Row:</h5>
+            </div>
+          </details>
+        ))}
+        
+        {/* Current node actions */}
+        {state.currentNodeId && (
+          <div className="mt-3 bg-blue-900/30 p-2 rounded pixel-borders">
+            <h4 className="font-pixel text-xs text-blue-300 mb-2">Current Node: {state.currentNodeId}</h4>
+            <div className="flex space-x-2">
               <button 
-                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('path-a1')}
+                className="flex-1 px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
+                onClick={completeCurrentNode}
               >
-                Path A1
-              </button>
-              <button 
-                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('path-a2')}
-              >
-                Path A2
-              </button>
-              <button 
-                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('path-a3')}
-              >
-                Path A3
-              </button>
-              <button 
-                className="px-2 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('path-a4')}
-              >
-                Path A4
-              </button>
-              
-              {/* Second Row - Encounters */}
-              <div className="w-full mt-1 mb-1 border-t border-gray-700"></div>
-              <h5 className="text-xs text-blue-300 w-full">Second Row:</h5>
-              <button 
-                className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('enc-1')}
-              >
-                Encounter 1
-              </button>
-              <button 
-                className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('enc-3')}
-              >
-                Encounter 3
+                Complete
               </button>
               <button 
-                className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('enc-5')}
+                className="flex-1 px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs pixel-button"
+                onClick={clearCurrentNode}
               >
-                Encounter 5
-              </button>
-              <button 
-                className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('enc-6')}
-              >
-                Encounter 6
-              </button>
-              
-              {/* Third Row - Challenges */}
-              <div className="w-full mt-1 mb-1 border-t border-gray-700"></div>
-              <h5 className="text-xs text-blue-300 w-full">Third Row:</h5>
-              <button 
-                className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('chal-1')}
-              >
-                Challenge 1
-              </button>
-              <button 
-                className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('chal-3')}
-              >
-                Challenge 3
-              </button>
-              <button 
-                className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('chal-5')}
-              >
-                Challenge 5
-              </button>
-              <button 
-                className="px-2 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('chal-6')}
-              >
-                Challenge 6
-              </button>
-              
-              {/* Fourth Row - Hubs */}
-              <div className="w-full mt-1 mb-1 border-t border-gray-700"></div>
-              <h5 className="text-xs text-blue-300 w-full">Fourth Row:</h5>
-              <button 
-                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('hub-1')}
-              >
-                Hub 1
-              </button>
-              <button 
-                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('hub-2')}
-              >
-                Hub 2
-              </button>
-              <button 
-                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('hub-3')}
-              >
-                Hub 3
-              </button>
-              <button 
-                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('hub-4')}
-              >
-                Hub 4
-              </button>
-              
-              {/* Fifth Row - Elites */}
-              <div className="w-full mt-1 mb-1 border-t border-gray-700"></div>
-              <h5 className="text-xs text-blue-300 w-full">Fifth Row:</h5>
-              <button 
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('elite-1')}
-              >
-                Elite 1
-              </button>
-              <button 
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('elite-2')}
-              >
-                Elite 2
-              </button>
-              <button 
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('elite-3')}
-              >
-                Elite 3
-              </button>
-              <button 
-                className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs pixel-button"
-                onClick={() => selectNode('elite-4')}
-              >
-                Elite 4
+                Close
               </button>
             </div>
           </div>
-          
-          <div className="w-full mt-2">
-            <button 
-              className="px-2 py-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs pixel-button w-full"
-              onClick={clearCurrentNode}
-              disabled={!state.currentNodeId}
-            >
-              Reset Selection
-            </button>
-          </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -1736,6 +1651,16 @@ export default function UnifiedDebugPanel() {
     );
   };
   
+  // Add a new rendering function for the connections tab
+  const renderConnectionsTab = () => {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Connection Mastery Testing</h3>
+        <AutoConnectionTester />
+      </div>
+    );
+  };
+  
   // Render active tab content
   const renderTabContent = () => {
     // Don't call refreshStateValues during render
@@ -1752,6 +1677,7 @@ export default function UnifiedDebugPanel() {
       case 'knowledge': return <KnowledgeSystemDebug />;
       case 'resources': return renderResourcesTab();
       case 'knowledge-discovery': return renderKnowledgeDiscoveryTab();
+      case 'connections': return renderConnectionsTab();
       default: return renderGameTab();
     }
   };
@@ -1903,6 +1829,12 @@ export default function UnifiedDebugPanel() {
               onClick={() => setActiveTab('resources')}
             >
               Resources
+            </button>
+            <button
+              className={`px-3 py-2 text-xs transition-colors ${activeTab === 'connections' ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white'}`}
+              onClick={() => setActiveTab('connections')}
+            >
+              Connections
             </button>
           </div>
           

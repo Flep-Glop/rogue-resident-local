@@ -11,7 +11,7 @@ import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { PixelText, PixelButton } from './PixelThemeProvider';
 import useGameStateMachine from '@/app/core/statemachine/GameStateMachine';
 import ConstellationView from './knowledge/ConstellationView';
-import { useEventBus } from '@/app/core/events/CentralEventBus';
+import { useEventBus, useEventSubscription } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { 
   usePrimitiveStoreValue, 
@@ -21,6 +21,8 @@ import {
 } from '@/app/core/utils/storeHooks';
 import { ConceptNode } from '@/app/store/knowledgeStore';
 import { useRouter } from 'next/navigation';
+import Journal from './journal/Journal';
+import { useJournalStore } from '@/app/store/journalStore';
 
 // Define props type for component
 interface HillHomeSceneProps {
@@ -101,6 +103,7 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
   const [showConstellation, setShowConstellation] = useState(false);
   const [insightTransferred, setInsightTransferred] = useState(false);
   const [hasStartedInsightTransfer, setHasStartedInsightTransfer] = useState(false);
+  const [showJournal, setShowJournal] = useState(false);
   
   // ======== REFS FOR DOM MANIPULATION ========
   const mountedRef = useRef(true);
@@ -115,6 +118,19 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
     [pendingInsights]
   );
   const nextDayNumber = useMemo(() => currentDay + 1, [currentDay]);
+  
+  // Extract journal state with more specific typing
+  const hasJournal = usePrimitiveStoreValue<any, boolean>(
+    useJournalStore,
+    state => state.hasJournal,
+    false
+  );
+  
+  const isJournalOpen = usePrimitiveStoreValue<any, boolean>(
+    useJournalStore,
+    state => state.isJournalOpen,
+    false
+  );
   
   // ======== INSTRUMENTATION ========
   // Only used in development
@@ -162,8 +178,11 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
     if (!mountedRef.current) return;
     
     // Only start transfer if we haven't already and we have insights to transfer
-    if (!hasStartedInsightTransfer && !insightTransferred && hasPendingInsights) {
+    if (!hasStartedInsightTransfer && !insightTransferred && (hasPendingInsights || hasNewConcepts)) {
       console.log('[HillHomeScene] Starting insight transfer process');
+      console.log('[HillHomeScene] Has pending insights:', hasPendingInsights);
+      console.log('[HillHomeScene] Has new concepts:', hasNewConcepts, newlyDiscovered);
+      
       setHasStartedInsightTransfer(true);
       
       // Start the animation via DOM
@@ -195,14 +214,25 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
           // Log insight transfer for debugging
           console.log('[HillHomeScene] Insight transfer complete:', {
             insightsTransferred: pendingInsights?.length || 0,
-            totalGain: totalInsightGain
+            totalGain: totalInsightGain,
+            newConceptsCount: newlyDiscovered.length
           });
           
-          // Automatically open constellation view after a delay
+          // Automatically open constellation view after a delay if we have new concepts
           if (hasNewConcepts) {
             setTimeout(() => {
               if (mountedRef.current) {
                 setShowConstellation(true);
+                // Highlight notification that we have new concepts
+                if (containerRef.current) {
+                  const notification = document.createElement('div');
+                  notification.className = 'fixed top-5 right-5 bg-indigo-900 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse';
+                  notification.innerHTML = `${newlyDiscovered.length} new concept${newlyDiscovered.length > 1 ? 's' : ''} discovered!`;
+                  containerRef.current.appendChild(notification);
+                  
+                  // Remove after 5 seconds
+                  setTimeout(() => notification.remove(), 5000);
+                }
               }
             }, 1000);
           }
@@ -223,7 +253,8 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
     hasNewConcepts,
     pendingInsights, 
     updateInsight, 
-    transferInsights
+    transferInsights,
+    newlyDiscovered
   ]);
   
   // ======== CLEANUP EFFECT ========
@@ -294,6 +325,59 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
     setShowInventory(false);
   }, []);
   
+  const handleOpenJournal = useCallback(() => {
+    console.log('[HillHomeScene] Opening journal, hasJournal:', hasJournal);
+    
+    // Ensure journal is initialized before opening
+    try {
+      const journalStore = useJournalStore.getState();
+      
+      // Force initialize if somehow not initialized
+      if (!journalStore.hasJournal && journalStore.initializeJournal) {
+        console.log('[HillHomeScene] Force initializing journal before opening');
+        journalStore.initializeJournal('base', 'hill_home_force_init');
+      }
+      
+      // Force open the journal
+      if (journalStore.setJournalOpen) {
+        console.log('[HillHomeScene] Setting journal open state to true');
+        journalStore.setJournalOpen(true);
+        setShowJournal(true);
+      } else if (journalStore.toggleJournal) {
+        console.log('[HillHomeScene] Toggling journal open');
+        journalStore.toggleJournal();
+        setShowJournal(true);
+      } else {
+        console.warn('[HillHomeScene] No method available to open journal');
+      }
+    } catch (e) {
+      console.error('[HillHomeScene] Error opening journal:', e);
+    }
+  }, [hasJournal]);
+  
+  const handleCloseJournal = useCallback(() => {
+    console.log('[HillHomeScene] Closing journal');
+    
+    // Close the journal in both store and local state
+    try {
+      const journalStore = useJournalStore.getState();
+      
+      // Close in store
+      if (journalStore.setJournalOpen) {
+        journalStore.setJournalOpen(false);
+      } else if (journalStore.toggleJournal && journalStore.isJournalOpen) {
+        journalStore.toggleJournal();
+      }
+      
+      // Update local state
+      setShowJournal(false);
+    } catch (e) {
+      console.error('[HillHomeScene] Error closing journal:', e);
+      // Fallback to just updating local state
+      setShowJournal(false);
+    }
+  }, []);
+  
   // ======== HELPER FUNCTIONS ========
   // Memoize this to prevent recreation
   const getConceptColor = useMemo(() => (conceptId: string): string => {
@@ -315,6 +399,45 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
     return conceptDomains[conceptId] || '#8b5cf6'; // Default to purple
   }, []);
 
+  // Initialize journal if not already initialized
+  useEffect(() => {
+    if (!hasJournal) {
+      console.log('[HillHomeScene] Journal not initialized, initializing now');
+      try {
+        const journalStore = useJournalStore.getState();
+        if (journalStore.initializeJournal) {
+          journalStore.initializeJournal('base', 'hill_home_scene');
+          console.log('[HillHomeScene] Journal initialized successfully');
+        }
+      } catch (e) {
+        console.error('[HillHomeScene] Error initializing journal:', e);
+      }
+    } else {
+      console.log('[HillHomeScene] Journal already initialized');
+    }
+  }, [hasJournal]);
+  
+  // Sync journal state between store and local state
+  useEffect(() => {
+    // If journal store state changes, update our local state
+    if (isJournalOpen !== showJournal) {
+      console.log('[HillHomeScene] Syncing journal state with store:', isJournalOpen);
+      setShowJournal(isJournalOpen);
+    }
+  }, [isJournalOpen, showJournal]);
+  
+  // Listen for journal close events
+  useEventSubscription(
+    GameEventType.UI_BUTTON_CLICKED,
+    useStableCallback((event: any) => {
+      // Only handle events from the journal component
+      if (event.payload?.componentId === 'journal' && event.payload?.action === 'closeJournal') {
+        console.log('[HillHomeScene] Received journal close event');
+        setShowJournal(false);
+      }
+    })
+  );
+  
   // ======== RENDER FUNCTION ========
   return (
     <div 
@@ -382,9 +505,21 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
             </div>
           </div>
           
+          {/* Journal card */}
+          <div 
+            className="bg-gray-900 border border-indigo-800 rounded-lg p-6 flex flex-col items-center justify-center min-h-[180px] hover:bg-gray-800 transition cursor-pointer"
+            onClick={handleOpenJournal}
+          >
+            <div className="text-4xl mb-3">📓</div>
+            <h2 className="text-lg font-pixel text-white mb-1">Journal</h2>
+            <div className="mt-2 px-3 py-1 bg-gray-700 text-white text-sm">
+              Review Notes & Connections
+            </div>
+          </div>
+          
           {/* Return to hospital card */}
           <div 
-            className="col-span-2 bg-gray-900 border border-blue-800 rounded-lg p-6 flex flex-col items-center justify-center min-h-[180px] hover:bg-gray-800 transition cursor-pointer"
+            className="bg-gray-900 border border-blue-800 rounded-lg p-6 flex flex-col items-center justify-center min-h-[180px] hover:bg-gray-800 transition cursor-pointer"
             onClick={handleStartDay}
           >
             <div className="text-4xl mb-3">🏥</div>
@@ -461,6 +596,21 @@ export default function HillHomeScene({ onComplete }: HillHomeSceneProps) {
             activeNodes={newlyDiscovered || []}
             onClose={handleCloseConstellation}
           />
+        </div>
+      )}
+      
+      {/* Journal panel */}
+      {showJournal && (
+        <div className="fixed inset-0 bg-black/95 z-30">
+          <div className="absolute top-4 right-4">
+            <button 
+              onClick={handleCloseJournal}
+              className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded"
+            >
+              Close
+            </button>
+          </div>
+          <Journal />
         </div>
       )}
       

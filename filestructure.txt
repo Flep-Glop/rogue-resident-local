@@ -6,6 +6,7 @@
 │   │       └── route.ts
 │   ├── components
 │   │   ├── CharacterPortrait.tsx
+│   │   ├── ClientSoundManager.tsx
 │   │   ├── DayNightTransition.tsx
 │   │   ├── DialogueTierConnector.tsx
 │   │   ├── EndDayButton.tsx
@@ -20,6 +21,7 @@
 │   │   │   └── formats
 │   │   │       └── ConversationFormat.tsx
 │   │   ├── debug
+│   │   │   ├── AutoConnectionTester.tsx
 │   │   │   ├── BuildInfo.tsx
 │   │   │   ├── ChamberDebugInitializer.tsx
 │   │   │   ├── ClientBuildInfo.tsx
@@ -68,6 +70,8 @@
 │   │   │   │   └── ErrorDisplay.tsx
 │   │   │   └── unified
 │   │   │       └── UnifiedExtensionContainer.tsx
+│   │   ├── feedback
+│   │   │   └── ConnectionMasteryFeedback.tsx
 │   │   ├── gameplay
 │   │   │   ├── InsightMeter.tsx
 │   │   │   ├── MomentumCounter.tsx
@@ -81,12 +85,15 @@
 │   │   │   ├── JournalNotesPage.tsx
 │   │   │   └── JournalReferencesPage.tsx
 │   │   ├── knowledge
+│   │   │   ├── CollapsibleKnowledgePanel.tsx
 │   │   │   ├── ConstellationLayout.ts
 │   │   │   ├── ConstellationParticleSystem.ts
 │   │   │   ├── ConstellationPatternSystem.ts
 │   │   │   ├── ConstellationView.tsx
 │   │   │   ├── ConstellationVisualizationControl.ts
 │   │   │   ├── KnowledgeUpdate.tsx
+│   │   │   ├── MasteryTable.tsx
+│   │   │   ├── PatternProgressTable.tsx
 │   │   │   ├── constellationCanvasUtils.ts
 │   │   │   └── ui
 │   │   │       ├── ConnectionHelpTooltip.tsx
@@ -105,8 +112,11 @@
 │   │   │   └── SimplifiedKapoorMap.tsx
 │   │   ├── testing
 │   │   │   └── MomentumTester.tsx
-│   │   └── tools
-│   │       └── DialogueNodeSelector.tsx
+│   │   ├── tools
+│   │   │   └── DialogueNodeSelector.tsx
+│   │   └── ui
+│   │       ├── Button.tsx
+│   │       └── GameTooltip.tsx
 │   ├── constellation-test
 │   │   └── page.tsx
 │   ├── core
@@ -130,6 +140,8 @@
 │   │   ├── resources
 │   │   │   ├── README.md
 │   │   │   └── ResourceTierSystem.ts
+│   │   ├── sound
+│   │   │   └── SoundManager.tsx
 │   │   ├── statemachine
 │   │   │   └── GameStateMachine.ts
 │   │   ├── themeConstants.ts
@@ -144,6 +156,7 @@
 │   ├── data
 │   │   ├── characters.ts
 │   │   ├── concepts
+│   │   │   ├── medical-physics-connections.ts
 │   │   │   └── medicalPhysicsConcepts.ts
 │   │   ├── dialogueRegistry.ts
 │   │   ├── dialogues
@@ -169,6 +182,8 @@
 │   │   ├── useGameplayEffects.ts
 │   │   └── useTypewriter.ts
 │   ├── layout.tsx
+│   ├── mastery-dashboard
+│   │   └── page.tsx
 │   ├── page.tsx
 │   ├── store
 │   │   ├── gameStore.ts
@@ -178,6 +193,8 @@
 │   ├── styles
 │   │   ├── globals.css
 │   │   └── pixel-borders.css
+│   ├── test-panel
+│   │   └── page.tsx
 │   ├── tools
 │   │   └── pixelate
 │   │       └── page.tsx
@@ -196,13 +213,10 @@
 ├── components.json
 ├── deep-reset.sh
 ├── docs
+│   ├── Rogue Resident - Consolidated GDD (v3.0).txt
 │   ├── chamber-pattern-comprehensive-guide.md
-│   ├── constellation-id-mappings.md
-│   ├── constellation-system-doc (1).md
 │   ├── lessons_learned.md
-│   ├── updated-gdd.md
-│   ├── updated-vertical-slice-guide.md
-│   └── vertical-slice-dev-guide.md
+│   └── rogue-resident-unified-gdd.md
 ├── eslint.config.mjs
 ├── filestructure.txt
 ├── jest-config.js
@@ -225,7 +239,8 @@
 │   ├── testKnowledgeSystem.js
 │   ├── testResourceSystems.js
 │   └── verticalSliceIntegrationTest.js
+├── tmp
 ├── tsconfig.json
 └── tsconfig.tsbuildinfo
 
-52 directories, 177 files
+58 directories, 186 files

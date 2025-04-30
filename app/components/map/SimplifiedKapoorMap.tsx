@@ -11,6 +11,7 @@ import { GameEventType } from '@/app/core/events/EventTypes';
 import { usePrimitiveStoreValue, useStableCallback } from '@/app/core/utils/storeHooks';
 import Image from 'next/image';
 import { playSound } from '@/app/core/sound/SoundManager.tsx';
+import { PixelBox, PixelText } from '@/app/components/PixelThemeProvider';
 
 // Add this at the top level of the file, before the component
 declare global {
@@ -91,76 +92,61 @@ const SimplifiedKapoorMap: React.FC = () => {
   // Enhanced static map nodes data with more complex slay-the-spire inspired paths
   const [nodes, setNodes] = useState<MapNode[]>([
     // Starting node (Act 1)
-    { id: 'start', x: 600, y: 120, label: 'Start', type: 'calibration', connections: ['path-a1', 'path-a2', 'path-a3', 'path-a4'], data: {} },
+    { id: 'start', x: 600, y: 200, label: 'Start', type: 'calibration', connections: ['path-a1', 'path-a2'], data: {} },
     
     // Act 1 - First row of choices
-    { id: 'path-a1', x: 350, y: 220, label: 'Path A1', type: 'qa', connections: ['enc-1'], data: {} },
-    { id: 'path-a2', x: 500, y: 220, label: 'Path A2', type: 'educational', connections: ['enc-3'], data: {} },
-    { id: 'path-a3', x: 700, y: 220, label: 'Path A3', type: 'clinical', connections: ['enc-5', 'enc-6'], data: {} },
-    { id: 'path-a4', x: 850, y: 220, label: 'Path A4', type: 'calibration', connections: ['enc-7', 'enc-8'], data: {} },
+    { id: 'path-a1', x: 450, y: 350, label: 'Path A1', type: 'qa', connections: ['enc-1'], data: {} },
+    { id: 'path-a2', x: 750, y: 350, label: 'Path A2', type: 'educational', connections: ['enc-3'], data: {} },
     
     // Act 1 - Second row of encounters (streamlined)
-    { id: 'enc-1', x: 250, y: 320, label: 'Encounter 1', type: 'educational', connections: ['chal-1'], data: {} },
-    { id: 'enc-3', x: 450, y: 320, label: 'Encounter 3', type: 'qa', connections: ['chal-3'], data: {} },
-    { id: 'enc-5', x: 650, y: 320, label: 'Encounter 5', type: 'educational', connections: ['chal-5'], data: {} },
-    { id: 'enc-6', x: 750, y: 320, label: 'Encounter 6', type: 'clinical', connections: ['chal-6'], data: {} },
-    { id: 'enc-7', x: 850, y: 320, label: 'Encounter 7', type: 'qa', connections: ['chal-7'], data: {} },
-    { id: 'enc-8', x: 950, y: 320, label: 'Encounter 8', type: 'educational', connections: ['chal-8'], data: {} },
+    { id: 'enc-1', x: 450, y: 500, label: 'Encounter 1', type: 'educational', connections: ['chal-1'], data: {} },
+    { id: 'enc-3', x: 750, y: 500, label: 'Encounter 3', type: 'qa', connections: ['chal-3'], data: {} },
     
     // Act 1 - Third row of challenges (streamlined)
-    { id: 'chal-1', x: 225, y: 420, label: 'Challenge 1', type: 'qa', connections: ['hub-1'], data: {} },
-    { id: 'chal-3', x: 425, y: 420, label: 'Challenge 3', type: 'educational', connections: ['hub-2'], data: {} },
-    { id: 'chal-5', x: 625, y: 420, label: 'Challenge 5', type: 'qa', connections: ['hub-3'], data: {} },
-    { id: 'chal-6', x: 725, y: 420, label: 'Challenge 6', type: 'clinical', connections: ['hub-3'], data: {} },
-    { id: 'chal-7', x: 825, y: 420, label: 'Challenge 7', type: 'educational', connections: ['hub-4'], data: {} },
-    { id: 'chal-8', x: 925, y: 420, label: 'Challenge 8', type: 'calibration', connections: ['hub-4'], data: {} },
+    { id: 'chal-1', x: 450, y: 650, label: 'Challenge 1', type: 'qa', connections: ['hub-1'], data: {} },
+    { id: 'chal-3', x: 750, y: 650, label: 'Challenge 3', type: 'educational', connections: ['hub-2'], data: {} },
     
     // Act 1 - Fourth row (converging paths to hubs)
-    { id: 'hub-1', x: 275, y: 520, label: 'Hub 1', type: 'educational', connections: ['elite-1'], data: {} },
-    { id: 'hub-2', x: 475, y: 520, label: 'Hub 2', type: 'qa', connections: ['elite-2'], data: {} },
-    { id: 'hub-3', x: 675, y: 520, label: 'Hub 3', type: 'calibration', connections: ['elite-3'], data: {} },
-    { id: 'hub-4', x: 875, y: 520, label: 'Hub 4', type: 'clinical', connections: ['elite-4'], data: {} },
+    { id: 'hub-1', x: 450, y: 800, label: 'Hub 1', type: 'educational', connections: ['elite-1'], data: {} },
+    { id: 'hub-2', x: 750, y: 800, label: 'Hub 2', type: 'qa', connections: ['elite-2'], data: {} },
     
     // Act 1 - Fifth row (elite encounters)
-    { id: 'elite-1', x: 275, y: 620, label: 'Elite 1', type: 'clinical', connections: ['path-final-1'], data: {} },
-    { id: 'elite-2', x: 475, y: 620, label: 'Elite 2', type: 'educational', connections: ['path-final-1'], data: {} },
-    { id: 'elite-3', x: 675, y: 620, label: 'Elite 3', type: 'qa', connections: ['path-final-2'], data: {} },
-    { id: 'elite-4', x: 875, y: 620, label: 'Elite 4', type: 'calibration', connections: ['path-final-2'], data: {} },
+    { id: 'elite-1', x: 450, y: 950, label: 'Elite 1', type: 'clinical', connections: ['path-final-1'], data: {} },
+    { id: 'elite-2', x: 750, y: 950, label: 'Elite 2', type: 'educational', connections: ['path-final-1'], data: {} },
 
     // Act 1 - Sixth row (converging to act boss)
-    { id: 'path-final-1', x: 375, y: 720, label: 'Path Final 1', type: 'educational', connections: ['act1-boss'], data: {} },
-    { id: 'path-final-2', x: 775, y: 720, label: 'Path Final 2', type: 'qa', connections: ['act1-boss'], data: {} },
+    { id: 'path-final-1', x: 600, y: 1100, label: 'Path Final 1', type: 'educational', connections: ['act1-boss'], data: {} },
     
     // Act 1 - Boss encounter
-    { id: 'act1-boss', x: 600, y: 820, label: 'Act 1 Boss', type: 'clinical', connections: ['treasure', 'rest', 'recovery'], data: {} },
+    { id: 'act1-boss', x: 600, y: 1250, label: 'Act 1 Boss', type: 'clinical', connections: ['treasure', 'rest', 'recovery'], data: {} },
     
     // Special nodes between acts - restored connections to Act 2
-    { id: 'treasure', x: 500, y: 870, label: 'Treasure', type: 'calibration', connections: ['path-b1'], data: {} },
-    { id: 'rest', x: 600, y: 870, label: 'Rest', type: 'qa', connections: ['path-b2'], data: {} },
-    { id: 'recovery', x: 700, y: 870, label: 'Recovery', type: 'educational', connections: ['path-b3'], data: {} },
+    { id: 'treasure', x: 450, y: 1350, label: 'Treasure', type: 'calibration', connections: ['path-b1'], data: {} },
+    { id: 'rest', x: 600, y: 1350, label: 'Rest', type: 'qa', connections: ['path-b2'], data: {} },
+    { id: 'recovery', x: 750, y: 1350, label: 'Recovery', type: 'educational', connections: ['path-b3'], data: {} },
     
     // Act 2 - First row (streamlined paths after beating boss)
-    { id: 'path-b1', x: 400, y: 920, label: 'Path B1', type: 'qa', connections: ['b-chal-1'], data: {} },
-    { id: 'path-b2', x: 600, y: 920, label: 'Path B2', type: 'educational', connections: ['b-chal-3'], data: {} },
-    { id: 'path-b3', x: 800, y: 920, label: 'Path B3', type: 'calibration', connections: ['b-chal-5'], data: {} },
+    { id: 'path-b1', x: 450, y: 1450, label: 'Path B1', type: 'qa', connections: ['b-chal-1'], data: {} },
+    { id: 'path-b2', x: 600, y: 1450, label: 'Path B2', type: 'educational', connections: ['b-chal-3'], data: {} },
+    { id: 'path-b3', x: 750, y: 1450, label: 'Path B3', type: 'calibration', connections: ['b-chal-5'], data: {} },
     
     // Act 2 - Second row of challenges (reduced number)
-    { id: 'b-chal-1', x: 350, y: 1020, label: 'B-Challenge 1', type: 'educational', connections: ['b-hard-1'], data: {} },
-    { id: 'b-chal-3', x: 600, y: 1020, label: 'B-Challenge 3', type: 'qa', connections: ['b-hard-3'], data: {} },
-    { id: 'b-chal-5', x: 850, y: 1020, label: 'B-Challenge 5', type: 'clinical', connections: ['b-hard-5'], data: {} },
+    { id: 'b-chal-1', x: 450, y: 1550, label: 'B-Challenge 1', type: 'educational', connections: ['b-hard-1'], data: {} },
+    { id: 'b-chal-3', x: 600, y: 1550, label: 'B-Challenge 3', type: 'qa', connections: ['b-hard-3'], data: {} },
+    { id: 'b-chal-5', x: 750, y: 1550, label: 'B-Challenge 5', type: 'clinical', connections: ['b-hard-5'], data: {} },
     
     // Act 2 - Third row of hard challenges (reduced and simplified)
-    { id: 'b-hard-1', x: 350, y: 1120, label: 'B-Hard 1', type: 'qa', connections: ['b-elite-1'], data: {} },
-    { id: 'b-hard-3', x: 600, y: 1120, label: 'B-Hard 3', type: 'educational', connections: ['b-elite-2'], data: {} },
-    { id: 'b-hard-5', x: 850, y: 1120, label: 'B-Hard 5', type: 'qa', connections: ['b-elite-3'], data: {} },
+    { id: 'b-hard-1', x: 450, y: 1650, label: 'B-Hard 1', type: 'qa', connections: ['b-elite-1'], data: {} },
+    { id: 'b-hard-3', x: 600, y: 1650, label: 'B-Hard 3', type: 'educational', connections: ['b-elite-2'], data: {} },
+    { id: 'b-hard-5', x: 750, y: 1650, label: 'B-Hard 5', type: 'qa', connections: ['b-elite-3'], data: {} },
     
     // Act 2 - Fourth row (converging to final boss elites)
-    { id: 'b-elite-1', x: 400, y: 1220, label: 'B-Elite 1', type: 'educational', connections: ['final-boss'], data: {} },
-    { id: 'b-elite-2', x: 600, y: 1220, label: 'B-Elite 2', type: 'qa', connections: ['final-boss'], data: {} },
-    { id: 'b-elite-3', x: 800, y: 1220, label: 'B-Elite 3', type: 'calibration', connections: ['final-boss'], data: {} },
+    { id: 'b-elite-1', x: 450, y: 1750, label: 'B-Elite 1', type: 'educational', connections: ['final-boss'], data: {} },
+    { id: 'b-elite-2', x: 600, y: 1750, label: 'B-Elite 2', type: 'qa', connections: ['final-boss'], data: {} },
+    { id: 'b-elite-3', x: 750, y: 1750, label: 'B-Elite 3', type: 'calibration', connections: ['final-boss'], data: {} },
     
     // Final boss node
-    { id: 'final-boss', x: 600, y: 1320, label: 'FINAL BOSS', type: 'clinical', connections: [], data: {} },
+    { id: 'final-boss', x: 600, y: 1850, label: 'FINAL BOSS', type: 'clinical', connections: [], data: {} },
   ]);
   
   const [completedNodes, setCompletedNodes] = useState<string[]>([]);
@@ -385,7 +371,7 @@ const SimplifiedKapoorMap: React.FC = () => {
       if (!isMountedRef.current || !containerRef.current) return;
       
       const containerWidth = containerRef.current.clientWidth || window.innerWidth;
-      const containerHeight = containerRef.current.clientHeight || window.innerHeight;
+      const containerHeight = Math.max(window.innerHeight, 1700);
       
       // Make sure we have enough space for the nodes and padding
       setStageSize({
@@ -950,7 +936,7 @@ const SimplifiedKapoorMap: React.FC = () => {
       const nodeStatus = getNodeStatus(node.id);
       const isHovered = node.id === hoveredNodeId;
       const isClicked = node.id === clickedNodeId;
-      const size = 22; // Reduced by 2x from 45
+      const size = 35; // Increased node size from 22 to 35
       const isInteractive = isNodeInteractive(node.id);
       
       // Debug log when rendering the start node
@@ -1131,37 +1117,91 @@ const SimplifiedKapoorMap: React.FC = () => {
   
   // ===== LEGEND COMPONENT =====
   const renderLegend = useMemo(() => {
-    const legendItems = [
+    // Status items section
+    const statusItems = [
       { status: NodeStatus.CURRENT, label: 'Current' },
       { status: NodeStatus.COMPLETED, label: 'Completed' },
       { status: NodeStatus.AVAILABLE, label: 'Available' },
       { status: NodeStatus.LOCKED, label: 'Locked' }
     ];
     
+    // Node type items section
+    const nodeTypeItems = [
+      { type: 'educational', label: 'Educational' },
+      { type: 'clinical', label: 'Clinical' },
+      { type: 'qa', label: 'Q&A' },
+      { type: 'calibration', label: 'Calibration' }
+    ];
+    
     return (
-      <div className="absolute bottom-8 left-8 z-20 bg-gray-900/90 backdrop-blur-sm rounded-md p-3 shadow-lg border border-blue-900/50 text-white">
-        <h3 className="text-white text-sm font-medium mb-2 tracking-wide">Map Legend</h3>
-        <div className="space-y-2">
-          {legendItems.map(item => {
-            const style = nodeStatusStyles[item.status];
-            return (
-              <div key={item.status} className="flex items-center gap-2">
-                <div 
-                  className="w-4 h-4 rounded-full"
-                  style={{ 
-                    background: 'rgba(0, 10, 30, 0.5)',
-                    border: `${style.borderWidth}px solid ${style.borderColor}`,
-                    boxShadow: '0 0 3px rgba(0, 0, 0, 0.3)'
-                  }}
-                ></div>
-                <span className="text-white text-xs tracking-wide">{item.label}</span>
-              </div>
-            );
-          })}
-        </div>
+      <div className="fixed bottom-8 left-8 z-50">
+        <PixelBox 
+          variant="dark" 
+          className="p-3"
+          bordered={true}
+        >
+          <PixelText className="text-white text-sm font-medium mb-3 tracking-wide">
+            Map Legend
+          </PixelText>
+          
+          {/* Status Colors Section */}
+          <div className="mb-4">
+            <PixelText className="text-white text-xs opacity-80 mb-2">
+              Node Status
+            </PixelText>
+            <div className="space-y-2">
+              {statusItems.map(item => {
+                const statusStyle = nodeStatusStyles[item.status];
+                return (
+                  <div key={item.status} className="flex items-center gap-3">
+                    <div 
+                      className="w-4 h-4 rounded-full"
+                      style={{ 
+                        background: 'rgba(0, 10, 30, 0.5)',
+                        border: `${statusStyle.borderWidth}px solid ${statusStyle.borderColor}`,
+                        boxShadow: '0 0 3px rgba(0, 0, 0, 0.3)'
+                      }}
+                    ></div>
+                    <PixelText className="text-white text-xs">
+                      {item.label}
+                    </PixelText>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Node Types Section */}
+          <div>
+            <PixelText className="text-white text-xs opacity-80 mb-2">
+              Node Types
+            </PixelText>
+            <div className="space-y-2">
+              {nodeTypeItems.map(item => (
+                <div key={item.type} className="flex items-center gap-3">
+                  <div className="w-6 h-6 relative">
+                    <Image 
+                      src={getNodeImage(item.type)}
+                      alt={item.label}
+                      width={24}
+                      height={24}
+                      className="object-contain"
+                      style={{
+                        imageRendering: 'pixelated'
+                      }}
+                    />
+                  </div>
+                  <PixelText className="text-white text-xs">
+                    {item.label}
+                  </PixelText>
+                </div>
+              ))}
+            </div>
+          </div>
+        </PixelBox>
       </div>
     );
-  }, []);
+  }, [nodeStatusStyles, getNodeImage]);
   
   // Add this CSS in a style tag to the component for the pulse animation
   const pulseAnimationCSS = `
@@ -1257,11 +1297,12 @@ const SimplifiedKapoorMap: React.FC = () => {
       <style>{pulseAnimationCSS}</style>
       
       <div 
-        ref={mapContainerRef} 
-        className="relative w-full h-full overflow-hidden bg-black"
+        ref={containerRef} 
+        className="relative w-full overflow-y-auto overflow-x-hidden"
+        style={{ height: "100%", minHeight: "100vh" }}
       >
         {/* Enhanced Background with cohesive visual effects */}
-        <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 z-0">
           {/* Deep space background with subtle gradient */}
           <div className="absolute inset-0 bg-gradient-to-b from-gray-950 via-blue-950 to-gray-950" />
           
@@ -1282,27 +1323,18 @@ const SimplifiedKapoorMap: React.FC = () => {
           <div className="absolute inset-0 black-overlay opacity-0 z-50" />
         </div>
         
-        {/* Emergency start node button - for debugging */}
-        <div className="absolute top-4 right-4 z-50">
-          <button 
-            className="px-4 py-2 bg-blue-700 text-white font-pixel text-sm rounded shadow-md hover:bg-blue-600 transition-colors"
-            onClick={() => {
-              console.log("[MAP] Emergency start node button clicked");
-              handleDirectNodeClick('start');
-            }}
-          >
-            Start Node
-          </button>
-        </div>
-        
         {/* Map container with expanded dimensions */}
-        <div className="relative z-10 w-full" style={{ height: "1700px" }}>
+        <div 
+          ref={mapContainerRef}
+          className="relative z-10 w-full pb-20" 
+          style={{ height: "1900px" }}
+        >
           <svg 
             ref={svgRef}
             width="100%" 
             height="100%" 
-            viewBox="0 0 1200 1700"
-            preserveAspectRatio="xMidYMin slice"
+            viewBox="0 0 1200 1900"
+            preserveAspectRatio="xMidYMin meet"
             className={isAnimating ? 'animate-map-click' : ''}
             data-testid="kapoor-map-svg"
           >

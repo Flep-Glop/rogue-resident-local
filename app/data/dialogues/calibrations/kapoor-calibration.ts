@@ -2,99 +2,96 @@
 /**
  * Kapoor Calibration Dialogue
  * 
- * Initial calibration session with Dr. Kapoor that serves as the player's
- * introduction to medical physics concepts and leads to journal acquisition.
- * 
- * This critical path dialogue establishes core gameplay mechanics and provides
- * the player with their first progression tool (the journal).
+ * First meeting with Dr. Kapoor that introduces the player to basic 
+ * medical physics concepts and core gameplay mechanics.
  */
 
 import { DialogueStage } from '../../../hooks/useDialogueFlow';
 
 const kapoorCalibrationDialogue: DialogueStage[] = [
-  // Core Dialogue Stages 
+  // Introduction
   {
     id: 'intro',
-    text: "Good morning. I see you've arrived precisely on schedule. I'm conducting the monthly output measurements on LINAC 2. Since this is your first day, observing proper protocol will be instructive.",
-    contextNote: "Kapoor adjusts the ionization chamber position with methodical precision, not looking up as you enter.",
+    text: "Good morning. I'm Dr. Kapoor, senior medical physicist. Today we're calibrating this machine to ensure patient safety. As a new resident, watching proper procedures is essential.",
+    contextNote: "Dr. Kapoor adjusts equipment with methodical precision, barely glancing up as you enter the treatment room.",
     equipment: {
       itemId: "linac",
       alt: "Linear Accelerator",
-      description: "LINAC 2, the Varian TrueBeam used primarily for head and neck treatments."
+      description: "An impressive radiation therapy machine used for cancer treatment."
     },
-    isMandatory: true, // Must be visited for proper progression
-    tangentStageId: 'intro-tangent', // Added for tangent ability
+    isMandatory: true,
+    tangentStageId: 'intro-tangent',
     options: [
       { 
         id: "humble-intro",
-        text: "I'm looking forward to learning the procedures.", 
+        text: "I'm looking forward to learning from you, Dr. Kapoor.", 
         nextStageId: 'basics',
         approach: 'humble',
         insightGain: 5,
         relationshipChange: 1,
-        responseText: "A positive attitude toward learning is the foundation of good practice. Let's begin with the fundamentals."
+        responseText: "A positive attitude toward learning is the foundation of good practice. Being a medical physicist requires constant education."
       },
       { 
         id: "confident-intro",
-        text: "I've done calibrations before during my internship.", 
+        text: "I've observed calibrations before during my internship.", 
         nextStageId: 'basics',
         approach: 'confidence',
         insightGain: 0,
         relationshipChange: -1,
-        responseText: "Previous experience is useful, but each facility has specific protocols. I'd advise against assuming familiarity prematurely."
+        responseText: "Each hospital has its own protocols. I would advise against assuming familiarity too quickly. Observation and careful attention to detail are critical here."
       }
     ]
   },
   
-  // Tangent stage for intro
+  // Tangent option (world-building)
   {
     id: 'intro-tangent',
-    text: "Actually, that's an excellent opportunity to discuss the broader context of QA protocols. As you know, medical physics spans diagnostic imaging, nuclear medicine, and radiation therapy. What's your primary interest area?",
-    contextNote: "Kapoor sets down the chamber and turns to face you directly, showing rare interest.",
+    text: "Actually, before we begin, I'm curious - what drew you to medical physics? It's not a field many people know about.",
+    contextNote: "Dr. Kapoor sets down a tool and turns to face you directly, showing rare personal interest.",
     equipment: {
       itemId: "linac",
       alt: "Linear Accelerator",
-      description: "LINAC 2, the Varian TrueBeam used primarily for head and neck treatments."
+      description: "An impressive radiation therapy machine used for cancer treatment."
     },
     options: [
       { 
-        id: "tangent-radiation-therapy",
-        text: "Radiation therapy - I'm fascinated by the technical aspects of treatment delivery systems.", 
+        id: "tangent-helping-patients",
+        text: "I wanted a career that combines physics with helping cancer patients.", 
         nextStageId: 'basics',
         approach: 'precision',
-        insightGain: 15, // Higher insight for engaging with the tangent
+        insightGain: 15,
         relationshipChange: 1,
-        responseText: "An excellent focus area. The technical challenges in treatment delivery systems provide endless opportunities for innovation. Let's return to our calibration, which is fundamental to that field."
+        responseText: "A noble motivation. Our work ensures patients receive precise treatments safely. Though we rarely see patients directly, our impact on their care is significant. Let's get you started with the basics."
       },
       { 
-        id: "tangent-imaging",
-        text: "Diagnostic imaging - I'm interested in the intersection of physics and diagnostic medicine.", 
+        id: "tangent-technical",
+        text: "I'm fascinated by the technology - these machines are engineering marvels.", 
         nextStageId: 'basics',
         approach: 'creative',
         insightGain: 15,
         relationshipChange: 1,
-        responseText: "The imaging field is rapidly evolving. Many principles we'll cover in treatment QA have parallels in imaging. Now, let's return to our calibration work."
+        responseText: "Indeed they are. Linear accelerators represent remarkable technology, accelerating electrons to produce therapeutic radiation. Of course, they require regular calibration to maintain accuracy. Let's proceed."
       }
     ]
   },
   
-  // Stage 1: Basic calibration setup
+  // Basic concepts introduction
   {
     id: 'basics',
-    text: "We'll start with the basics. I've set up our calibrated farmer chamber at isocenter with proper buildup. Can you recall why we use buildup material?",
-    contextNote: "Kapoor gestures to the ionization chamber positioned in a water-equivalent phantom.",
+    text: "Let's cover basics. This is a measurement chamber used to verify radiation output. Why do you think we place it inside this plastic material?",
+    contextNote: "Dr. Kapoor points to a small cylindrical device positioned in a clear plastic block.",
     equipment: {
       itemId: 'farmer-chamber',
-      alt: "Farmer Chamber",
-      description: "A calibrated Farmer-type ionization chamber with PMMA buildup cap."
+      alt: "Measurement Chamber",
+      description: "A small cylindrical device used to measure radiation."
     },
-    isMandatory: true, // Must be visited for proper progression
-    tangentStageId: 'basics-tangent', // Added for tangent ability
-    boastStageId: 'basics-boast', // Added for boast ability
+    isMandatory: true,
+    tangentStageId: 'basics-tangent',
+    boastStageId: 'basics-boast',
     options: [
       { 
         id: "correct-buildup",
-        text: "To ensure we're measuring in the region of electronic equilibrium.", 
+        text: "To simulate how radiation behaves in human tissue?", 
         nextStageId: 'correction-factors',
         approach: 'precision',
         insightGain: 15,
@@ -105,12 +102,12 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           amount: 15
         },
         discoverConcepts: ['output-calibration', 'dosimetry'],
-        isCriticalPath: true, // Mark as critical path option
-        responseText: "Precisely. Electronic equilibrium is essential for accurate dosimetry. The buildup material ensures charged particle equilibrium at the measurement point. You've also discovered a key concept in our knowledge system."
+        isCriticalPath: true,
+        responseText: "Correct. We need to simulate human tissue to properly measure treatment doses. This plastic has similar properties to human tissue when interacting with radiation. You've just discovered key concepts in our knowledge system."
       },
       { 
         id: "engaged-learner",
-        text: "I understand the general concept, but could you elaborate on how it applies specifically to this setup?",
+        text: "I'm not entirely sure. Could you explain the purpose?",
         nextStageId: 'correction-factors',
         approach: 'humble',
         insightGain: 10,
@@ -120,11 +117,11 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 10
         },
-        responseText: "A fair question. In this specific setup, we're using a 6MV beam where the depth of dose maximum is approximately 1.5cm. The buildup cap ensures our measuring point is at equilibrium rather than in the buildup region."
+        responseText: "A fair question. The plastic mimics human tissue, allowing us to measure what patients would receive. Radiation behaves differently inside the body compared to air, so we need this material to get accurate readings."
       },
       { 
         id: "partial-buildup",
-        text: "To filter out unwanted radiation scatter.", 
+        text: "To protect the measurement device from damage?", 
         nextStageId: 'correction-factors',
         approach: 'confidence',
         insightGain: 5,
@@ -134,28 +131,28 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 5
         },
-        responseText: "Not quite. While buildup does affect scatter, its primary purpose is to establish electronic equilibrium. The scatter component is actually an integral part of what we need to measure."
+        responseText: "Not quite. While it does provide physical protection, its primary purpose is to simulate human tissue. We need to measure radiation as it would behave inside a patient's body, not in air."
       }
     ]
   },
   
-  // Boast stage for basics
+  // Boast challenge option
   {
     id: 'basics-boast',
-    text: "Since you're confident in your knowledge, let's delve deeper. Can you explain the relationship between electron fluence perturbation and ionization chamber measurements in the buildup region?",
-    contextNote: "Kapoor raises an eyebrow, watching you carefully as he presents a more technically challenging question.",
+    text: "Since you seem confident, can you explain more specifically how radiation interacts differently with the chamber in air versus in this plastic material?",
+    contextNote: "Dr. Kapoor raises an eyebrow, watching to see if your confidence is matched with knowledge.",
     equipment: {
       itemId: 'farmer-chamber',
-      alt: "Farmer Chamber",
-      description: "A calibrated Farmer-type ionization chamber with PMMA buildup cap."
+      alt: "Measurement Chamber",
+      description: "A small cylindrical device used to measure radiation."
     },
     options: [
       { 
         id: "boast-advanced-correct",
-        text: "The chamber wall perturbs electron fluence, creating over-response in the pre-equilibrium region. The effective point of measurement shift requires depth-dependent corrections.", 
+        text: "In plastic, more secondary electrons are produced, providing a measurement closer to what happens in human tissue. In air alone, we'd get inaccurate readings.", 
         nextStageId: 'correction-factors',
         approach: 'precision',
-        insightGain: 30, // Higher insight for boast success
+        insightGain: 30,
         relationshipChange: 2,
         knowledgeGain: { 
           conceptId: 'electron_equilibrium_understood',
@@ -164,11 +161,11 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
         },
         discoverConcepts: ['output-calibration', 'dosimetry', 'chamber-perturbation'],
         isCriticalPath: true,
-        responseText: "Excellent technical analysis. The electron fluence perturbation indeed creates complex dosimetric effects in the buildup region. Your understanding of the effective point of measurement shift demonstrates advanced knowledge of chamber dosimetry."
+        responseText: "Very impressive! The interaction between radiation and matter does indeed produce secondary electrons that contribute to the dose. Your understanding of this fundamental concept will serve you well in this field."
       },
       { 
         id: "boast-partial-correct",
-        text: "Chamber walls increase electron fluence locally, which causes the chamber to over-respond in the buildup region compared to the actual dose at that point.", 
+        text: "Radiation penetrates differently through plastic than air, giving us more clinically relevant measurements.", 
         nextStageId: 'correction-factors',
         approach: 'precision',
         insightGain: 20,
@@ -178,40 +175,40 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 15
         },
-        responseText: "That's generally correct. The chamber wall does cause electron fluence perturbation and over-response, though there are additional factors at play regarding the effective point of measurement."
+        responseText: "That's generally correct. The radiation's behavior in plastic better mimics what happens in human tissue, though the specific electron interactions are what make the biggest difference in our measurements."
       },
       { 
         id: "boast-incorrect",
-        text: "The wall thickness of the chamber eliminates low-energy scatter, resulting in more accurate readings than would occur in tissue at the same depth.", 
+        text: "The plastic filters out harmful radiation components that could damage the sensitive equipment.", 
         nextStageId: 'correction-factors',
         approach: 'confidence',
-        insightGain: 0, // No insight for incorrect answer
+        insightGain: 0,
         relationshipChange: -1,
-        momentumEffect: 'reset', // Reset momentum for failed boast
+        momentumEffect: 'reset',
         knowledgeGain: { 
           conceptId: 'electron_equilibrium_understood',
           domainId: 'radiation-physics',
           amount: 0
         },
-        responseText: "That's incorrect. Chamber walls actually increase electron fluence locally, causing over-response rather than increased accuracy. This is a fundamental concept in chamber dosimetry that requires review."
+        responseText: "Incorrect. The plastic isn't meant to filter radiation. Its purpose is to simulate human tissue by creating similar radiation interactions. The equipment is designed to withstand radiation exposure."
       }
     ]
   },
   
-  // Tangent stage for basics
+  // Tangent option (educational)
   {
     id: 'basics-tangent',
-    text: "Since you're asking about buildup, it might be useful to take a step back and consider the fundamental physics. At its core, what do you think is the key principle that governs dose deposition in tissue?",
-    contextNote: "Kapoor's eyes light up with academic interest as he steps away from the equipment.",
+    text: "Actually, it's fascinating how radiation interacts with different materials. Did you know the same principles apply when radiation enters the human body during treatment?",
+    contextNote: "Dr. Kapoor's eyes light up with academic interest, clearly passionate about the physics involved.",
     equipment: {
       itemId: 'farmer-chamber',
-      alt: "Farmer Chamber",
-      description: "A calibrated Farmer-type ionization chamber with PMMA buildup cap."
+      alt: "Measurement Chamber",
+      description: "A small cylindrical device used to measure radiation."
     },
     options: [
       { 
-        id: "tangent-kerma",
-        text: "The relationship between kerma and dose - which is in equilibrium at sufficient depth.", 
+        id: "tangent-patient-question",
+        text: "How do doctors determine the right amount of radiation for each patient?", 
         nextStageId: 'correction-factors',
         approach: 'precision',
         insightGain: 20,
@@ -221,11 +218,11 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 15
         },
-        responseText: "Excellent insight. The kerma-dose relationship is indeed fundamental. At shallow depths, kerma exceeds dose due to energy transported away by secondary electrons. At dmax and beyond, charged particle equilibrium is established. Let's return to our calibration discussion."
+        responseText: "Excellent question. Radiation oncologists prescribe doses based on cancer type and location, then medical physicists like us create treatment plans using sophisticated software. Our calibration work ensures the machine delivers exactly what's prescribed. Let's continue with our procedure."
       },
       { 
-        id: "tangent-energy-transfer",
-        text: "Energy transfer mechanisms - primarily through Compton scattering at clinical energies.", 
+        id: "tangent-safety-question",
+        text: "How do we ensure patients are safe during these treatments?", 
         nextStageId: 'correction-factors',
         approach: 'precision',
         insightGain: 15,
@@ -235,27 +232,27 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 10
         },
-        responseText: "Good observation. Compton scattering dominates in the megavoltage range, while photoelectric effect is more significant in kilovoltage beams and with high-Z materials. These interaction mechanisms create the secondary electrons that deposit dose. Now, back to our calibration."
+        responseText: "Safety is our highest priority. We conduct daily, monthly, and annual checks of all equipment. Every treatment plan undergoes peer review, and therapists verify patient positioning before each session. The calibration we're doing today is part of that safety system."
       }
     ]
   },
   
-  // Stage 2: PTP Correction Factors
+  // Environmental factors
   {
     id: 'correction-factors',
-    text: "Now, when taking our readings, we need to apply several correction factors. Which of these is most critical for today's measurements given the current atmospheric conditions?",
-    contextNote: "Kapoor points to the barometer on the wall showing a pressure drop of 15 hPa since yesterday.",
+    text: "Now, when taking measurements, we need to account for room conditions. Look at that barometer - what do you think might affect our readings today?",
+    contextNote: "Dr. Kapoor points to a weather instrument showing pressure significantly lower than yesterday.",
     equipment: {
       itemId: 'electrometer',
-      alt: "Electrometer",
-      description: "Standard Therapy Electrometer with digital readout displaying charge collection."
+      alt: "Measurement Display",
+      description: "A digital display showing radiation measurements."
     },
-    tangentStageId: 'correction-factors-tangent', // Added for tangent ability
-    boastStageId: 'correction-factors-boast', // Added for boast ability
+    tangentStageId: 'correction-factors-tangent',
+    boastStageId: 'correction-factors-boast',
     options: [
       { 
         id: "correct-ptp",
-        text: "The pressure-temperature-polarization (PTP) correction, since barometric pressure has changed significantly today.", 
+        text: "The drop in air pressure could affect the readings.", 
         nextStageId: 'measurement-tolerance',
         approach: 'precision',
         insightGain: 15,
@@ -266,12 +263,12 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           amount: 15
         },
         triggersBackstory: true,
-        isCriticalPath: true, // Mark as critical path option
-        responseText: "Excellent. PTP correction accounts for the deviation of air density from calibration reference conditions. Today's pressure drop of 15 hPa would significantly impact our results without proper correction."
+        isCriticalPath: true,
+        responseText: "Exactly right. Air pressure affects our measurements, so we apply a correction factor. Today's significant pressure drop would cause errors if we didn't account for it. This is why we always check atmospheric conditions."
       },
       { 
         id: "incorrect-kq",
-        text: "The beam quality correction factor (kQ), since we're measuring a clinical beam.", 
+        text: "Maybe the radiation beam energy has changed?", 
         nextStageId: 'measurement-tolerance',
         approach: 'precision',
         insightGain: 5,
@@ -281,34 +278,34 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 5
         },
-        responseText: "While kQ is indeed important, it's a constant for our specific chamber-beam combination. The significant pressure change today means the PTP correction is most critical for today's measurements."
+        responseText: "The beam energy is stable and calibrated separately. What's significant today is the barometric pressure change. Air density affects our ionization measurements, so we must apply a correction factor."
       },
       { 
         id: "incorrect-polarity",
-        text: "The polarity correction, since we're using a new electrometer.", 
+        text: "The electronic equipment might be affected by humidity.", 
         nextStageId: 'measurement-tolerance',
         approach: 'confidence',
         insightGain: 0,
         relationshipChange: -1,
-        responseText: "The polarity effect is minimal for our Farmer chamber in photon beams. While it's applied as standard procedure, the atmospheric pressure change today means the PTP correction is the most critical factor."
+        responseText: "While humidity can affect electronics, our immediate concern is the significant air pressure change. This directly impacts the density of air in our measurement chamber, requiring mathematical correction."
       }
     ]
   },
   
-  // Boast stage for correction factors
+  // Boast challenge option
   {
     id: 'correction-factors-boast',
-    text: "For someone with your confidence, let's discuss the correction factors more rigorously. Can you provide the mathematical relationship between pressure-temperature correction and the mass stopping power ratio in absolute dosimetry?",
-    contextNote: "Kapoor's expression turns serious as he challenges you with an advanced dosimetry question.",
+    text: "For someone confident in their knowledge - can you explain more specifically why air pressure affects our radiation measurements?",
+    contextNote: "Dr. Kapoor's expression is evaluative, testing your deeper understanding.",
     equipment: {
       itemId: 'electrometer',
-      alt: "Electrometer",
-      description: "Standard Therapy Electrometer with digital readout displaying charge collection."
+      alt: "Measurement Display",
+      description: "A digital display showing radiation measurements."
     },
     options: [
       { 
         id: "boast-correction-expert",
-        text: "The PTP correction accounts for air density variations but is independent of the stopping power ratio. However, both factors appear in the full dose equation: D = M × NK × PTP × Pion × Ppol × kQ × (SW,air)med", 
+        text: "The chamber measures ionization in air. Lower pressure means fewer air molecules to ionize, so we'd get artificially low readings without correction.", 
         nextStageId: 'measurement-tolerance',
         approach: 'precision',
         insightGain: 30,
@@ -320,11 +317,11 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
         },
         discoverConcepts: ['correction-factors', 'absolute-dosimetry'],
         isCriticalPath: true,
-        responseText: "Very impressive. Your formulation correctly separates the environmental corrections from the beam quality factors while understanding how they integrate in the complete dosimetry equation. This level of understanding is essential for clinical medical physics."
+        responseText: "Excellent explanation! The ionization chamber's response depends on air density, which changes with pressure and temperature. Your understanding of this fundamental principle demonstrates good potential."
       },
       { 
         id: "boast-correction-partial",
-        text: "The PTP correction normalizes readings to standard temperature and pressure of 22°C and 101.325 kPa. It's calculated as (273.2+T)/(273.2+T0) × (P0/P), while stopping power ratios are determined separately.", 
+        text: "Air pressure changes how the radiation interacts with the chamber, so we need to apply a mathematical correction.", 
         nextStageId: 'measurement-tolerance',
         approach: 'precision',
         insightGain: 20,
@@ -334,11 +331,11 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'dosimetry',
           amount: 15
         },
-        responseText: "Your formula for PTP is correct, though standard temperature is typically defined as 20°C rather than 22°C. You're right that stopping power ratios are determined separately, as they relate to beam quality rather than environmental conditions."
+        responseText: "That's generally correct, though the specific mechanism is that lower pressure means fewer air molecules in the chamber to be ionized. We apply a mathematical formula that accounts for deviations from standard pressure."
       },
       { 
         id: "boast-correction-incorrect",
-        text: "The stopping power ratio is directly proportional to the PTP correction since both account for the density effect on electron transport in the chamber.", 
+        text: "Air pressure affects the radiation beam's energy as it travels through the air to the chamber.", 
         nextStageId: 'measurement-tolerance',
         approach: 'confidence',
         insightGain: 0,
@@ -349,26 +346,26 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'dosimetry',
           amount: 0
         },
-        responseText: "That's incorrect. The PTP correction accounts for air density variations in the chamber due to environmental conditions, while stopping power ratios account for differences in radiation interaction properties between media. They are independent corrections with different physical bases."
+        responseText: "That's incorrect. Air pressure doesn't significantly affect the beam energy. Rather, it changes the density of air within the measurement chamber itself, affecting how many molecules are available to be ionized by the radiation."
       }
     ]
   },
   
-  // Tangent stage for correction factors
+  // Tangent option (personal story)
   {
     id: 'correction-factors-tangent',
-    text: "The correction factors we use today evolved from decades of research. Historically speaking, do you know which international protocol first standardized the PTP correction methodology we're using?",
-    contextNote: "Kapoor examines the electrometer with a nostalgic expression, remembering earlier days in the field.",
+    text: "You know, this reminds me of something from my early career. Would you like to hear a brief story about why I'm so careful about these corrections?",
+    contextNote: "Dr. Kapoor's typically stern expression softens slightly with recollection.",
     equipment: {
       itemId: 'electrometer',
-      alt: "Electrometer",
-      description: "Standard Therapy Electrometer with digital readout displaying charge collection."
+      alt: "Measurement Display",
+      description: "A digital display showing radiation measurements."
     },
     options: [
       { 
-        id: "tangent-iaea398",
-        text: "IAEA TRS-398, which unified previous approaches from different national protocols.", 
-        nextStageId: 'measurement-tolerance',
+        id: "tangent-yes-story",
+        text: "I'd be interested to hear about your experience, Dr. Kapoor.", 
+        nextStageId: 'backstory-ptp',
         approach: 'precision',
         insightGain: 20,
         relationshipChange: 1,
@@ -377,48 +374,48 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 15
         },
-        responseText: "Good answer. While TRS-398 did unify many approaches, these corrections actually date back to the earlier ICRU Report 14 in 1969, which established the basic framework. Nevertheless, your knowledge of the protocols is impressive. Let's return to our current measurements."
+        responseText: "Very well. It's a valuable lesson about attention to detail in our field."
       },
       { 
-        id: "tangent-aapm",
-        text: "I believe it was AAPM TG-51, though various countries had their own protocols before that.", 
+        id: "tangent-focus-task",
+        text: "Perhaps we should focus on completing the calibration first?", 
         nextStageId: 'measurement-tolerance',
         approach: 'humble',
         insightGain: 15,
-        relationshipChange: 1,
+        relationshipChange: -1,
         knowledgeGain: { 
           conceptId: 'dosimetry_protocols',
           domainId: 'radiation-physics',
           amount: 10
         },
-        responseText: "A reasonable guess. TG-51 did standardize these corrections for North America, though the European protocols like DIN and the UK's IPEMB had similar approaches. The concepts trace back even further to ICRU Report 14. Now, back to our practical application."
+        responseText: "An efficient approach, though sometimes historical context provides valuable insight. Let's proceed with the measurements."
       }
     ]
   },
   
-  // Backstory Stage
+  // Backstory (personal connection)
   {
     id: 'backstory-ptp',
     type: 'backstory',
-    text: "During my early career at Memorial Hospital, I once failed to apply the PTP correction properly when recalibrating after maintenance. The output was off by nearly 3%. I discovered this by cross-checking with a separate chamber. Since then, I've developed a verification protocol that has been adopted by several facilities in the region. Small details can have significant clinical impact.",
+    text: "Early in my career, I failed to apply the pressure correction after a weather front moved through. The output was off by 3% - potentially significant for patient treatments. Since then, I've developed a verification protocol that's been adopted by several hospitals. In this profession, small details matter greatly.",
     nextStageId: 'measurement-tolerance'
   },
   
-  // Stage 3: Tolerance Questions
+  // Quality standards
   {
     id: 'measurement-tolerance',
-    text: "Our monthly output measurements show the machine is delivering 101.2% of expected dose. What action should we take?",
-    contextNote: "Kapoor shows you the measurement log with three consistent readings between 101.1% and 101.3%.",
+    text: "Our measurements show the machine is delivering 101.2% of the expected radiation dose. What should we do about this?",
+    contextNote: "Dr. Kapoor shows you the results with three consistent readings all showing similar values.",
     equipment: {
       itemId: 'measurement-log',
-      alt: "Measurement Log",
-      description: "Digital measurement log showing consistent 101.2% output readings."
+      alt: "Measurement Results",
+      description: "Digital display showing 101.2% output readings."
     },
-    tangentStageId: 'tolerance-tangent', // Added for tangent ability
+    tangentStageId: 'tolerance-tangent',
     options: [
       { 
         id: "correct-tolerance",
-        text: "Document the finding but no immediate action needed as it's within the ±2% tolerance.", 
+        text: "Document the finding, but no immediate action is needed since it's within acceptable limits.", 
         nextStageId: 'clinical-significance',
         approach: 'precision',
         insightGain: 15,
@@ -428,44 +425,44 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 15
         },
-        isCriticalPath: true, // Mark as critical path option
-        responseText: "Correct. TG-142 specifies a ±2% tolerance for photon output constancy. While we always aim for perfect calibration, variations within tolerance are acceptable and expected."
+        isCriticalPath: true,
+        responseText: "Correct. We allow variations up to 2% without adjustment. Documenting the trend is important, but this reading is within our safety standards."
       },
       { 
         id: "overly-cautious",
-        text: "Recalibrate the machine to get closer to 100%.", 
+        text: "We should recalibrate the machine to get it closer to exactly 100%.", 
         nextStageId: 'clinical-significance',
         approach: 'confidence',
         insightGain: 0,
         relationshipChange: -1,
-        responseText: "That would be unnecessary. Our protocols follow TG-142 guidelines which specify a ±2% tolerance. Frequent recalibration can introduce more variability over time."
+        responseText: "That would be unnecessary and might introduce more variability. Our protocols allow up to 2% variation. Attempting perfect calibration too frequently can create inconsistency over time."
       },
       { 
         id: "incorrect-follow-up",
-        text: "We should repeat the measurement with a different chamber to confirm.", 
+        text: "Should we try measuring again with different equipment to confirm?", 
         nextStageId: 'clinical-significance',
         approach: 'question',
         insightGain: 5,
         relationshipChange: 0,
-        responseText: "While cross-verification is generally good practice, it's not required for a reading that's well within tolerance. That would be necessary if we were closer to the 2% threshold or if we had inconsistent readings."
+        responseText: "While verification is generally good practice, it's not required for a reading well within our 2% tolerance. The consistency of our three measurements already provides confidence in the result."
       }
     ]
   },
   
-  // Tangent stage for tolerance
+  // Tangent option (discussion)
   {
     id: 'tolerance-tangent',
-    text: "The tolerance values we use have interesting statistical and clinical foundations. In your opinion, should tolerance levels be based primarily on statistical capability of the machines or on clinical outcome thresholds?",
-    contextNote: "Kapoor leans back against the wall, clearly enjoying this philosophical detour from routine measurements.",
+    text: "Actually, this raises an interesting question: should our tolerances be based on machine capabilities or on what affects patient outcomes?",
+    contextNote: "Dr. Kapoor seems genuinely interested in your opinion on this professional topic.",
     equipment: {
       itemId: 'measurement-log',
-      alt: "Measurement Log",
-      description: "Digital measurement log showing consistent 101.2% output readings."
+      alt: "Measurement Results",
+      description: "Digital display showing 101.2% output readings."
     },
     options: [
       { 
         id: "tangent-clinical-focus",
-        text: "Clinical outcome thresholds should drive tolerances - we should establish what dose variation is clinically significant.", 
+        text: "Patient outcomes should drive our standards - we should focus on what difference patients would actually notice.", 
         nextStageId: 'clinical-significance',
         approach: 'confidence',
         insightGain: 20,
@@ -475,11 +472,11 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 15
         },
-        responseText: "An excellent perspective. Indeed, some have argued that our current tolerances are more historically based on what was achievable rather than what is clinically necessary. Modern SBRT treatments particularly challenge this balance. Very insightful - let's return to our measurements."
+        responseText: "An excellent perspective. Historically, many of our tolerances were based simply on what machines could achieve rather than clinical outcomes. As technology improves, we should reconsider what standards actually matter for patients."
       },
       { 
         id: "tangent-balanced-approach",
-        text: "A balanced approach - we need statistically achievable tolerances that still guarantee clinical safety.", 
+        text: "We need a balance - standards should be achievable while ensuring patient safety.", 
         nextStageId: 'clinical-significance',
         approach: 'humble',
         insightGain: 15,
@@ -489,21 +486,21 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 10
         },
-        responseText: "A practical viewpoint. This balance is indeed what most protocols attempt to achieve. The challenge comes when treatments like SBRT push the boundaries of what's clinically necessary versus what's reliably achievable. Good discussion - now back to our task."
+        responseText: "A practical viewpoint. Finding that balance is exactly what our professional protocols attempt to do. We must consider both technical limitations and clinical needs when setting standards."
       }
     ]
   },
   
-  // Stage 4: Clinical Significance
+  // Clinical relevance
   {
     id: 'clinical-significance',
-    text: "Final question: A radiation oncologist asks if the 1.2% output deviation we measured could affect patient treatments. How would you respond?",
-    contextNote: "Kapoor looks at you expectantly, testing your understanding of the clinical context.",
+    text: "One last question: If a doctor asked you whether this 1.2% variation matters for their patients, what would you tell them?",
+    contextNote: "Dr. Kapoor watches your response carefully, assessing your understanding of the clinical context.",
     options: [
       { 
         id: "correct-clinical",
-        text: "The deviation is clinically insignificant, as it falls well below the 5% uncertainty threshold considered impactful for treatment outcomes.", 
-        nextStageId: 'advanced-concepts',
+        text: "It's not clinically significant. Radiation therapy has inherent uncertainties much larger than 1.2%.", 
+        nextStageId: 'calibration-frequency',
         approach: 'precision',
         insightGain: 15,
         relationshipChange: 1,
@@ -512,13 +509,13 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 15
         },
-        isCriticalPath: true, // Mark as critical path option
-        responseText: "Your response demonstrates an understanding of both the technical and clinical aspects. A 1.2% deviation has negligible impact on treatment efficacy or side effects, while staying well within our quality parameters."
+        isCriticalPath: true,
+        responseText: "Excellent answer. Studies show that variations under 5% generally have no detectable impact on treatment outcomes. This small deviation is well within safety margins."
       },
       { 
         id: "partially-correct",
-        text: "It's within tolerance but we should monitor it closely on the specific machines used for their patients.", 
-        nextStageId: 'advanced-concepts',
+        text: "It's within tolerance, but we'll continue monitoring it closely.", 
+        nextStageId: 'calibration-frequency',
         approach: 'humble',
         insightGain: 5,
         relationshipChange: 0,
@@ -527,131 +524,29 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'radiation-physics',
           amount: 5
         },
-        responseText: "Your caution is noted, though perhaps excessive. We always monitor all machines consistently according to protocol. The 1.2% deviation is well below the threshold for clinical significance, which is typically considered to be around 5%."
+        responseText: "While your caution is noted, you could be more definitive with doctors. This 1.2% deviation has no clinical significance whatsoever. We monitor all machines equally according to schedule, not based on minor variations within tolerance."
       },
       { 
         id: "incorrect-clinical",
-        text: "Any deviation could potentially impact sensitive treatments, so we should inform treatment planning.", 
-        nextStageId: 'advanced-concepts',
+        text: "Any deviation could potentially affect sensitive patients, so they should know about it.", 
+        nextStageId: 'calibration-frequency',
         approach: 'confidence',
         insightGain: 0,
         relationshipChange: -1,
-        responseText: "That response would unnecessarily alarm our clinical colleagues. Our QA program accounts for these acceptable variations. Treatment planning systems use beam data that already incorporates these expected minor fluctuations."
+        responseText: "That would unnecessarily alarm our clinical colleagues and potentially patients. Our quality assurance program accounts for these acceptable variations. A 1.2% deviation is clinically meaningless."
       }
     ]
   },
   
-  // Stage 5: Advanced Concepts (New)
-  {
-    id: 'advanced-concepts',
-    text: "You show promise. Let's explore a more advanced concept. When we calibrate for different energies on the same machine, why might we observe discrepancies between the quality conversion factors (kQ) provided by TG-51 and our measurements?",
-    contextNote: "Kapoor watches you intently, evaluating your understanding of more nuanced calibration principles.",
-    options: [
-      { 
-        id: "beam-matching",
-        text: "Beam matching between our machine and the reference conditions used in TG-51 protocols may not be perfect.", 
-        nextStageId: 'research-collaboration',
-        approach: 'precision',
-        insightGain: 15,
-        relationshipChange: 1,
-        knowledgeGain: { 
-          conceptId: 'beam_quality_factors',
-          domainId: 'radiation-physics',
-          amount: 15
-        },
-        responseText: "Excellent analysis. The beam quality specification used in TG-51 may not perfectly match our specific accelerator, despite having the same nominal energy. This is why careful cross-calibration and understanding of the specific beam characteristics is essential."
-      },
-      { 
-        id: "chamber-variations",
-        text: "Individual chamber-to-chamber variations can lead to discrepancies, even among the same model.", 
-        nextStageId: 'research-collaboration',
-        approach: 'precision',
-        insightGain: 10,
-        relationshipChange: 0,
-        knowledgeGain: { 
-          conceptId: 'beam_quality_factors',
-          domainId: 'radiation-physics',
-          amount: 10
-        },
-        responseText: "That's a contributing factor, though not the primary cause. Chamber variations are typically accounted for in the calibration coefficient provided by the standards laboratory. The bigger issue relates to beam matching between our machine and reference conditions."
-      },
-      { 
-        id: "protocol-limitations",
-        text: "The TG-51 protocol itself acknowledges limitations in its tabulated data.", 
-        nextStageId: 'research-collaboration',
-        approach: 'confidence',
-        insightGain: 5,
-        relationshipChange: 0,
-        knowledgeGain: { 
-          conceptId: 'beam_quality_factors',
-          domainId: 'radiation-physics',
-          amount: 5
-        },
-        responseText: "That's correct, but somewhat vague. Specifically, the limitations relate to beam matching. TG-51 data is based on reference beams, and our clinical beams may have slightly different spectral characteristics even at the same nominal energy."
-      }
-    ]
-  },
-  
-  // Stage 6: Research Collaboration (New)
-  {
-    id: 'research-collaboration',
-    text: "I've been leading a department research project on multi-energy calibration workflows. Would you be interested in contributing to this work during your residency?",
-    contextNote: "Kapoor's demeanor shifts slightly, showing genuine interest in your potential contribution.",
-    options: [
-      { 
-        id: "enthusiastic-yes",
-        text: "Absolutely. I'd be particularly interested in exploring Monte Carlo modeling of beam quality factors across different accelerator types.", 
-        nextStageId: 'calibration-frequency',
-        approach: 'precision',
-        insightGain: 15,
-        relationshipChange: 2,
-        knowledgeGain: { 
-          conceptId: 'research_collaboration',
-          domainId: 'educational',
-          amount: 15
-        },
-        responseText: "Your specific interest shows initiative and understanding. Monte Carlo modeling is precisely the direction we're taking. I'll add you to our research team and share our existing data. This could lead to a valuable publication for your residency portfolio."
-      },
-      { 
-        id: "humble-yes",
-        text: "I'd be honored to contribute in whatever capacity would be most helpful, though I'd need guidance initially.", 
-        nextStageId: 'calibration-frequency',
-        approach: 'humble',
-        insightGain: 10,
-        relationshipChange: 1,
-        knowledgeGain: { 
-          conceptId: 'research_collaboration',
-          domainId: 'educational',
-          amount: 10
-        },
-        responseText: "A commendable attitude. Everyone needs guidance initially. If you maintain this willingness to learn alongside growing technical competence, you'll do well. I'll introduce you to the team's work gradually."
-      },
-      { 
-        id: "cautious-response",
-        text: "I'd need to balance research work with my clinical training obligations.", 
-        nextStageId: 'calibration-frequency',
-        approach: 'confidence',
-        insightGain: 5,
-        relationshipChange: -1,
-        knowledgeGain: { 
-          conceptId: 'research_collaboration',
-          domainId: 'educational',
-          amount: 5
-        },
-        responseText: "While time management is important, research is an integral part of medical physics residency, not an optional extra. The opportunity to participate in departmental research should be embraced as core to your professional development."
-      }
-    ]
-  },
-  
-  // Stage 7: Calibration Frequency (New)
+  // Maintenance schedule
   {
     id: 'calibration-frequency',
-    text: "One more question before we conclude today's session. In your opinion, what would be the ideal frequency for cross-calibration between our various dosimetry systems to maintain optimal clinical accuracy?",
-    contextNote: "Kapoor's tone suggests this is a test of your practical operational knowledge.",
+    text: "How often do you think we should perform these detailed calibration checks?",
+    contextNote: "Dr. Kapoor seems to be testing your practical understanding of clinical operations.",
     options: [
       { 
         id: "quarterly-calibration",
-        text: "Quarterly cross-calibrations with monthly consistency checks strikes an optimal balance between workload and accuracy.", 
+        text: "Quarterly detailed checks with brief daily and monthly verifications seems balanced.", 
         nextStageId: 'pre-journal-presentation',
         approach: 'precision',
         insightGain: 15,
@@ -661,11 +556,11 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'quality-assurance',
           amount: 15
         },
-        responseText: "That's precisely our departmental protocol. Quarterly is frequent enough to catch drift before it becomes clinically significant, while not overwhelming our physicists with constant calibrations. The monthly consistency checks provide an additional safety net."
+        responseText: "That's precisely our protocol. Quarterly checks are frequent enough to catch issues early, while daily and monthly quick-checks provide ongoing verification without overwhelming staff with constant detailed work."
       },
       { 
         id: "annual-calibration",
-        text: "Annual cross-calibrations are sufficient as long as consistency checks are performed weekly.", 
+        text: "Annual detailed calibrations with weekly quick-checks should be sufficient.", 
         nextStageId: 'pre-journal-presentation',
         approach: 'confidence',
         insightGain: 5,
@@ -675,11 +570,11 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'quality-assurance',
           amount: 5
         },
-        responseText: "Annual is too infrequent. While many facilities calibrate annually with their primary standard, cross-calibration between secondary systems should be more frequent. We've found that quarterly cross-calibrations with monthly consistency checks provides the optimal balance."
+        responseText: "That would be insufficient. While annual calibration against primary standards is standard, we need quarterly cross-calibrations with monthly verifications to ensure ongoing accuracy. Patient safety demands more frequent checks."
       },
       { 
         id: "monthly-calibration",
-        text: "Monthly cross-calibrations would ensure maximum accuracy, though I recognize the workload implications.", 
+        text: "Monthly detailed calibrations would maximize accuracy, though I understand that's labor-intensive.", 
         nextStageId: 'pre-journal-presentation',
         approach: 'humble',
         insightGain: 10,
@@ -689,58 +584,58 @@ const kapoorCalibrationDialogue: DialogueStage[] = [
           domainId: 'quality-assurance',
           amount: 10
         },
-        responseText: "Your attentiveness to accuracy is commendable, but you're right about the workload implications. We've found that quarterly cross-calibrations with monthly consistency checks strikes the optimal balance for our clinic. Quality assurance is always a balance between ideal and practical."
+        responseText: "Your attention to accuracy is commendable, but we must balance ideal with practical. Our quarterly detailed calibration schedule with monthly quick-checks provides optimal safety without overwhelming staff resources."
       }
     ]
   },
   
-  // Pre-Journal Presentation (New)
+  // Journal introduction (key game mechanic)
   {
     id: 'pre-journal-presentation',
-    text: "Your understanding of calibration principles is strong, and you've answered my questions with a level of insight I don't typically see in first-day residents. I believe you'll benefit from recording your experiences and knowledge throughout your residency.",
-    contextNote: "Kapoor reaches into a drawer and pulls out a leather-bound journal.",
+    text: "You show good potential. In this field, organizing your knowledge is essential. I have something that might help you during your residency.",
+    contextNote: "Dr. Kapoor reaches into a drawer and retrieves a leather-bound book.",
     nextStageId: 'journal-presentation'
   },
   
-  // Standard Conclusion - Now points to pre-journal-presentation
+  // Standard conclusion
   {
     id: 'conclusion',
     type: 'conclusion',
-    text: "Your understanding of calibration procedures is satisfactory. Regular output measurements are a fundamental responsibility of medical physics. Consistency and attention to detail are essential. Continue to develop your technical knowledge alongside clinical awareness.",
+    text: "Today's session was adequate. Remember that in medical physics, attention to detail directly impacts patient care. Continue developing both your technical knowledge and clinical awareness.",
     isConclusion: true,
     nextStageId: 'pre-journal-presentation'
   },
   
-  // Excellence Conclusion - Now points to pre-journal-presentation
+  // Excellence conclusion
   {
     id: 'conclusion-excellence',
     type: 'conclusion',
-    text: "Your grasp of calibration principles and their clinical context is impressive for a first-day resident. You demonstrate the careful balance of technical precision and clinical judgment that defines excellent medical physics practice. I look forward to your contributions to our department.",
+    text: "I'm impressed with your understanding. You demonstrate a promising balance of technical knowledge and clinical awareness - essential qualities for success in medical physics. I look forward to your future development.",
     isConclusion: true,
     nextStageId: 'pre-journal-presentation'
   },
   
-  // Needs Improvement Conclusion - Now points to pre-journal-presentation
+  // Needs improvement conclusion
   {
     id: 'conclusion-needs-improvement',
     type: 'conclusion',
-    text: "Your understanding of calibration procedures requires significant improvement. These are foundational concepts in medical physics that impact patient safety. I recommend reviewing TG-51 and TG-142 protocols tonight. This profession demands precision and thorough understanding of both technical and clinical implications.",
+    text: "Your understanding requires significant improvement. These concepts are fundamental to patient safety. I recommend reviewing basic principles before our next session. Medical physics demands precision and thorough understanding.",
     isConclusion: true,
     nextStageId: 'pre-journal-presentation'
   },
   
-  // Journal Presentation (Critical Progression Point)
+  // Journal presentation (critical progression point)
   {
     id: 'journal-presentation',
     type: 'critical-moment',
-    text: "Every medical physicist must maintain meticulous records. This journal will serve you throughout your residency. Use it to document observations, track your knowledge development, and maintain procedural notes.",
-    contextNote: "Kapoor hands you a leather-bound journal with the department logo embossed on the cover.",
+    text: "Every medical physicist needs to track their learning and observations. This journal will help you record insights, track your progress, and organize your growing knowledge throughout your residency.",
+    contextNote: "Dr. Kapoor hands you a leather-bound journal with the hospital's emblem embossed on the cover.",
     equipment: {
       itemId: 'journal',
       alt: "Journal",
       description: "A high-quality leather journal with the hospital's medical physics department emblem."
     },
-    isCriticalPath: true, // Critical for progression
+    isCriticalPath: true,
     isConclusion: true
   }
 ];

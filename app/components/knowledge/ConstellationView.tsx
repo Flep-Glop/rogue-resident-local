@@ -6,12 +6,19 @@
  * Simplified version based on SimpleConstellationTest implementation
  */
 import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
-import useKnowledgeStore, { KnowledgeDomain } from '../../store/knowledgeStore';
+import useKnowledgeStore, { KnowledgeDomain, ConceptNode } from '../../store/knowledgeStore';
 import { DOMAIN_COLORS } from '../../core/themeConstants';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { safeDispatch, useEventBus } from '@/app/core/events/CentralEventBus';
 import * as d3 from 'd3';
-import { Connection, predefinedConnections } from '../../data/concepts/medical-physics-connections';
+import { 
+  predefinedConnections, 
+  findPotentialConnectionsForNode, 
+  findAllPotentialConnections,
+  Connection,
+  calculateConnectionStyle,
+  enhanceConnectionMastery 
+} from '../../data/concepts/medical-physics-connections';
 
 // Import visualization control
 import { ConstellationDebugOptions } from './ConstellationVisualizationControl';
@@ -63,6 +70,7 @@ interface Link {
   discovered: boolean;
   isActiveConnection?: boolean; // New property to indicate connections between active nodes
   patternIds: string[];
+  patternId?: string; // Legacy property for compatibility
 }
 
 // Connection details interface
@@ -94,6 +102,7 @@ export default function ConstellationView({
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isComponentMountedRef = useRef(true);
+  const hasInitialSelectionRef = useRef(false);
   
   // Local state
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -120,6 +129,11 @@ export default function ConstellationView({
     starPoints: storeStarPoints,
     newlyDiscovered
   } = useKnowledgeStore();
+  
+  // Sync local starPoints with store
+  useEffect(() => {
+    setStarPoints(storeStarPoints);
+  }, [storeStarPoints]);
   
   // Derived data - use React.useMemo to prevent recalculations on every render
   const discoveredNodes = React.useMemo(() => 
@@ -313,8 +327,9 @@ export default function ConstellationView({
           target: conn.target,
           strength: conn.strength,
           discovered: conn.discovered,
-          isActiveConnection, // Add flag for active connections
-          patternIds: connPatterns
+          isActiveConnection, // Flag for connections between active nodes
+          patternIds: connPatterns,
+          patternId: conn.patternId
         };
       });
     
@@ -733,64 +748,39 @@ export default function ConstellationView({
       .enter()
       .append('line')
       .attr('stroke', d => {
-        // Active connections between two active nodes get special treatment
-        const sourceNode = simulationNodes.find(n => n.id === d.source);
-        const targetNode = simulationNodes.find(n => n.id === d.target);
-        const bothActive = sourceNode?.active && targetNode?.active;
-        
-        if (bothActive) {
-          return 'url(#activeConnectionGradient)'; // Use gradient for connections between active nodes
-        }
-        // Active connections get special treatment
-        if (d.isActiveConnection) {
-          return 'rgba(255, 220, 60, 0.8)'; // Bright gold for active connections
-        }
-        // If we have an active pattern, highlight links belonging to it
+        // If we're in a pattern, use pattern colors first
         if (activePatternId && d.patternIds.includes(activePatternId)) {
           return getPatternColor(activePatternId);
         }
-        // Default link color based on connection strength
-        return `rgba(180, 180, 255, ${0.3 + (d.strength / 200)})`;
+        
+        // Otherwise, use connection styling based on mastery and activation
+        const styling = getConnectionStyling(d);
+        return styling.stroke;
       })
       .attr('stroke-width', d => {
-        // Determine if both nodes are active
-        const sourceNode = simulationNodes.find(n => n.id === d.source);
-        const targetNode = simulationNodes.find(n => n.id === d.target);
-        const bothActive = sourceNode?.active && targetNode?.active;
-        
-        // Thicker lines for active connections between active nodes
-        if (bothActive) {
-          return 4;
-        }
-        // Thicker lines for active connections
-        if (d.isActiveConnection) {
-          return 3;
-        }
-        // Thicker lines for pattern links when a pattern is active
+        // If we're in a pattern, use thicker lines for pattern connections
         if (activePatternId && d.patternIds.includes(activePatternId)) {
-          return 2;
+          return 3; // Thicker for pattern links
         }
-        return 1;
+        
+        // Otherwise, use connection styling based on mastery and activation
+        const styling = getConnectionStyling(d);
+        return styling.strokeWidth;
+      })
+      .attr('stroke-dasharray', d => {
+        // Get connection styling based on mastery and activation
+        const styling = getConnectionStyling(d);
+        return styling.strokeDasharray;
       })
       .attr('opacity', d => {
-        // Determine if both nodes are active
-        const sourceNode = simulationNodes.find(n => n.id === d.source);
-        const targetNode = simulationNodes.find(n => n.id === d.target);
-        const bothActive = sourceNode?.active && targetNode?.active;
-        
-        // Full opacity for connections between active nodes
-        if (bothActive) {
-          return 1;
-        }
-        // Full opacity for active connections
-        if (d.isActiveConnection) {
-          return 1;
-        }
-        // Full opacity for active pattern links
+        // If we're in a pattern, use higher opacity for pattern connections
         if (activePatternId && d.patternIds.includes(activePatternId)) {
-          return 0.8;
+          return 0.9; // Higher opacity for pattern connections
         }
-        return 0.3; // Faded links by default
+        
+        // Otherwise, use connection styling based on mastery and activation
+        const styling = getConnectionStyling(d);
+        return styling.opacity;
       })
       .style('transition', 'stroke 0.3s ease, stroke-width 0.3s ease, opacity 0.3s ease')
       .style('filter', d => {
@@ -936,6 +926,32 @@ export default function ConstellationView({
         event.stopPropagation(); // Prevent SVG background click
         // Allow clicking any discovered node, regardless of locked status
         if (interactive && d.discovered) {
+          const wasSelected = selectedNodeId === d.id;
+          
+          if (!wasSelected) {
+            // If selecting a new node, add visual feedback
+            nodeElements
+              .filter((node: Node) => node.id === d.id)
+              .transition()
+              .duration(300)
+              .style('filter', 'url(#glow) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))')
+              .style('opacity', 1);
+              
+            // Fade other nodes slightly
+            nodeElements
+              .filter((node: Node) => node.id !== d.id)
+              .transition()
+              .duration(300)
+              .style('opacity', node => {
+                // Check if connected to the new selected node
+                const isConnected = simulationLinks.some(link => 
+                  (link.source === d.id && link.target === node.id) || 
+                  (link.target === d.id && link.source === node.id)
+                );
+                return isConnected ? 1 : 0.5;
+              });
+          }
+          
           setSelectedNodeId(prev => prev === d.id ? null : d.id);
           
           // Mark this node as viewed if it's newly discovered
@@ -1281,7 +1297,100 @@ export default function ConstellationView({
     // Click on background to deselect
     svg.on('click', () => {
       if (interactive) {
+        // Force deselection and don't allow auto-selection to override
         setSelectedNodeId(null);
+        
+        // Reset visual state of all nodes
+        nodeElements
+          .transition()
+          .duration(200)
+          .style('opacity', d => d.active ? 1 : (d.unlocked ? 0.8 : 0.4))
+          .style('filter', d => {
+            // Active stars get special glow
+            if (d.active) {
+              return 'url(#active-glow) url(#drop-shadow)';
+            }
+            
+            // Special glow for domain stars
+            if (d.id === d.domain && d.unlocked) {
+              return 'url(#domain-glow) url(#drop-shadow)';
+            }
+            
+            // Locked stars have reduced effects
+            if (!d.unlocked) {
+              return 'saturate(30%) brightness(60%)';
+            }
+            
+            // Standard glow for normal stars
+            return 'url(#glow)';
+          });
+          
+        // Reset link appearance
+        linkElements
+          .transition()
+          .duration(200)
+          .style('opacity', d => d.isActiveConnection ? 1 : 0.3)
+          .style('stroke-width', d => d.isActiveConnection ? 3 : 1.5);
+      }
+    });
+    
+    // Node click handler with visual feedback
+    nodeElements.on('click', (event: any, d: Node) => {
+      event.stopPropagation(); // Prevent SVG background click
+      // Allow clicking any discovered node, regardless of locked status
+      if (interactive && d.discovered) {
+        const wasSelected = selectedNodeId === d.id;
+        
+        if (!wasSelected) {
+          // If selecting a new node, add visual feedback
+          nodeElements
+            .filter((node: Node) => node.id === d.id)
+            .transition()
+            .duration(300)
+            .style('filter', 'url(#glow) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8))')
+            .style('opacity', 1);
+            
+          // Fade other nodes slightly
+          nodeElements
+            .filter((node: Node) => node.id !== d.id)
+            .transition()
+            .duration(300)
+            .style('opacity', node => {
+              // Check if connected to the new selected node
+              const isConnected = simulationLinks.some(link => 
+                (link.source === d.id && link.target === node.id) || 
+                (link.target === d.id && link.source === node.id)
+              );
+              return isConnected ? 1 : 0.5;
+            });
+        }
+        
+        setSelectedNodeId(prev => prev === d.id ? null : d.id);
+        
+        // Mark this node as viewed if it's newly discovered
+        if (d.isNewlyDiscovered) {
+          setViewedNodes(prev => {
+            const newSet = new Set(prev);
+            newSet.add(d.id);
+            return newSet;
+          });
+          
+          // Update the local simulation nodes to remove the "newly discovered" visual immediately
+          setSimulationNodes(prevNodes => 
+            prevNodes.map(node => 
+              node.id === d.id ? {...node, hasBeenViewed: true} : node
+            )
+          );
+        }
+        
+        // Dispatch node selection event
+        if (d.id !== selectedNodeId) {
+          safeDispatch(
+            GameEventType.UI_NODE_SELECTED, 
+            { nodeId: d.id }, 
+            'constellation'
+          );
+        }
       }
     });
     
@@ -1432,30 +1541,47 @@ export default function ConstellationView({
   useEffect(() => {
     isComponentMountedRef.current = true;
     
-    // Handle auto-selection of active nodes
-    if (activeNodes.length > 0 && interactive) {
-      const nodeToFocus = nodes.find(n => n.discovered && activeNodes.includes(n.id));
-      if (nodeToFocus) {
-        setSelectedNodeId(nodeToFocus.id);
-      }
+    // Removing auto-selection of nodes on mount
+    // Let the user choose which node to interact with
+    
+    // Log constellation data for debugging
+    console.log(`[ConstellationView] Initialized with ${nodes.length} total nodes`);
+    console.log(`[ConstellationView] Discovered nodes: ${discoveredNodes.length}`);
+    console.log(`[ConstellationView] Newly discovered: ${newlyDiscovered.length}`);
+    
+    if (newlyDiscovered.length > 0) {
+      console.log(`[ConstellationView] Newly discovered concepts:`, 
+        newlyDiscovered.map(id => {
+          const node = nodes.find(n => n.id === id);
+          return node ? `${node.name} (${node.domain})` : id;
+        })
+      );
     }
     
     // Subscribe to event bus for UI events
     const eventHandlers = {
       [GameEventType.UI_NODE_SELECTED]: (event: any) => {
-        // Find the node and select it if it exists and is discovered
-        const node = nodes.find(n => n.id === event.payload.nodeId && n.discovered);
-        if (node) {
-          setSelectedNodeId(node.id);
+        // Only respond to external selection events if we didn't initiate them
+        if (event.source !== 'constellation') {
+          // Find the node and select it if it exists and is discovered
+          const node = nodes.find(n => n.id === event.payload.nodeId && n.discovered);
+          if (node) {
+            setSelectedNodeId(node.id);
+          }
         }
       },
       [GameEventType.TRANSITION_TO_NIGHT_COMPLETED]: () => {
         // Ensure we re-render when night transition completes
         if (svgRef.current) {
+          console.log(`[ConstellationView] Night transition completed, refreshing visualization`);
           // Force re-render of visualization
           const currentNodes = [...simulationNodes];
           setSimulationNodes(currentNodes);
         }
+      },
+      [GameEventType.KNOWLEDGE_DISCOVERED]: (event: any) => {
+        console.log(`[ConstellationView] New knowledge discovered: ${event.payload.conceptId}`);
+        // We could trigger a refresh here if needed
       }
     };
     
@@ -1476,7 +1602,7 @@ export default function ConstellationView({
       // Unsubscribe from all event handlers
       eventUnsubscribes.forEach(unsubFn => unsubFn());
     };
-  }, [nodes, activeNodes, interactive, debugOptions, simulationNodes]);
+  }, [nodes, activeNodes, interactive, debugOptions, simulationNodes, selectedNodeId, newlyDiscovered]);
 
   // Function to handle pattern selection
   const handlePatternSelect = (patternId: string | null) => {
@@ -1493,62 +1619,435 @@ export default function ConstellationView({
 
   // Add these functions to update node states
   const unlockNode = (nodeId: string) => {
+    // Get the node to find its SP cost
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) {
+      console.warn(`[ConstellationView] Cannot unlock node: ${nodeId} not found`);
+      showToast("Error: Concept not found", "error");
+      return;
+    }
+    
+    // Make sure the node is discovered first
+    if (!node.discovered) {
+      console.log("You need to discover this concept first");
+      showToast("You need to discover this concept first", "warning");
+      return;
+    }
+    
+    // Make sure the node is not already unlocked
+    if (node.unlocked) {
+      console.log("This concept is already unlocked");
+      showToast("This concept is already unlocked", "info");
+      return;
+    }
+    
+    // Get the SP cost - ENSURE it's a valid number (default to 15 if undefined or NaN)
+    const spCost = (node.spCost && !isNaN(node.spCost)) ? node.spCost : 15;
+    
     // Check if we have enough SP
-    if (starPoints < 1) {
+    if (starPoints < spCost) {
       // Show feedback that player doesn't have enough SP
-      safeDispatch(
-        GameEventType.UI_NOTIFICATION,
-        { message: "Not enough Star Points to unlock", type: "error" },
-        'constellation'
-      );
+      console.log(`Not enough Star Points (need ${spCost} SP)`);
+      showToast(`Not enough Star Points (need ${spCost} SP)`, "error");
+      
+      // Add visual shake effect to SP meter
+      const spMeter = document.querySelector(".sp-meter");
+      if (spMeter) {
+        spMeter.classList.add("shake-animation");
+        setTimeout(() => spMeter.classList.remove("shake-animation"), 500);
+      }
       return;
     }
 
-    // Attempt to spend star points
-    const success = useKnowledgeStore.getState().spendStarPoints(1, `unlock_node_${nodeId}`);
+    // Use the unlockConcept method from knowledgeStore which handles SP costs
+    const knowledgeStore = useKnowledgeStore.getState();
     
-    if (!success) {
+    // Make sure the node has a valid spCost before unlocking
+    if (!node.spCost || isNaN(node.spCost)) {
+      // Create a temporary node with the proper spCost
+      // The actual update will happen in the unlockConcept method
+      console.log(`[ConstellationView] Node ${nodeId} has invalid spCost (${node.spCost}), using default: ${spCost}`);
+      
+      // We don't need to manually update the node in the store
+      // Just proceed with unlocking and the store will handle the SP cost
+    }
+    
+    // Create pre-unlock visual effect
+    const simulationNode = simulationNodes.find(n => n.id === nodeId);
+    if (simulationNode) {
+      createUnlockEffect(simulationNode);
+    }
+    
+    const success = knowledgeStore.unlockConcept(nodeId);
+    
+    if (success) {
+      // The knowledgeStore.unlockConcept method already deducts SP cost from the store
+      // Just update our local state to match the store's current SP value
+      setStarPoints(useKnowledgeStore.getState().starPoints);
+      
+      // Check for new connections that may have formed
+      checkForNewConnections(nodeId);
+      
+      // Display confirmation message
+      console.log(`${node.name} unlocked successfully!`);
+      
+      // Also mark the concept as active by default
+      knowledgeStore.setConceptActivation(nodeId, true);
+      
+      // Visual feedback
       safeDispatch(
-        GameEventType.UI_NOTIFICATION,
-        { message: "Failed to unlock node", type: "error" },
+        GameEventType.CONCEPT_UNLOCKED,
+        { conceptId: nodeId, conceptName: node.name },
         'constellation'
       );
+      
+      // Show success toast
+      showToast(`${node.name} unlocked! (${spCost} SP spent)`, "success");
+      
+      // Create post-unlock particle effect
+      setTimeout(() => {
+        const updatedSimNode = simulationNodes.find(n => n.id === nodeId);
+        if (updatedSimNode) {
+          createUnlockCompletionEffect(updatedSimNode);
+        }
+      }, 300);
+    } else {
+      // Display error message
+      console.log("Failed to unlock concept");
+      showToast("Failed to unlock concept", "error");
+    }
+  };
+  
+  // Helper function to show toast notifications
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    if (!containerRef.current) return;
+    
+    const toast = document.createElement('div');
+    toast.className = `fixed z-50 rounded-lg shadow-lg px-4 py-2 bottom-5 left-1/2 transform -translate-x-1/2 text-sm font-medium animate-fade-in-up ${
+      type === 'success' ? 'bg-green-800 text-white' :
+      type === 'error' ? 'bg-red-800 text-white' :
+      type === 'warning' ? 'bg-yellow-700 text-white' :
+      'bg-indigo-800 text-white'
+    }`;
+    toast.innerText = message;
+    
+    containerRef.current.appendChild(toast);
+    
+    // Remove toast after 3 seconds
+    setTimeout(() => {
+      toast.classList.add('animate-fade-out');
+      setTimeout(() => toast.remove(), 500);
+    }, 3000);
+  };
+  
+  // Create visual effect when unlocking a node
+  const createUnlockEffect = (node: Node) => {
+    if (!svgRef.current) return;
+    
+    // Create a pulse circle at the node position
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', String(node.x));
+    circle.setAttribute('cy', String(node.y));
+    circle.setAttribute('r', '10');
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', '#FFC107');
+    circle.setAttribute('stroke-width', '2');
+    circle.setAttribute('class', 'unlock-pulse');
+    
+    svgRef.current.appendChild(circle);
+    
+    // Remove after animation completes
+    setTimeout(() => {
+      circle.remove();
+    }, 1000);
+  };
+  
+  // Create visual effect when unlock is complete
+  const createUnlockCompletionEffect = (node: Node) => {
+    if (!svgRef.current) return;
+    
+    // Create particles bursting from the node
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const dx = Math.cos(angle) * 40;
+      const dy = Math.sin(angle) * 40;
+      
+      const particle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      
+      particle.setAttribute('cx', String(node.x));
+      particle.setAttribute('cy', String(node.y));
+      particle.setAttribute('r', '3');
+      particle.setAttribute('fill', '#FFEB3B');
+      particle.setAttribute('class', 'unlock-particle');
+      particle.setAttribute('style', `--dx: ${dx}px; --dy: ${dy}px;`);
+      
+      svgRef.current.appendChild(particle);
+      
+      // Remove after animation completes
+      setTimeout(() => {
+        particle.remove();
+      }, 1000);
+    }
+  };
+
+  // Add a helper function to log connection events to the journal
+  const logConnectionToJournal = (sourceId: string, targetId: string, event: 'created' | 'mastery', details?: any) => {
+    const knowledgeStore = useKnowledgeStore.getState();
+    const sourceNode = nodes.find(n => n.id === sourceId);
+    const targetNode = nodes.find(n => n.id === targetId);
+    
+    if (!sourceNode || !targetNode) return;
+    
+    // Create a descriptive title based on the event type
+    let title = '';
+    let content = '';
+    
+    if (event === 'created') {
+      title = `Connection Discovered: ${sourceNode.name} ↔ ${targetNode.name}`;
+      content = `You've discovered a connection between ${sourceNode.name} and ${targetNode.name}. `;
+      
+      // Add domain-specific context
+      if (sourceNode.domain === targetNode.domain) {
+        content += `Both concepts are from the ${sourceNode.domain.replace(/-/g, ' ')} domain, suggesting a strong fundamental relationship.`;
+      } else {
+        content += `This connection bridges the ${sourceNode.domain.replace(/-/g, ' ')} and ${targetNode.domain.replace(/-/g, ' ')} domains, revealing an interdisciplinary insight.`;
+      }
+      
+      // Add any provided description
+      if (details?.description) {
+        content += `\n\n${details.description}`;
+      }
+    } else if (event === 'mastery') {
+      const masteryGain = details?.masteryGain || 0;
+      const newMastery = details?.newMastery || 0;
+      
+      title = `Connection Mastery: ${sourceNode.name} ↔ ${targetNode.name}`;
+      content = `You've deepened your understanding of the connection between ${sourceNode.name} and ${targetNode.name}. `;
+      content += `Mastery increased by ${masteryGain}% to ${newMastery}%.`;
+      
+      // Add mastery threshold insights
+      if (newMastery >= 30 && newMastery - masteryGain < 30) {
+        content += `\n\nYou now have a basic grasp of how these concepts relate to each other.`;
+      } else if (newMastery >= 70 && newMastery - masteryGain < 70) {
+        content += `\n\nYou've achieved significant insight into this relationship, unlocking deeper understanding.`;
+      } else if (newMastery >= 100) {
+        content += `\n\nYou've mastered this connection completely! Your understanding of this relationship is comprehensive.`;
+      }
+    }
+    
+    // Add the entry to both concepts' journals
+    if (title && content) {
+      try {
+        // Add to journal using the generic addJournalEntry API
+        knowledgeStore.addJournalEntry({
+          conceptId: sourceId, // Attribute to source concept
+          content: content,
+          source: 'observation',
+          masteryGained: event === 'mastery' ? (details?.masteryGain || 0) : 0
+        });
+        
+        // Also record for the target concept if it's a creation event
+        if (event === 'created') {
+          knowledgeStore.addJournalEntry({
+            conceptId: targetId,
+            content: content,
+            source: 'observation',
+            masteryGained: 0
+          });
+        }
+        
+        // Show toast notification for journal update
+        showToast(`Journal updated: ${title}`, 'info');
+      } catch (error) {
+        console.error('[ConstellationView] Error adding journal entry:', error);
+      }
+    }
+  };
+
+  // Update the checkForNewConnections function to include journal entries
+  const checkForNewConnections = (nodeId: string) => {
+    // Get the newly unlocked node
+    const unlockedNode = nodes.find(n => n.id === nodeId);
+    if (!unlockedNode) return;
+    
+    // Find all other unlocked nodes that could form connections
+    const otherUnlockedNodes = nodes.filter(n => 
+      n.id !== nodeId && n.unlocked && n.discovered
+    );
+    
+    const otherUnlockedNodeIds = otherUnlockedNodes.map(n => n.id);
+    
+    console.log(`[ConstellationView] Checking for connections between ${nodeId} and ${otherUnlockedNodes.length} other unlocked nodes`);
+    
+    // Use the improved helper function to find potential connections
+    const potentialConnections = findPotentialConnectionsForNode(nodeId, otherUnlockedNodeIds);
+    
+    if (potentialConnections.length > 0) {
+      console.log(`[ConstellationView] Found ${potentialConnections.length} potential connections`);
+      
+      // Mark these connections as discovered in the store
+      const knowledgeStore = useKnowledgeStore.getState();
+      potentialConnections.forEach(conn => {
+        // Initialize the connection if it doesn't exist
+        const existingConn = knowledgeStore.connections.find(c => 
+          (c.source === conn.sourceId && c.target === conn.targetId) ||
+          (c.source === conn.targetId && c.target === conn.sourceId)
+        );
+        
+        if (!existingConn) {
+          // Create new connection
+          knowledgeStore.createConnection(conn.sourceId, conn.targetId);
+          
+          // Show feedback about new connection
+          console.log(`[ConstellationView] Created new connection: ${conn.id}`);
+          
+          // Get node names for feedback
+          const sourceName = nodes.find(n => n.id === conn.sourceId)?.name || conn.sourceId;
+          const targetName = nodes.find(n => n.id === conn.targetId)?.name || conn.targetId;
+          
+          // Provide visual feedback
+          safeDispatch(
+            GameEventType.KNOWLEDGE_CONNECTION_CREATED,
+            { 
+              sourceId: conn.sourceId, 
+              targetId: conn.targetId,
+              sourceName,
+              targetName,
+              description: conn.description || `Connection between ${sourceName} and ${targetName}`
+            },
+            'constellation'
+          );
+          
+          // Log the new connection to the journal
+          logConnectionToJournal(conn.sourceId, conn.targetId, 'created', {
+            description: conn.description
+          });
+        } else if (!existingConn.discovered) {
+          // Make existing but undiscovered connection visible
+          knowledgeStore.discoverConnection(conn.sourceId, conn.targetId);
+          
+          // Log the discovered connection to the journal
+          logConnectionToJournal(conn.sourceId, conn.targetId, 'created', {
+            description: existingConn.description
+          });
+        }
+      });
+      
+      // Force an update after connections are created
+      setTimeout(() => {
+        const updatedConnections = useKnowledgeStore.getState().connections;
+        console.log(`[ConstellationView] Refreshing with ${updatedConnections.length} total connections`);
+        
+        // Map connections to simulation links with proper types
+        const linkMap = updatedConnections
+          .filter(c => c.discovered)
+          .map(c => {
+            // Get additional data for the link
+            const sourceNode = nodes.find(n => n.id === c.source);
+            const targetNode = nodes.find(n => n.id === c.target);
+            
+            // Determine if it's an active connection (both nodes active)
+            const isActiveConnection = sourceNode?.active && targetNode?.active;
+            
+            return {
+              source: c.source,
+              target: c.target,
+              strength: c.strength,
+              discovered: c.discovered,
+              isActiveConnection,
+              // Use proper property access, preferring patternIds if available, using an array if it's a patternId string
+              patternIds: c.patternIds || (c.patternId ? [c.patternId] : [])
+            };
+          });
+        
+        setSimulationLinks(linkMap);
+      }, 100);
+    }
+    
+    // Force an update of the simulation nodes to trigger useEffect
+    setTimeout(() => {
+      setSimulationNodes([...simulationNodes]);
+    }, 200);
+  };
+
+  // Add a function to initialize all connections between unlocked stars
+  const initializeAllConnections = () => {
+    console.log(`[ConstellationView] Initializing all connections between unlocked stars`);
+    
+    // Get all unlocked node ids
+    const unlockedNodeIds = nodes
+      .filter(n => n.unlocked && n.discovered)
+      .map(n => n.id);
+    
+    // Skip if there are not enough unlocked nodes for connections
+    if (unlockedNodeIds.length < 2) {
+      console.log(`[ConstellationView] Not enough unlocked nodes for connections`);
       return;
     }
     
-    // Update the simulationNodes directly to see immediate effect
-    const updatedNodes = simulationNodes.map(node => {
-      if (node.id === nodeId) {
-        return { ...node, unlocked: true };
+    // Find all potential connections between all unlocked nodes
+    const potentialConnections = findAllPotentialConnections(unlockedNodeIds);
+    
+    console.log(`[ConstellationView] Found ${potentialConnections.length} potential connections between ${unlockedNodeIds.length} unlocked nodes`);
+    
+    // Create connections in the knowledge store
+    const knowledgeStore = useKnowledgeStore.getState();
+    let createdCount = 0;
+    
+    potentialConnections.forEach(conn => {
+      // Check if connection already exists
+      const existingConn = knowledgeStore.connections.find(c => 
+        (c.source === conn.sourceId && c.target === conn.targetId) ||
+        (c.source === conn.targetId && c.target === conn.sourceId)
+      );
+      
+      if (!existingConn) {
+        // Create new connection
+        knowledgeStore.createConnection(conn.sourceId, conn.targetId);
+        createdCount++;
       }
-      return node;
     });
     
-    // Update the simulation nodes
-    setSimulationNodes(updatedNodes);
+    console.log(`[ConstellationView] Created ${createdCount} new connections`);
     
-    // Update the actual node in the store
-    const storeNodes = useKnowledgeStore.getState().nodes;
-    const updatedStoreNodes = storeNodes.map(node => {
-      if (node.id === nodeId) {
-        return { ...node, unlocked: true };
-      }
-      return node;
-    });
-    
-    // Update the store with the modified nodes
-    useKnowledgeStore.getState().importKnowledgeData({ nodes: updatedStoreNodes });
-    
-    // Dispatch event for any listeners
-    safeDispatch(
-      GameEventType.KNOWLEDGE_NODE_UNLOCKED,
-      { nodeId, spRemaining: starPoints - 1 },
-      'constellation'
-    );
+    // Refresh the constellation view
+    if (createdCount > 0) {
+      setTimeout(() => {
+        const updatedConnections = useKnowledgeStore.getState().connections;
+        
+        // Map connections to simulation links
+        const linkMap = updatedConnections
+          .filter(c => c.discovered)
+          .map(c => {
+            // Get additional data for the link
+            const sourceNode = nodes.find(n => n.id === c.source);
+            const targetNode = nodes.find(n => n.id === c.target);
+            
+            // Determine if it's an active connection (both nodes active)
+            const isActiveConnection = sourceNode?.active && targetNode?.active;
+            
+            return {
+              source: c.source,
+              target: c.target,
+              strength: c.strength,
+              discovered: c.discovered,
+              isActiveConnection,
+              // Use proper property access, preferring patternIds if available, using an array if it's a patternId string
+              patternIds: c.patternIds || (c.patternId ? [c.patternId] : [])
+            };
+          });
+        
+        setSimulationLinks(linkMap);
+      }, 100);
+    }
   };
 
   const toggleNodeActive = (nodeId: string, isActive: boolean) => {
-    // Update the simulationNodes directly to see immediate effect
+    // Update the node's active state using the knowledgeStore
+    const knowledgeStore = useKnowledgeStore.getState();
+    knowledgeStore.setConceptActivation(nodeId, isActive);
+    
+    // Find the node in simulation for immediate visual update
     const updatedNodes = simulationNodes.map(node => {
       if (node.id === nodeId) {
         return { ...node, active: isActive };
@@ -1556,28 +2055,216 @@ export default function ConstellationView({
       return node;
     });
     
-    // Update the simulation nodes
+    // Update the local state
     setSimulationNodes(updatedNodes);
     
-    // In a real implementation, this would update the store
-    // For now, we'll just modify the local nodes state
-    const updatedStoreNodes = nodes.map(node => {
-      if (node.id === nodeId) {
-        return { ...node, active: isActive };
-      }
-      return node;
-    });
+    // Update connection states after activation change
+    updateConnectionStates(nodeId, isActive);
     
-    // This is simulating what would happen in a real implementation
-    safeDispatch(
-      GameEventType.KNOWLEDGE_NODE_ACTIVATION_CHANGED, 
-      { nodeId, isActive },
-      'constellation'
+    // Send an event with the update
+    try {
+      safeDispatch(
+        GameEventType.CONCEPT_ACTIVATION_CHANGED,
+        { conceptId: nodeId, isActive },
+        'constellation'
+      );
+    } catch (e) {
+      console.error('Error dispatching concept activation event:', e);
+    }
+  };
+
+  // Helper to update connection states when activation changes
+  const updateConnectionStates = (nodeId: string, isActive: boolean) => {
+    // Find all connections involving this node
+    const relevantConnections = simulationLinks.filter(link => 
+      link.source === nodeId || link.target === nodeId
     );
     
-    // In a production app, you would call a store method like:
-    // useKnowledgeStore.getState().setNodeActive(nodeId, isActive);
+    if (relevantConnections.length === 0) return;
+    
+    console.log(`[ConstellationView] Updating ${relevantConnections.length} connections for node ${nodeId}`);
+    
+    // Force an update of the simulation links on the next tick
+    setTimeout(() => {
+      // This will trigger the useEffect that updates simulationLinks
+      setSimulationLinks([...simulationLinks]);
+    }, 50);
   };
+
+  // Update connection mastery between two concepts
+  const updateConnectionMastery = (conceptId1: string, conceptId2: string, amount: number) => {
+    // Get the knowledge store
+    const knowledgeStore = useKnowledgeStore.getState();
+    
+    // Try to find existing connection
+    const connection = connections.find(conn => 
+      (conn.source === conceptId1 && conn.target === conceptId2) ||
+      (conn.source === conceptId2 && conn.target === conceptId1)
+    );
+    
+    if (!connection) {
+      console.warn(`No connection found between ${conceptId1} and ${conceptId2}`);
+      return;
+    }
+    
+    // Calculate new strength
+    const newStrength = Math.min(100, connection.strength + amount);
+    const masteryGain = newStrength - connection.strength;
+    
+    // In a production implementation, we'd update the connection in the store
+    // For now, we'll just update our local simulation links
+    const updatedLinks = simulationLinks.map(link => {
+      if ((link.source === conceptId1 && link.target === conceptId2) ||
+          (link.source === conceptId2 && link.target === conceptId1)) {
+        return { ...link, strength: newStrength };
+      }
+      return link;
+    });
+    
+    // Update the simulation links
+    setSimulationLinks(updatedLinks);
+    
+    console.log(`Updated connection mastery between ${conceptId1} and ${conceptId2} to ${newStrength}%`);
+    
+    // Log the mastery increase to the journal
+    if (masteryGain > 0) {
+      logConnectionToJournal(conceptId1, conceptId2, 'mastery', {
+        masteryGain,
+        newMastery: newStrength
+      });
+      
+      // Provide visual feedback based on mastery thresholds
+      if (newStrength >= 30 && (newStrength - masteryGain) < 30) {
+        // Crossed 30% threshold
+        showToast(`Connection understanding reached basic level (${Math.round(newStrength)}%)`, 'success');
+      } else if (newStrength >= 70 && (newStrength - masteryGain) < 70) {
+        // Crossed 70% threshold
+        showToast(`Connection understanding reached advanced level (${Math.round(newStrength)}%)`, 'success');
+      } else if (newStrength >= 100 && (newStrength - masteryGain) < 100) {
+        // Reached maximum mastery
+        showToast(`Connection mastery complete! (${Math.round(newStrength)}%)`, 'success');
+      } else {
+        // Regular mastery increase
+        showToast(`Connection understanding increased to ${Math.round(newStrength)}%`, 'info');
+      }
+    }
+  };
+
+  // Add a useEffect to monitor connections and update visualization
+  useEffect(() => {
+    // Skip if no connections
+    if (connections.length === 0) return;
+    
+    console.log(`[ConstellationView] Connection state changed, updating visualization with ${connections.length} connections`);
+    
+    // Update the simulation links based on discovered connections
+    const discoveredConns = connections.filter(conn => conn.discovered);
+    
+    // Map connections to simulation links
+    const simulationLinksUpdated = discoveredConns.map(conn => {
+      // Skip if source or target doesn't exist
+      const sourceNode = nodes.find(n => n.id === conn.source);
+      const targetNode = nodes.find(n => n.id === conn.target);
+      
+      if (!sourceNode?.discovered || !targetNode?.discovered) return null;
+      
+      // Determine if this is an active connection
+      const isActiveConnection = 
+        sourceNode.active && 
+        targetNode.active;
+      
+      // Determine which patterns this connection belongs to
+      let patternIds: string[] = [];
+      
+      return {
+        source: conn.source,
+        target: conn.target,
+        strength: conn.strength,
+        discovered: conn.discovered,
+        isActiveConnection,
+        patternIds
+      };
+    }).filter(Boolean) as Link[];
+    
+    // Set the simulation links
+    setSimulationLinks(simulationLinksUpdated);
+    
+    // Also force a node update to ensure connections attach to the right nodes
+    setSimulationNodes([...simulationNodes]);
+  }, [connections, nodes]);
+
+  // Add a useEffect to initialize connections when component mounts
+  // Add this after the existing useEffects
+
+  // Initialize connections between unlocked stars
+  useEffect(() => {
+    // Only run this once when the component mounts
+    if (nodes.length > 0 && connections.length === 0) {
+      console.log('[ConstellationView] Component mounted with nodes, initializing connections');
+      // Wait a moment for the component to fully initialize
+      setTimeout(() => {
+        initializeAllConnections();
+      }, 500);
+    }
+  }, [nodes.length]); // Only re-run if nodes length changes
+
+  // Helper function to update connection styling based on mastery and activation
+  const getConnectionStyling = (connection: any) => {
+    // Get the source and target nodes for this connection
+    const sourceNode = simulationNodes.find(n => n.id === connection.source);
+    const targetNode = simulationNodes.find(n => n.id === connection.target);
+    
+    // Check if both nodes are active
+    const isActive = sourceNode?.active && targetNode?.active;
+    
+    // Calculate styling based on mastery level
+    const mastery = connection.strength || 0;
+    let strokeWidth = 1;
+    let stroke = '#8a8a8a';
+    let strokeDasharray = '3,3';
+    let opacity = 0.4;
+    
+    // Mastery level styling
+    if (mastery > 70) {
+      // High mastery (70-100%)
+      strokeWidth = 3;
+      strokeDasharray = 'none';
+      stroke = isActive ? '#8be9fd' : '#50fa7b';
+      opacity = 0.8;
+    } else if (mastery > 30) {
+      // Medium mastery (30-70%)
+      strokeWidth = 2;
+      strokeDasharray = 'none';
+      stroke = isActive ? '#8be9fd' : '#f1fa8c';
+      opacity = 0.6;
+    } else {
+      // Low mastery (0-30%)
+      strokeWidth = 1;
+      stroke = isActive ? '#6272a4' : '#8a8a8a';
+      opacity = 0.4;
+    }
+    
+    // Make connections more prominent when both nodes are active
+    if (isActive) {
+      opacity += 0.2;
+      strokeWidth += 1;
+    }
+    
+    return {
+      stroke,
+      strokeWidth,
+      strokeDasharray,
+      opacity
+    };
+  };
+
+  // Update the renderLinks function to use our new styling helper
+  // Find the existing renderLinks function and update it to include proper mastery styling
+
+  // In the renderLinks function, update the lines.attr and enter.append("line") sections to include our styling
+  // The changes would be around lines that set stroke, strokeWidth, etc.
+
+  // Look for code that styles links and update it to use getConnectionStyling
 
   // ========= COMPONENT RENDER =========
   return (
@@ -1593,6 +2280,42 @@ export default function ConstellationView({
         height: '100%'
       }}
     >
+      {/* Inline styles for animations */}
+      <style jsx>{`
+        @keyframes pulse {
+          0% {
+            r: 10;
+            opacity: 1;
+            stroke-width: 2;
+          }
+          100% {
+            r: 40;
+            opacity: 0;
+            stroke-width: 0.5;
+          }
+        }
+        
+        @keyframes particle-burst {
+          0% {
+            transform: translate(0, 0);
+            opacity: 1;
+          }
+          100% {
+            transform: translateX(var(--dx)) translateY(var(--dy));
+            opacity: 0;
+          }
+        }
+        
+        :global(.unlock-pulse) {
+          animation: pulse 1s ease-out forwards;
+        }
+        
+        :global(.unlock-particle) {
+          animation: particle-burst 1s ease-out forwards;
+          transform-origin: center;
+        }
+      `}</style>
+    
       <svg 
         ref={svgRef} 
         width="100%" 
@@ -1603,7 +2326,7 @@ export default function ConstellationView({
       {/* Simple UI elements */}
       <div className="absolute top-4 right-4 flex space-x-2">
         {/* SP Currency Display */}
-        <div className="bg-gray-800 text-white px-3 py-1 rounded-full flex items-center mr-2">
+        <div className="bg-gray-800 text-white px-3 py-1 rounded-full flex items-center mr-2 sp-meter">
           <span className="text-yellow-400 mr-1">★</span>
           <span>{starPoints} SP</span>
         </div>
@@ -1611,12 +2334,26 @@ export default function ConstellationView({
         {interactive && onClose && (
           <button 
             onClick={onClose}
-            className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-full"
+            className="bg-red-700 hover:bg-red-600 text-white px-3 py-1 rounded-full flex items-center"
           >
-            ✕
+            <span className="mr-1">✕</span>
+            <span>Close</span>
           </button>
         )}
       </div>
+      
+      {/* Return to Hill Home button at the bottom */}
+      {interactive && onClose && (
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
+          <button 
+            onClick={onClose}
+            className="bg-blue-700 hover:bg-blue-600 text-white px-5 py-2 rounded-lg flex items-center shadow-lg"
+          >
+            <span className="mr-2">🏠</span>
+            <span>Return to Hill Home</span>
+          </button>
+        </div>
+      )}
       
       {/* Help text at bottom */}
       {false && (
@@ -1633,33 +2370,6 @@ export default function ConstellationView({
             </svg>
             Click star to view details
           </span>
-        </div>
-      )}
-      
-      {/* Pattern Selection - only if we have patterns */}
-      {false && patterns.length > 0 && (
-        <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-          <button
-            className={`px-3 py-1 text-sm rounded bg-gray-700 hover:bg-gray-600`}
-            onClick={() => handlePatternSelect(null)}
-          >
-            Show All
-          </button>
-          
-          {patterns.map(pattern => (
-            <button
-              key={pattern.id}
-              className={`px-3 py-1 text-sm rounded ${
-                activePatternId === pattern.id 
-                  ? 'ring-2 ring-white' 
-                  : 'hover:bg-opacity-80'
-              }`}
-              style={{ backgroundColor: getPatternColor(pattern.id) }}
-              onClick={() => handlePatternSelect(pattern.id)}
-            >
-              {pattern.name}
-            </button>
-          ))}
         </div>
       )}
       
@@ -1690,7 +2400,11 @@ export default function ConstellationView({
             {selectedNode.unlocked ? (
               <span className="px-2 py-0.5 bg-green-800 text-green-100 rounded-full text-xs">Unlocked</span>
             ) : (
-              <span className="px-2 py-0.5 bg-gray-700 text-gray-300 rounded-full text-xs">Locked</span>
+              selectedNode.discovered ? (
+                <span className="px-2 py-0.5 bg-blue-700 text-blue-100 rounded-full text-xs">Discovered</span>
+              ) : (
+                <span className="px-2 py-0.5 bg-gray-700 text-gray-300 rounded-full text-xs">Locked</span>
+              )
             )}
             
             {selectedNode.active ? (
@@ -1764,18 +2478,32 @@ export default function ConstellationView({
                   {selectedNode.active ? 'Deactivate' : 'Activate'}
                 </button>
               ) : (
-                // For locked stars, show unlock button with cost
-                <button 
-                  onClick={() => unlockNode(selectedNode.id)}
-                  className={`p-1 rounded text-white text-sm ${
-                    starPoints >= 1 
-                      ? 'bg-green-800 hover:bg-green-700' 
-                      : 'bg-gray-700 cursor-not-allowed'
-                  }`}
-                  disabled={starPoints < 1}
-                >
-                  Unlock (1 SP)
-                </button>
+                // For discovered but locked stars, show unlock button with cost
+                selectedNode.discovered ? (
+                  <button 
+                    onClick={() => unlockNode(selectedNode.id)}
+                    className={`p-1 rounded text-white text-sm flex items-center justify-center ${
+                      starPoints >= (selectedNode.spCost || 15)
+                        ? 'bg-green-800 hover:bg-green-700' 
+                        : 'bg-gray-700 cursor-not-allowed'
+                    }`}
+                    disabled={starPoints < (selectedNode.spCost || 15)}
+                  >
+                    <span className="mr-1">Unlock</span>
+                    <span className="flex items-center">
+                      <span className="text-yellow-300 mr-1">★</span>
+                      {selectedNode.spCost || 15}
+                    </span>
+                  </button>
+                ) : (
+                  // For undiscovered stars, show disabled button
+                  <button 
+                    className="p-1 rounded text-white text-sm bg-gray-700 cursor-not-allowed"
+                    disabled={true}
+                  >
+                    Undiscovered
+                  </button>
+                )
               )}
             </div>
           )}
@@ -1816,6 +2544,20 @@ export default function ConstellationView({
             </div>
             <div className="text-xs text-right text-gray-400">{Math.round(selectedConnection.strength)}%</div>
           </div>
+          {interactive && (
+            <div className="mt-3 flex justify-center">
+              <button
+                onClick={() => updateConnectionMastery(
+                  selectedConnection.sourceId,
+                  selectedConnection.targetId,
+                  10
+                )}
+                className="px-2 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm"
+              >
+                +10% Mastery
+              </button>
+            </div>
+          )}
           {selectedConnection.patternIds.length > 0 && (
             <div className="mt-2">
               <div className="text-sm text-gray-300">Part of pattern:</div>

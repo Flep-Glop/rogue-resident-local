@@ -33,6 +33,7 @@ import EndDayButton from './EndDayButton';
 import ResourceGainFeedback from './gameplay/ResourceGainFeedback';
 import { useKnowledgeEventHandler } from '@/app/core/events/KnowledgeEventHandler';
 import FeedbackSystem from '../core/feedback/FeedbackSystem';
+import ConnectionMasteryFeedback from './feedback/ConnectionMasteryFeedback';
 // import FeedbackSystemTester from './debug/FeedbackSystemTester';
 
 // Import optimized store hooks
@@ -680,6 +681,9 @@ export default function GameContainer() {
       
       {/* Resource Gain Feedback - Shows floating numbers when resources increase */}
       <ResourceGainFeedback />
+      
+      {/* Connection Mastery Feedback - Shows floating numbers when connection mastery increases */}
+      <ConnectionMasteryFeedback />
       
       {/* FeedbackSystem - Added FeedbackSystem component */}
       <FeedbackSystem />

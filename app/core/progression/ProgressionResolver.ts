@@ -333,6 +333,42 @@ export const useProgressionResolver = create<ProgressionResolverState>((set, get
     set({ initialized: true });
     console.log('[ProgressionResolver] Initialized and connected to event bus');
     
+    // Handle phase transition events
+    useEventBus.getState().subscribe(GameEventType.GAME_PHASE_CHANGED, (event: any) => {
+      const { from, to } = event.payload;
+      console.log(`[ProgressionResolver] Game phase transition: ${from} -> ${to}`);
+      
+      // Handle specific transitions
+      if (to === 'transition_to_night') {
+        // When transitioning to night, ensure all discovered day concepts are ready for night constellation
+        try {
+          const knowledgeStore = useKnowledgeStore.getState();
+          
+          // Log discovered concepts for night phase
+          const newlyDiscovered = knowledgeStore.newlyDiscovered;
+          console.log(`[ProgressionResolver] Preparing ${newlyDiscovered.length} newly discovered concepts for night phase`);
+          
+          // If we don't have any pending insights but have newly discovered concepts,
+          // this could indicate a missed connection - add some default insights for the concept
+          if (knowledgeStore.pendingInsights.length === 0 && newlyDiscovered.length > 0) {
+            console.log(`[ProgressionResolver] Adding default insights for ${newlyDiscovered.length} newly discovered concepts`);
+            newlyDiscovered.forEach(conceptId => {
+              // Add a default insight amount (10) for each discovered concept without existing insights
+              const node = knowledgeStore.nodes.find(n => n.id === conceptId);
+              if (node) {
+                knowledgeStore.addStarPoints(node.spCost || 15, 'day_phase_discovery');
+              }
+            });
+          }
+          
+          // Ensure these concepts will appear in the night constellation
+          console.log(`[ProgressionResolver] Night transition prepared with ${newlyDiscovered.length} new concepts`);
+        } catch (error) {
+          console.error("[ProgressionResolver] Error preparing night transition:", error);
+        }
+      }
+    });
+    
     // Return unsubscribe function for cleanup
     return unsubscribe;
   }

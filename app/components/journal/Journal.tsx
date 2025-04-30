@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import { useJournalStore } from '@/app/store/journalStore';
 import { useGameStore } from '@/app/store/gameStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
-import { useEventSubscription } from '@/app/core/events/CentralEventBus';
+import { useEventSubscription, safeDispatch } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/core/events/EventTypes';
 import { PixelText } from '../PixelThemeProvider';
 
@@ -583,7 +583,30 @@ export default function Journal() {
           className="absolute -top-4 -right-4 w-8 h-8 bg-surface pixel-borders-thin flex items-center justify-center hover:bg-clinical transition-colors z-[100] cursor-pointer"
           onClick={(e) => {
             e.stopPropagation();
-            toggleJournal();
+            console.log('[Journal] Close button clicked, properly closing journal');
+            
+            // Ensure the journal is closed in the store
+            try {
+              const journalStore = useJournalStore.getState();
+              if (journalStore.setJournalOpen) {
+                journalStore.setJournalOpen(false);
+              } else if (journalStore.toggleJournal) {
+                journalStore.toggleJournal();
+              }
+              
+              // Dispatch event to notify other components
+              safeDispatch(
+                GameEventType.UI_BUTTON_CLICKED,
+                {
+                  componentId: 'journal',
+                  action: 'closeJournal'
+                },
+                'journal.closeButton'
+              );
+            } catch (e) {
+              console.error('[Journal] Error when closing journal:', e);
+              toggleJournal(); // Fallback to using the stored function
+            }
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
