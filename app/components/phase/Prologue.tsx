@@ -26,10 +26,26 @@ const PrologueContainer = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  background: linear-gradient(to bottom, ${colors.background}, ${colors.backgroundAlt});
+  background: linear-gradient(to bottom, #121620, #090b12);
   color: ${colors.text};
   font-family: ${typography.fontFamily.pixel};
   ${mixins.pixelPerfect}
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(circle at 20% 30%, rgba(76, 0, 255, 0.1) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(25, 0, 112, 0.15) 0%, transparent 40%);
+    z-index: 0;
+    pointer-events: none;
+  }
 `;
 
 const BackgroundOverlay = styled.div`
@@ -39,6 +55,7 @@ const BackgroundOverlay = styled.div`
   justify-content: center;
   align-items: center;
   opacity: 0.2;
+  z-index: 1;
 `;
 
 const CharacterPortrait = styled.div`
@@ -51,6 +68,7 @@ const CharacterPortrait = styled.div`
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  z-index: 2;
 `;
 
 const DialogueBox = styled.div<{ $isNameInput?: boolean, $showChoices: boolean }>`
@@ -60,6 +78,7 @@ const DialogueBox = styled.div<{ $isNameInput?: boolean, $showChoices: boolean }
   width: 83%;
   max-width: 4xl;
   cursor: ${props => (!props.$isNameInput && !props.$showChoices) ? 'pointer' : 'default'};
+  z-index: 10;
 `;
 
 const DialogueHeader = styled.div`
@@ -402,11 +421,11 @@ export const Prologue: React.FC = () => {
 
   return (
     <PrologueContainer>
-      {/* Hospital background */}
+      {/* Hospital background - positioned above the gradient background but below character */}
       <BackgroundOverlay>
         <div className="w-full h-full bg-cover bg-center">
           <Image 
-            src="/images/hospital-bg.svg" 
+            src="/images/hospital.png" 
             alt="Hospital" 
             fill
             className="object-cover"

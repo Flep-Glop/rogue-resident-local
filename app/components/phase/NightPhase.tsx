@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ConstellationView } from '../constellation/ConstellationView';
 import { StarMap } from '../constellation/StarMap';
 import { useGameStore } from '@/app/store/gameStore';
@@ -6,7 +6,7 @@ import { PhaseManager } from '@/app/core/phase/PhaseManager';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { JournalView } from '../journal/JournalView';
 import styled from 'styled-components';
-import { DomainColors } from '@/app/types';
+import { DomainColors, KnowledgeStar, KnowledgeDomain } from '@/app/types';
 import pixelTheme, { colors, spacing, typography, shadows, borders } from '@/app/styles/pixelTheme';
 
 const NightPhaseContainer = styled.div`
@@ -14,9 +14,24 @@ const NightPhaseContainer = styled.div`
   display: flex;
   flex-direction: column;
   padding: ${spacing.lg};
-  background: linear-gradient(to bottom, ${colors.background}, ${colors.backgroundAlt});
+  background: linear-gradient(to bottom, #121620, #090b12);
   color: ${colors.text};
+  position: relative;
   ${pixelTheme.mixins.pixelPerfect}
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(circle at 20% 30%, rgba(76, 0, 255, 0.1) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(25, 0, 112, 0.15) 0%, transparent 40%);
+    z-index: 0;
+    pointer-events: none;
+  }
 `;
 
 const ConstellationNav = styled.div`
@@ -87,6 +102,51 @@ const D3Container = styled.div`
   border: ${borders.medium};
   border-radius: 8px;
   overflow: hidden;
+  position: relative;
+`;
+
+const StarTooltip = styled.div<{ $x: number; $y: number; $visible: boolean }>`
+  position: absolute;
+  top: ${props => props.$y}px;
+  left: ${props => props.$x}px;
+  transform: translate(-50%, -100%);
+  background-color: rgba(16, 20, 34, 0.95);
+  padding: ${spacing.xs};
+  border-radius: 4px;
+  border: ${borders.medium};
+  z-index: 10;
+  font-family: ${typography.fontFamily.pixel};
+  font-size: ${typography.fontSize.xs};
+  min-width: 130px;
+  max-width: 180px;
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.15s;
+  box-shadow: ${shadows.sm};
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -4px;
+    border-width: 4px;
+    border-style: solid;
+    border-color: ${colors.backgroundAlt} transparent transparent transparent;
+  }
+`;
+
+const TooltipTitle = styled.h4<{ $domainColor: string }>`
+  font-size: ${typography.fontSize.sm};
+  margin: 0 0 ${spacing.xs} 0;
+  color: ${props => props.$domainColor};
+  text-shadow: ${typography.textShadow.pixel};
+`;
+
+const TooltipStatus = styled.div<{ $unlocked: boolean }>`
+  margin-top: ${spacing.xs};
+  font-size: ${typography.fontSize.xs};
+  color: ${props => props.$unlocked ? colors.highlight : colors.textDim};
 `;
 
 const NewDiscoveriesPanel = styled.div`
@@ -268,6 +328,9 @@ const StatusFooter = styled.div`
 export const NightPhase: React.FC = () => {
   const [showJournal, setShowJournal] = useState(false);
   const [, forceUpdate] = useState({});
+  const [hoveredStar, setHoveredStar] = useState<KnowledgeStar | null>(null);
+  const [selectedStar, setSelectedStar] = useState<KnowledgeStar | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   
   const daysPassed = useGameStore(state => state.daysPassed);
   const resetDay = useGameStore(state => state.resetDay);
@@ -307,6 +370,27 @@ export const NightPhase: React.FC = () => {
     setShowJournal(prevState => !prevState);
   }, []);
   
+  // Handle hovering over a star
+  const handleStarHover = useCallback((star: KnowledgeStar | null, x: number, y: number) => {
+    setHoveredStar(star);
+    if (star) {
+      setTooltipPosition({ x, y });
+    }
+  }, []);
+  
+  // Handle selecting a star (clicking)
+  const handleStarSelect = useCallback((star: KnowledgeStar | null, x: number, y: number) => {
+    if (star) {
+      if (selectedStar && selectedStar.id === star.id) {
+        // If clicking the same star, deselect it
+        setSelectedStar(null);
+      } else {
+        // Select the new star
+        setSelectedStar(star);
+      }
+    }
+  }, [selectedStar]);
+  
   // Function to handle star unlocking with a UI update
   const handleUnlockStar = useCallback((starId: string) => {
     // Attempt to unlock the star
@@ -338,7 +422,30 @@ export const NightPhase: React.FC = () => {
         <FlexColumn>
           {/* D3 Visualization */}
           <D3Container>
-            <StarMap />
+            <StarMap 
+              onStarHover={handleStarHover}
+              onStarSelect={handleStarSelect}
+              selectedStarId={selectedStar?.id}
+            />
+            
+            {/* Star tooltip - only shown on hover, not for selected stars */}
+            {hoveredStar && (
+              <StarTooltip 
+                $x={tooltipPosition.x}
+                $y={tooltipPosition.y}
+                $visible={!!hoveredStar}
+              >
+                <TooltipTitle 
+                  $domainColor={DomainColors[hoveredStar.domain || KnowledgeDomain.TREATMENT_PLANNING]}
+                >
+                  {hoveredStar.name || ''}
+                </TooltipTitle>
+                
+                <TooltipStatus $unlocked={hoveredStar.unlocked || false}>
+                  {hoveredStar.unlocked ? 'Unlocked' : `SP Cost: ${hoveredStar.spCost}`}
+                </TooltipStatus>
+              </StarTooltip>
+            )}
           </D3Container>
           
           {/* New Discoveries */}

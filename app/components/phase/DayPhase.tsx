@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useGameStore } from '@/app/store/gameStore';
 import { useActivityStore } from '@/app/store/activityStore';
 import { LocationId, ActivityOption, ActivityDifficulty, KnowledgeDomain, MentorId, DomainColors } from '@/app/types';
 import { TimeManager } from '@/app/core/time/TimeManager';
 import ActivityEngagement from '../ui/ActivityEngagement';
-import { colors, typography, animation, borders, shadows, spacing } from '@/app/styles/pixelTheme';
+import { colors, typography, animation, borders, shadows, spacing, mixins } from '@/app/styles/pixelTheme';
+import Image from 'next/image';
 
-// Helper to render difficulty stars
+// Helper components
 const DifficultyStars = ({ difficulty }: { difficulty: ActivityDifficulty }) => {
   switch (difficulty) {
     case ActivityDifficulty.EASY:
@@ -23,7 +24,6 @@ const DifficultyStars = ({ difficulty }: { difficulty: ActivityDifficulty }) => 
   }
 };
 
-// Helper to get mentor's short name
 const getMentorShortName = (mentorId: MentorId | undefined): string => {
   if (!mentorId) return '';
   
@@ -36,7 +36,13 @@ const getMentorShortName = (mentorId: MentorId | undefined): string => {
   }
 };
 
-// Helper to render domain indicators
+const DomainDot = styled.div<{ $color: string }>`
+  height: ${spacing.xs};
+  width: ${spacing.xs};
+  border-radius: 50%;
+  background-color: ${props => props.$color};
+`;
+
 const DomainIndicator = ({ domain }: { domain: KnowledgeDomain }) => {
   const color = DomainColors[domain] || '#888888';
   return (
@@ -47,267 +53,243 @@ const DomainIndicator = ({ domain }: { domain: KnowledgeDomain }) => {
   );
 };
 
-// Define hospital departments/zones
+// Define simplified departments
 const DEPARTMENTS = {
-  TREATMENT: { name: 'Treatment Wing', color: 'rgba(79, 70, 229, 0.2)' },
-  PHYSICS: { name: 'Physics Department', color: 'rgba(45, 212, 191, 0.2)' },
-  ADMIN: { name: 'Administration', color: 'rgba(244, 114, 182, 0.2)' },
-  PATIENT: { name: 'Patient Services', color: 'rgba(251, 146, 60, 0.2)' },
-  RESEARCH: { name: 'Research Area', color: 'rgba(139, 92, 246, 0.2)' },
+  TREATMENT: { name: 'Treatment Wing', color: 'rgba(79, 70, 229, 0.4)' },
+  PHYSICS: { name: 'Physics Department', color: 'rgba(45, 212, 191, 0.4)' },
+  ADMIN: { name: 'Administration', color: 'rgba(244, 114, 182, 0.4)' },
+  PATIENT: { name: 'Patient Services', color: 'rgba(251, 146, 60, 0.4)' },
+  RESEARCH: { name: 'Research Area', color: 'rgba(139, 92, 246, 0.4)' },
 };
 
-// Define location positions for our enhanced map
-const LOCATION_POSITIONS = {
-  // Treatment Wing (Top Left)
+// Simplified location configuration with icons
+const LOCATIONS = {
+  // Treatment Wing (Top Row)
   [LocationId.TREATMENT_ROOM_1]: { 
-    top: '18%', 
-    left: '15%', 
+    row: 0, 
+    col: 0, 
     label: 'Treatment Room 1',
     department: DEPARTMENTS.TREATMENT,
-    size: 'md'
+    icon: 'Warning Icon.png'
   },
   [LocationId.TREATMENT_ROOM_2]: { 
-    top: '18%', 
-    left: '30%', 
+    row: 0, 
+    col: 1, 
     label: 'Treatment Room 2',
     department: DEPARTMENTS.TREATMENT,
-    size: 'md'
+    icon: 'Warning Icon.png'
   },
   [LocationId.TREATMENT_ROOM_3]: { 
-    top: '18%', 
-    left: '45%', 
+    row: 0, 
+    col: 2, 
     label: 'Treatment Room 3',
     department: DEPARTMENTS.TREATMENT,
-    size: 'md'
+    icon: 'Warning Icon.png'
   },
-  
-  // Physics Department (Middle Left)
-  [LocationId.PLANNING_ROOM]: { 
-    top: '42%', 
-    left: '15%', 
-    label: 'Planning Room',
-    department: DEPARTMENTS.PHYSICS,
-    size: 'lg'
-  },
-  [LocationId.PHYSICS_LAB]: { 
-    top: '42%', 
-    left: '30%', 
-    label: 'Physics Lab',
-    department: DEPARTMENTS.PHYSICS,
-    size: 'lg'
-  },
-  [LocationId.PHYSICS_OFFICE]: { 
-    top: '42%', 
-    left: '45%', 
-    label: 'Physics Office',
-    department: DEPARTMENTS.PHYSICS,
-    size: 'md'
-  },
-  
-  // Administration (Bottom Left)
-  [LocationId.CONFERENCE_ROOM]: { 
-    top: '74%', 
-    left: '15%', 
-    label: 'Conference Room',
-    department: DEPARTMENTS.ADMIN,
-    size: 'lg'
-  },
-  [LocationId.WORKSTATION]: { 
-    top: '74%', 
-    left: '30%', 
-    label: 'Workstation',
-    department: DEPARTMENTS.ADMIN,
-    size: 'md'
-  },
-  
-  // Patient Services (Right Side)
   [LocationId.WARD]: { 
-    top: '18%', 
-    left: '80%', 
+    row: 0, 
+    col: 3, 
     label: 'Ward',
     department: DEPARTMENTS.PATIENT,
-    size: 'xl'
+    icon: 'Red Book (1).png'
   },
-  [LocationId.CLINIC]: { 
-    top: '18%', 
-    left: '65%', 
-    label: 'Clinic',
-    department: DEPARTMENTS.PATIENT,
-    size: 'md'
+  
+  // Middle Row
+  [LocationId.PLANNING_ROOM]: { 
+    row: 1, 
+    col: 0, 
+    label: 'Planning Room',
+    department: DEPARTMENTS.PHYSICS,
+    icon: 'Notepad.png'
+  },
+  [LocationId.PHYSICS_LAB]: { 
+    row: 1, 
+    col: 1, 
+    label: 'Physics Lab',
+    department: DEPARTMENTS.PHYSICS,
+    icon: 'CD.png'
+  },
+  [LocationId.PHYSICS_OFFICE]: { 
+    row: 1, 
+    col: 2, 
+    label: 'Physics Office',
+    department: DEPARTMENTS.PHYSICS,
+    icon: 'Folder.png'
   },
   [LocationId.CAFETERIA]: { 
-    top: '42%', 
-    left: '65%', 
+    row: 1, 
+    col: 3, 
     label: 'Cafeteria',
     department: DEPARTMENTS.PATIENT,
-    size: 'lg'
+    icon: 'Brown Suitcase.png'
   },
   
-  // Research Area (Bottom Right)
+  // Bottom Row
+  [LocationId.CONFERENCE_ROOM]: { 
+    row: 2, 
+    col: 0, 
+    label: 'Conference Room',
+    department: DEPARTMENTS.ADMIN,
+    icon: 'Modern TV.png'
+  },
+  [LocationId.WORKSTATION]: { 
+    row: 2, 
+    col: 1, 
+    label: 'Workstation',
+    department: DEPARTMENTS.ADMIN,
+    icon: 'Printer.png'
+  },
   [LocationId.RESEARCH_LAB]: { 
-    top: '74%', 
-    left: '65%', 
+    row: 2, 
+    col: 2, 
     label: 'Research Lab',
     department: DEPARTMENTS.RESEARCH,
-    size: 'md'
+    icon: 'Screwdriver.png'
   },
   [LocationId.LIBRARY]: { 
-    top: '74%', 
-    left: '80%', 
+    row: 2, 
+    col: 3, 
     label: 'Library',
     department: DEPARTMENTS.RESEARCH,
-    size: 'lg'
+    icon: 'Red Book (1).png'
+  },
+  
+  // Additional Locations - Top Row (optional)
+  [LocationId.CLINIC]: { 
+    row: 0, 
+    col: 3, 
+    label: 'Clinic',
+    department: DEPARTMENTS.PATIENT,
+    icon: 'Note.png'
   },
 };
-
-// Define corridors to connect locations
-const CORRIDORS = [
-  // Main horizontal pathways
-  { x1: '15%', y1: '18%', x2: '45%', y2: '18%', width: '2px' }, // Treatment rooms connection
-  { x1: '65%', y1: '18%', x2: '80%', y2: '18%', width: '2px' }, // Patient area connection (Clinic to Ward)
-  
-  { x1: '15%', y1: '42%', x2: '45%', y2: '42%', width: '2px' }, // Physics area horizontal
-  { x1: '45%', y1: '42%', x2: '65%', y2: '42%', width: '2px' }, // Connect Physics to Cafeteria
-  
-  { x1: '15%', y1: '74%', x2: '30%', y2: '74%', width: '2px' }, // Admin area (Conference to Workstation)
-  { x1: '65%', y1: '74%', x2: '80%', y2: '74%', width: '2px' }, // Research area (Research Lab to Library)
-  
-  // Central horizontal connectors
-  { x1: '45%', y1: '30%', x2: '65%', y2: '30%', width: '2px' }, // Connect to Clinic
-  
-  // Vertical pathways
-  { x1: '15%', y1: '18%', x2: '15%', y2: '74%', width: '2px' }, // Left vertical
-  { x1: '30%', y1: '18%', x2: '30%', y2: '74%', width: '2px' }, // Second vertical
-  { x1: '45%', y1: '18%', x2: '45%', y2: '42%', width: '2px' }, // Third vertical (partial)
-  { x1: '65%', y1: '18%', x2: '65%', y2: '74%', width: '2px' }, // Right vertical
-  { x1: '80%', y1: '18%', x2: '80%', y2: '74%', width: '2px' }, // Far right vertical
-];
 
 // Styled components
 const PageContainer = styled.div`
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
   height: 100%;
   width: 100%;
-  max-width: 5xl;
-  margin: 0 auto;
+  min-height: 100vh;
   font-family: ${typography.fontFamily.pixel};
   color: ${colors.text};
   image-rendering: pixelated;
-`;
-
-const Header = styled.div`
-  background-color: ${colors.background};
-  margin-bottom: ${spacing.md};
-  padding: ${spacing.md};
-  border-radius: ${spacing.sm};
-  box-shadow: 0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border};
-`;
-
-const MapContainer = styled.div`
-  background-color: ${colors.background};
+  background: linear-gradient(to bottom, #121620, #090b12);
   position: relative;
+  padding: ${spacing.md} 0;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+      radial-gradient(circle at 20% 30%, rgba(76, 0, 255, 0.1) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(25, 0, 112, 0.15) 0%, transparent 40%);
+    z-index: 0;
+    pointer-events: none;
+  }
+`;
+
+const CardContainer = styled.div`
+  background-color: ${colors.background};
+  color: ${colors.text};
   padding: ${spacing.md};
-  flex-grow: 1;
-  height: 640px;
   border-radius: ${spacing.sm};
+  max-width: 800px;
+  width: 90%;
+  font-family: ${typography.fontFamily.pixel};
   box-shadow: 0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border};
-`;
-
-const MapBackground = styled.div`
-  position: absolute;
-  inset: ${spacing.md};
-  border: ${borders.medium};
-  border-radius: ${spacing.sm};
-  background-color: ${colors.backgroundAlt};
-`;
-
-const DepartmentZone = styled.div<{ $top: string; $left: string; $width: string; $height: string; $color: string }>`
-  position: absolute;
-  top: ${props => props.$top};
-  left: ${props => props.$left};
-  width: ${props => props.$width};
-  height: ${props => props.$height};
-  background-color: ${props => props.$color};
-  border: 2px solid rgba(255,255,255,0.1);
-  border-radius: 24px;
-  opacity: 0.7;
+  image-rendering: pixelated;
+  border: 2px solid ${colors.border};
+  position: relative;
   z-index: 1;
 `;
 
-const DepartmentLabel = styled.div`
-  position: absolute;
-  top: -16px;
-  left: ${spacing.md};
-  font-size: ${typography.fontSize.xs};
-  font-weight: semibold;
-  padding: ${spacing.xxs} ${spacing.xs};
-  background-color: ${colors.background};
-  color: ${colors.text};
-  border-radius: 16px;
-`;
-
-const Corridor = styled.div<{ $x1: string; $y1: string; $x2: string; $y2: string; $width: string }>`
-  position: absolute;
-  left: ${props => props.$x1};
-  top: ${props => props.$y1};
-  width: ${props => props.$x1 === props.$x2 ? props.$width : `calc(${props.$x2} - ${props.$x1})`};
-  height: ${props => props.$y1 === props.$y2 ? props.$width : `calc(${props.$y2} - ${props.$y1})`};
-  z-index: 3;
-  background-color: rgba(129, 140, 248, 0.3);
-  box-shadow: 0 0 4px rgba(129, 140, 248, 0.3);
-  border-radius: 1px;
-`;
-
-const PlayerIndicator = styled.div<{ $top: string; $left: string }>`
-  position: absolute;
-  top: ${props => props.$top};
-  left: ${props => props.$left};
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background-color: ${colors.highlight};
-  border: 2px solid white;
-  z-index: 30;
-  transition: all ${animation.duration.normal} ${animation.easing.smooth};
-  animation: pulse 1.5s infinite ${animation.easing.smooth};
-  box-shadow: ${shadows.glow(colors.highlight)};
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-
-const LocationButton = styled.button<{ 
-  $top: string; 
-  $left: string; 
-  $width: string; 
-  $height: string; 
-  $isActive: boolean 
-}>`
-  position: absolute;
-  top: ${props => props.$top};
-  left: ${props => props.$left};
-  transform: translate(-50%, -50%);
+const MapContainer = styled.div`
+  background-color: ${colors.backgroundAlt};
+  position: relative;
+  padding: ${spacing.md};
+  height: auto;
+  width: 100%;
   border-radius: ${spacing.sm};
+  border: ${borders.medium};
+`;
+
+const FloorGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: ${spacing.md};
+  width: 100%;
+  height: 540px;
+  position: relative;
+  z-index: 5;
   padding: ${spacing.xs};
-  transition: all ${animation.duration.fast} ${animation.easing.pixel};
-  width: ${props => props.$width};
-  height: ${props => props.$height};
+`;
+
+const LocationCard = styled.div<{ $isActive: boolean; $departmentColor: string }>`
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  text-align: center;
-  background-color: ${props => props.$isActive ? colors.highlight : colors.backgroundAlt};
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  padding: ${spacing.sm};
+  background-color: ${props => props.$isActive 
+    ? `${props.$departmentColor.replace('0.4', '0.3')}` 
+    : 'rgba(30, 41, 59, 0.7)'};
   color: ${props => props.$isActive ? colors.text : colors.inactive};
-  opacity: ${props => props.$isActive ? 1 : 0.95};
+  border: ${props => props.$isActive ? '2px solid' : '1px solid'};
+  border-color: ${props => props.$isActive 
+    ? props.$departmentColor.replace('rgba', 'rgb').replace(', 0.4)', ')') 
+    : colors.border};
+  border-radius: ${spacing.sm};
   cursor: ${props => props.$isActive ? 'pointer' : 'default'};
-  z-index: ${props => props.$isActive ? 15 : 5};
-  box-shadow: ${props => props.$isActive 
-    ? `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`
-    : 'none'};
-  border: ${props => props.$isActive ? 'none' : borders.thin};
+  transition: all ${animation.duration.fast} ${animation.easing.pixel};
+  position: relative;
+  box-shadow: ${props => props.$isActive ? shadows.sm : 'none'};
+  opacity: ${props => props.$isActive ? 1 : 0.7};
+  
+  &:hover {
+    border-color: ${props => props.$isActive 
+      ? props.$departmentColor.replace('rgba', 'rgb').replace(', 0.4)', ')') 
+      : colors.border};
+    transform: ${props => props.$isActive ? 'translateY(-2px)' : 'none'};
+    box-shadow: ${props => props.$isActive ? shadows.md : 'none'};
+    z-index: ${props => props.$isActive ? 10 : 1};
+  }
+`;
+
+const LocationIconContainer = styled.div<{ $isActive?: boolean; $departmentColor?: string }>`
+  position: relative;
+  width: 48px;
+  height: 48px;
+  margin-bottom: ${spacing.xs};
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: ${props => props.$isActive ? 
+    props.$departmentColor?.replace('0.4', '0.5') || 'rgba(0, 0, 0, 0.4)' : 
+    'rgba(0, 0, 0, 0.4)'};
+  border-radius: 4px;
+  border: ${props => props.$isActive ? '1px solid' : '1px solid'};
+  border-color: ${props => props.$isActive ? 
+    props.$departmentColor?.replace('rgba', 'rgb').replace(', 0.4)', ')') || colors.border : 
+    colors.border};
+  /* Ensure the container doesn't interfere with pixel rendering */
+  overflow: visible;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  filter: ${props => props.$isActive ? 'none' : 'grayscale(100%)'};
+  box-shadow: ${props => props.$isActive ? 
+    `0 0 8px ${props.$departmentColor?.replace('0.4', '0.6')}` : 
+    'none'};
 `;
 
 const ModalOverlay = styled.div`
@@ -325,10 +307,24 @@ const ModalContent = styled.div`
   background-color: ${colors.background};
   padding: ${spacing.lg};
   max-width: 500px;
-  width: 100%;
+  width: 90%;
   border: ${borders.medium};
   border-color: ${colors.highlight};
   box-shadow: 0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border};
+  position: relative;
+  
+  /* Purple highlight border */
+  &::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border: 2px solid ${colors.highlight};
+    pointer-events: none;
+    z-index: -1;
+  }
 `;
 
 const ActivityList = styled.div`
@@ -350,13 +346,36 @@ const ActivityButton = styled.button`
   transition: all ${animation.duration.fast} ${animation.easing.pixel};
   border: ${borders.medium};
   border-color: ${colors.border};
+  cursor: pointer;
+  
+  &:hover {
+    border-color: ${colors.highlight};
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(1px);
+  }
 `;
 
-const DomainDot = styled.div<{ $color: string }>`
-  height: ${spacing.xs};
-  width: ${spacing.xs};
-  border-radius: 50%;
-  background-color: ${props => props.$color};
+const CancelButton = styled.button`
+  background-color: ${colors.backgroundAlt};
+  color: ${colors.text};
+  border: ${borders.medium};
+  border-color: ${colors.border};
+  padding: ${spacing.xs} ${spacing.md};
+  font-family: ${typography.fontFamily.pixel};
+  cursor: pointer;
+  transition: all ${animation.duration.fast} ${animation.easing.pixel};
+  
+  &:hover {
+    border-color: ${colors.highlight};
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(1px);
+  }
 `;
 
 export const DayPhase: React.FC = () => {
@@ -368,6 +387,9 @@ export const DayPhase: React.FC = () => {
   const generateAvailableActivities = useActivityStore(state => state.generateAvailableActivities);
   const selectActivity = useActivityStore(state => state.selectActivity);
   
+  // State to track selected location for showing multiple activities
+  const [selectedLocation, setSelectedLocation] = React.useState<LocationId | null>(null);
+  
   // Generate available activities when time changes
   useEffect(() => {
     if (!currentActivity) {
@@ -375,7 +397,7 @@ export const DayPhase: React.FC = () => {
     }
   }, [currentTime, currentActivity, generateAvailableActivities]);
   
-  // Format the current time
+  // Format current time
   const formattedTime = TimeManager.formatTime(currentTime);
   
   // Create a map of location to available activities
@@ -391,49 +413,31 @@ export const DayPhase: React.FC = () => {
     }
   });
   
-  // State to track player position for animation
-  const [playerPosition, setPlayerPosition] = React.useState<{ top: string, left: string } | null>(null);
-  
-  // Handle location selection - if multiple activities are available, show them
+  // Handle location click to directly show activity options
   const handleLocationClick = (locationId: LocationId) => {
     const locationActivities = activitiesByLocation[locationId];
     if (locationActivities && locationActivities.length > 0) {
-      // Set player position for animation
-      const pos = LOCATION_POSITIONS[locationId];
-      setPlayerPosition({ top: pos.top, left: pos.left });
-      
-      // If only one activity is available, start it immediately
-      if (locationActivities.length === 1) {
-        setTimeout(() => {
-          selectActivity(locationActivities[0].id);
-        }, 500); // Short delay for animation
-      } else {
-        // If multiple activities are available, set selected location to show options
-        setSelectedLocation(locationId);
-      }
+      // Always show the selection modal, even for single activities
+      setSelectedLocation(locationId);
     }
   };
   
-  // State to track selected location for showing multiple activities
-  const [selectedLocation, setSelectedLocation] = React.useState<LocationId | null>(null);
-  
-  // Function to select a specific activity from the dropdown
+  // Select a specific activity from the list
   const handleActivitySelect = (activityId: string) => {
     selectActivity(activityId);
     setSelectedLocation(null);
   };
   
-  // Function to close the activity selection modal
+  // Close the activity selection modal
   const handleCloseModal = () => {
     setSelectedLocation(null);
   };
   
-  // Create a display info object for locations
+  // Get location display info - keeping this for potential visual indicators
   const getLocationDisplayInfo = (locationId: LocationId) => {
     const activities = activitiesByLocation[locationId] || [];
     if (activities.length === 0) return null;
     
-    // Use first activity as primary info source
     const primaryActivity = activities[0];
     
     return {
@@ -444,17 +448,6 @@ export const DayPhase: React.FC = () => {
     };
   };
   
-  // Get size class based on location size
-  const getSizeClass = (size: string) => {
-    switch(size) {
-      case 'sm': return { width: '80px', height: '64px' };
-      case 'md': return { width: '112px', height: '80px' };
-      case 'lg': return { width: '128px', height: '96px' };
-      case 'xl': return { width: '160px', height: '112px' };
-      default: return { width: '112px', height: '80px' };
-    }
-  };
-  
   // If there's a current activity, show the engagement component
   if (currentActivity) {
     return <ActivityEngagement />;
@@ -462,14 +455,36 @@ export const DayPhase: React.FC = () => {
   
   return (
     <PageContainer>
-      {/* Top header for time and resources */}
-      <Header>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <CardContainer>
+        {/* Header with time and resources */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: spacing.md,
+          paddingBottom: spacing.sm,
+          borderBottom: `1px solid ${colors.border}`
+        }}>
           <div>
-            <h2 style={{ fontSize: typography.fontSize.xl, fontWeight: 'bold', textShadow: typography.textShadow.pixel }}>{formattedTime}</h2>
-            <p style={{ color: colors.textDim }}>Spring - Day 1</p>
+            <h2 style={{ 
+              fontSize: typography.fontSize.xl, 
+              fontWeight: 'bold', 
+              textShadow: typography.textShadow.pixel,
+              margin: 0
+            }}>{formattedTime}</h2>
+            <p style={{ 
+              color: colors.textDim,
+              margin: `${spacing.xxs} 0 0 0` 
+            }}>Spring - Day 1</p>
           </div>
-          <div style={{ display: 'flex', gap: spacing.md }}>
+          <div style={{ 
+            display: 'flex', 
+            gap: spacing.md,
+            backgroundColor: colors.backgroundAlt,
+            padding: `${spacing.xs} ${spacing.sm}`,
+            borderRadius: spacing.xs,
+            border: `1px solid ${colors.border}`
+          }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <span style={{ color: colors.momentum }}>⚡</span>
               <span>{resources.momentum} / 3</span>
@@ -484,219 +499,126 @@ export const DayPhase: React.FC = () => {
             </div>
           </div>
         </div>
-      </Header>
-      
-      {/* Hospital map with locations */}
-      <MapContainer>
-        <h3 style={{ 
-          fontSize: typography.fontSize.lg,
-          fontWeight: 'semibold',
-          marginBottom: spacing.sm,
-          display: 'flex',
-          alignItems: 'center',
-          textShadow: typography.textShadow.pixel
-        }}>
-          <span style={{ marginRight: spacing.xs, color: colors.highlight }}>🏥</span>
-          Hospital Map
-        </h3>
         
-        {/* Map legend */}
-        <div style={{
-          position: 'absolute',
-          top: spacing.md,
-          right: spacing.md,
-          backgroundColor: colors.background,
-          padding: spacing.xs,
-          borderRadius: spacing.sm,
-          fontSize: typography.fontSize.xs,
-          zIndex: 20,
-          border: borders.thin
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: spacing.xxs }}>
-            <span style={{ color: colors.starGlow, marginRight: spacing.xs }}>★</span>
-            <span style={{ color: colors.textDim }}>Easy</span>
+        {/* Hospital map with locations */}
+        <MapContainer>
+          {/* Map legend */}
+          <div style={{
+            position: 'absolute',
+            top: spacing.sm,
+            right: spacing.sm,
+            backgroundColor: colors.background,
+            padding: spacing.xs,
+            borderRadius: spacing.sm,
+            fontSize: typography.fontSize.xs,
+            zIndex: 20,
+            border: borders.thin
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: spacing.xxs }}>
+              <span style={{ color: colors.starGlow, marginRight: spacing.xs }}>★</span>
+              <span style={{ color: colors.textDim }}>Easy</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: spacing.xxs }}>
+              <span style={{ color: colors.starGlow, marginRight: spacing.xs }}>★★</span>
+              <span style={{ color: colors.textDim }}>Medium</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ color: colors.starGlow, marginRight: spacing.xs }}>★★★</span>
+              <span style={{ color: colors.textDim }}>Hard</span>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: spacing.xxs }}>
-            <span style={{ color: colors.starGlow, marginRight: spacing.xs }}>★★</span>
-            <span style={{ color: colors.textDim }}>Medium</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <span style={{ color: colors.starGlow, marginRight: spacing.xs }}>★★★</span>
-            <span style={{ color: colors.textDim }}>Hard</span>
-          </div>
-        </div>
-        
-        {/* Map background */}
-        <MapBackground />
-        
-        {/* Department zones */}
-        {Object.values(DEPARTMENTS).map((dept, index) => {
-          // Get locations in this department
-          const deptLocations = Object.entries(LOCATION_POSITIONS).filter(
-            ([_, pos]) => pos.department === dept
-          );
           
-          if (deptLocations.length === 0) return null;
-          
-          // Calculate average position for labeling
-          const positions = deptLocations.map(([_, pos]) => ({
-            top: parseFloat(pos.top), 
-            left: parseFloat(pos.left)
-          }));
-          
-          // Add some padding and ensure departments don't overlap
-          let minTop = Math.min(...positions.map(p => p.top)) - 8;
-          let maxTop = Math.max(...positions.map(p => p.top)) + 8;
-          let minLeft = Math.min(...positions.map(p => p.left)) - 8;
-          let maxLeft = Math.max(...positions.map(p => p.left)) + 8;
-          
-          // Ensure proper sizing for each department
-          switch (dept) {
-            case DEPARTMENTS.TREATMENT:
-              minTop = 8;
-              maxTop = 28;
-              minLeft = 5;
-              maxLeft = 53;
-              break;
-            case DEPARTMENTS.PHYSICS:
-              minTop = 32;
-              maxTop = 54;
-              minLeft = 5;
-              maxLeft = 53;
-              break;
-            case DEPARTMENTS.ADMIN:
-              minTop = 58;
-              maxTop = 90;
-              minLeft = 5;
-              maxLeft = 42;
-              break;
-            case DEPARTMENTS.PATIENT:
-              minTop = 8;
-              maxTop = 54;
-              minLeft = 57;
-              maxLeft = 92;
-              break;
-            case DEPARTMENTS.RESEARCH:
-              minTop = 58;
-              maxTop = 90;
-              minLeft = 57;
-              maxLeft = 92;
-              break;
-          }
-          
-          return (
-            <DepartmentZone 
-              key={`dept-${index}`}
-              $top={`${minTop}%`}
-              $left={`${minLeft}%`}
-              $width={`${maxLeft - minLeft}%`}
-              $height={`${maxTop - minTop}%`}
-              $color={dept.color}
-            >
-              <DepartmentLabel>
-                {dept.name}
-              </DepartmentLabel>
-            </DepartmentZone>
-          );
-        })}
-        
-        {/* Corridors */}
-        {CORRIDORS.map((corridor, index) => (
-          <Corridor 
-            key={`corridor-${index}`}
-            $x1={corridor.x1}
-            $y1={corridor.y1}
-            $x2={corridor.x2}
-            $y2={corridor.y2}
-            $width={corridor.width}
-          />
-        ))}
-        
-        {/* Player position indicator */}
-        {playerPosition && (
-          <PlayerIndicator $top={playerPosition.top} $left={playerPosition.left}>
-            <span style={{ color: 'white', fontSize: typography.fontSize.xs, fontWeight: 'bold' }}>YOU</span>
-          </PlayerIndicator>
-        )}
-        
-        {/* Location buttons */}
-        {Object.entries(LOCATION_POSITIONS).map(([locationId, position]) => {
-          const location = locationId as LocationId;
-          const hasAvailableActivities = activitiesByLocation[location]?.length > 0;
-          const displayInfo = getLocationDisplayInfo(location);
-          const sizeInfo = getSizeClass(position.size);
-          
-          return (
-            <LocationButton
-              key={locationId}
-              $top={position.top}
-              $left={position.left}
-              $width={sizeInfo.width}
-              $height={sizeInfo.height}
-              $isActive={hasAvailableActivities}
-              onClick={hasAvailableActivities ? () => handleLocationClick(location) : undefined}
-            >
-              <div style={{ width: '100%' }}>
-                <p style={{ 
-                  fontSize: typography.fontSize.sm, 
-                  fontWeight: 'medium',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}>
-                  {position.label}
-                </p>
-              </div>
+          {/* Floor layout using CSS Grid */}
+          <FloorGrid>
+            {Object.entries(LOCATIONS).map(([id, location]) => {
+              const locationId = id as LocationId;
+              const hasActivities = activitiesByLocation[locationId]?.length > 0;
+              const displayInfo = getLocationDisplayInfo(locationId);
               
-              {displayInfo && (
-                <>
-                  <div style={{ marginTop: spacing.xxs }}>
-                    <DifficultyStars difficulty={displayInfo.difficulty} />
-                  </div>
+              return (
+                <LocationCard 
+                  key={id}
+                  style={{ 
+                    gridRow: location.row + 1, 
+                    gridColumn: location.col + 1 
+                  }}
+                  $isActive={hasActivities}
+                  $departmentColor={location.department.color}
+                  onClick={hasActivities ? () => handleLocationClick(locationId) : undefined}
+                  role="button"
+                  tabIndex={hasActivities ? 0 : -1}
+                  aria-label={`${location.label}${hasActivities ? " - Click to view activities" : ""}`}
+                  className="location-card"
+                >
+                  {/* Location icon */}
+                  <LocationIconContainer 
+                    $isActive={hasActivities} 
+                    $departmentColor={location.department.color}
+                  >
+                    <Image 
+                      src={`/images/${location.icon}`}
+                      alt={location.label}
+                      width={48}
+                      height={48}
+                      style={{ 
+                        objectFit: 'contain',
+                        /* Pixel rendering with all necessary browser support */
+                        imageRendering: 'pixelated',
+                        /* Prevent transforms that might cause blurring */
+                        transform: 'translateZ(0)',
+                        backfaceVisibility: 'hidden',
+                        /* Disable anti-aliasing */
+                        WebkitFontSmoothing: 'none',
+                        MozOsxFontSmoothing: 'none'
+                      }}
+                      unoptimized={true}
+                      priority={true}
+                      onError={(e) => {
+                        console.warn(`Failed to load image: /images/${location.icon}`);
+                        const target = e.target as HTMLImageElement;
+                        target.onerror = null; // Prevent infinite fallback loop
+                        target.src = '/images/Note.png'; // Fallback image
+                      }}
+                    />
+                  </LocationIconContainer>
                   
-                  {displayInfo.mentor && (
-                    <div style={{ 
-                      fontSize: typography.fontSize.xs, 
-                      color: hasAvailableActivities ? colors.text : colors.textDim,
-                      marginTop: spacing.xxs,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      width: '100%'
+                  {/* Location name */}
+                  <p style={{ 
+                    fontSize: typography.fontSize.sm, 
+                    fontWeight: 'medium',
+                    textAlign: 'center',
+                    color: hasActivities ? colors.text : colors.inactive
+                  }}>
+                    {location.label}
+                  </p>
+                  
+                  {/* Add activity count badge if there are multiple activities */}
+                  {hasActivities && displayInfo && displayInfo.activityCount > 1 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: spacing.xs,
+                      right: spacing.xs,
+                      backgroundColor: colors.highlight,
+                      color: colors.text,
+                      borderRadius: '50%',
+                      width: '20px',
+                      height: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: typography.fontSize.xs,
+                      fontWeight: 'bold'
                     }}>
-                      {getMentorShortName(displayInfo.mentor)}
+                      {displayInfo.activityCount}
                     </div>
                   )}
-                  
-                  {displayInfo.domains.length > 0 && (
-                    <div style={{ 
-                      display: 'flex', 
-                      gap: spacing.xxs, 
-                      marginTop: spacing.xxs, 
-                      justifyContent: 'center' 
-                    }}>
-                      {displayInfo.domains.map((domain, idx) => (
-                        <DomainIndicator key={`${location}-${domain}-${idx}`} domain={domain} />
-                      ))}
-                    </div>
-                  )}
-                  
-                  {displayInfo.activityCount > 1 && (
-                    <div style={{ 
-                      fontSize: typography.fontSize.xs, 
-                      color: hasAvailableActivities ? colors.text : colors.textDim,
-                      marginTop: spacing.xxs
-                    }}>
-                      +{displayInfo.activityCount - 1} more
-                    </div>
-                  )}
-                </>
-              )}
-            </LocationButton>
-          );
-        })}
+                </LocationCard>
+              );
+            })}
+          </FloorGrid>
+        </MapContainer>
         
-        {/* Activity selection modal */}
+        {/* Activity selection modal - keep this but enhance it */}
         {selectedLocation && (
           <ModalOverlay>
             <ModalContent>
@@ -706,10 +628,11 @@ export const DayPhase: React.FC = () => {
                 marginBottom: spacing.md, 
                 display: 'flex', 
                 alignItems: 'center',
-                textShadow: typography.textShadow.pixel
+                textShadow: typography.textShadow.pixel,
+                color: colors.text
               }}>
                 <span style={{ color: colors.highlight, marginRight: spacing.xs }}>📍</span>
-                {LOCATION_POSITIONS[selectedLocation].label}
+                {LOCATIONS[selectedLocation].label}
               </h3>
               
               <ActivityList>
@@ -719,12 +642,12 @@ export const DayPhase: React.FC = () => {
                     onClick={() => handleActivitySelect(activity.id)}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: colors.text }}>
-                      <h4 style={{ fontWeight: 'medium' }}>{activity.title}</h4>
+                      <h4 style={{ fontWeight: 'medium', margin: 0 }}>{activity.title}</h4>
                       <span style={{ 
                         color: colors.textDim, 
-                        backgroundColor: colors.backgroundAlt, 
+                        backgroundColor: colors.background, 
                         padding: `0 ${spacing.xs}`, 
-                        borderRadius: '16px', 
+                        borderRadius: '4px', 
                         fontSize: typography.fontSize.xs, 
                         display: 'flex', 
                         alignItems: 'center' 
@@ -732,7 +655,14 @@ export const DayPhase: React.FC = () => {
                         {activity.durationMinutes} min
                       </span>
                     </div>
-                    <p style={{ color: colors.textDim, fontSize: typography.fontSize.sm, marginTop: spacing.xxs }}>{activity.description}</p>
+                    <p style={{ 
+                      color: colors.textDim, 
+                      fontSize: typography.fontSize.sm, 
+                      marginTop: spacing.xs,
+                      marginBottom: 0 
+                    }}>
+                      {activity.description}
+                    </p>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: spacing.xs }}>
                       <div>
                         {activity.mentor && (
@@ -742,14 +672,14 @@ export const DayPhase: React.FC = () => {
                             display: 'flex', 
                             alignItems: 'center' 
                           }}>
-                            <span style={{ color: colors.highlight, marginRight: spacing.xxs }}>👤</span>
+                            <span style={{ color: colors.highlight, marginRight: spacing.xs }}>👤</span>
                             {getMentorShortName(activity.mentor)}
                           </span>
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
                         {activity.domains.length > 0 && (
-                          <div style={{ display: 'flex', gap: spacing.xxs }}>
+                          <div style={{ display: 'flex', gap: spacing.xs }}>
                             {activity.domains.map((domain, idx) => (
                               <DomainIndicator key={`modal-${activity.id}-${domain}-${idx}`} domain={domain} />
                             ))}
@@ -763,30 +693,14 @@ export const DayPhase: React.FC = () => {
               </ActivityList>
               
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button 
-                  style={{
-                    padding: `${spacing.xs} ${spacing.md}`,
-                    backgroundColor: colors.backgroundAlt,
-                    border: borders.medium,
-                    borderColor: colors.border,
-                    color: colors.text,
-                    fontFamily: typography.fontFamily.pixel,
-                    cursor: 'pointer'
-                  }}
-                  onClick={handleCloseModal}
-                >
+                <CancelButton onClick={handleCloseModal}>
                   Cancel
-                </button>
+                </CancelButton>
               </div>
             </ModalContent>
           </ModalOverlay>
         )}
-      </MapContainer>
-
-      {/* Add pulse animation */}
-      <style jsx global>{`
-        ${animation.keyframes.pulse}
-      `}</style>
+      </CardContainer>
     </PageContainer>
   );
 };

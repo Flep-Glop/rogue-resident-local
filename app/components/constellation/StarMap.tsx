@@ -47,6 +47,9 @@ const LegendText = styled.span`
 interface StarMapProps {
   width?: number;
   height?: number;
+  onStarHover?: (star: KnowledgeStar | null, x: number, y: number) => void;
+  onStarSelect?: (star: KnowledgeStar | null, x: number, y: number) => void;
+  selectedStarId?: string | null;
 }
 
 // Extended star data for simulation
@@ -61,7 +64,10 @@ interface SimulationStar extends KnowledgeStar {
 
 export const StarMap: React.FC<StarMapProps> = React.memo(({ 
   width: propWidth, 
-  height: propHeight 
+  height: propHeight,
+  onStarHover,
+  onStarSelect,
+  selectedStarId
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,6 +80,63 @@ export const StarMap: React.FC<StarMapProps> = React.memo(({
   const animationFrameRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
   const previousDiscoveredCountRef = useRef<number>(0);
+  const [internalSelectedId, setInternalSelectedId] = useState<string | null | undefined>(selectedStarId);
+  
+  // Function to update selection styling immediately - MOVED BEFORE useEffect
+  const updateSelectionHighlight = useCallback(() => {
+    if (!svgRef.current) return;
+    
+    const svg = d3.select(svgRef.current);
+    // Check if stars and glow effects containers exist
+    const starsSelection = svg.select('.stars');
+    const glowEffects = svg.select('.glow-effects');
+    
+    if (starsSelection.empty() || glowEffects.empty()) {
+      // SVG structure not ready yet
+      return;
+    }
+    
+    const pixelSize = 8;
+    
+    // Update stars - using safer selector
+    svg.selectAll('rect.star')
+      .attr('stroke', d => {
+        return selectedStarId && d.id === selectedStarId 
+          ? '#ffcc00' 
+          : d.unlocked ? '#ffffff' : 'none';
+      })
+      .attr('stroke-width', d => {
+        return (selectedStarId && d.id === selectedStarId) ? 2 : 1;
+      });
+    
+    // Handle glow
+    glowEffects.selectAll('.selected-glow').remove();
+    
+    if (selectedStarId) {
+      const selectedNode = nodesRef.current.find(d => d.id === selectedStarId);
+      if (selectedNode && selectedNode.x !== undefined && selectedNode.y !== undefined) {
+        glowEffects.append('rect')
+          .attr('class', 'selected-glow')
+          .attr('x', selectedNode.x - pixelSize * 1.5)
+          .attr('y', selectedNode.y - pixelSize * 1.5)
+          .attr('width', pixelSize * 3)
+          .attr('height', pixelSize * 3)
+          .attr('fill', 'none')
+          .attr('stroke', '#ffcc00')
+          .attr('stroke-width', 1)
+          .attr('opacity', 0.6)
+          .attr('shape-rendering', 'crispEdges');
+      }
+    }
+  }, [selectedStarId]);
+  
+  // Update internal state when prop changes
+  useEffect(() => {
+    setInternalSelectedId(selectedStarId);
+    
+    // Force immediate update of selection in D3
+    updateSelectionHighlight();
+  }, [selectedStarId, updateSelectionHighlight]);
   
   // Get stars from the knowledge store
   const starsObject = useKnowledgeStore(state => state.stars);
@@ -434,6 +497,7 @@ export const StarMap: React.FC<StarMapProps> = React.memo(({
       .data(simulationNodes)
       .enter()
       .append('rect')
+      .attr('class', 'star')
       .attr('width', pixelSize)
       .attr('height', pixelSize)
       .attr('fill', d => {
@@ -455,8 +519,61 @@ export const StarMap: React.FC<StarMapProps> = React.memo(({
       .attr('x', d => (d.x || 0) - pixelSize/2)
       .attr('y', d => (d.y || 0) - pixelSize/2);
     
+    // Handle star hover events
+    const handleStarMouseOver = function(event: MouseEvent, d: SimulationStar) {
+      if (onStarHover && d.discovered) {
+        // Calculate position relative to the container
+        const boundingRect = containerRef.current?.getBoundingClientRect();
+        if (boundingRect) {
+          const x = (d.x || 0);
+          const y = (d.y || 0);
+          onStarHover(d, x, y);
+        }
+      }
+    };
+    
+    const handleStarMouseOut = function(event: MouseEvent, d: SimulationStar) {
+      if (onStarHover) {
+        onStarHover(null, 0, 0);
+      }
+    };
+    
+    const handleStarClick = function(event: MouseEvent, d: SimulationStar) {
+      if (onStarSelect && d.discovered) {
+        // Calculate position relative to the container
+        const boundingRect = containerRef.current?.getBoundingClientRect();
+        if (boundingRect) {
+          const x = (d.x || 0);
+          const y = (d.y || 0);
+          
+          // Call parent callback
+          onStarSelect(d, x, y);
+          
+          // Update internal state for immediate visual feedback
+          const newSelectedId = d.id === internalSelectedId ? null : d.id;
+          setInternalSelectedId(newSelectedId);
+          
+          // Wait for React to process state update
+          setTimeout(() => {
+            if (svgRef.current) {
+              updateSelectionHighlight();
+            }
+          }, 0);
+          
+          // Prevent drag behavior when clicking for selection
+          event.stopPropagation();
+        }
+      }
+    };
+    
     // Apply drag behavior to stars
     starElements.call(dragHandler);
+    
+    // Add hover and click events to stars
+    starElements
+      .on('mouseover', handleStarMouseOver)
+      .on('mouseout', handleStarMouseOut)
+      .on('click', handleStarClick);
     
     // Add glow effects group
     const glowEffects = svg.append('g')
@@ -549,9 +666,39 @@ export const StarMap: React.FC<StarMapProps> = React.memo(({
           }
         })
         .attr('stroke', d => {
-          const currentStar = starsObject[d.id];
-          return currentStar?.unlocked ? '#ffffff' : 'none';
+          // Highlight selected star using internalSelectedId for immediate updates
+          if ((internalSelectedId || selectedStarId) && d.id === (internalSelectedId || selectedStarId)) {
+            return '#ffcc00'; // Highlight color for selected star
+          }
+          return d.unlocked ? '#ffffff' : 'none';
+        })
+        .attr('stroke-width', d => {
+          // Make selected star stroke thicker
+          return ((internalSelectedId || selectedStarId) && d.id === (internalSelectedId || selectedStarId)) ? 2 : 1;
         });
+      
+      // Handle selected star glow
+      glowEffects.selectAll('.selected-glow').remove();
+      
+      // Use either internal or prop selected ID
+      const effectiveSelectedId = internalSelectedId || selectedStarId;
+      
+      if (effectiveSelectedId) {
+        const selectedNode = simulationNodes.find(d => d.id === effectiveSelectedId);
+        if (selectedNode && selectedNode.x !== undefined && selectedNode.y !== undefined) {
+          glowEffects.append('rect')
+            .attr('class', 'selected-glow')
+            .attr('x', selectedNode.x - pixelSize * 1.5)
+            .attr('y', selectedNode.y - pixelSize * 1.5)
+            .attr('width', pixelSize * 3)
+            .attr('height', pixelSize * 3)
+            .attr('fill', 'none')
+            .attr('stroke', '#ffcc00')
+            .attr('stroke-width', 1)
+            .attr('opacity', 0.6)
+            .attr('shape-rendering', 'crispEdges');
+        }
+      }
       
       // Update connections and glow effects with time-based throttling
       updateConnections();
@@ -599,7 +746,7 @@ export const StarMap: React.FC<StarMapProps> = React.memo(({
       }
     };
     
-  }, [svgRef, discoveredStars, unlockedStars, activeStars, dimensions, persistCurrentPositions, rebuildSimulationIfNeeded]);
+  }, [svgRef, discoveredStars, unlockedStars, activeStars, dimensions, persistCurrentPositions, rebuildSimulationIfNeeded, selectedStarId]);
   
   // Check for new stars outside the main effect to ensure detection works
   useEffect(() => {
