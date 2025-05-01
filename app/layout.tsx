@@ -3,6 +3,7 @@ import "./globals.css";
 import PixelThemeProvider from "./providers/ThemeProvider";
 import { VT323, Press_Start_2P } from 'next/font/google';
 import { Roboto_Mono } from 'next/font/google';
+import InitScripts from './components/InitScripts';
 
 // Define fonts
 const vt323 = VT323({ 
@@ -37,6 +38,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${vt323.variable} ${pressStart2P.variable} ${robotoMono.variable}`}>
+      <head>
+        <InitScripts />
+      </head>
       <body>
         <PixelThemeProvider>
           {children}

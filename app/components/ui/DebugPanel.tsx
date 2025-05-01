@@ -12,7 +12,7 @@ import { useDialogueStore } from '@/app/store/dialogueStore';
 import { dialogues } from '@/app/data/dialogueData';
 import pixelTheme, { colors, spacing, typography, borders, shadows } from '@/app/styles/pixelTheme';
 import { initializeKnowledgeStore } from '@/app/data/conceptData';
-import { shuffle } from 'lodash';
+import shuffle from 'lodash/shuffle';
 
 // Styled components
 const DebugButton = styled.button`

@@ -12,12 +12,15 @@ interface DialogueLine {
   choices?: DialogueChoice[];
   id?: string;
   isNameInput?: boolean;
+  nextId?: string;
 }
 
 interface DialogueChoice {
   text: string;
   nextId?: string;
   effect?: () => void;
+  displayElement?: (text: string) => React.ReactNode;
+  isDifficultySelection?: boolean;
 }
 
 // Styled component definitions
@@ -56,6 +59,12 @@ const BackgroundOverlay = styled.div`
   align-items: center;
   opacity: 0.2;
   z-index: 1;
+`;
+
+const BackgroundImage = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
 `;
 
 const CharacterPortrait = styled.div`
@@ -164,6 +173,90 @@ const InstructionText = styled.div`
   text-shadow: ${typography.textShadow.pixel};
 `;
 
+const PlayerName = styled.span`
+  color: ${colors.highlight};
+  font-weight: bold;
+`;
+
+const HospitalName = styled.span`
+  color: #4a9eda; /* Blue for the hospital */
+  font-weight: bold;
+`;
+
+const DrGarciaName = styled.span`
+  color: #ff3399; /* Much brighter hot pink for Dr. Garcia */
+  font-weight: bold;
+  text-shadow: 0 0 1px rgba(255, 51, 153, 0.5);
+`;
+
+const DrKapoorName = styled.span`
+  color: #e8945e; /* Orange for Dr. Kapoor */
+  font-weight: bold;
+`;
+
+const DrQuinnName = styled.span`
+  color: #5ee89c; /* Green for Dr. Quinn */
+  font-weight: bold;
+`;
+
+const JesseName = styled.span`
+  color: #e85e8f; /* Pink for Jesse */
+  font-weight: bold;
+`;
+
+const ConfirmationModal = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+`;
+
+const ConfirmationBox = styled.div`
+  ${components.dialog.container}
+  max-width: 500px;
+  padding: ${spacing.lg};
+`;
+
+const ConfirmationButtons = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: ${spacing.md};
+  margin-top: ${spacing.lg};
+`;
+
+const ConfirmButton = styled.button`
+  ${components.button.base}
+  ${components.button.primary}
+  padding: ${spacing.xs} ${spacing.md};
+`;
+
+const CancelButton = styled.button`
+  ${components.button.base}
+  background-color: ${colors.inactive};
+  padding: ${spacing.xs} ${spacing.md};
+`;
+
+const BeginnerModeText = styled.span`
+  color: #48bb78; /* green-400 */
+  font-weight: bold;
+`;
+
+const StandardModeText = styled.span`
+  color: #ecc94b; /* yellow-400 */
+  font-weight: bold;
+`;
+
+const ExpertModeText = styled.span`
+  color: #f56565; /* red-400 */
+  font-weight: bold;
+`;
+
 export const Prologue: React.FC = () => {
   // Use individual selectors instead of object destructuring to avoid recreating objects on every render
   const setPhase = useGameStore(state => state.setPhase);
@@ -176,6 +269,9 @@ export const Prologue: React.FC = () => {
   const [dialogueMap, setDialogueMap] = useState<Record<string, number>>({});
   const [selectedChoices, setSelectedChoices] = useState<Record<string, string>>({});
   const [fadeKey, setFadeKey] = useState(0);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationText, setConfirmationText] = useState('');
+  const [pendingDifficulty, setPendingDifficulty] = useState<Difficulty | null>(null);
   
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -200,19 +296,49 @@ export const Prologue: React.FC = () => {
       text: "Your academic record is impressive—quite the constellation of achievements. Before we start, I'd like to know a bit more about your background. This will help me tailor your residency experience appropriately." ,
       choices: [
         { 
-          text: "I'm fresh out of undergrad with a physics degree. (Beginner Mode: More explanations, gentler learning curve)",
-          effect: () => setDifficulty(Difficulty.BEGINNER),
-          nextId: "beginner_garcia_response"
+          text: "I'm fresh out of undergrad with a physics degree.",
+          displayElement: (text: string) => (
+            <>
+              {text} <BeginnerModeText>Beginner Mode</BeginnerModeText>
+            </>
+          ),
+          effect: () => {
+            setShowConfirmation(true);
+            setPendingDifficulty(Difficulty.BEGINNER);
+            setConfirmationText("Beginner Mode provides more explanations and a gentler learning curve for those new to medical physics.");
+          },
+          nextId: "beginner_garcia_response",
+          isDifficultySelection: true
         },
         { 
-          text: "I just finished my doctorate in medical physics. (Standard Mode: Balanced challenge)",
-          effect: () => setDifficulty(Difficulty.STANDARD),
-          nextId: "standard_garcia_response"
+          text: "I just finished my doctorate in medical physics.",
+          displayElement: (text: string) => (
+            <>
+              {text} <StandardModeText>Standard Mode</StandardModeText>
+            </>
+          ),
+          effect: () => {
+            setShowConfirmation(true);
+            setPendingDifficulty(Difficulty.STANDARD);
+            setConfirmationText("Standard Mode offers a balanced challenge suitable for those with a solid foundation in medical physics.");
+          },
+          nextId: "standard_garcia_response",
+          isDifficultySelection: true
         },
         { 
-          text: "I practiced medical physics in another country. (Expert Mode: Advanced concepts, steeper mastery requirements)",
-          effect: () => setDifficulty(Difficulty.EXPERT),
-          nextId: "expert_garcia_response"
+          text: "I practiced medical physics in another country.",
+          displayElement: (text: string) => (
+            <>
+              {text} <ExpertModeText>Expert Mode</ExpertModeText>
+            </>
+          ),
+          effect: () => {
+            setShowConfirmation(true);
+            setPendingDifficulty(Difficulty.EXPERT);
+            setConfirmationText("Expert Mode presents advanced concepts with steeper mastery requirements for experienced professionals.");
+          },
+          nextId: "expert_garcia_response",
+          isDifficultySelection: true
         }
       ],
       id: "background_question"
@@ -259,6 +385,10 @@ export const Prologue: React.FC = () => {
         {
           text: "What are the key areas where residents typically struggle?",
           nextId: "struggle_question"
+        },
+        {
+          text: "No, thanks. I'm ready to begin.",
+          nextId: "ready_to_begin"
         }
       ],
       id: "first_question"
@@ -266,64 +396,49 @@ export const Prologue: React.FC = () => {
     { 
       speaker: 'garcia', 
       text: "Each day runs from 8 to 5, with various opportunities throughout. I believe in balance—rigorous science balanced with compassionate care. The schedule may seem rigid, but there's an art to working within it.",
-      id: "schedule_question"
+      id: "schedule_question",
+      nextId: "more_questions"
     },
     { 
       speaker: 'garcia', 
       text: "It depends on your learning style. Dr. Kapoor is methodical and precise—perfect if you prefer structure. Jesse offers practical, hands-on learning. Dr. Quinn will challenge your conceptual thinking. And I focus on integrating physics with patient care.",
-      id: "mentor_question"
+      id: "mentor_question",
+      nextId: "more_questions"
     },
     { 
       speaker: 'garcia', 
       text: "Time management is the biggest challenge. Second is connecting theoretical knowledge to practical application. And third is maintaining balance—between technical excellence and patient compassion, between different knowledge domains.",
-      id: "struggle_question"
+      id: "struggle_question",
+      nextId: "more_questions"
     },
-    { 
-      speaker: 'garcia', 
-      text: "Evenings are for your 'Knowledge Constellation'—my favorite metaphor for expertise. It's not just collecting stars of knowledge, but understanding how they illuminate each other. Some residents find it poetic; others call it my astronomy obsession."
-    },
-    { 
-      speaker: 'garcia', 
-      text: "As you progress, you'll gain more control and develop abilities that enhance your learning. I've seen residents transform from uncertain observers to confident specialists—it's why I love teaching despite the administrative paperwork."
-    },
-    { 
-      speaker: 'garcia', 
-      text: "Let's tour the facility. I believe in understanding both the machines and the people who use them. The equipment might be precise, but it's the human element that truly makes medical physics fascinating."
-    },
-    { 
-      speaker: 'garcia', 
-      text: "Before we begin, I'd like to know what aspect of medical physics interests you most. This will help me guide your experience.",
+    {
+      speaker: 'garcia',
+      text: "Do you have any other questions about the residency program?",
       choices: [
         {
-          text: "I appreciate both the scientific precision and the human perspective you're emphasizing.",
-          nextId: "balanced_garcia_response"
+          text: "How will my day-to-day activities be structured?",
+          nextId: "schedule_question"
         },
         {
-          text: "I'm excited to learn about the equipment and technical aspects of medical physics.",
-          nextId: "technical_garcia_response"
+          text: "Which mentor would you recommend I focus on initially?",
+          nextId: "mentor_question"
         },
         {
-          text: "I'm most interested in how our work impacts patient care and outcomes.",
-          nextId: "patient_garcia_response"
+          text: "What are the key areas where residents typically struggle?",
+          nextId: "struggle_question"
+        },
+        {
+          text: "No, thanks. I'm ready to begin.",
+          nextId: "ready_to_begin"
         }
       ],
-      id: "approach_choice"
+      id: "more_questions"
     },
-    { 
-      speaker: 'garcia', 
-      text: "A balanced approach will serve you well. To the treatment planning room—where art and science converge, and where I've been known to quote both Newton and Neruda in the same sentence. You'll see what I mean.",
-      id: "balanced_garcia_response"
-    },
-    { 
-      speaker: 'garcia', 
-      text: "The technical side is fascinating! I'll make sure Jesse and Dr. Kapoor show you our equipment in depth. The linacs have their own personalities once you get to know them.",
-      id: "technical_garcia_response"
-    },
-    { 
-      speaker: 'garcia', 
-      text: "Patient outcomes are indeed what matters most. I'll arrange for you to observe patient consultations early on. We never forget that behind every treatment plan is a person with hopes and fears.",
-      id: "patient_garcia_response"
-    },
+    {
+      speaker: 'garcia',
+      text: "Excellent! Let's get you started with your first day then, [PLAYER_NAME]. Welcome to Memorial General Hospital's Medical Physics Residency Program.",
+      id: "ready_to_begin"
+    }
   ], [setDifficulty]);
 
   // Initialize dialogue map on first render
@@ -346,9 +461,79 @@ export const Prologue: React.FC = () => {
     }
   }, [currentLineIndex, currentLine.isNameInput]);
 
-  // Replace [PLAYER_NAME] with the actual player name in dialogue
+  // Replace names with colored versions
   const getDisplayText = (text: string) => {
-    return text.replace('[PLAYER_NAME]', playerNameInput || 'Resident');
+    // Process all highlights in a single pass using a more robust approach
+    const patterns = [
+      { 
+        regex: /\[PLAYER_NAME\]/g,
+        replacement: (match: string) => <PlayerName key={`player-${Math.random()}`}>{playerNameInput || 'Resident'}</PlayerName>
+      },
+      { 
+        regex: /Memorial General Hospital/g,
+        replacement: (match: string) => <HospitalName key={`hospital-${Math.random()}`}>{match}</HospitalName>
+      },
+      { 
+        regex: /Dr\. Garcia/g,
+        replacement: (match: string) => <DrGarciaName key={`garcia-${Math.random()}`}>{match}</DrGarciaName>
+      },
+      { 
+        regex: /Dr\. Kapoor/g, 
+        replacement: (match: string) => <DrKapoorName key={`kapoor-${Math.random()}`}>{match}</DrKapoorName>
+      },
+      { 
+        regex: /Dr\. Quinn/g,
+        replacement: (match: string) => <DrQuinnName key={`quinn-${Math.random()}`}>{match}</DrQuinnName>
+      },
+      { 
+        regex: /\bJesse\b/g,
+        replacement: (match: string) => <JesseName key={`jesse-${Math.random()}`}>{match}</JesseName>
+      }
+    ];
+    
+    // Split the text into segments based on all patterns
+    let segments: (string | React.ReactElement)[] = [text];
+    
+    // Process each pattern
+    patterns.forEach(({ regex, replacement }) => {
+      segments = segments.flatMap(segment => {
+        // Only process string segments
+        if (typeof segment !== 'string') return segment;
+        
+        // Split the segment by regex and create an array of strings and React elements
+        const parts: (string | React.ReactElement)[] = [];
+        const matches = segment.match(regex);
+        
+        if (!matches) return segment;
+        
+        let lastIndex = 0;
+        let match;
+        
+        // Reset regex to start from beginning
+        regex.lastIndex = 0;
+        
+        while ((match = regex.exec(segment)) !== null) {
+          // Add text before match
+          if (match.index > lastIndex) {
+            parts.push(segment.substring(lastIndex, match.index));
+          }
+          
+          // Add the replacement for the match
+          parts.push(replacement(match[0]));
+          
+          lastIndex = regex.lastIndex;
+        }
+        
+        // Add any remaining text
+        if (lastIndex < segment.length) {
+          parts.push(segment.substring(lastIndex));
+        }
+        
+        return parts;
+      });
+    });
+    
+    return <>{segments}</>;
   };
 
   // Handle advancing the dialogue
@@ -369,6 +554,14 @@ export const Prologue: React.FC = () => {
       return;
     }
 
+    // Check if the current line has a nextId to direct flow
+    if (currentLine.nextId && dialogueMap[currentLine.nextId] !== undefined) {
+      setCurrentLineIndex(dialogueMap[currentLine.nextId]);
+      setFadeKey(prevKey => prevKey + 1);
+      setShowChoices(false);
+      return;
+    }
+
     if (currentLineIndex < dialogue.length - 1) {
       setCurrentLineIndex(currentLineIndex + 1);
       setFadeKey(prevKey => prevKey + 1);
@@ -381,26 +574,40 @@ export const Prologue: React.FC = () => {
 
   // Handle player choice selection
   const handleChoiceSelect = (choice: DialogueChoice) => {
-    if (currentLine.id) {
-      const newSelectedChoices = {...selectedChoices};
-      if (currentLine.id) {
-        newSelectedChoices[currentLine.id] = choice.text;
-      }
-      setSelectedChoices(prev => newSelectedChoices);
-    }
-
+    // Execute the effect if present
     if (choice.effect) {
       choice.effect();
     }
-
-    if (choice.nextId && dialogueMap[choice.nextId] !== undefined) {
-      setCurrentLineIndex(dialogueMap[choice.nextId]);
-    } else {
-      setCurrentLineIndex(currentLineIndex + 1);
+    
+    // If this is a difficulty selection, don't advance the dialogue at all
+    if (choice.isDifficultySelection) {
+      return; // Just show the confirmation modal and stop
     }
     
-    setFadeKey(prevKey => prevKey + 1);
-    setShowChoices(false);
+    // If we're showing any confirmation modal, don't advance dialogue
+    if (showConfirmation) {
+      return;
+    }
+    
+    // Track the selected choice
+    if (currentLine.id) {
+      setSelectedChoices(prev => ({
+        ...prev,
+        [currentLine.id]: choice.text
+      }));
+    }
+    
+    // Check if this choice directs to a specific node
+    if (choice.nextId && dialogueMap[choice.nextId] !== undefined) {
+      setCurrentLineIndex(dialogueMap[choice.nextId]);
+      setFadeKey(prevKey => prevKey + 1);
+      setShowChoices(false);
+    } else {
+      // Otherwise just move to the next line
+      setCurrentLineIndex(currentLineIndex + 1);
+      setFadeKey(prevKey => prevKey + 1);
+      setShowChoices(false);
+    }
   };
 
   // Handle name input form submission
@@ -409,6 +616,56 @@ export const Prologue: React.FC = () => {
     if (playerNameInput.trim()) {
       advanceDialogue();
     }
+  };
+
+  // Function to show difficulty confirmation dialog
+  const showDifficultyConfirmation = (difficulty: Difficulty) => {
+    setShowConfirmation(true);
+    setPendingDifficulty(difficulty);
+    
+    let explanationText = '';
+    switch(difficulty) {
+      case Difficulty.BEGINNER:
+        explanationText = "Beginner Mode provides more explanations and a gentler learning curve for those new to medical physics.";
+        break;
+      case Difficulty.STANDARD:
+        explanationText = "Standard Mode offers a balanced challenge suitable for those with a solid foundation in medical physics.";
+        break;
+      case Difficulty.EXPERT:
+        explanationText = "Expert Mode presents advanced concepts with steeper mastery requirements for experienced professionals.";
+        break;
+    }
+    
+    setConfirmationText(explanationText);
+  };
+  
+  const confirmDifficulty = () => {
+    setShowConfirmation(false);
+    
+    // Actually set the difficulty now that it's confirmed
+    if (pendingDifficulty !== null) {
+      setDifficulty(pendingDifficulty);
+      
+      // Find the dialogue line with the appropriate nextId based on the chosen difficulty
+      const chosenNextId = currentLine.choices?.find(
+        choice => choice.isDifficultySelection && 
+        ((pendingDifficulty === Difficulty.BEGINNER && choice.nextId === "beginner_garcia_response") ||
+         (pendingDifficulty === Difficulty.STANDARD && choice.nextId === "standard_garcia_response") ||
+         (pendingDifficulty === Difficulty.EXPERT && choice.nextId === "expert_garcia_response"))
+      )?.nextId;
+      
+      // Now advance to the appropriate response
+      if (chosenNextId && dialogueMap[chosenNextId] !== undefined) {
+        setCurrentLineIndex(dialogueMap[chosenNextId]);
+        setFadeKey(prevKey => prevKey + 1);
+        setShowChoices(false);
+      }
+    }
+  };
+  
+  const cancelDifficultySelection = () => {
+    setShowConfirmation(false);
+    setPendingDifficulty(null);
   };
 
   // Define animation for text fadeIn
@@ -423,7 +680,7 @@ export const Prologue: React.FC = () => {
     <PrologueContainer>
       {/* Hospital background - positioned above the gradient background but below character */}
       <BackgroundOverlay>
-        <div className="w-full h-full bg-cover bg-center">
+        <BackgroundImage>
           <Image 
             src="/images/hospital.png" 
             alt="Hospital" 
@@ -431,7 +688,7 @@ export const Prologue: React.FC = () => {
             className="object-cover"
             priority
           />
-        </div>
+        </BackgroundImage>
       </BackgroundOverlay>
       
       {/* Character portrait */}
@@ -489,7 +746,9 @@ export const Prologue: React.FC = () => {
                 key={index}
                 onClick={() => handleChoiceSelect(choice)}
               >
-                {choice.text}
+                {choice.displayElement ? 
+                  choice.displayElement(choice.text) : 
+                  choice.text}
               </ChoiceButton>
             ))}
           </ChoiceContainer>
@@ -506,6 +765,21 @@ export const Prologue: React.FC = () => {
       <InstructionText>
         {currentLine.isNameInput ? 'Enter your name' : (showChoices ? 'Select a response' : 'Click to continue')}
       </InstructionText>
+
+      {showConfirmation && (
+        <ConfirmationModal>
+          <ConfirmationBox>
+            <DialogueHeader>Confirm Difficulty</DialogueHeader>
+            <DialogueContent>
+              {confirmationText}
+            </DialogueContent>
+            <ConfirmationButtons>
+              <CancelButton onClick={cancelDifficultySelection}>Go Back</CancelButton>
+              <ConfirmButton onClick={confirmDifficulty}>Confirm</ConfirmButton>
+            </ConfirmationButtons>
+          </ConfirmationBox>
+        </ConfirmationModal>
+      )}
 
       {/* Add keyframes for fade-in animation */}
       <style jsx global>{`

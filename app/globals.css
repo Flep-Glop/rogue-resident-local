@@ -19,3 +19,24 @@ body {
   color: var(--foreground);
   font-family: var(--font-pixel);
 }
+
+/* Prevent flash of unstyled content */
+html.loading * {
+  visibility: hidden !important;
+}
+
+html.loading {
+  background-color: #090b12;
+}
+
+html.loading::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #090b12;
+  z-index: 9999;
+  visibility: visible !important;
+}

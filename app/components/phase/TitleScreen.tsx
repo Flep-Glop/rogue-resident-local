@@ -1,5 +1,7 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from 'react';
-import styled, { keyframes, css } from 'styled-components';
+import styled, { keyframes, css, createGlobalStyle } from 'styled-components';
 import { useGameStore } from '@/app/store/gameStore';
 import { GamePhase, Difficulty } from '@/app/types';
 import { colors, typography, shadows } from '@/app/styles/pixelTheme';
@@ -161,6 +163,25 @@ const GlobalStyles = css`
     padding: 0;
     height: 100%;
     width: 100%;
+  }
+`;
+
+// Create global style to prevent flash of unstyled content
+const GlobalHydrationFix = createGlobalStyle`
+  html.loading * {
+    visibility: hidden;
+  }
+  
+  html.loading::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #090b12;
+    z-index: 9999;
+    visibility: visible;
   }
 `;
 
@@ -533,12 +554,33 @@ const ShootingStarElement = styled.div<ShootingStarProps>`
   opacity: 0;
 `;
 
+// Add a loading overlay
+const LoadingOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #090b12;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.5s ease-out;
+  opacity: 1;
+  &.loaded {
+    opacity: 0;
+    pointer-events: none;
+  }
+`;
+
 export const TitleScreen: React.FC = () => {
   const [startingGame, setStartingGame] = useState(false);
   const [loadingDev, setLoadingDev] = useState(false);
   const [stars, setStars] = useState<Star[]>([]);
   const [titleAnimation, setTitleAnimation] = useState(false);
   const [glitchActive, setGlitchActive] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [shootingStars, setShootingStars] = useState<Array<{
     id: number;
     top: string;
@@ -558,13 +600,31 @@ export const TitleScreen: React.FC = () => {
   }>>([]);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [hydrated, setHydrated] = useState(false);
   
   const setPhase = useGameStore(state => state.setPhase);
   const setPlayerName = useGameStore(state => state.setPlayerName);
   const setDifficulty = useGameStore(state => state.setDifficulty);
 
-  // Generate stars only on the client side to avoid hydration mismatch
+  // Handle hydration completion
   useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  // Mark document as loaded after hydration
+  useEffect(() => {
+    if (hydrated && typeof document !== 'undefined') {
+      document.documentElement.classList.remove('loading');
+      setTimeout(() => {
+        setIsLoaded(true);
+      }, 100);
+    }
+  }, [hydrated]);
+
+  // Generate stars and effects only on the client side after hydration
+  useEffect(() => {
+    if (!hydrated) return;
+    
     const starCount = 350; // Increased star count for more immersion
     const generatedStars: Star[] = [];
     
@@ -653,7 +713,7 @@ export const TitleScreen: React.FC = () => {
     }, 3000 + Math.random() * 2000); // Random interval between 3-5 seconds
     
     return () => clearInterval(glitchInterval);
-  }, []);
+  }, [hydrated]);
 
   const handleStartGame = () => {
     setStartingGame(true);
@@ -694,6 +754,9 @@ export const TitleScreen: React.FC = () => {
 
   return (
     <>
+      {/* Add global style to prevent flash of unstyled content */}
+      <GlobalHydrationFix />
+      
       {/* Apply global styles to prevent scrolling */}
       <style jsx global>{`
         html, body {
@@ -714,54 +777,63 @@ export const TitleScreen: React.FC = () => {
         }
       `}</style>
       
+      {/* Loading overlay */}
+      <LoadingOverlay className={isLoaded ? 'loaded' : ''} />
+      
       <FullScreenContainer>
         {/* Large glowing star behind everything */}
         <LargeStar />
         
-        {/* Stars background effect */}
-        <StarField>
-          {stars.map((star) => (
-            <StarPoint
-              key={star.id}
-              $width={star.width}
-              $height={star.height}
-              $top={star.top}
-              $left={star.left}
-              $opacity={star.opacity}
-              $duration={star.animation.split(' ')[0].replace('twinkle', '')}
-              $delay={star.animationDelay}
-            />
-          ))}
-        </StarField>
+        {/* Stars background effect - only render after hydration */}
+        {hydrated && (
+          <StarField>
+            {stars.map((star) => (
+              <StarPoint
+                key={star.id}
+                $width={star.width}
+                $height={star.height}
+                $top={star.top}
+                $left={star.left}
+                $opacity={star.opacity}
+                $duration={star.animation.split(' ')[0].replace('twinkle', '')}
+                $delay={star.animationDelay}
+              />
+            ))}
+          </StarField>
+        )}
         
-        {/* Shooting stars */}
-        <ShootingStarWrapper>
-          {shootingStars.map((star) => (
-            <ShootingStarElement
-              key={star.id}
-              $top={star.top}
-              $left={star.left}
-              $size={star.size}
-              $delay={star.delay}
-              $duration={star.duration}
-            />
-          ))}
-        </ShootingStarWrapper>
+        {/* Shooting stars - only render after hydration */}
+        {hydrated && (
+          <ShootingStarWrapper>
+            {shootingStars.map((star) => (
+              <ShootingStarElement
+                key={star.id}
+                $top={star.top}
+                $left={star.left}
+                $size={star.size}
+                $delay={star.delay}
+                $duration={star.duration}
+              />
+            ))}
+          </ShootingStarWrapper>
+        )}
         
-        {/* Floating particles */}
-        <ParticlesContainer>
-          {particles.map((particle) => (
-            <Particle
-              key={particle.id}
-              $top={particle.top}
-              $left={particle.left}
-              $size={particle.size}
-              $delay={particle.delay}
-              $duration={particle.duration}
-              $color={particle.color}
-            />
-          ))}
-        </ParticlesContainer>
+        {/* Floating particles - only render after hydration */}
+        {hydrated && (
+          <ParticlesContainer>
+            {particles.map((particle) => (
+              <Particle
+                key={particle.id}
+                $top={particle.top}
+                $left={particle.left}
+                $size={particle.size}
+                $delay={particle.delay}
+                $duration={particle.duration}
+                $color={particle.color}
+              />
+            ))}
+          </ParticlesContainer>
+        )}
 
         {/* Vignette overlay */}
         <VignetteOverlay />
