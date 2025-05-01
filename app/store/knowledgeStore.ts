@@ -98,7 +98,7 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
           
           if (journalStore) {
             // Select a random template for this domain
-            const templates = conceptJournalTemplates[starDomain] || [];
+            const templates = starDomain ? conceptJournalTemplates[starDomain] || [] : [];
             if (templates.length > 0) {
               const randomIndex = Math.floor(Math.random() * templates.length);
               const template = templates[randomIndex];
@@ -111,7 +111,7 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
                 conceptId,
                 `Discovered: ${starName}`,
                 content,
-                starDomain
+                starDomain || KnowledgeDomain.TREATMENT_PLANNING // Provide a default domain if null
               );
             }
           }
@@ -143,7 +143,9 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
       state.stars[starId].unlocked = true;
       
       // Auto-form connections to already unlocked stars
-      Object.values(state.stars).forEach(otherStar => {
+      // Use a type assertion for the array elements
+      const otherStars = Object.values(state.stars) as KnowledgeStar[];
+      otherStars.forEach(otherStar => {
         if (otherStar.id !== starId && otherStar.unlocked) {
           // Check if these should be connected (based on same domain or other rules)
           if (otherStar.domain === starDomain) {
@@ -170,7 +172,7 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
             starId,
             `Unlocked: ${starName}`,
             `I've officially added ${starName} to my knowledge constellation. This concept is now part of my growing expertise. I should continue to develop my understanding to increase my mastery.`,
-            starDomain
+            starDomain || KnowledgeDomain.TREATMENT_PLANNING // Provide a default domain if null
           );
         }
       } catch (error) {
@@ -208,7 +210,7 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
     // Store star data locally
     const starName = star.name;
     const starDomain = star.domain;
-    let currentMastery = star.mastery;
+    const currentMastery = star.mastery;
     let newMastery = 0;
     
     set(produce(state => {
@@ -224,7 +226,9 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
         let totalMastery = 0;
         let unlockedCount = 0;
         
-        Object.values(state.stars).forEach(s => {
+        // Use a type assertion for the array elements
+        const allStars = Object.values(state.stars) as KnowledgeStar[];
+        allStars.forEach(s => {
           if (s.unlocked) {
             totalMastery += s.mastery;
             unlockedCount++;
@@ -259,7 +263,7 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
               starId,
               `Mastery Improved: ${starName}`,
               `I've reached ${masteryLevel}% mastery in ${starName}. My understanding is deepening and I'm becoming more confident in applying this knowledge in clinical settings.`,
-              starDomain
+              starDomain || KnowledgeDomain.TREATMENT_PLANNING // Provide a default domain if null
             );
           }
         } catch (error) {
@@ -361,16 +365,18 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
     set({ discoveredToday: [] });
   },
   
-  // Get mastery percentage for a specific domain
+  // Get mastery level by domain
   getMasteryByDomain: (domain: KnowledgeDomain) => {
-    const stars = Object.values(get().stars).filter(
-      star => star.domain === domain && star.unlocked
+    const state = get();
+    const domainStars = Object.values(state.stars).filter(star => 
+      star.domain === domain && star.unlocked
     );
     
-    if (stars.length === 0) return 0;
+    if (domainStars.length === 0) return 0;
     
-    const totalDomainMastery = stars.reduce((sum, star) => sum + star.mastery, 0);
-    return totalDomainMastery / stars.length;
+    // Calculate average mastery for this domain
+    const totalMastery = domainStars.reduce((sum, star) => sum + star.mastery, 0);
+    return totalMastery / domainStars.length;
   },
   
   // Get all currently active stars

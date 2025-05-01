@@ -24,13 +24,12 @@ const DifficultyStars = ({ difficulty }: { difficulty: ActivityDifficulty }) => 
 
 // The main TimeBlock component
 export default function TimeBlock() {
-  const { currentTime, resources, advanceTime } = useGameStore();
+  const { currentTime, resources } = useGameStore();
   const { 
     availableActivities, 
     currentActivity, 
     generateAvailableActivities, 
-    selectActivity,
-    completeActivity
+    selectActivity
   } = useActivityStore();
   
   // Generate available activities when time changes

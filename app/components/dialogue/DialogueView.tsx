@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useDialogueStore } from '@/app/store/dialogueStore';
 import DialogueContainer from './DialogueContainer';
-import DialogueActivity from './DialogueActivity';
+import { DialogueActivity } from './DialogueActivity';
 import { Dialogue } from '@/app/data/dialogueData';
 
 interface DialogueViewProps {
@@ -60,7 +60,9 @@ export default function DialogueView({ filter }: DialogueViewProps) {
   if (selectedDialogue) {
     return (
       <DialogueActivity 
+        activityId={`dialogue_activity_${selectedDialogue}`}
         dialogueId={selectedDialogue} 
+        duration={60} // Default duration for dialogue activities
         onComplete={() => setSelectedDialogue(null)}
       />
     );

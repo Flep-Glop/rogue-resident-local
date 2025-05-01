@@ -2,12 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useDialogueStore } from '@/app/store/dialogueStore';
-import { DialogueOption } from '@/app/data/dialogueData';
+import { DialogueOption } from '@/app/types';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
+import Image from 'next/image';
+
+interface DialogueResult {
+  dialogueId: string;
+  completed: boolean;
+}
 
 interface DialogueContainerProps {
   dialogueId: string;
-  onComplete?: (results: any) => void;
+  onComplete?: (results: DialogueResult) => void;
 }
 
 export default function DialogueContainer({ dialogueId, onComplete }: DialogueContainerProps) {
@@ -64,7 +70,7 @@ export default function DialogueContainer({ dialogueId, onComplete }: DialogueCo
     }, typingSpeed);
     
     return () => clearInterval(intervalId);
-  }, [currentNode]);
+  }, [currentNode, currentCharIndex]);
   
   // Handle dialogue completion
   useEffect(() => {
@@ -87,7 +93,9 @@ export default function DialogueContainer({ dialogueId, onComplete }: DialogueCo
   
   // Handle selecting an option
   const handleSelectOption = (option: DialogueOption) => {
-    selectOption(option.id);
+    if (option.id) {
+      selectOption(option.id);
+    }
   };
   
   // Cancel dialogue
@@ -133,10 +141,12 @@ export default function DialogueContainer({ dialogueId, onComplete }: DialogueCo
           <>
             <div className="w-12 h-12 rounded-full bg-slate-700 overflow-hidden mr-3">
               {mentor.portrait && (
-                <img 
+                <Image
                   src={mentor.portrait} 
                   alt={mentor.name} 
                   className="w-full h-full object-cover"
+                  width={48}
+                  height={48}
                 />
               )}
             </div>

@@ -1,22 +1,197 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import styled from 'styled-components';
 import { useGameStore } from '@/app/store/gameStore';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
-import { GameEventType, GamePhase, KnowledgeDomain, Season } from '@/app/types';
+import { GameEventType, GamePhase, KnowledgeDomain, Season, MentorId } from '@/app/types';
 import { useActivityStore } from '@/app/store/activityStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { useJournalStore } from '@/app/store/journalStore';
 import { useDialogueStore } from '@/app/store/dialogueStore';
 import { dialogues } from '@/app/data/dialogueData';
+import pixelTheme, { colors, spacing, typography, borders, shadows } from '@/app/styles/pixelTheme';
+import { initializeKnowledgeStore } from '@/app/data/conceptData';
+import { shuffle } from 'lodash';
 
-type MentorId = 'garcia' | 'kapoor' | 'jesse' | 'quinn';
+// Styled components
+const DebugButton = styled.button`
+  position: fixed;
+  top: ${spacing.md};
+  right: ${spacing.md};
+  background-color: ${colors.backgroundAlt};
+  color: ${colors.text};
+  padding: ${spacing.xs} ${spacing.sm};
+  font-family: ${typography.fontFamily.pixel};
+  font-size: ${typography.fontSize.sm};
+  border: none;
+  border-radius: 4px;
+  box-shadow: ${shadows.pixelDrop};
+  cursor: pointer;
+  z-index: 50;
+  
+  &:hover {
+    background-color: ${colors.highlight};
+  }
+`;
+
+const PanelContainer = styled.div`
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 320px;
+  height: 100vh;
+  background-color: ${colors.background};
+  color: ${colors.text};
+  overflow-y: auto;
+  box-shadow: -4px 0 8px rgba(0, 0, 0, 0.3);
+  z-index: 50;
+  padding: ${spacing.md};
+  ${pixelTheme.mixins.scrollable}
+  ${pixelTheme.mixins.pixelPerfect}
+  border-left: ${borders.medium};
+`;
+
+const PanelHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: ${spacing.md};
+`;
+
+const PanelTitle = styled.h2`
+  font-size: ${typography.fontSize.lg};
+  font-weight: bold;
+  text-shadow: ${typography.textShadow.pixel};
+`;
+
+const CloseButton = styled.button`
+  background-color: ${colors.backgroundAlt};
+  color: ${colors.text};
+  padding: ${spacing.xs} ${spacing.sm};
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  
+  &:hover {
+    background-color: ${colors.error};
+  }
+`;
+
+const SectionsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${spacing.lg};
+`;
+
+const Section = styled.section`
+  border-bottom: ${borders.thin};
+  padding-bottom: ${spacing.md};
+  
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+const SectionTitle = styled.h3`
+  font-size: ${typography.fontSize.md};
+  font-weight: semibold;
+  margin-bottom: ${spacing.sm};
+  text-shadow: ${typography.textShadow.pixel};
+`;
+
+const StatusRow = styled.div`
+  font-size: ${typography.fontSize.sm};
+  margin-bottom: ${spacing.xs};
+`;
+
+const StatusLabel = styled.span`
+  margin-right: ${spacing.xs};
+`;
+
+const StatusValue = styled.span<{ $color?: string }>`
+  color: ${props => props.$color || colors.highlight};
+`;
+
+const ButtonRow = styled.div`
+  display: flex;
+  gap: ${spacing.xs};
+  margin-top: ${spacing.xs};
+`;
+
+const ButtonGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: ${spacing.xs};
+`;
+
+const PixelButton = styled.button<{ 
+  $color?: string;
+  $disabled?: boolean;
+  $fullWidth?: boolean;
+}>`
+  background-color: ${props => 
+    props.$disabled 
+      ? colors.inactive 
+      : props.$color || colors.backgroundAlt
+  };
+  color: ${colors.text};
+  padding: ${spacing.xs} ${spacing.sm};
+  font-size: ${typography.fontSize.xs};
+  border: none;
+  border-radius: 4px;
+  cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
+  width: ${props => props.$fullWidth ? '100%' : 'auto'};
+  transition: background-color 0.2s;
+  
+  &:hover {
+    background-color: ${props => 
+      props.$disabled 
+        ? colors.inactive 
+        : props.$color 
+          ? `${props.$color}dd` // Add some transparency for hover effect
+          : colors.highlight
+    };
+  }
+`;
+
+const SelectWrapper = styled.div`
+  margin-bottom: ${spacing.sm};
+`;
+
+const SelectLabel = styled.label`
+  display: block;
+  font-size: ${typography.fontSize.sm};
+  margin-bottom: ${spacing.xs};
+`;
+
+const PixelSelect = styled.select`
+  width: 100%;
+  background-color: ${colors.backgroundAlt};
+  color: ${colors.text};
+  border: ${borders.thin};
+  border-radius: 4px;
+  padding: ${spacing.xs};
+  font-size: ${typography.fontSize.sm};
+  margin-bottom: ${spacing.xs};
+  
+  &:focus {
+    outline: none;
+    border-color: ${colors.highlight};
+  }
+`;
+
+const SmallText = styled.p`
+  font-size: ${typography.fontSize.xs};
+  margin-top: ${spacing.xs};
+  color: ${colors.textDim};
+`;
 
 export default function DebugPanel() {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedConceptId, setSelectedConceptId] = useState<string>('');
-  const [selectedMentorId, setSelectedMentorId] = useState<MentorId | ''>('');
-  const [selectedDialogueId, setSelectedDialogueId] = useState<string>('');
+  const [selectedConceptId, setSelectedConceptId] = useState<string>("");
+  const [selectedMentorId, setSelectedMentorId] = useState<MentorId>(MentorId.GARCIA);
+  const [selectedDialogueId, setSelectedDialogueId] = useState<string>("");
   
   const { 
     currentPhase, 
@@ -55,6 +230,14 @@ export default function DebugPanel() {
   const mentors = useDialogueStore(state => state.mentors);
   const updateMentorRelationship = useDialogueStore(state => state.updateMentorRelationship);
   
+  // Initialize knowledge store when component mounts
+  useEffect(() => {
+    console.log('DebugPanel: Initializing knowledge store...');
+    initializeKnowledgeStore(useKnowledgeStore);
+    console.log('DebugPanel: Knowledge store initialized');
+    console.log('Stars after initialization:', useKnowledgeStore.getState().stars);
+  }, []);
+  
   // Toggle debug panel visibility
   const togglePanel = useCallback(() => {
     setIsExpanded(!isExpanded);
@@ -84,10 +267,30 @@ export default function DebugPanel() {
   
   // Knowledge controls
   const discoverSelectedConcept = useCallback(() => {
+    console.log('Attempting to discover concept:', selectedConceptId);
+    console.log('Current stars object:', stars);
+    
     if (selectedConceptId) {
+      console.log('Stars object has this ID?', !!stars[selectedConceptId]);
+      console.log('Star object:', stars[selectedConceptId]);
+      
+      // Check if the concept is already discovered
+      if (stars[selectedConceptId]?.discovered) {
+        console.log('Concept is already discovered:', selectedConceptId);
+        console.log(`${stars[selectedConceptId].name} is already discovered!`);
+        return;
+      }
+      
       discoverConcept(selectedConceptId, 'debug_panel');
+      
+      // Log after discovery attempt
+      setTimeout(() => {
+        console.log('Post-discovery - Star discovered?', 
+          useKnowledgeStore.getState().stars[selectedConceptId]?.discovered);
+        console.log(`Discovered: ${stars[selectedConceptId].name}`);
+      }, 100);
     }
-  }, [selectedConceptId, discoverConcept]);
+  }, [selectedConceptId, discoverConcept, stars]);
   
   const unlockSelectedConcept = useCallback(() => {
     if (selectedConceptId) {
@@ -123,9 +326,9 @@ export default function DebugPanel() {
   const addMentorNote = useCallback(() => {
     if (selectedMentorId) {
       addMentorEntry(
-        selectedMentorId as MentorId,
-        `Notes from meeting with ${getMentorName(selectedMentorId as MentorId)}`,
-        `This is a record of my meeting with ${getMentorName(selectedMentorId as MentorId)}. Added via debug panel.`
+        selectedMentorId,
+        `Notes from meeting with ${getMentorName(selectedMentorId)}`,
+        `This is a record of my meeting with ${getMentorName(selectedMentorId)}. Added via debug panel.`
       );
     }
   }, [selectedMentorId, addMentorEntry]);
@@ -133,10 +336,10 @@ export default function DebugPanel() {
   // Get mentor name from ID
   const getMentorName = (mentorId: MentorId) => {
     const mentorNames: Record<MentorId, string> = {
-      garcia: 'Dr. Garcia',
-      kapoor: 'Dr. Kapoor',
-      jesse: 'Jesse',
-      quinn: 'Dr. Quinn'
+      [MentorId.GARCIA]: 'Dr. Garcia',
+      [MentorId.KAPOOR]: 'Dr. Kapoor',
+      [MentorId.JESSE]: 'Jesse',
+      [MentorId.QUINN]: 'Dr. Quinn'
     };
     
     return mentorNames[mentorId] || mentorId;
@@ -172,189 +375,183 @@ export default function DebugPanel() {
   // If panel is collapsed, just show the toggle button
   if (!isExpanded) {
     return (
-      <button
-        onClick={togglePanel}
-        className="fixed top-4 right-4 bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 rounded-md text-sm shadow-lg z-50"
-      >
+      <DebugButton onClick={togglePanel}>
         🛠️ Debug
-      </button>
+      </DebugButton>
     );
   }
   
   return (
-    <div className="fixed top-0 right-0 w-80 h-screen bg-gray-900 text-white overflow-y-auto shadow-lg z-50 p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-bold">Debug Panel</h2>
-        <button
-          onClick={togglePanel}
-          className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded"
-        >
+    <PanelContainer>
+      <PanelHeader>
+        <PanelTitle>Debug Panel</PanelTitle>
+        <CloseButton onClick={togglePanel}>
           ✕
-        </button>
-      </div>
+        </CloseButton>
+      </PanelHeader>
       
-      <div className="space-y-6">
+      <SectionsContainer>
         {/* Game State */}
-        <section className="border-b border-gray-700 pb-4">
-          <h3 className="text-md font-semibold mb-2">Game State</h3>
-          <div className="text-sm space-y-1">
-            <p>Phase: <span className="text-blue-400">{currentPhase}</span></p>
-            <p>Season: <span className="text-green-400">{currentSeason}</span></p>
-            <p>Day: <span className="text-yellow-400">{daysPassed + 1}</span></p>
-            <p>Time: <span className="text-purple-400">{currentTime.hour}:{currentTime.minute.toString().padStart(2, '0')}</span></p>
-          </div>
-        </section>
+        <Section>
+          <SectionTitle>Game State</SectionTitle>
+          <StatusRow>
+            <StatusLabel>Phase:</StatusLabel>
+            <StatusValue $color={colors.treatmentPlanning}>{currentPhase}</StatusValue>
+          </StatusRow>
+          <StatusRow>
+            <StatusLabel>Season:</StatusLabel>
+            <StatusValue $color={colors.radiationTherapy}>{currentSeason}</StatusValue>
+          </StatusRow>
+          <StatusRow>
+            <StatusLabel>Day:</StatusLabel>
+            <StatusValue $color={colors.linacAnatomy}>{daysPassed + 1}</StatusValue>
+          </StatusRow>
+          <StatusRow>
+            <StatusLabel>Time:</StatusLabel>
+            <StatusValue $color={colors.dosimetry}>
+              {currentTime.hour}:{currentTime.minute.toString().padStart(2, '0')}
+            </StatusValue>
+          </StatusRow>
+        </Section>
         
         {/* Resources */}
-        <section className="border-b border-gray-700 pb-4">
-          <h3 className="text-md font-semibold mb-2">Resources</h3>
-          <div className="text-sm space-y-1">
-            <p>Momentum: <span className="text-yellow-400">{resources.momentum}/3</span></p>
-            <p>Insight: <span className="text-blue-400">{resources.insight}</span></p>
-            <p>Star Points: <span className="text-purple-400">{resources.starPoints}</span></p>
-          </div>
-        </section>
+        <Section>
+          <SectionTitle>Resources</SectionTitle>
+          <StatusRow>
+            <StatusLabel>Momentum:</StatusLabel>
+            <StatusValue $color={colors.momentum}>{resources.momentum}/3</StatusValue>
+          </StatusRow>
+          <StatusRow>
+            <StatusLabel>Insight:</StatusLabel>
+            <StatusValue $color={colors.insight}>{resources.insight}</StatusValue>
+          </StatusRow>
+          <StatusRow>
+            <StatusLabel>Star Points:</StatusLabel>
+            <StatusValue $color={colors.starPoints}>{resources.starPoints}</StatusValue>
+          </StatusRow>
+        </Section>
         
         {/* Phase Controls */}
-        <section className="border-b border-gray-700 pb-4">
-          <h3 className="text-md font-semibold mb-2">Phase Controls</h3>
-          <div className="flex space-x-2">
-            <button 
+        <Section>
+          <SectionTitle>Phase Controls</SectionTitle>
+          <ButtonRow>
+            <PixelButton 
               onClick={switchToDay}
-              className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm"
-              disabled={currentPhase === GamePhase.DAY}
+              $color={colors.treatmentPlanning}
+              $disabled={currentPhase === GamePhase.DAY}
             >
               Day Phase
-            </button>
-            <button 
+            </PixelButton>
+            <PixelButton 
               onClick={switchToNight}
-              className="bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded text-sm"
-              disabled={currentPhase === GamePhase.NIGHT}
+              $color={colors.highlight}
+              $disabled={currentPhase === GamePhase.NIGHT}
             >
               Night Phase
-            </button>
-          </div>
-        </section>
+            </PixelButton>
+          </ButtonRow>
+        </Section>
         
         {/* Time Controls */}
-        <section className="border-b border-gray-700 pb-4">
-          <h3 className="text-md font-semibold mb-2">Time Controls</h3>
-          <div className="grid grid-cols-2 gap-2">
-            <button 
-              onClick={advanceBy60}
-              className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm"
-            >
+        <Section>
+          <SectionTitle>Time Controls</SectionTitle>
+          <ButtonGrid>
+            <PixelButton onClick={advanceBy60}>
               +1 hour
-            </button>
-            <button 
-              onClick={advanceBy120}
-              className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm"
-            >
+            </PixelButton>
+            <PixelButton onClick={advanceBy120}>
               +2 hours
-            </button>
-            <button 
-              onClick={jumpToEndOfDay}
-              className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-sm"
-            >
+            </PixelButton>
+            <PixelButton onClick={jumpToEndOfDay}>
               End day
-            </button>
-            <button 
-              onClick={resetDay}
-              className="bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-sm"
-            >
+            </PixelButton>
+            <PixelButton onClick={resetDay} $color={colors.error}>
               Reset to 8 AM
-            </button>
-          </div>
-        </section>
+            </PixelButton>
+          </ButtonGrid>
+        </Section>
         
         {/* Resource Controls */}
-        <section className="border-b border-gray-700 pb-4">
-          <h3 className="text-md font-semibold mb-2">Resource Controls</h3>
+        <Section>
+          <SectionTitle>Resource Controls</SectionTitle>
           
-          <div className="mb-2">
-            <p className="text-sm mb-1">Momentum:</p>
-            <div className="flex space-x-2">
-              <button 
-                onClick={addMomentumPoint}
-                className="bg-yellow-700 hover:bg-yellow-600 px-2 py-1 rounded text-xs"
-              >
-                +1
-              </button>
-              <button 
-                onClick={maxMomentum}
-                className="bg-yellow-700 hover:bg-yellow-600 px-2 py-1 rounded text-xs"
-              >
-                Max (3)
-              </button>
-              <button 
-                onClick={clearMomentum}
-                className="bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-xs"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
+          <StatusLabel>Momentum:</StatusLabel>
+          <ButtonRow>
+            <PixelButton 
+              onClick={addMomentumPoint}
+              $color={colors.momentum}
+            >
+              +1
+            </PixelButton>
+            <PixelButton 
+              onClick={maxMomentum}
+              $color={colors.momentum}
+            >
+              Max (3)
+            </PixelButton>
+            <PixelButton 
+              onClick={clearMomentum}
+              $color={colors.error}
+            >
+              Reset
+            </PixelButton>
+          </ButtonRow>
           
-          <div className="mb-2">
-            <p className="text-sm mb-1">Insight:</p>
-            <div className="flex space-x-2">
-              <button 
-                onClick={add10Insight}
-                className="bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-xs"
-              >
-                +10
-              </button>
-              <button 
-                onClick={add25Insight}
-                className="bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-xs"
-              >
-                +25
-              </button>
-              <button 
-                onClick={add50Insight}
-                className="bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-xs"
-              >
-                +50
-              </button>
-            </div>
-          </div>
+          <StatusLabel>Insight:</StatusLabel>
+          <ButtonRow>
+            <PixelButton 
+              onClick={add10Insight}
+              $color={colors.insight}
+            >
+              +10
+            </PixelButton>
+            <PixelButton 
+              onClick={add25Insight}
+              $color={colors.insight}
+            >
+              +25
+            </PixelButton>
+            <PixelButton 
+              onClick={add50Insight}
+              $color={colors.insight}
+            >
+              +50
+            </PixelButton>
+          </ButtonRow>
           
-          <div>
-            <p className="text-sm mb-1">Star Points:</p>
-            <div className="flex space-x-2">
-              <button 
-                onClick={add1SP}
-                className="bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-xs"
-              >
-                +1
-              </button>
-              <button 
-                onClick={add5SP}
-                className="bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-xs"
-              >
-                +5
-              </button>
-              <button 
-                onClick={add10SP}
-                className="bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-xs"
-              >
-                +10
-              </button>
-            </div>
-          </div>
-        </section>
+          <StatusLabel>Star Points:</StatusLabel>
+          <ButtonRow>
+            <PixelButton 
+              onClick={add1SP}
+              $color={colors.starPoints}
+            >
+              +1
+            </PixelButton>
+            <PixelButton 
+              onClick={add5SP}
+              $color={colors.starPoints}
+            >
+              +5
+            </PixelButton>
+            <PixelButton 
+              onClick={add10SP}
+              $color={colors.starPoints}
+            >
+              +10
+            </PixelButton>
+          </ButtonRow>
+        </Section>
         
         {/* Knowledge Controls */}
-        <section className="border-b border-gray-700 pb-4">
-          <h3 className="text-md font-semibold mb-2">Knowledge Controls</h3>
+        <Section>
+          <SectionTitle>Knowledge Controls</SectionTitle>
           
-          <div className="mb-3">
-            <label htmlFor="concept-select" className="text-sm block mb-1">Select Concept:</label>
-            <select
+          <SelectWrapper>
+            <SelectLabel htmlFor="concept-select">Select Concept:</SelectLabel>
+            <PixelSelect
               id="concept-select"
               value={selectedConceptId}
               onChange={(e) => setSelectedConceptId(e.target.value)}
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded p-1 text-sm"
             >
               <option value="">-- Choose a concept --</option>
               {Object.values(stars).map(star => (
@@ -362,162 +559,215 @@ export default function DebugPanel() {
                   {star.name} ({star.discovered ? 'Discovered' : 'Hidden'})
                 </option>
               ))}
-            </select>
-          </div>
+            </PixelSelect>
+          </SelectWrapper>
           
-          <div className="grid grid-cols-2 gap-2">
-            <button 
+          <ButtonGrid>
+            <PixelButton 
               onClick={discoverSelectedConcept}
-              className="bg-green-700 hover:bg-green-600 px-2 py-1 rounded text-xs"
-              disabled={!selectedConceptId}
+              $color={colors.radiationTherapy}
+              $disabled={!selectedConceptId || stars[selectedConceptId]?.discovered}
             >
               Discover
-            </button>
-            <button 
+            </PixelButton>
+            <PixelButton 
               onClick={unlockSelectedConcept}
-              className="bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-xs"
-              disabled={!selectedConceptId}
+              $color={colors.treatmentPlanning}
+              $disabled={!selectedConceptId}
             >
               Unlock
-            </button>
-            <button 
+            </PixelButton>
+            <PixelButton 
               onClick={toggleActiveSelectedConcept}
-              className="bg-indigo-700 hover:bg-indigo-600 px-2 py-1 rounded text-xs"
-              disabled={!selectedConceptId}
+              $color={colors.highlight}
+              $disabled={!selectedConceptId}
             >
               Toggle Active
-            </button>
-            <button 
+            </PixelButton>
+            <PixelButton 
               onClick={() => increaseMasterySelectedConcept(10)}
-              className="bg-purple-700 hover:bg-purple-600 px-2 py-1 rounded text-xs"
-              disabled={!selectedConceptId}
+              $color={colors.dosimetry}
+              $disabled={!selectedConceptId}
             >
               +10% Mastery
-            </button>
-          </div>
+            </PixelButton>
+          </ButtonGrid>
           
-          <div className="mt-2 text-xs">
-            <p>Concepts discovered today: {discoveredToday.length}</p>
-          </div>
-        </section>
+          {/* Add new button for discovering multiple stars */}
+          <ButtonRow style={{ marginTop: spacing.sm }}>
+            <PixelButton 
+              onClick={() => {
+                // Find all undiscovered stars
+                const undiscoveredStars = Object.values(stars).filter(star => !star.discovered);
+                
+                // If no undiscovered stars, show a message
+                if (undiscoveredStars.length === 0) {
+                  console.log('All stars have already been discovered!');
+                  return;
+                }
+                
+                // Randomly select 3 (or fewer if less are available)
+                const starsToDiscover = shuffle(undiscoveredStars).slice(0, 3);
+                
+                // Discover each selected star
+                starsToDiscover.forEach(star => {
+                  discoverConcept(star.id, 'debug_panel_bulk');
+                });
+                
+                // Log to console instead of showing alert
+                console.log(`Discovered ${starsToDiscover.length} stars: ${starsToDiscover.map(s => s.name).join(', ')}`);
+              }}
+              $color={colors.starGlow}
+              $fullWidth
+            >
+              Discover 3 Random Stars
+            </PixelButton>
+          </ButtonRow>
+          
+          <SmallText>
+            Concepts discovered today: {discoveredToday.length}
+          </SmallText>
+        </Section>
         
         {/* Journal Controls */}
-        <section className="border-b border-gray-700 pb-4">
-          <h3 className="text-md font-semibold mb-2">Journal Controls</h3>
+        <Section>
+          <SectionTitle>Journal Controls</SectionTitle>
           
-          <div className="mb-3">
-            <button 
-              onClick={addConceptNote}
-              className="bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-sm w-full"
-              disabled={!selectedConceptId}
-            >
-              Add Note for Selected Concept
-            </button>
-          </div>
+          <PixelButton 
+            onClick={addConceptNote}
+            $color={colors.treatmentPlanning}
+            $disabled={!selectedConceptId}
+            $fullWidth
+          >
+            Add Note for Selected Concept
+          </PixelButton>
           
-          <div className="mb-2">
-            <label htmlFor="mentor-select" className="text-sm block mb-1">Select Mentor:</label>
-            <select
+          <SelectWrapper>
+            <SelectLabel htmlFor="mentor-select">Select Mentor:</SelectLabel>
+            <PixelSelect
               id="mentor-select"
               value={selectedMentorId}
-              onChange={(e) => setSelectedMentorId(e.target.value as MentorId)}
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded p-1 text-sm"
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === MentorId.GARCIA || 
+                    value === MentorId.KAPOOR || 
+                    value === MentorId.JESSE || 
+                    value === MentorId.QUINN) {
+                  setSelectedMentorId(value);
+                }
+              }}
             >
-              <option value="">-- Choose a mentor --</option>
-              <option value="garcia">Dr. Garcia</option>
-              <option value="kapoor">Dr. Kapoor</option>
-              <option value="jesse">Jesse</option>
-              <option value="quinn">Dr. Quinn</option>
-            </select>
-          </div>
+              <option value={MentorId.GARCIA}>Dr. Garcia</option>
+              <option value={MentorId.KAPOOR}>Dr. Kapoor</option>
+              <option value={MentorId.JESSE}>Jesse</option>
+              <option value={MentorId.QUINN}>Dr. Quinn</option>
+            </PixelSelect>
+          </SelectWrapper>
           
-          <button 
+          <PixelButton 
             onClick={addMentorNote}
-            className="bg-green-700 hover:bg-green-600 px-2 py-1 rounded text-sm w-full"
-            disabled={!selectedMentorId}
+            $color={colors.radiationTherapy}
+            $disabled={!selectedMentorId}
+            $fullWidth
           >
             Add Note for Selected Mentor
-          </button>
-        </section>
+          </PixelButton>
+        </Section>
         
         {/* Dialogue Controls */}
-        <section className="border-b border-gray-700 pb-4">
-          <h3 className="text-md font-semibold mb-2">Dialogue Controls</h3>
+        <Section>
+          <SectionTitle>Dialogue Controls</SectionTitle>
           
           {/* Select dialogue */}
-          <div className="mb-3">
-            <label className="block text-sm mb-1">Select Dialogue:</label>
-            <select
+          <SelectWrapper>
+            <SelectLabel>Select Dialogue:</SelectLabel>
+            <PixelSelect
               value={selectedDialogueId}
               onChange={(e) => setSelectedDialogueId(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
             >
               <option value="">-- Select Dialogue --</option>
               {Object.keys(dialogues).map(id => (
                 <option key={id} value={id}>{dialogues[id].title}</option>
               ))}
-            </select>
-            <button
+            </PixelSelect>
+            <PixelButton
               onClick={startSelectedDialogue}
-              disabled={!selectedDialogueId}
-              className="mt-2 bg-blue-800 hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-600 px-3 py-1 rounded text-sm w-full"
+              $disabled={!selectedDialogueId}
+              $color={colors.treatmentPlanning}
+              $fullWidth
             >
               Start Dialogue
-            </button>
-          </div>
+            </PixelButton>
+          </SelectWrapper>
           
           {/* Mentor relationships */}
-          <div className="mb-3">
-            <label className="block text-sm mb-1">Select Mentor:</label>
-            <select
+          <SelectWrapper>
+            <SelectLabel>Select Mentor:</SelectLabel>
+            <PixelSelect
               value={selectedMentorId}
-              onChange={(e) => setSelectedMentorId(e.target.value as MentorId | '')}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm"
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === MentorId.GARCIA || 
+                    value === MentorId.KAPOOR || 
+                    value === MentorId.JESSE || 
+                    value === MentorId.QUINN) {
+                  setSelectedMentorId(value);
+                }
+              }}
             >
-              <option value="">-- Select Mentor --</option>
-              {Object.keys(mentors).map(id => (
-                <option key={id} value={id}>{mentors[id].name}</option>
-              ))}
-            </select>
-            <div className="flex space-x-1 mt-2">
-              <button
+              <option value={MentorId.GARCIA}>Dr. Garcia</option>
+              <option value={MentorId.KAPOOR}>Dr. Kapoor</option>
+              <option value={MentorId.JESSE}>Jesse</option>
+              <option value={MentorId.QUINN}>Dr. Quinn</option>
+            </PixelSelect>
+            <ButtonRow>
+              <PixelButton
                 onClick={() => increaseMentorRelationship(5)}
-                disabled={!selectedMentorId}
-                className="bg-green-800 hover:bg-green-700 disabled:bg-gray-800 disabled:text-gray-600 px-2 py-1 rounded text-xs flex-1"
+                $disabled={!selectedMentorId}
+                $color={colors.radiationTherapy}
               >
                 +5 Relationship
-              </button>
-              <button
+              </PixelButton>
+              <PixelButton
                 onClick={() => increaseMentorRelationship(10)}
-                disabled={!selectedMentorId}
-                className="bg-green-800 hover:bg-green-700 disabled:bg-gray-800 disabled:text-gray-600 px-2 py-1 rounded text-xs flex-1"
+                $disabled={!selectedMentorId}
+                $color={colors.radiationTherapy}
               >
                 +10 Relationship
-              </button>
-            </div>
-          </div>
-        </section>
+              </PixelButton>
+            </ButtonRow>
+          </SelectWrapper>
+        </Section>
         
         {/* Miscellaneous Controls */}
-        <section>
-          <h3 className="text-md font-semibold mb-2">Misc. Controls</h3>
+        <Section>
+          <SectionTitle>Misc. Controls</SectionTitle>
           
-          <div className="grid grid-cols-2 gap-2">
-            <button 
+          <ButtonGrid>
+            <PixelButton 
               onClick={cycleSeason}
-              className="bg-green-700 hover:bg-green-600 px-2 py-1 rounded text-sm"
+              $color={colors.radiationTherapy}
             >
               Change Season
-            </button>
-            <button 
+            </PixelButton>
+            <PixelButton 
               onClick={refreshActivities}
-              className="bg-blue-700 hover:bg-blue-600 px-2 py-1 rounded text-sm"
+              $color={colors.treatmentPlanning}
             >
               Refresh Activities
-            </button>
-          </div>
-        </section>
-      </div>
-    </div>
+            </PixelButton>
+            <PixelButton 
+              onClick={() => {
+                initializeKnowledgeStore(useKnowledgeStore);
+                console.log('Knowledge store has been re-initialized!');
+              }}
+              $color={colors.dosimetry}
+            >
+              Reset Knowledge
+            </PixelButton>
+          </ButtonGrid>
+        </Section>
+      </SectionsContainer>
+    </PanelContainer>
   );
 } 

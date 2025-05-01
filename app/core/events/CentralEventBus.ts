@@ -7,8 +7,11 @@
 
 import { GameEventType } from '@/app/types';
 
+// Define a generic type for event payload
+export type EventPayload = Record<string, unknown>;
+
 // Generic event payload interface
-export interface GameEvent<T = any> {
+export interface GameEvent<T = EventPayload> {
   type: GameEventType;
   payload?: T;
   source?: string;
@@ -16,7 +19,7 @@ export interface GameEvent<T = any> {
 }
 
 // Subscriber function type
-type EventSubscriber<T = any> = (event: GameEvent<T>) => void;
+type EventSubscriber<T = EventPayload> = (event: GameEvent<T>) => void;
 
 class CentralEventBus {
   private subscribers: Map<GameEventType, Set<EventSubscriber>> = new Map();
@@ -27,7 +30,7 @@ class CentralEventBus {
   /**
    * Dispatch an event to all subscribers
    */
-  public dispatch<T>(type: GameEventType, payload?: T, source?: string): void {
+  public dispatch<T extends EventPayload>(type: GameEventType, payload?: T, source?: string): void {
     const event: GameEvent<T> = {
       type,
       payload,
@@ -59,7 +62,7 @@ class CentralEventBus {
   /**
    * Safe dispatch with additional error handling
    */
-  public safeDispatch<T>(type: GameEventType, payload?: T, source?: string): void {
+  public safeDispatch<T extends EventPayload>(type: GameEventType, payload?: T, source?: string): void {
     try {
       this.dispatch(type, payload, source);
     } catch (error) {
@@ -70,7 +73,7 @@ class CentralEventBus {
   /**
    * Subscribe to an event type
    */
-  public subscribe<T>(type: GameEventType, subscriber: EventSubscriber<T>): () => void {
+  public subscribe<T extends EventPayload>(type: GameEventType, subscriber: EventSubscriber<T>): () => void {
     if (!this.subscribers.has(type)) {
       this.subscribers.set(type, new Set());
     }
@@ -90,7 +93,7 @@ class CentralEventBus {
   /**
    * Unsubscribe from an event type
    */
-  public unsubscribe<T>(type: GameEventType, subscriber: EventSubscriber<T>): void {
+  public unsubscribe<T extends EventPayload>(type: GameEventType, subscriber: EventSubscriber<T>): void {
     const subscribers = this.subscribers.get(type);
     if (subscribers) {
       subscribers.delete(subscriber as EventSubscriber);
@@ -118,7 +121,7 @@ class CentralEventBus {
   /**
    * Get recent events of a specific type
    */
-  public getRecentEvents<T>(type: GameEventType, limit: number = 10): GameEvent<T>[] {
+  public getRecentEvents<T extends EventPayload>(type: GameEventType, limit: number = 10): GameEvent<T>[] {
     return this.eventHistory
       .filter(event => event.type === type)
       .slice(-limit) as GameEvent<T>[];
@@ -148,7 +151,7 @@ export const centralEventBus = new CentralEventBus();
 // React hook for subscribing to events with automatic cleanup
 import { useEffect } from 'react';
 
-export function useEventSubscription<T = any>(
+export function useEventSubscription<T extends EventPayload = EventPayload>(
   type: GameEventType | GameEventType[],
   handler: EventSubscriber<T>,
   deps: React.DependencyList = []

@@ -1,78 +1,67 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React from 'react';
+import { styled } from 'styled-components';
 import DialogueContainer from './DialogueContainer';
-import { useTimeStore } from '@/app/store/timeStore';
+import { useGameStore } from '@/app/store/gameStore';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/types';
 
-interface DialogueActivityProps {
-  dialogueId: string;
-  duration?: number; // Default duration in minutes
-  onComplete?: (results: any) => void;
+interface DialogueResult {
+  responses: Record<string, string>;
+  choices: Record<string, string>;
 }
 
-export default function DialogueActivity({
-  dialogueId,
-  duration = 60,
-  onComplete
-}: DialogueActivityProps) {
-  const [results, setResults] = useState<any | null>(null);
-  const advanceTime = useTimeStore(state => state.advanceTime);
+interface DialogueActivityProps {
+  activityId: string;
+  dialogueId: string;
+  duration: number;
+  onComplete?: (results: DialogueResult) => void;
+}
+
+const DialogueActivityContainer = styled.div`
+  width: 100%;
+  height: 100%;
+  position: relative;
+`;
+
+export const DialogueActivity: React.FC<DialogueActivityProps> = ({ 
+  activityId, 
+  dialogueId, 
+  duration, 
+  onComplete 
+}) => {
+  // Get advanceTime function from gameStore
+  const advanceTime = useGameStore(state => state.advanceTime);
   
   // Handle dialogue completion
-  const handleDialogueComplete = (dialogueResults: any) => {
-    setResults(dialogueResults);
-    
+  const handleDialogueComplete = (results: DialogueResult) => {
     // Advance time when dialogue is complete
-    advanceTime(duration, `dialogue_activity:${dialogueId}`);
+    advanceTime(duration);
     
     // Dispatch activity completed event
-    centralEventBus.safeDispatch(
+    centralEventBus.dispatch(
       GameEventType.ACTIVITY_COMPLETED,
       {
-        activityType: 'dialogue',
+        activityId,
         dialogueId,
-        results: dialogueResults
+        results
       },
       'DialogueActivity.handleDialogueComplete'
     );
     
-    // Call parent onComplete if provided
+    // Call onComplete callback
     if (onComplete) {
-      onComplete({
-        ...dialogueResults,
-        duration
-      });
+      onComplete(results);
     }
   };
   
-  // If we have results, show completion
-  if (results) {
-    return (
-      <div className="animate-fadeIn">
-        <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 max-w-3xl mx-auto shadow-lg text-center">
-          <h3 className="text-xl font-semibold text-white mb-2">
-            Dialogue Complete
-          </h3>
-          <p className="text-slate-300 mb-4">
-            You've completed this conversation. Time passes...
-          </p>
-          <div className="text-amber-400 font-mono">
-            +{duration} minutes
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  // Otherwise show dialogue
   return (
-    <div className="animate-fadeIn">
-      <DialogueContainer
+    <DialogueActivityContainer>
+      <DialogueContainer 
         dialogueId={dialogueId}
         onComplete={handleDialogueComplete}
       />
-    </div>
+    </DialogueActivityContainer>
   );
-} 
+}; 

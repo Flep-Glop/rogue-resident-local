@@ -6,6 +6,13 @@ export enum GamePhase {
   NIGHT = 'night',
 }
 
+// Game difficulty settings
+export enum Difficulty {
+  BEGINNER = 'beginner',
+  STANDARD = 'standard',
+  EXPERT = 'expert',
+}
+
 // Game Seasons
 export enum Season {
   SPRING = 'spring',

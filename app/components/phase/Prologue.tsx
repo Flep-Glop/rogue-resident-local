@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import styled from 'styled-components';
 import { useGameStore } from '@/app/store/gameStore';
 import { GamePhase, Difficulty } from '@/app/types';
 import Image from 'next/image';
+import pixelTheme, { colors, typography, animation, components, mixins, borders, shadows, spacing } from '@/app/styles/pixelTheme';
 
 interface DialogueLine {
   text: string;
@@ -18,20 +20,148 @@ interface DialogueChoice {
   effect?: () => void;
 }
 
+// Styled component definitions
+const PrologueContainer = styled.div`
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: linear-gradient(to bottom, ${colors.background}, ${colors.backgroundAlt});
+  color: ${colors.text};
+  font-family: ${typography.fontFamily.pixel};
+  ${mixins.pixelPerfect}
+`;
+
+const BackgroundOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0.2;
+`;
+
+const CharacterPortrait = styled.div`
+  position: absolute;
+  bottom: 210px;
+  left: 150px;
+  width: 384px;
+  height: 384px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+`;
+
+const DialogueBox = styled.div<{ $isNameInput?: boolean, $showChoices: boolean }>`
+  ${components.dialog.container}
+  position: relative;
+  margin: 0 auto ${spacing.lg};
+  width: 83%;
+  max-width: 4xl;
+  cursor: ${props => (!props.$isNameInput && !props.$showChoices) ? 'pointer' : 'default'};
+`;
+
+const DialogueHeader = styled.div`
+  ${components.dialog.header}
+  font-size: ${typography.fontSize.xl};
+  font-weight: medium;
+  margin-bottom: ${spacing.xs};
+`;
+
+const DialogueContent = styled.div`
+  ${components.dialog.content}
+  animation: fadeIn ${animation.duration.normal} ${animation.easing.pixel};
+`;
+
+const NameInputForm = styled.form`
+  margin-top: ${spacing.md};
+  display: flex;
+  flex-direction: column;
+  gap: ${spacing.sm};
+`;
+
+const NameInput = styled.input`
+  padding: ${spacing.xs} ${spacing.md};
+  background-color: ${colors.backgroundAlt};
+  border: ${borders.medium};
+  border-radius: ${spacing.xs};
+  color: ${colors.text};
+  font-family: ${typography.fontFamily.pixel};
+  font-size: ${typography.fontSize.md};
+  outline: none;
+  
+  &:focus {
+    box-shadow: ${shadows.glow(colors.highlight)};
+  }
+`;
+
+const SubmitButton = styled.button<{ $hasText: boolean }>`
+  ${components.button.base}
+  ${components.button.primary}
+  align-self: flex-end;
+  padding: ${spacing.xs} ${spacing.md};
+  border-radius: ${spacing.xs};
+  font-size: ${typography.fontSize.md};
+  opacity: ${props => !props.$hasText ? 0.5 : 1};
+`;
+
+const ChoiceContainer = styled.div`
+  ${components.dialog.options}
+  margin-top: ${spacing.md};
+`;
+
+const ChoiceButton = styled.div`
+  padding: ${spacing.md};
+  background-color: ${colors.backgroundAlt};
+  ${borders.pixelBorder.outer}
+  border-radius: ${spacing.xs};
+  cursor: pointer;
+  transition: all ${animation.duration.fast} ${animation.easing.pixel};
+  
+  &:hover {
+    ${borders.pixelBorder.active(colors.highlight)}
+    background-color: ${colors.highlight};
+  }
+`;
+
+const ContinueButton = styled.div`
+  ${components.button.base}
+  position: absolute;
+  bottom: ${spacing.xs};
+  right: ${spacing.md};
+  padding: ${spacing.xs} ${spacing.md};
+  background-color: ${colors.highlight};
+  border-radius: ${spacing.xs};
+  font-size: ${typography.fontSize.sm};
+`;
+
+const InstructionText = styled.div`
+  position: absolute;
+  bottom: ${spacing.xs};
+  right: ${spacing.md};
+  font-size: ${typography.fontSize.sm};
+  color: ${colors.textDim};
+  text-shadow: ${typography.textShadow.pixel};
+`;
+
 export const Prologue: React.FC = () => {
-  const [currentLineIndex, setCurrentLineIndex] = useState(0);
+  // Use individual selectors instead of object destructuring to avoid recreating objects on every render
   const setPhase = useGameStore(state => state.setPhase);
-  const setDifficulty = useGameStore(state => state.setDifficulty);
   const setPlayerName = useGameStore(state => state.setPlayerName);
-  const [fadeKey, setFadeKey] = useState(0);
+  const setDifficulty = useGameStore(state => state.setDifficulty);
+  
+  const [currentLineIndex, setCurrentLineIndex] = useState(0);
+  const [playerNameInput, setPlayerNameInput] = useState('');
   const [showChoices, setShowChoices] = useState(false);
   const [dialogueMap, setDialogueMap] = useState<Record<string, number>>({});
   const [selectedChoices, setSelectedChoices] = useState<Record<string, string>>({});
-  const [playerNameInput, setPlayerNameInput] = useState('');
+  const [fadeKey, setFadeKey] = useState(0);
+  
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Dialogue script for the prologue with branching support
-  const dialogue: DialogueLine[] = [
+  // Wrap dialogue in useMemo to prevent recreating on every render
+  const dialogue = useMemo(() => [
     { 
       speaker: 'garcia', 
       text: "Welcome to Memorial General Hospital! I'm Dr. Garcia, Radiation Oncologist and Education Coordinator. The building might be all straight lines, but in medical physics, rarely is anything so simple." 
@@ -175,7 +305,7 @@ export const Prologue: React.FC = () => {
       text: "Patient outcomes are indeed what matters most. I'll arrange for you to observe patient consultations early on. We never forget that behind every treatment plan is a person with hopes and fears.",
       id: "patient_garcia_response"
     },
-  ];
+  ], [setDifficulty]);
 
   // Initialize dialogue map on first render
   useEffect(() => {
@@ -186,16 +316,16 @@ export const Prologue: React.FC = () => {
       }
     });
     setDialogueMap(map);
-  }, []);
+  }, [dialogue]);
+
+  const currentLine = dialogue[currentLineIndex] || dialogue[0];
 
   // Focus the name input field when it appears
   useEffect(() => {
     if (currentLine.isNameInput && nameInputRef.current) {
       nameInputRef.current.focus();
     }
-  }, [currentLineIndex]);
-
-  const currentLine = dialogue[currentLineIndex] || dialogue[0];
+  }, [currentLineIndex, currentLine.isNameInput]);
 
   // Replace [PLAYER_NAME] with the actual player name in dialogue
   const getDisplayText = (text: string) => {
@@ -233,10 +363,11 @@ export const Prologue: React.FC = () => {
   // Handle player choice selection
   const handleChoiceSelect = (choice: DialogueChoice) => {
     if (currentLine.id) {
-      setSelectedChoices(prev => ({
-        ...prev,
-        [currentLine.id]: choice.text
-      }));
+      const newSelectedChoices = {...selectedChoices};
+      if (currentLine.id) {
+        newSelectedChoices[currentLine.id] = choice.text;
+      }
+      setSelectedChoices(prev => newSelectedChoices);
     }
 
     if (choice.effect) {
@@ -261,92 +392,106 @@ export const Prologue: React.FC = () => {
     }
   };
 
+  // Define animation for text fadeIn
+  const fadeInAnimation = `
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  `;
+
   return (
-    <div className="min-h-screen flex flex-col justify-end bg-gradient-to-b from-slate-900 to-slate-800 text-white">
+    <PrologueContainer>
       {/* Hospital background */}
-      <div className="absolute inset-0 flex justify-center items-center opacity-20">
+      <BackgroundOverlay>
         <div className="w-full h-full bg-cover bg-center">
-          <img src="/images/hospital-bg.svg" alt="Hospital" className="w-full h-full object-cover" />
+          <Image 
+            src="/images/hospital-bg.svg" 
+            alt="Hospital" 
+            fill
+            className="object-cover"
+            priority
+          />
         </div>
-      </div>
+      </BackgroundOverlay>
       
-      {/* Character portrait - replace with actual character art when available */}
-      <div className="absolute bottom-0 left-8 w-96 h-96">
+      {/* Character portrait */}
+      <CharacterPortrait>
         <Image 
           src="/images/garcia.png" 
           alt="Dr. Garcia" 
           width={384} 
           height={384}
-          className="w-96 h-96"
           style={{ imageRendering: 'pixelated' }}
           priority
         />
-      </div>
+      </CharacterPortrait>
       
-      {/* Dialogue box - now with fixed width and centered */}
-      <div 
-        className="relative mx-auto mb-8 p-6 bg-slate-800 bg-opacity-90 rounded-xl border border-slate-700 shadow-lg cursor-pointer w-5/6 max-w-4xl"
+      {/* Dialogue box */}
+      <DialogueBox 
+        $isNameInput={currentLine.isNameInput}
+        $showChoices={showChoices}
         onClick={(!currentLine.isNameInput && !showChoices) ? advanceDialogue : undefined}
       >
-        <div className="text-xl font-medium mb-2">
+        <DialogueHeader>
           Dr. Garcia
-        </div>
+        </DialogueHeader>
         
-        <div 
-          key={fadeKey} 
-          className="text-lg animate-fade-in"
-        >
+        <DialogueContent key={fadeKey}>
           {getDisplayText(currentLine.text)}
-        </div>
+        </DialogueContent>
         
         {/* Name input form */}
         {currentLine.isNameInput && (
-          <form onSubmit={handleNameSubmit} className="mt-4 flex flex-col space-y-3">
-            <input
+          <NameInputForm onSubmit={handleNameSubmit}>
+            <NameInput
               ref={nameInputRef}
               type="text"
               value={playerNameInput}
               onChange={(e) => setPlayerNameInput(e.target.value)}
               placeholder="Enter your name"
-              className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               maxLength={30}
             />
-            <button 
+            <SubmitButton 
               type="submit"
-              className="self-end px-4 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-md transition-colors"
+              $hasText={Boolean(playerNameInput.trim())}
               disabled={!playerNameInput.trim()}
             >
               Introduce Yourself
-            </button>
-          </form>
+            </SubmitButton>
+          </NameInputForm>
         )}
         
         {/* Choice buttons */}
         {showChoices && currentLine.choices && (
-          <div className="mt-4 space-y-2">
+          <ChoiceContainer>
             {currentLine.choices.map((choice, index) => (
-              <div 
+              <ChoiceButton 
                 key={index}
-                className="p-3 bg-indigo-700 hover:bg-indigo-600 rounded-md transition-colors cursor-pointer"
                 onClick={() => handleChoiceSelect(choice)}
               >
                 {choice.text}
-              </div>
+              </ChoiceButton>
             ))}
-          </div>
+          </ChoiceContainer>
         )}
         
         {/* Continue button */}
         {!showChoices && !currentLine.isNameInput && (
-          <div className="absolute bottom-2 right-4 px-4 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-md transition-colors">
+          <ContinueButton>
             {currentLineIndex < dialogue.length - 1 ? 'Continue' : 'Begin Day 1'}
-          </div>
+          </ContinueButton>
         )}
-      </div>
+      </DialogueBox>
       
-      <div className="absolute bottom-2 right-4 text-sm text-slate-400">
+      <InstructionText>
         {currentLine.isNameInput ? 'Enter your name' : (showChoices ? 'Select a response' : 'Click to continue')}
-      </div>
-    </div>
+      </InstructionText>
+
+      {/* Add keyframes for fade-in animation */}
+      <style jsx global>{`
+        ${fadeInAnimation}
+      `}</style>
+    </PrologueContainer>
   );
 }; 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { DomainColors, KnowledgeDomain } from '@/app/types';
 import { useGameStore } from '@/app/store/gameStore';
@@ -39,11 +39,6 @@ export const ConstellationView: React.FC = () => {
   const activeStars = useMemo(() => 
     stars.filter(star => star.unlocked && star.active), 
   [stars]);
-  
-  // Get newly discovered stars from today
-  const newlyDiscoveredStars = useMemo(() => 
-    discoveredTodayIds.map(id => starsObject[id]).filter(Boolean),
-  [discoveredTodayIds, starsObject]);
   
   // Group stars by domain for the domain summary - using useMemo
   const domainStats = useMemo(() => {
@@ -171,55 +166,6 @@ export const ConstellationView: React.FC = () => {
         </div>
       </div>
       
-      {/* Newly discovered concepts panel */}
-      {newlyDiscoveredStars.length > 0 && (
-        <div className="mb-4 bg-gray-800 rounded-lg p-4">
-          <h3 className="text-xl font-bold mb-2 text-yellow-300">
-            New Discoveries!
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {newlyDiscoveredStars.map(star => (
-              <div 
-                key={star.id} 
-                className="bg-gray-900 p-3 rounded-md border-l-4"
-                style={{ borderColor: DomainColors[star.domain] }}
-              >
-                <div className="flex justify-between">
-                  <h4 className="font-semibold">{star.name}</h4>
-                  <button
-                    className={`px-3 py-1 rounded text-sm flex items-center
-                      ${starPoints >= star.spCost
-                        ? 'bg-yellow-600 hover:bg-yellow-700'
-                        : 'bg-gray-600 opacity-50 cursor-not-allowed'
-                      }`}
-                    disabled={starPoints < star.spCost}
-                    onClick={() => unlockStar(star.id)}
-                  >
-                    <span className="mr-1">{star.spCost}</span>
-                    <span className="text-yellow-300">★</span>
-                  </button>
-                </div>
-                <p className="text-sm text-gray-400 mt-1">{star.description}</p>
-                <div className="mt-2">
-                  <span 
-                    className="inline-block px-2 py-0.5 text-xs rounded"
-                    style={{ 
-                      backgroundColor: `${DomainColors[star.domain]}33`,
-                      color: DomainColors[star.domain]
-                    }}
-                  >
-                    {star.domain.replace('_', ' ')}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="text-gray-400 text-sm mt-3">
-            Click the star button to unlock these concepts with your Star Points.
-          </p>
-        </div>
-      )}
-      
       {/* Main constellation view */}
       <div 
         ref={containerRef}
@@ -249,16 +195,6 @@ export const ConstellationView: React.FC = () => {
           }}
         >
           {renderedStars}
-        </div>
-      </div>
-      
-      {/* Stats */}
-      <div className="mt-4 flex justify-between text-sm">
-        <div>
-          <p>Unlocked: <span className="font-bold">{unlockedStars.length}</span> / Discovered: <span className="font-bold">{discoveredStars.length}</span> <span className="text-yellow-300 font-bold">(+{newlyDiscoveredStars.length} new)</span></p>
-        </div>
-        <div>
-          <p>Active Stars: <span className="font-bold">{activeStars.length}</span> (+{activeStars.length} Insight at day start)</p>
         </div>
       </div>
     </div>

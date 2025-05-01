@@ -1,7 +1,7 @@
 'use client';
 
 import { useDialogueStore } from '@/app/store/dialogueStore';
-import { Mentor } from '@/app/data/dialogueData';
+import Image from 'next/image';
 
 interface MentorRelationshipCardProps {
   mentorId: string;
@@ -51,10 +51,12 @@ export default function MentorRelationshipCard({
         {/* Mentor portrait */}
         <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden mr-3">
           {mentor.portrait && (
-            <img 
+            <Image
               src={mentor.portrait} 
               alt={mentor.name} 
               className="w-full h-full object-cover"
+              width={40}
+              height={40}
             />
           )}
         </div>

@@ -29,7 +29,7 @@ interface GameState {
   // Resource management
   addMomentum: (amount: number) => void;
   resetMomentum: () => void;
-  addInsight: (amount: number) => void;
+  addInsight: (amount: number, source?: string) => void;
   spendInsight: (amount: number) => boolean;
   convertInsightToSP: () => void;
   addStarPoints: (amount: number) => void;
@@ -45,8 +45,8 @@ interface GameState {
 
 // Create the game store
 export const useGameStore = create<GameState>((set, get) => ({
-  // Initialize core game state
-  currentPhase: GamePhase.DAY,
+  // Initialize core game state - start with Title screen instead of Day phase
+  currentPhase: GamePhase.TITLE,
   currentSeason: Season.SPRING,
   daysPassed: 0,
   playerName: '',
@@ -208,7 +208,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
   
-  addInsight: (amount: number) => {
+  addInsight: (amount: number, source?: string) => {
     set((state) => {
       const currentInsight = state.resources.insight;
       const newInsight = Math.max(0, currentInsight + amount);
@@ -220,7 +220,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           { 
             previous: currentInsight,
             current: newInsight,
-            change: newInsight - currentInsight
+            change: newInsight - currentInsight,
+            source: source || 'unknown'
           },
           'gameStore.addInsight'
         );
@@ -334,7 +335,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   difficulty: Difficulty.STANDARD,
   setDifficulty: (difficulty: Difficulty) => set({ difficulty }),
   
-  // Player data management
+  // Player data
   setPlayerName: (name: string) => set({ playerName: name }),
 }));
 

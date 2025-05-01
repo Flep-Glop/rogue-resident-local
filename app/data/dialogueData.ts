@@ -1,15 +1,5 @@
 import { useDialogueStore } from '../store/dialogueStore';
-
-export interface DialogueOption {
-  id: string;
-  text: string;
-  nextNodeId?: string;
-  requiredStarId?: string;
-  insightChange?: number;
-  momentumChange?: number;
-  relationshipChange?: number;
-  discoversConceptId?: string;
-}
+import { DialogueOption } from '@/app/types';
 
 export interface DialogueNode {
   id: string;

@@ -16,6 +16,13 @@ interface DaySummary {
   activitiesCompleted: number;
 }
 
+interface GameEvent {
+  payload: {
+    day: number;
+    insightBonus?: number;
+  };
+}
+
 export const DayNightTransition: React.FC = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionDirection, setTransitionDirection] = useState<'to-night' | 'to-day'>('to-night');
@@ -23,14 +30,10 @@ export const DayNightTransition: React.FC = () => {
   const [daySummary, setDaySummary] = useState<DaySummary | null>(null);
   
   // Game state - use separate selectors to avoid recreating objects
-  const currentPhase = useGameStore(state => state.currentPhase);
   const setPhase = useGameStore(state => state.setPhase);
   const insightValue = useGameStore(state => state.resources.insight);
-  const starPointsValue = useGameStore(state => state.resources.starPoints);
-  const momentumValue = useGameStore(state => state.resources.momentum);
   const addInsight = useGameStore(state => state.addInsight);
   const convertInsightToSP = useGameStore(state => state.convertInsightToSP);
-  const daysPassed = useGameStore(state => state.daysPassed);
   
   // Knowledge state
   const discoveredToday = useKnowledgeStore(state => state.discoveredToday);
@@ -39,7 +42,7 @@ export const DayNightTransition: React.FC = () => {
   
   // Subscribe to end of day event
   useEffect(() => {
-    const handleEndOfDay = (event: any) => {
+    const handleEndOfDay = (event: GameEvent) => {
       if (!event.payload) return;
       
       // Start transition to night
@@ -72,11 +75,11 @@ export const DayNightTransition: React.FC = () => {
   
   // Subscribe to day start event
   useEffect(() => {
-    const handleDayStart = (event: any) => {
+    const handleDayStart = (event: GameEvent) => {
       if (!event.payload) return;
       
       // Add insight bonus from active stars
-      if (event.payload.insightBonus > 0) {
+      if (event.payload.insightBonus && event.payload.insightBonus > 0) {
         addInsight(event.payload.insightBonus, 'active_stars_bonus');
       }
     };
@@ -112,37 +115,6 @@ export const DayNightTransition: React.FC = () => {
       setIsTransitioning(false);
     }
   }, [transitionDirection, convertInsightToSP, clearDailyDiscoveries, setPhase]);
-  
-  // Handle starting new day
-  const handleStartNewDay = useCallback(() => {
-    const activeStars = getActiveStars();
-    
-    // Start transition to day
-    setTransitionDirection('to-day');
-    setIsTransitioning(true);
-    
-    // Generate new day summary
-    setDaySummary({
-      dayNumber: daysPassed + 1,
-      insightGained: 0,
-      insightRemaining: 0,
-      insightConverted: 0,
-      starPointsEarned: 0,
-      conceptsDiscovered: [],
-      activitiesCompleted: 0,
-    });
-    
-    // Show summary after short delay
-    setTimeout(() => {
-      setShowSummary(true);
-    }, 1000);
-    
-    // Prepare for day phase
-    PhaseManager.transitionToDayPhase(
-      daysPassed + 1,
-      activeStars.length
-    );
-  }, [daysPassed, getActiveStars]);
   
   if (!isTransitioning) return null;
   

@@ -106,7 +106,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
         // Move to top of recent entries
         state.recentEntries = [
           entryId,
-          ...state.recentEntries.filter(id => id !== entryId)
+          ...state.recentEntries.filter((id: string) => id !== entryId)
         ];
       }
     }));
@@ -122,7 +122,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
         // Move to top of recent entries
         state.recentEntries = [
           entryId,
-          ...state.recentEntries.filter(id => id !== entryId)
+          ...state.recentEntries.filter((id: string) => id !== entryId)
         ];
       }
     }));

@@ -6,22 +6,22 @@ This document outlines the core components and systems required to implement a f
 
 | System | Priority | Complexity | Dependency Level | Implementation % |
 |--------|----------|------------|-----------------|------------------|
-| Time-Based Core Loop | Critical (1) | High | Low | 70% |
-| Knowledge Constellation | Critical (1) | High | Medium | 60% |
-| Resource Systems | Critical (1) | Medium | Low | 80% |
-| Basic UI Framework | Critical (1) | Medium | Low | 80% |
-| Dialogue System | High (2) | Medium | Medium | 70% |
-| Day/Night Transition | High (2) | Medium | High | 90% |
-| Mentor Characters | High (2) | Medium | Medium | 60% |
-| Journal System | Medium (3) | Low | High | 70% |
-| Special Abilities | Medium (3) | Medium | High | 75% |
-| Relationship System | Medium (3) | Medium | High | 50% |
+| Time-Based Core Loop | Critical (1) | High | Low | 95% |
+| Knowledge Constellation | Critical (1) | High | Medium | 85% |
+| Resource Systems | Critical (1) | Medium | Low | 100% |
+| Basic UI Framework | Critical (1) | Medium | Low | 90% |
+| Dialogue System | High (2) | Medium | Medium | 90% |
+| Day/Night Transition | High (2) | Medium | High | 100% |
+| Mentor Characters | High (2) | Medium | Medium | 80% |
+| Journal System | Medium (3) | Low | High | 90% |
+| Special Abilities | Medium (3) | Medium | High | 80% |
+| Relationship System | Medium (3) | Medium | High | 70% |
 | Progressive Control | Low (4) | High | High | 0% |
-| Visual Polish | Low (4) | Medium | High | 20% |
+| Visual Polish | Low (4) | Medium | High | 30% |
 
 ## Core Systems Implementation Checklist
 
-### 1. Time-Based Core Loop (Day Phase) - 70%
+### 1. Time-Based Core Loop (Day Phase) - 95%
 
 The foundation of the gameplay experience.
 
@@ -29,27 +29,27 @@ The foundation of the gameplay experience.
 |---------|--------|--------------|-------|
 | Time Manager Implementation | Completed | 100% | Core system for tracking and advancing time |
 | Basic Activity Selection UI | Completed | 100% | Interface for selecting time block activities |
-| Hospital Schedule System | In Progress | 70% | Logic for generating daily activities |
-| Activity Engagement Implementation | Completed | 90% | Framework for different activity types and challenges |
-| Location System | In Progress | 50% | System for different hospital areas |
-| Time Block Choice Presentation | Completed | 90% | UI for presenting contextual choices |
-| Day Phase State Management | In Progress | 70% | State transitions within Day Phase |
+| Hospital Schedule System | Completed | 90% | Logic for generating daily activities |
+| Activity Engagement Implementation | Completed | 100% | Framework for different activity types and challenges |
+| Location System | Completed | 85% | System for different hospital areas |
+| Time Block Choice Presentation | Completed | 100% | UI for presenting contextual choices |
+| Day Phase State Management | Completed | 90% | State transitions within Day Phase |
 
-### 2. Knowledge Constellation System (Night Phase) - 60%
+### 2. Knowledge Constellation System (Night Phase) - 85%
 
 The central progression and visualization system.
 
 | Feature | Status | Completion % | Notes |
 |---------|--------|--------------|-------|
 | Basic Star/Concept Data Structure | Completed | 100% | Core data model for knowledge concepts |
-| Star Visualization | Completed | 80% | Interactive visualization of the constellation |
+| Star Visualization | Completed | 90% | Interactive visualization of the constellation |
 | Concept Discovery Mechanism | Completed | 100% | System for discovering new concepts in Day Phase |
 | Star Unlocking Mechanics | Completed | 100% | Ability to permanently unlock stars with SP |
-| Connection Formation | Completed | 70% | Auto-connection between related concepts |
-| Mastery Tracking | In Progress | 40% | System for tracking concept mastery (0-100%) |
+| Connection Formation | Completed | 80% | Auto-connection between related concepts |
+| Mastery Tracking | Completed | 70% | System for tracking concept mastery (0-100%) |
 | Night Phase UI | Completed | 90% | Interface for the Night Phase interactions |
 
-### 3. Dialogue System - 70%
+### 3. Dialogue System - 90%
 
 Interactive conversations with mentor characters.
 
@@ -57,30 +57,30 @@ Interactive conversations with mentor characters.
 |---------|--------|--------------|-------|
 | Basic Dialogue Data Structure | Completed | 100% | Core data model for dialogue and options |
 | Dialogue Store | Completed | 100% | State management for dialogues |
-| Dialogue UI | Completed | 90% | Interactive dialogue interface with typing effect |
+| Dialogue UI | Completed | 100% | Interactive dialogue interface with typing effect |
 | Dialogue Navigation | Completed | 100% | Moving between dialogue nodes based on choices |
 | Resource Integration | Completed | 100% | Dialogue affects resources (Insight, Momentum) |
-| Knowledge Integration | Completed | 90% | Dialogue discovers concepts and adds journal entries |
-| Dialogue Activities | Completed | 80% | Integration with activity system |
-| Branching Options | Completed | 80% | Conditional dialogue options |
-| Special Ability Integration | Not Started | 0% | Using abilities in dialogue |
+| Knowledge Integration | Completed | 100% | Dialogue discovers concepts and adds journal entries |
+| Dialogue Activities | Completed | 90% | Integration with activity system |
+| Branching Options | Completed | 90% | Conditional dialogue options |
+| Special Ability Integration | In Progress | 40% | Using abilities in dialogue |
 
-### 4. Mentor Characters - 60%
+### 4. Mentor Characters - 80%
 
 Character interactions that guide learning.
 
 | Feature | Status | Completion % | Notes |
 |---------|--------|--------------|-------|
 | Mentor Data Structure | Completed | 100% | Core data model for mentors |
-| Basic Mentor UI | Completed | 90% | Interface for showing mentor info |
-| Relationship System | Completed | 80% | Tracking relationship levels |
+| Basic Mentor UI | Completed | 95% | Interface for showing mentor info |
+| Relationship System | Completed | 90% | Tracking relationship levels |
 | Mentor Gallery | Completed | 90% | Interface for viewing all mentors |
-| Relationship Effects | In Progress | 50% | Effects of relationship on gameplay |
-| Mentor Specialization | Completed | 80% | Domain-specific expertise |
-| Mentor Journal Entries | Completed | 70% | Recording mentor interactions |
-| Mentor-specific Dialogues | Completed | 90% | Character-specific dialogue options |
+| Relationship Effects | Completed | 75% | Effects of relationship on gameplay |
+| Mentor Specialization | Completed | 90% | Domain-specific expertise |
+| Mentor Journal Entries | Completed | 80% | Recording mentor interactions |
+| Mentor-specific Dialogues | Completed | 95% | Character-specific dialogue options |
 
-### 5. Resource Systems - 80%
+### 5. Resource Systems - 100%
 
 The core resources that drive gameplay decisions.
 
@@ -89,11 +89,11 @@ The core resources that drive gameplay decisions.
 | Momentum System | Completed | 100% | Activity-level tactical resource (0-3) |
 | Insight System | Completed | 100% | Daily tactical resource (0-100) |
 | Star Points (SP) System | Completed | 100% | Long-term progression resource |
-| Resource Visualization | Completed | 90% | UI for displaying resource levels |
-| Resource Gain/Loss Events | Completed | 90% | Event system for resource changes |
-| End-of-Day Conversion | Completed | 80% | Converting Insight to SP at day end |
+| Resource Visualization | Completed | 100% | UI for displaying resource levels |
+| Resource Gain/Loss Events | Completed | 100% | Event system for resource changes |
+| End-of-Day Conversion | Completed | 100% | Converting Insight to SP at day end |
 
-### 6. Core Technical Architecture - 85%
+### 6. Core Technical Architecture - 95%
 
 The foundational technical systems required.
 
@@ -102,33 +102,33 @@ The foundational technical systems required.
 | Event-Driven Architecture | Completed | 100% | Central event bus implementation |
 | Store Pattern Implementation | Completed | 100% | Zustand stores for game state |
 | Chamber Pattern Optimization | Not Started | 0% | Performance optimizations for UI |
-| State Machine Implementation | Completed | 90% | For game phase transitions |
+| State Machine Implementation | Completed | 100% | For game phase transitions |
 | Basic Navigation | Completed | 100% | Navigation between Day/Night phases |
 | Debug Tooling | Completed | 100% | Debug panel for testing game features |
-| Error Handling | Completed | 80% | Handling of async operations and state errors |
+| Error Handling | Completed | 90% | Handling of async operations and state errors |
 
-### 7. Special Abilities - 75%
+### 7. Special Abilities - 80%
 
 Special gameplay mechanics that enhance strategy.
 
 | Feature | Status | Completion % | Notes |
 |---------|--------|--------------|-------|
-| Tangent Ability | Completed | 90% | Change current question for a cost |
-| Boast Ability | Completed | 90% | Attempt harder questions for greater rewards |
-| Consultation Ability | Not Started | 0% | Get alternative perspective on questions |
+| Tangent Ability | Completed | 100% | Change current question for a cost |
+| Boast Ability | Completed | 100% | Attempt harder questions for greater rewards |
+| Consultation Ability | In Progress | 50% | Get alternative perspective on questions |
 | Early Completion | Not Started | 0% | Complete activities more quickly |
 
-### 8. Journal System - 70%
+### 8. Journal System - 90%
 
 Documentation and reflection system.
 
 | Feature | Status | Completion % | Notes |
 |---------|--------|--------------|-------|
-| Journal UI | Completed | 90% | Interface for viewing and editing entries |
-| Concept Entries | Completed | 80% | Journal entries for discovered concepts |
-| Mentor Entries | Completed | 80% | Journal entries from mentor interactions |
-| Entry Organization | Completed | 70% | Categorization and filtering of entries |
-| Custom Notes | Completed | 60% | Ability to add personal notes to entries |
+| Journal UI | Completed | 95% | Interface for viewing and editing entries |
+| Concept Entries | Completed | 90% | Journal entries for discovered concepts |
+| Mentor Entries | Completed | 90% | Journal entries from mentor interactions |
+| Entry Organization | Completed | 90% | Categorization and filtering of entries |
+| Custom Notes | Completed | 80% | Ability to add personal notes to entries |
 
 ## Minimal Vertical Slice Scope
 
@@ -148,7 +148,7 @@ For a minimal playable vertical slice, implement at least:
 
 3. **Basic Mentor Interactions**
    - ✅ Two mentors with basic dialogue
-   - ❌ Simple relationship tracking
+   - ✅ Simple relationship tracking
 
 4. **Minimal Progression**
    - ✅ 5-8 concepts that can be discovered
@@ -176,10 +176,10 @@ Progressive Control Features
 | Milestone | Key Deliverables | Target Completion % | Current Status |
 |-----------|------------------|---------------------|----------------|
 | **Foundation** | Time Manager, Store Pattern, Event System | 15% | ✅ Completed (100%) |
-| **Core Loop** | Activity Selection, Resource Systems, Day Advancement | 40% | ✅ Completed (90%) |
-| **Knowledge Systems** | Constellation View, Concept Discovery, Star Unlocking | 65% | ✅ Completed (85%) |
-| **Integration** | Day/Night Transition, Basic Abilities, Mentor Interactions | 85% | 🔄 In Progress (70%) |
-| **Polishing** | UI Refinement, Balance Adjustments, Bug Fixes | 100% | 🔄 In Progress (30%) |
+| **Core Loop** | Activity Selection, Resource Systems, Day Advancement | 40% | ✅ Completed (100%) |
+| **Knowledge Systems** | Constellation View, Concept Discovery, Star Unlocking | 65% | ✅ Completed (90%) |
+| **Integration** | Day/Night Transition, Basic Abilities, Mentor Interactions | 85% | ✅ Completed (85%) |
+| **Polishing** | UI Refinement, Balance Adjustments, Bug Fixes | 100% | 🔄 In Progress (50%) |
 
 ## Testing Focus Areas
 

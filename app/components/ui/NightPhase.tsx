@@ -6,8 +6,9 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 import { useGameStore } from '@/app/store/gameStore';
-import { centralEventBus, GameEvent, useEventSubscription } from '@/app/core/events/CentralEventBus';
+import { centralEventBus, useEventSubscription } from '@/app/core/events/CentralEventBus';
 import { GameEventType, GamePhase, KnowledgeDomain, KnowledgeStar } from '@/app/types';
 
 // Mock data for discovered concepts during the day
@@ -61,6 +62,242 @@ const domainColors: Record<KnowledgeDomain, string> = {
   [KnowledgeDomain.LINAC_ANATOMY]: '#f59e0b', // Amber
   [KnowledgeDomain.DOSIMETRY]: '#ec4899', // Pink
 };
+
+// Styled Components
+const Container = styled.div`
+  background-color: #0f172a; /* bg-slate-900 */
+  color: white;
+  min-height: 100vh;
+  padding: 1.5rem;
+`;
+
+const Content = styled.div`
+  max-width: 64rem; /* max-w-4xl */
+  margin: 0 auto;
+`;
+
+const Header = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+`;
+
+const Title = styled.h1`
+  font-size: 1.875rem; /* text-3xl */
+  font-weight: bold;
+`;
+
+const ActionBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+`;
+
+const StarPointBadge = styled.div`
+  padding: 0.25rem 0.75rem;
+  background-color: #1e293b; /* bg-slate-800 */
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+`;
+
+const StarIcon = styled.span`
+  color: #c084fc; /* text-purple-400 */
+  margin-right: 0.25rem;
+`;
+
+const ReturnButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: #2563eb; /* bg-blue-600 */
+  border-radius: 0.375rem;
+  transition: background-color 0.2s;
+  
+  &:hover {
+    background-color: #1d4ed8; /* bg-blue-700 */
+  }
+`;
+
+const GridLayout = styled.div`
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  
+  @media (min-width: 1024px) {
+    grid-template-columns: 1fr 1fr;
+  }
+`;
+
+const ConstellationPanel = styled.div`
+  background-color: #1e293b; /* bg-slate-800 */
+  border-radius: 0.5rem;
+  padding: 1rem;
+  height: 500px;
+  position: relative;
+  overflow: hidden;
+`;
+
+const PanelTitle = styled.h2`
+  font-size: 1.25rem; /* text-xl */
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+`;
+
+const ConstellationView = styled.div`
+  position: absolute;
+  inset: 0;
+  margin-top: 3rem;
+  background-color: #0f172a; /* bg-slate-900 */
+  border-radius: 0.5rem;
+  padding: 1rem;
+`;
+
+interface StarDotProps {
+  x: number;
+  y: number;
+  color: string;
+  isActive: boolean;
+}
+
+const StarDot = styled.div<StarDotProps>`
+  position: absolute;
+  width: 1.5rem; /* w-6 */
+  height: 1.5rem; /* h-6 */
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s;
+  left: ${props => props.x}px;
+  top: ${props => props.y}px;
+  background-color: ${props => props.color};
+  box-shadow: ${props => props.isActive ? `0 0 15px 5px ${props.color}` : 'none'};
+  ${props => props.isActive && `
+    ring: 2px;
+    ring-color: white;
+    ring-opacity: 0.5;
+  `}
+`;
+
+const ConstellationFooter = styled.div`
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+`;
+
+const HelpText = styled.p`
+  font-size: 0.875rem; /* text-sm */
+  color: #94a3b8; /* text-slate-400 */
+`;
+
+const EmptyState = styled.div`
+  background-color: #1e293b; /* bg-slate-800 */
+  border-radius: 0.5rem;
+  padding: 1rem;
+  color: #94a3b8; /* text-slate-400 */
+`;
+
+const ConceptList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const ConceptCard = styled.div<{ borderColor: string }>`
+  background-color: #1e293b; /* bg-slate-800 */
+  border-radius: 0.5rem;
+  padding: 1rem;
+  border-left: 4px solid ${props => props.borderColor};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const ConceptInfo = styled.div``;
+
+const ConceptTitle = styled.h3`
+  font-weight: 500;
+`;
+
+const ConceptMeta = styled.div`
+  margin-top: 0.25rem;
+`;
+
+const DomainBadge = styled.span<{ bgColor: string, textColor: string }>`
+  display: inline-block;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 0.25rem;
+  background-color: ${props => props.bgColor};
+  color: ${props => props.textColor};
+`;
+
+const UnlockButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: #4f46e5; /* bg-indigo-600 */
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s;
+  
+  &:hover {
+    background-color: #4338ca; /* bg-indigo-700 */
+  }
+  
+  &:disabled {
+    background-color: #4b5563; /* bg-gray-600 */
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+`;
+
+const CostBadge = styled.span`
+  background-color: rgba(255, 255, 255, 0.2);
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+`;
+
+const ActiveStarList = styled.div`
+  margin-top: 1.5rem;
+`;
+
+const ActiveStarTitle = styled.h2`
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+`;
+
+const NoActiveStar = styled.div`
+  background-color: #1e293b; /* bg-slate-800 */
+  border-radius: 0.5rem;
+  padding: 1rem;
+  color: #94a3b8; /* text-slate-400 */
+  font-style: italic;
+`;
+
+const ActiveStarItem = styled.div<{ borderColor: string }>`
+  background-color: #1e293b; /* bg-slate-800 */
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-left: 4px solid ${props => props.borderColor};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+`;
+
+const DeactivateButton = styled.button`
+  padding: 0.25rem 0.75rem;
+  background-color: #475569; /* bg-slate-600 */
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  transition: background-color 0.2s;
+  
+  &:hover {
+    background-color: #334155; /* bg-slate-700 */
+  }
+`;
 
 // The main NightPhase component
 export default function NightPhase() {
@@ -188,166 +425,122 @@ export default function NightPhase() {
   }
   
   return (
-    <div className="bg-slate-900 text-white min-h-screen p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Night Reflection</h1>
-          <div className="flex items-center space-x-3">
-            <div className="px-3 py-1 bg-slate-800 rounded-md flex items-center">
-              <span className="text-purple-400 mr-1">★</span>
+    <Container>
+      <Content>
+        <Header>
+          <Title>Night Reflection</Title>
+          <ActionBar>
+            <StarPointBadge>
+              <StarIcon>★</StarIcon>
               <span>{resources.starPoints}</span>
-            </div>
-            <button
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md transition"
-              onClick={handleReturnToDay}
-            >
+            </StarPointBadge>
+            <ReturnButton onClick={handleReturnToDay}>
               Return to Hospital
-            </button>
-          </div>
-        </div>
+            </ReturnButton>
+          </ActionBar>
+        </Header>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GridLayout>
           {/* Left side - Constellation View */}
-          <div className="bg-slate-800 rounded-lg p-4 h-[500px] relative overflow-hidden">
-            <h2 className="text-xl font-semibold mb-3">Knowledge Constellation</h2>
-            <div className="absolute inset-0 mt-12 bg-slate-900 rounded-lg p-4">
+          <ConstellationPanel>
+            <PanelTitle>Knowledge Constellation</PanelTitle>
+            <ConstellationView>
               {/* Simple placeholder visualization */}
               {Object.values(unlockedStars).map(star => (
-                <div 
+                <StarDot 
                   key={star.id}
-                  className={`absolute w-6 h-6 rounded-full cursor-pointer transition-all
-                    ${activeStars[star.id!] ? 'ring-2 ring-white ring-opacity-50' : ''}
-                  `}
-                  style={{
-                    left: star.position?.x || 0,
-                    top: star.position?.y || 0,
-                    backgroundColor: domainColors[star.domain!],
-                    boxShadow: activeStars[star.id!] 
-                      ? `0 0 15px 5px ${domainColors[star.domain!]}` 
-                      : 'none'
-                  }}
+                  x={star.position?.x || 0}
+                  y={star.position?.y || 0}
+                  color={domainColors[star.domain!]}
+                  isActive={activeStars[star.id!]}
                   onClick={() => handleToggleStar(star.id!)}
                   title={star.name}
                 />
               ))}
-            </div>
-            <div className="absolute bottom-4 left-4">
-              <p className="text-sm text-slate-400">
+            </ConstellationView>
+            <ConstellationFooter>
+              <HelpText>
                 Click on stars to activate/deactivate them for the next day.
                 <br />
                 Active stars provide +1 Insight at the start of each day.
-              </p>
-            </div>
-          </div>
+              </HelpText>
+            </ConstellationFooter>
+          </ConstellationPanel>
           
           {/* Right side - Discovered Concepts */}
           <div>
-            <h2 className="text-xl font-semibold mb-3">Discovered Concepts</h2>
+            <PanelTitle>Discovered Concepts</PanelTitle>
             
             {Object.keys(discoveredConcepts).length === 0 ? (
-              <div className="bg-slate-800 rounded-lg p-4 text-slate-400">
+              <EmptyState>
                 No new concepts discovered today.
-              </div>
+              </EmptyState>
             ) : (
-              <div className="space-y-3">
-                {Object.values(discoveredConcepts).map(concept => (
-                  <div 
-                    key={concept.id} 
-                    className="bg-slate-800 rounded-lg p-4 border-l-4"
-                    style={{ borderColor: domainColors[concept.domain!] }}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium">{concept.name}</h3>
-                        <p className="text-sm text-slate-400 mt-1">{concept.description}</p>
-                      </div>
-                      <button
-                        className={`px-3 py-1 rounded text-sm flex items-center
-                          ${resources.starPoints >= (concept.spCost || 0) 
-                            ? 'bg-purple-600 hover:bg-purple-700' 
-                            : 'bg-slate-600 opacity-50 cursor-not-allowed'
-                          }`}
-                        disabled={resources.starPoints < (concept.spCost || 0)}
-                        onClick={() => handleUnlockStar(concept.id!)}
-                      >
-                        <span className="mr-1">{concept.spCost || 2}</span>
-                        <span className="text-purple-300">★</span>
-                      </button>
-                    </div>
-                    <div className="mt-2">
-                      <span 
-                        className="inline-block px-2 py-0.5 text-xs rounded"
-                        style={{ 
-                          backgroundColor: `${domainColors[concept.domain!]}33`,
-                          color: domainColors[concept.domain!]
-                        }}
-                      >
-                        {concept.domain!.replace('_', ' ')}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            <h2 className="text-xl font-semibold mt-6 mb-3">Unlocked Stars</h2>
-            
-            {Object.keys(unlockedStars).length === 0 ? (
-              <div className="bg-slate-800 rounded-lg p-4 text-slate-400">
-                No stars unlocked yet. Use Star Points to unlock discovered concepts.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {Object.values(unlockedStars).map(star => (
-                  <div 
+              <ConceptList>
+                {Object.values(discoveredConcepts).map(star => (
+                  <ConceptCard 
                     key={star.id} 
-                    className="bg-slate-800 rounded-lg p-4 border-l-4 flex justify-between items-center"
-                    style={{ borderColor: domainColors[star.domain!] }}
+                    borderColor={domainColors[star.domain!]}
                   >
-                    <div>
-                      <h3 className="font-medium">{star.name}</h3>
-                      <div className="mt-1">
-                        <span 
-                          className="inline-block px-2 py-0.5 text-xs rounded"
-                          style={{ 
-                            backgroundColor: `${domainColors[star.domain!]}33`,
-                            color: domainColors[star.domain!]
-                          }}
+                    <ConceptInfo>
+                      <ConceptTitle>{star.name}</ConceptTitle>
+                      <ConceptMeta>
+                        <DomainBadge 
+                          bgColor={`${domainColors[star.domain!]}33`}
+                          textColor={domainColors[star.domain!]}
                         >
                           {star.domain!.replace('_', ' ')}
-                        </span>
-                      </div>
-                    </div>
-                    <label className="inline-flex items-center cursor-pointer">
-                      <span className="text-sm mr-2">
-                        {activeStars[star.id!] ? 'Active' : 'Inactive'}
-                      </span>
-                      <div className="relative">
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={activeStars[star.id!] || false}
-                          onChange={() => handleToggleStar(star.id!)}
-                        />
-                        <div 
-                          className={`block w-10 h-6 rounded-full transition ${
-                            activeStars[star.id!] ? 'bg-green-400' : 'bg-slate-600'
-                          }`}
-                        />
-                        <div 
-                          className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition transform ${
-                            activeStars[star.id!] ? 'translate-x-4' : ''
-                          }`}
-                        />
-                      </div>
-                    </label>
-                  </div>
+                        </DomainBadge>
+                      </ConceptMeta>
+                    </ConceptInfo>
+                    
+                    <UnlockButton
+                      onClick={() => handleUnlockStar(star.id!)}
+                      disabled={resources.starPoints < (star.spCost || 0)}
+                    >
+                      Unlock
+                      <CostBadge>{star.spCost} SP</CostBadge>
+                    </UnlockButton>
+                  </ConceptCard>
                 ))}
-              </div>
+              </ConceptList>
             )}
+            
+            {/* Active Stars Section */}
+            <ActiveStarList>
+              <ActiveStarTitle>Active Stars</ActiveStarTitle>
+              
+              {Object.entries(activeStars).filter(([_, isActive]) => isActive).length === 0 ? (
+                <NoActiveStar>
+                  No active stars. Activate stars to gain bonuses for the next day.
+                </NoActiveStar>
+              ) : (
+                Object.entries(activeStars)
+                  .filter(([_, isActive]) => isActive)
+                  .map(([id]) => {
+                    const star = unlockedStars[id];
+                    return (
+                      <ActiveStarItem 
+                        key={id}
+                        borderColor={domainColors[star.domain!]}
+                      >
+                        <div>
+                          <div>{star.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                            +1 Insight per day
+                          </div>
+                        </div>
+                        <DeactivateButton onClick={() => handleToggleStar(id)}>
+                          Deactivate
+                        </DeactivateButton>
+                      </ActiveStarItem>
+                    );
+                  })
+              )}
+            </ActiveStarList>
           </div>
-        </div>
-      </div>
-    </div>
+        </GridLayout>
+      </Content>
+    </Container>
   );
 } 

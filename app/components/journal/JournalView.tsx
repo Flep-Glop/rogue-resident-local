@@ -68,10 +68,10 @@ export const JournalView: React.FC = () => {
   // Get mentor name from mentor ID
   const getMentorName = useCallback((mentorId: MentorId) => {
     const mentorNames: Record<MentorId, string> = {
-      garcia: 'Dr. Garcia',
-      kapoor: 'Dr. Kapoor',
-      jesse: 'Jesse',
-      quinn: 'Dr. Quinn'
+      [MentorId.GARCIA]: 'Dr. Garcia',
+      [MentorId.KAPOOR]: 'Dr. Kapoor',
+      [MentorId.JESSE]: 'Jesse',
+      [MentorId.QUINN]: 'Dr. Quinn'
     };
     
     return mentorNames[mentorId] || mentorId;

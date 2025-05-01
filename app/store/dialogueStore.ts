@@ -1,11 +1,18 @@
 import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import { Dialogue, DialogueNode, Mentor, DialogueOption } from '../data/dialogueData';
-import { GameEventType } from '../types';
+import { produce } from 'immer';
+import { Dialogue, DialogueNode, Mentor } from '../data/dialogueData';
+import { DialogueOption } from '@/app/types';
+import { GameEventType, MentorId } from '@/app/types';
 import { centralEventBus } from '../core/events/CentralEventBus';
 
-// Use the safeDispatch from centralEventBus
-const safeDispatch = centralEventBus.safeDispatch.bind(centralEventBus);
+// Add proper type for safeDispatch
+const safeDispatch = (eventType: GameEventType, payload: any, source: string) => {
+  try {
+    centralEventBus.dispatch(eventType, payload, source);
+  } catch (error) {
+    console.error(`Failed to dispatch ${eventType}:`, error);
+  }
+};
 
 interface DialogueState {
   // Mentors
@@ -39,7 +46,7 @@ interface DialogueState {
 }
 
 export const useDialogueStore = create<DialogueState>()(
-  immer((set, get) => ({
+  produce((set, get) => ({
     // State
     mentors: {},
     dialogues: {},
@@ -48,7 +55,7 @@ export const useDialogueStore = create<DialogueState>()(
     dialogueHistory: [],
     
     // Mentor Actions
-    addMentor: (mentor: Mentor) => set(state => {
+    addMentor: (mentor: Mentor) => set((state: any) => {
       if (state.mentors[mentor.id]) {
         console.warn(`Mentor with ID ${mentor.id} already exists`);
         return;
@@ -57,7 +64,7 @@ export const useDialogueStore = create<DialogueState>()(
       state.mentors[mentor.id] = mentor;
     }),
     
-    updateMentorRelationship: (mentorId: string, change: number) => set(state => {
+    updateMentorRelationship: (mentorId: string, change: number) => set((state: any) => {
       const mentor = state.mentors[mentorId];
       if (!mentor) {
         console.warn(`Mentor with ID ${mentorId} not found`);
@@ -89,7 +96,7 @@ export const useDialogueStore = create<DialogueState>()(
     },
     
     // Dialogue Actions
-    addDialogue: (dialogue: Dialogue) => set(state => {
+    addDialogue: (dialogue: Dialogue) => set((state: any) => {
       if (state.dialogues[dialogue.id]) {
         console.warn(`Dialogue with ID ${dialogue.id} already exists`);
         return;
@@ -102,7 +109,7 @@ export const useDialogueStore = create<DialogueState>()(
       return get().dialogues[dialogueId];
     },
     
-    startDialogue: (dialogueId: string) => set(state => {
+    startDialogue: (dialogueId: string) => set((state: any) => {
       const dialogue = state.dialogues[dialogueId];
       if (!dialogue) {
         console.warn(`Dialogue with ID ${dialogueId} not found`);
@@ -121,7 +128,7 @@ export const useDialogueStore = create<DialogueState>()(
       );
     }),
     
-    selectOption: (optionId: string) => set(state => {
+    selectOption: (optionId: string) => set((state: any) => {
       if (!state.activeDialogueId || !state.currentNodeId) {
         console.warn('No active dialogue');
         return;
@@ -131,7 +138,7 @@ export const useDialogueStore = create<DialogueState>()(
       const currentNode = dialogue.nodes[state.currentNodeId];
       
       // Find the selected option
-      const selectedOption = currentNode.options.find(option => option.id === optionId);
+      const selectedOption = currentNode.options.find((option: DialogueOption) => option.id === optionId);
       if (!selectedOption) {
         console.warn(`Option with ID ${optionId} not found in current node`);
         return;
@@ -185,7 +192,7 @@ export const useDialogueStore = create<DialogueState>()(
       });
       
       // If it's an end node, end the dialogue
-      if (selectedOption.isEndNode) {
+      if ((selectedOption as any).isEndNode) {
         safeDispatch(
           GameEventType.DIALOGUE_ENDED,
           {
@@ -228,14 +235,14 @@ export const useDialogueStore = create<DialogueState>()(
       if (!currentNode) return [];
       
       // Filter options based on prerequisites (like requiring stars)
-      return currentNode.options.filter(option => {
+      return currentNode.options.filter((option: DialogueOption) => {
         // If option has a required star, check if it's active
         // For now, just return all options
         return true;
       });
     },
     
-    endDialogue: () => set(state => {
+    endDialogue: () => set((state: any) => {
       if (!state.activeDialogueId) return;
       
       safeDispatch(

@@ -30,15 +30,16 @@ export const JournalEntryView: React.FC<JournalEntryViewProps> = ({ entry }) => 
     }).format(date);
   };
   
+  // Map mentor IDs to names
+  const mentorNames: Record<MentorId, string> = {
+    [MentorId.GARCIA]: 'Dr. Garcia',
+    [MentorId.KAPOOR]: 'Dr. Kapoor',
+    [MentorId.JESSE]: 'Jesse',
+    [MentorId.QUINN]: 'Quinn',
+  };
+  
   // Get mentor name based on ID
   const getMentorName = (mentorId: MentorId) => {
-    const mentorNames: Record<MentorId, string> = {
-      garcia: 'Dr. Garcia',
-      kapoor: 'Dr. Kapoor',
-      jesse: 'Jesse',
-      quinn: 'Dr. Quinn'
-    };
-    
     return mentorNames[mentorId] || mentorId;
   };
   

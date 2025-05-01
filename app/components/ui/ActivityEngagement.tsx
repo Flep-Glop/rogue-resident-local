@@ -4,31 +4,41 @@ import React, { useEffect, useState } from 'react';
 import { useGameStore } from '@/app/store/gameStore';
 import { useActivityStore } from '@/app/store/activityStore';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
-import { ActivityDifficulty, GameEventType, KnowledgeDomain, MentorId } from '@/app/types';
+import { ActivityDifficulty, GameEventType, KnowledgeDomain, MentorId, DomainColors } from '@/app/types';
 import { TimeManager } from '@/app/core/time/TimeManager';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
+import pixelTheme, { colors, typography, animation, components, mixins, borders, shadows, spacing } from '@/app/styles/pixelTheme';
 
 // Helper to render domain badges
 const DomainBadge = ({ domain }: { domain: KnowledgeDomain }) => {
-  const colors: Record<KnowledgeDomain, string> = {
-    [KnowledgeDomain.TREATMENT_PLANNING]: 'bg-blue-500',
-    [KnowledgeDomain.RADIATION_THERAPY]: 'bg-green-500',
-    [KnowledgeDomain.LINAC_ANATOMY]: 'bg-amber-500',
-    [KnowledgeDomain.DOSIMETRY]: 'bg-pink-500',
-  };
-
-  const labels: Record<KnowledgeDomain, string> = {
-    [KnowledgeDomain.TREATMENT_PLANNING]: 'Treatment Planning',
-    [KnowledgeDomain.RADIATION_THERAPY]: 'Radiation Therapy',
-    [KnowledgeDomain.LINAC_ANATOMY]: 'Linac Anatomy',
-    [KnowledgeDomain.DOSIMETRY]: 'Dosimetry',
-  };
-
+  const color = DomainColors[domain] || '#888888';
+  
   return (
-    <span className={`${colors[domain]} text-white text-xs px-2 py-1 rounded-full`}>
-      {labels[domain]}
+    <span style={{
+      backgroundColor: color,
+      color: 'white',
+      fontSize: typography.fontSize.xs,
+      padding: `${spacing.xxs} ${spacing.xs}`,
+      borderRadius: '16px',
+      display: 'inline-block'
+    }}>
+      {domain.replace('_', ' ')}
     </span>
   );
+};
+
+// Helper to render difficulty stars
+const DifficultyStars = ({ difficulty }: { difficulty: ActivityDifficulty }) => {
+  switch (difficulty) {
+    case ActivityDifficulty.EASY:
+      return <span style={{ color: colors.starGlow }}>★☆☆</span>;
+    case ActivityDifficulty.MEDIUM:
+      return <span style={{ color: colors.starGlow }}>★★☆</span>;
+    case ActivityDifficulty.HARD:
+      return <span style={{ color: colors.starGlow }}>★★★</span>;
+    default:
+      return <span style={{ color: colors.inactive }}>☆☆☆</span>;
+  }
 };
 
 // Sample challenge data for different activities
@@ -634,68 +644,148 @@ export default function ActivityEngagement() {
   const canUseBoast = resources.momentum >= 3 && !usedBoast && !usedTangent && !showFeedback;
   
   return (
-    <div className="bg-slate-800 text-white p-6 rounded-lg shadow-lg max-w-2xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div style={{
+      backgroundColor: colors.background,
+      color: colors.text,
+      padding: spacing.md,
+      borderRadius: spacing.sm,
+      maxWidth: '600px',
+      margin: '0 auto',
+      fontFamily: typography.fontFamily.pixel,
+      boxShadow: `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`,
+      imageRendering: 'pixelated'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: spacing.md 
+      }}>
         <div>
-          <h2 className="text-2xl font-bold">{formattedTime}</h2>
-          <p className="text-slate-300">Activity in progress</p>
+          <h2 style={{ 
+            fontSize: typography.fontSize.xl, 
+            fontWeight: 'bold',
+            textShadow: typography.textShadow.pixel
+          }}>{formattedTime}</h2>
+          <p style={{ color: colors.textDim }}>Activity in progress</p>
         </div>
-        <div className="flex space-x-4">
-          <div className="flex flex-col items-center">
-            <span className="text-yellow-400">⚡</span>
+        <div style={{ display: 'flex', gap: spacing.md }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span style={{ color: colors.momentum }}>⚡</span>
             <span>{resources.momentum} / 3</span>
           </div>
-          <div className="flex flex-col items-center">
-            <span className="text-blue-400">◆</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span style={{ color: colors.insight }}>◆</span>
             <span>{resources.insight}</span>
           </div>
-          <div className="flex flex-col items-center">
-            <span className="text-purple-400">★</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span style={{ color: colors.highlight }}>★</span>
             <span>{resources.starPoints}</span>
           </div>
         </div>
       </div>
       
-      <div className="bg-slate-700 p-4 rounded-lg mb-4">
-        <div className="flex justify-between mb-2">
-          <h3 className="text-xl font-bold">{currentActivity.title}</h3>
-          <div className="flex space-x-2">
+      <div style={{
+        backgroundColor: colors.backgroundAlt,
+        padding: spacing.md,
+        borderRadius: spacing.sm,
+        marginBottom: spacing.md,
+        border: borders.medium
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          marginBottom: spacing.xs 
+        }}>
+          <h3 style={{ 
+            fontSize: typography.fontSize.lg, 
+            fontWeight: 'bold',
+            textShadow: typography.textShadow.pixel
+          }}>{currentActivity.title}</h3>
+          <div style={{ display: 'flex', gap: spacing.xs }}>
             {currentActivity.domains.map((domain) => (
               <DomainBadge key={domain} domain={domain} />
             ))}
           </div>
         </div>
-        <p className="text-slate-300 mb-6">{currentActivity.description}</p>
+        <p style={{ color: colors.textDim, marginBottom: spacing.md }}>{currentActivity.description}</p>
         
         {/* Display lunch quote if it's a lunch activity */}
         {showQuote ? (
-          <div className="bg-slate-800 p-6 rounded-lg mb-4">
-            <div className="flex flex-col items-center mb-4">
+          <div style={{
+            backgroundColor: colors.background,
+            padding: spacing.md,
+            borderRadius: spacing.sm,
+            marginBottom: spacing.md,
+            border: borders.thin
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              marginBottom: spacing.md 
+            }}>
               {/* Show mentor icon/avatar here if available */}
-              <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center mb-2 text-2xl">
+              <div style={{
+                width: spacing.xl,
+                height: spacing.xl,
+                borderRadius: '50%',
+                backgroundColor: colors.highlight,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: spacing.xs,
+                fontSize: typography.fontSize.xl
+              }}>
                 {challenge.mentor === MentorId.GARCIA ? 'G' : 
                  challenge.mentor === MentorId.KAPOOR ? 'K' : 
                  challenge.mentor === MentorId.JESSE ? 'J' : 'Q'}
               </div>
-              <h4 className="text-lg font-semibold">{
+              <h4 style={{ 
+                fontSize: typography.fontSize.md, 
+                fontWeight: 'semibold' 
+              }}>{
                 challenge.mentor === MentorId.GARCIA ? 'Dr. Garcia' : 
                 challenge.mentor === MentorId.KAPOOR ? 'Dr. Kapoor' : 
                 challenge.mentor === MentorId.JESSE ? 'Jesse' : 'Dr. Quinn'
               }</h4>
             </div>
             
-            <blockquote className="italic text-slate-200 border-l-4 border-blue-500 pl-4 py-2 mb-6">
+            <blockquote style={{
+              fontStyle: 'italic',
+              color: colors.textDim,
+              borderLeft: `4px solid ${colors.highlight}`,
+              paddingLeft: spacing.md,
+              paddingTop: spacing.xs,
+              paddingBottom: spacing.xs,
+              marginBottom: spacing.md
+            }}>
               "{challenge.quote}"
             </blockquote>
             
             {showFeedback ? (
-              <div className="mt-4 p-3 rounded-lg bg-slate-700">
-                <p className="text-green-400">{challenge.feedback}</p>
+              <div style={{
+                marginTop: spacing.md,
+                padding: spacing.sm,
+                borderRadius: spacing.sm,
+                backgroundColor: colors.backgroundAlt
+              }}>
+                <p style={{ color: colors.active }}>{challenge.feedback}</p>
                 
                 {/* Continue button */}
                 <button 
                   onClick={handleContinue}
-                  className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                  style={{
+                    marginTop: spacing.sm,
+                    padding: `${spacing.xs} ${spacing.md}`,
+                    backgroundColor: colors.highlight,
+                    color: colors.text,
+                    border: borders.medium,
+                    borderRadius: spacing.xs,
+                    cursor: 'pointer',
+                    fontFamily: typography.fontFamily.pixel,
+                    textShadow: typography.textShadow.pixel
+                  }}
                 >
                   Continue
                 </button>
@@ -703,65 +793,137 @@ export default function ActivityEngagement() {
             ) : (
               <button 
                 onClick={handleQuoteContinue}
-                className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md w-full"
+                style={{
+                  marginTop: spacing.sm,
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  backgroundColor: colors.highlight,
+                  color: colors.text,
+                  border: borders.medium,
+                  borderRadius: spacing.xs,
+                  cursor: 'pointer',
+                  width: '100%',
+                  fontFamily: typography.fontFamily.pixel,
+                  textShadow: typography.textShadow.pixel
+                }}
               >
                 Continue Conversation
               </button>
             )}
           </div>
         ) : (
-          <div className="bg-slate-800 p-4 rounded-lg mb-4">
+          <div style={{
+            backgroundColor: colors.background,
+            padding: spacing.md,
+            borderRadius: spacing.sm,
+            marginBottom: spacing.md,
+            border: borders.thin
+          }}>
             {hasMultipleQuestions && (
-              <div className="mb-3 text-sm text-slate-400">
+              <div style={{
+                marginBottom: spacing.sm,
+                fontSize: typography.fontSize.sm,
+                color: colors.textDim
+              }}>
                 Question {currentQuestionIndex + 1} of {challenge.questions.length}
               </div>
             )}
             
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="text-lg font-semibold">{currentQuestion.title}</h4>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: spacing.xs 
+            }}>
+              <h4 style={{ 
+                fontSize: typography.fontSize.md, 
+                fontWeight: 'semibold',
+                textShadow: typography.textShadow.pixel
+              }}>{currentQuestion.title}</h4>
               {challenge.difficulty === ActivityDifficulty.HARD && (
-                <span className="bg-amber-600 text-white text-xs px-2 py-1 rounded-full">
-                  ★★★ Hard
+                <span style={{
+                  backgroundColor: colors.starGlow,
+                  color: colors.text,
+                  fontSize: typography.fontSize.xs,
+                  padding: `${spacing.xxs} ${spacing.xs}`,
+                  borderRadius: '16px'
+                }}>
+                  <DifficultyStars difficulty={ActivityDifficulty.HARD} /> Hard
                 </span>
               )}
             </div>
-            <p className="text-slate-300 mb-4">{currentQuestion.content}</p>
+            <p style={{ 
+              color: colors.textDim, 
+              marginBottom: spacing.md 
+            }}>{currentQuestion.content}</p>
             
-            <div className="space-y-3 mt-4">
-              {currentQuestion.options.map((option: any, index: number) => (
-                <button
-                  key={index}
-                  className={`
-                    p-4 rounded-lg w-full text-left transition duration-200
-                    ${selectedOption === index 
-                      ? (option.correct ? 'bg-green-700' : 'bg-red-700') 
-                      : 'bg-slate-600 hover:bg-slate-500'}
-                    ${selectedOption !== null ? 'cursor-default' : 'cursor-pointer'}
-                  `}
-                  onClick={() => selectedOption === null && handleOptionSelect(index)}
-                  disabled={selectedOption !== null}
-                >
-                  {option.text}
-                </button>
-              ))}
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: spacing.sm, 
+              marginTop: spacing.md 
+            }}>
+              {currentQuestion.options.map((option: any, index: number) => {
+                const isSelected = selectedOption === index;
+                const isCorrect = option.correct;
+                
+                return (
+                  <button
+                    key={index}
+                    style={{
+                      padding: spacing.md,
+                      borderRadius: spacing.sm,
+                      width: '100%',
+                      textAlign: 'left',
+                      transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
+                      backgroundColor: isSelected 
+                        ? (isCorrect ? colors.active : colors.error) 
+                        : colors.backgroundAlt,
+                      color: colors.text,
+                      border: borders.medium,
+                      cursor: selectedOption !== null ? 'default' : 'pointer',
+                      fontFamily: typography.fontFamily.pixel
+                    }}
+                    onClick={() => selectedOption === null && handleOptionSelect(index)}
+                    disabled={selectedOption !== null}
+                  >
+                    {option.text}
+                  </button>
+                );
+              })}
             </div>
             
             {showFeedback && selectedOption !== null && (
-              <div className="mt-4 p-3 rounded-lg bg-slate-700">
-                <p className={currentQuestion.options[selectedOption].correct 
-                  ? "text-green-400" 
-                  : "text-red-400"
-                }>
+              <div style={{
+                marginTop: spacing.md,
+                padding: spacing.sm,
+                borderRadius: spacing.sm,
+                backgroundColor: colors.backgroundAlt
+              }}>
+                <p style={{ 
+                  color: currentQuestion.options[selectedOption].correct 
+                    ? colors.active 
+                    : colors.error
+                }}>
                   {currentQuestion.options[selectedOption].feedback}
                 </p>
                 
                 {/* Only show concepts discovered on the last question */}
                 {(!hasMultipleQuestions || isLastQuestion) && conceptsDiscovered.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-yellow-300">New concepts discovered:</p>
-                    <div className="flex gap-2 mt-1 flex-wrap">
+                  <div style={{ marginTop: spacing.xs }}>
+                    <p style={{ color: colors.starGlow }}>New concepts discovered:</p>
+                    <div style={{ 
+                      display: 'flex', 
+                      gap: spacing.xs, 
+                      marginTop: spacing.xxs, 
+                      flexWrap: 'wrap' 
+                    }}>
                       {conceptsDiscovered.map((concept) => (
-                        <span key={concept} className="bg-slate-600 px-2 py-1 rounded text-sm">
+                        <span key={concept} style={{
+                          backgroundColor: colors.backgroundAlt,
+                          padding: `${spacing.xxs} ${spacing.xs}`,
+                          borderRadius: spacing.sm,
+                          fontSize: typography.fontSize.sm
+                        }}>
                           {concept.replace(/_/g, ' ')}
                         </span>
                       ))}
@@ -772,7 +934,17 @@ export default function ActivityEngagement() {
                 {/* Update continue button text for multi-question challenges */}
                 <button 
                   onClick={handleContinue}
-                  className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                  style={{
+                    marginTop: spacing.sm,
+                    padding: `${spacing.xs} ${spacing.md}`,
+                    backgroundColor: colors.highlight,
+                    color: colors.text,
+                    border: borders.medium,
+                    borderRadius: spacing.xs,
+                    cursor: 'pointer',
+                    fontFamily: typography.fontFamily.pixel,
+                    textShadow: typography.textShadow.pixel
+                  }}
                 >
                   {hasMultipleQuestions && !isLastQuestion ? "Next Question" : "Continue"}
                 </button>
@@ -781,14 +953,28 @@ export default function ActivityEngagement() {
           </div>
         )}
         
-        <div className="flex justify-between items-center mt-6">
-          <div className="flex space-x-3">
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginTop: spacing.md 
+        }}>
+          <div style={{ display: 'flex', gap: spacing.sm }}>
             {/* Only show special abilities if not a lunch activity */}
             {!showQuote && (
               <>
                 <button
-                  className={`px-3 py-1 rounded-md text-sm 
-                    ${canUseTangent ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-600 opacity-50 cursor-not-allowed'}`}
+                  style={{
+                    padding: `${spacing.xxs} ${spacing.sm}`,
+                    borderRadius: spacing.xs,
+                    fontSize: typography.fontSize.sm,
+                    backgroundColor: canUseTangent ? colors.insight : colors.inactive,
+                    color: colors.text,
+                    opacity: canUseTangent ? 1 : 0.5,
+                    cursor: canUseTangent ? 'pointer' : 'not-allowed',
+                    border: borders.thin,
+                    fontFamily: typography.fontFamily.pixel
+                  }}
                   disabled={!canUseTangent}
                   onClick={handleTangent}
                   title={canUseTangent ? "Change the current question (25 Insight)" : "Not enough Insight or already used"}
@@ -797,8 +983,17 @@ export default function ActivityEngagement() {
                 </button>
                 
                 <button
-                  className={`px-3 py-1 rounded-md text-sm 
-                    ${canUseBoast ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-600 opacity-50 cursor-not-allowed'}`}
+                  style={{
+                    padding: `${spacing.xxs} ${spacing.sm}`,
+                    borderRadius: spacing.xs,
+                    fontSize: typography.fontSize.sm,
+                    backgroundColor: canUseBoast ? colors.momentum : colors.inactive,
+                    color: colors.text,
+                    opacity: canUseBoast ? 1 : 0.5,
+                    cursor: canUseBoast ? 'pointer' : 'not-allowed',
+                    border: borders.thin,
+                    fontFamily: typography.fontFamily.pixel
+                  }}
                   disabled={!canUseBoast}
                   onClick={handleBoast}
                   title={canUseBoast ? "Attempt a harder question for more rewards" : "Not enough Momentum or already used"}
@@ -810,23 +1005,34 @@ export default function ActivityEngagement() {
           </div>
           
           {currentActivity.mentor && (
-            <div className="text-sm text-slate-400">
+            <div style={{ 
+              fontSize: typography.fontSize.sm, 
+              color: colors.textDim 
+            }}>
               with {currentActivity.mentor}
             </div>
           )}
         </div>
         
         {(usedTangent || usedBoast) && (
-          <div className="mt-3 text-sm">
+          <div style={{ 
+            marginTop: spacing.sm, 
+            fontSize: typography.fontSize.sm 
+          }}>
             {usedTangent && (
-              <span className="text-blue-400">Tangent ability used</span>
+              <span style={{ color: colors.insight }}>Tangent ability used</span>
             )}
             {usedBoast && (
-              <span className="text-amber-400">Boast ability used</span>
+              <span style={{ color: colors.momentum }}>Boast ability used</span>
             )}
           </div>
         )}
       </div>
+      
+      {/* Add pulse animation */}
+      <style jsx global>{`
+        ${animation.keyframes.pulse}
+      `}</style>
     </div>
   );
 } 

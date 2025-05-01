@@ -1,4 +1,5 @@
 export enum GamePhase {
+  TITLE = 'TITLE',
   PROLOGUE = 'PROLOGUE',
   DAY = 'DAY',
   NIGHT = 'NIGHT',
@@ -14,6 +15,7 @@ export enum ActivityDifficulty {
   EASY = 'EASY',
   MEDIUM = 'MEDIUM',
   HARD = 'HARD',
+  NONE = 'NONE', // For activities like self-study
 }
 
 export enum KnowledgeDomain {
@@ -70,10 +72,11 @@ export interface ActivityOption {
   description: string;
   location: LocationId;
   mentor?: MentorId;
-  durationMinutes: number;
+  durationMinutes?: number;
+  duration: number; // In minutes
   domains: KnowledgeDomain[];
   difficulty: ActivityDifficulty;
-  available: boolean;
+  available?: boolean;
   requirements?: {
     starRequirements?: string[];
     relationshipRequirements?: Record<MentorId, number>;
@@ -92,6 +95,7 @@ export enum GameEventType {
   // Resource events
   MOMENTUM_GAINED = 'MOMENTUM_GAINED',
   MOMENTUM_RESET = 'MOMENTUM_RESET',
+  MOMENTUM_CHANGED = 'MOMENTUM_CHANGED',
   INSIGHT_GAINED = 'INSIGHT_GAINED',
   INSIGHT_SPENT = 'INSIGHT_SPENT',
   INSIGHT_CONVERTED = 'INSIGHT_CONVERTED',
@@ -110,6 +114,17 @@ export enum GameEventType {
   ACTIVITY_COMPLETED = 'ACTIVITY_COMPLETED',
   CHALLENGE_SUCCEEDED = 'CHALLENGE_SUCCEEDED',
   CHALLENGE_FAILED = 'CHALLENGE_FAILED',
+  ACTIVITY_FAILED = 'ACTIVITY_FAILED',
+  TIME_BLOCK_STARTED = 'TIME_BLOCK_STARTED',
+  ACTIVITY_SELECTED = 'ACTIVITY_SELECTED',
+  DIALOGUE_STARTED = 'DIALOGUE_STARTED',
+  DIALOGUE_ENDED = 'DIALOGUE_ENDED',
+  CONCEPT_DISCOVERED = 'CONCEPT_DISCOVERED',
+  MASTERY_INCREASED = 'MASTERY_INCREASED',
+  MENTOR_RELATIONSHIP_CHANGED = 'MENTOR_RELATIONSHIP_CHANGED',
+  KNOWLEDGE_DISCOVERED = 'KNOWLEDGE_DISCOVERED',
+  TANGENT_USED = 'TANGENT_USED',
+  BOAST_USED = 'BOAST_USED',
 }
 
 export interface KnowledgeConnection {
@@ -126,3 +141,32 @@ export const DomainColors = {
   [KnowledgeDomain.LINAC_ANATOMY]: '#f59e0b', // Amber
   [KnowledgeDomain.DOSIMETRY]: '#ec4899', // Pink
 }; 
+
+export interface KnowledgeStar {
+  id: string;
+  name: string;
+  description: string;
+  domain: KnowledgeDomain;
+  position: { x: number; y: number };
+  mastery: number; // 0-100%
+  connections: string[]; // IDs of connected stars
+  prerequisites?: string[]; // Star IDs required before this can be discovered
+  discovered: boolean;
+  unlocked: boolean;
+  active: boolean;
+  spCost: number; // Star Points cost to unlock
+}
+
+export interface DialogueOption {
+  text: string;
+  nextId?: string;
+  effect?: () => void;
+  isEndNode?: boolean;
+  id?: string;
+  nextNodeId?: string;
+  requiredStarId?: string;
+  insightChange?: number;
+  momentumChange?: number;
+  relationshipChange?: number;
+  discoversConceptId?: string;
+} 

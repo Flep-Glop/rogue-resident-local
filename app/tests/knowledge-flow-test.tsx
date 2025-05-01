@@ -79,24 +79,31 @@ const KnowledgeFlowTest = () => {
     }, 100);
   };
   
-  // Listen for concept discovery events
+  // Subscribe to concept events
   useEffect(() => {
+    const handleConceptDiscovered = (event: any) => {
+      console.log('CONCEPT EVENT:', event);
+      
+      // Get the current stars from the store
+      const stars = useKnowledgeStore.getState().stars;
+      
+      // Check if this is a concept discovery event
+      if (event.payload?.conceptId) {
+        // Add to log
+        setTestResults(prev => [
+          ...prev,
+          `🔔 Event: Concept discovered - ${event.payload.conceptId} (${stars[event.payload.conceptId]?.name})`
+        ]);
+      }
+    };
+    
     const unsubscribe = centralEventBus.subscribe(
       GameEventType.CONCEPT_DISCOVERED,
-      (event) => {
-        if (event.payload?.conceptId) {
-          setTestResults(prev => [
-            ...prev, 
-            `🔔 Event: Concept discovered - ${event.payload.conceptId} (${stars[event.payload.conceptId]?.name})`
-          ]);
-        }
-      }
+      handleConceptDiscovered
     );
     
-    return () => {
-      unsubscribe();
-    };
-  }, [stars]);
+    return () => unsubscribe();
+  }, []);
   
   // Display the current discovered today list
   useEffect(() => {
