@@ -1,13 +1,15 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { ConstellationView } from '../constellation/ConstellationView';
 import { StarMap } from '../constellation/StarMap';
 import { useGameStore } from '@/app/store/gameStore';
 import { PhaseManager } from '@/app/core/phase/PhaseManager';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { JournalView } from '../journal/JournalView';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { DomainColors, KnowledgeStar, KnowledgeDomain } from '@/app/types';
 import pixelTheme, { colors, spacing, typography, shadows, borders } from '@/app/styles/pixelTheme';
+import Image from 'next/image';
+import { components } from '@/app/styles/pixelTheme';
 
 const NightPhaseContainer = styled.div`
   min-height: 100vh;
@@ -184,7 +186,7 @@ const DiscoveryGrid = styled.div`
   padding-right: ${spacing.xs};
 `;
 
-const DiscoveryCard = styled.div<{ $domainColor: string; $unlocked: boolean }>`
+const DiscoveryCard = styled.div<{ $domainColor: string; $unlocked: boolean; $isSelected?: boolean; $isActive?: boolean }>`
   background-color: rgba(14, 17, 28, 0.8);
   padding: ${spacing.sm};
   border-radius: 6px;
@@ -204,6 +206,21 @@ const DiscoveryCard = styled.div<{ $domainColor: string; $unlocked: boolean }>`
     }
   }
   
+  /* Apply grayscale if not unlocked */
+  ${props => !props.$unlocked && css`
+    filter: grayscale(85%); /* Adjust percentage as needed */
+    transition: filter 0.2s, transform 0.2s, box-shadow 0.2s;
+
+    /* Ensure button is not greyscaled - Target UnlockButton component */
+    & ${UnlockButton} {
+      filter: grayscale(0%);
+    }
+    /* Ensure title and description are readable */
+    & > h4, & > p {
+        color: ${colors.textDim}; /* Adjust if needed for readability */
+    }
+  `}
+  
   &::after {
     content: '';
     position: absolute;
@@ -217,7 +234,7 @@ const DiscoveryCard = styled.div<{ $domainColor: string; $unlocked: boolean }>`
   }
   
   /* Add glow effect when unlocked */
-  ${props => props.$unlocked && `
+  ${props => props.$unlocked && css`
     box-shadow: 0 0 8px ${props.$domainColor};
     border-color: ${props.$domainColor};
     border-width: 3px;
@@ -225,6 +242,72 @@ const DiscoveryCard = styled.div<{ $domainColor: string; $unlocked: boolean }>`
     &:hover {
       box-shadow: 0 0 12px ${props.$domainColor};
     }
+  `}
+
+  /* Add selected state styling */
+  ${props => props.$isSelected && css`
+    transform: scale(1.03);
+    box-shadow: 0 0 12px ${colors.highlight}, 0 4px 8px rgba(0,0,0,0.4);
+    border-color: ${colors.highlight};
+    border-width: 2px;
+    border-left-width: 4px; /* Keep left border distinct */
+    border-left-color: ${props.$domainColor}; /* Keep domain color on left */
+    opacity: 1; /* Ensure selected is fully opaque */
+    background-color: rgba(30, 35, 55, 0.95); /* Distinct selected background */
+    color: ${colors.text}; /* Ensure text is bright when selected */
+    ${DiscoveryTitle} { 
+      color: ${colors.text}; 
+    }
+    ${DiscoveryDescription} {
+      color: ${colors.textDim}; 
+    }
+
+    &:hover {
+        transform: scale(1.03); /* Maintain scale on hover when selected */
+        box-shadow: 0 0 16px ${colors.highlight}, 0 6px 12px rgba(0,0,0,0.5);
+    }
+  `}
+
+  /* Add visual distinction for active/inactive unlocked cards */
+  ${props => props.$unlocked && css`
+    /* Active Card Styling */
+    ${props.$isActive && css`
+      /* Example: Brighter border and glow */
+      border-color: ${props.$domainColor};
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.6), 0 0 6px ${props.$domainColor}; 
+      background-color: rgba(25, 30, 45, 0.9); /* Brighter background */
+      
+      /* Ensure default text is bright */
+      color: ${colors.text}; 
+      ${DiscoveryTitle} { 
+          color: ${colors.text}; 
+      }
+      ${DiscoveryDescription} {
+          color: ${colors.textDim}; 
+      }
+    `}
+
+    /* Inactive (but unlocked) Card Styling */
+    ${!props.$isActive && css`
+      /* Example: Significantly dimmed appearance */
+      opacity: 0.75; /* Slightly more opaque */
+      background-color: rgba(10, 12, 20, 0.8); /* Darker background */
+      border-color: rgba(100, 100, 100, 0.4); /* Dimmer border */
+      border-left-color: ${props.$domainColor}; /* Keep domain color visible */
+      box-shadow: none; /* Remove glow for inactive */
+      
+      /* Dim the text */
+      ${DiscoveryTitle} {
+          color: ${colors.textDim}; 
+      }
+      ${DiscoveryDescription} {
+          color: rgba(150, 150, 150, 0.6); /* Even dimmer description */
+      }
+
+      &:hover {
+        opacity: 1; /* Bring back full opacity on hover */
+      }
+    `}
   `}
 `;
 
@@ -264,7 +347,7 @@ const DiscoveryDescription = styled.p`
   -webkit-box-orient: vertical;
 `;
 
-const UnlockButton = styled.button<{ $disabled: boolean; $unlocked?: boolean }>`
+const UnlockButton = styled.button<{ $disabled: boolean; $unlocked?: boolean; $isActive?: boolean }>`
   padding: ${spacing.xs} ${spacing.sm};
   background-color: ${props => 
     props.$unlocked 
@@ -287,6 +370,16 @@ const UnlockButton = styled.button<{ $disabled: boolean; $unlocked?: boolean }>`
   font-weight: bold;
   box-shadow: ${props => props.$disabled ? 'none' : shadows.sm};
   
+  /* Style adjustments for active/inactive states */
+  ${props => props.$unlocked && css`
+    background-color: ${props.$isActive ? colors.highlight : DomainColors.TREATMENT_PLANNING };
+    color: ${colors.background};
+
+    &:hover {
+        background-color: ${props.$isActive ? '#fde68a' : colors.highlight }; /* Slightly different hover for activate/deactivate */
+    }
+  `}
+
   &:hover {
     background-color: ${props => 
       props.$unlocked 
@@ -325,6 +418,149 @@ const StatusFooter = styled.div`
   color: ${colors.textDim};
 `;
 
+const CharacterPortrait = styled.div`
+  position: absolute;
+  bottom: 210px;
+  left: 150px;
+  width: 384px;
+  height: 384px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  z-index: 20;
+`;
+
+const TutorialOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 19;
+  padding-bottom: ${spacing.xl};
+  ${pixelTheme.mixins.pixelPerfect}
+`;
+
+const DialogueBox = styled.div`
+  ${components.dialog.container}
+  position: relative;
+  margin: 0 auto ${spacing.lg};
+  width: 83%;
+  max-width: 800px;
+  z-index: 21;
+  cursor: pointer;
+`;
+
+const DialogueHeader = styled.div`
+  ${components.dialog.header}
+  font-size: ${typography.fontSize.xl};
+  font-weight: medium;
+  margin-bottom: ${spacing.xs};
+`;
+
+const DialogueContent = styled.div`
+  ${components.dialog.content}
+  margin-bottom: ${spacing.md};
+`;
+
+const ContinueButton = styled.button`
+  ${components.button.base}
+  ${components.button.primary}
+  position: absolute;
+  bottom: ${spacing.xs};
+  right: ${spacing.md};
+  padding: ${spacing.xs} ${spacing.md};
+  font-size: ${typography.fontSize.sm};
+  
+  &:hover {
+    background-color: ${colors.treatmentPlanning};
+    transform: translateY(-2px);
+    box-shadow: ${shadows.pixelDrop};
+  }
+`;
+
+// Add the InstructionText component
+const InstructionText = styled.div`
+  position: absolute;
+  bottom: ${spacing.xs};
+  left: ${spacing.md};
+  font-size: ${typography.fontSize.sm};
+  color: ${colors.textDim};
+  text-shadow: ${typography.textShadow.pixel};
+`;
+
+// Add Sort controls container and button styles
+const SortControls = styled.div`
+  display: flex;
+  gap: ${spacing.sm};
+  margin-bottom: ${spacing.sm};
+  padding-bottom: ${spacing.sm};
+  border-bottom: 1px solid ${colors.border};
+`;
+
+const SortButton = styled.button<{ $active: boolean }>`
+  padding: ${spacing.xs} ${spacing.sm};
+  background-color: ${props => props.$active ? colors.highlight : colors.backgroundAlt};
+  color: ${props => props.$active ? colors.background : colors.text};
+  border: ${borders.medium};
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: ${typography.fontFamily.pixel};
+  font-size: ${typography.fontSize.xs};
+  text-shadow: ${typography.textShadow.pixel};
+  transition: all 0.2s;
+  opacity: ${props => props.$active ? 1 : 0.7};
+
+  &:hover {
+    background-color: ${colors.highlight};
+    color: ${colors.background};
+    opacity: 1;
+  }
+`;
+
+// Add Filter controls container and button styles (similar to SortControls)
+const FilterControls = styled.div`
+  display: flex;
+  gap: ${spacing.sm};
+  margin-bottom: ${spacing.sm};
+`;
+
+const FilterButton = styled.button<{ $active: boolean }>`
+  padding: ${spacing.xs} ${spacing.sm};
+  background-color: ${props => props.$active ? colors.highlight : colors.backgroundAlt};
+  color: ${props => props.$active ? colors.background : colors.text};
+  border: ${borders.medium};
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: ${typography.fontFamily.pixel};
+  font-size: ${typography.fontSize.xs};
+  text-shadow: ${typography.textShadow.pixel};
+  transition: all 0.2s;
+  opacity: ${props => props.$active ? 1 : 0.7};
+
+  &:hover {
+    background-color: ${colors.highlight};
+    color: ${colors.background};
+    opacity: 1;
+  }
+`;
+
+// Tutorial dialogue content
+const tutorialDialogue = [
+  "Welcome to the Night Phase, the time when we reflect on what we've learned! I'm glad I caught you before you dove in.",
+  "This starry view represents your knowledge constellation. Each star is an insight you discovered during your day at the hospital.",
+  "You can hover over stars to see what you've learned. Newly discovered stars can be unlocked with Star Points you've earned.",
+  "The more stars you unlock, the more Insight you'll gain at the start of each day. This gives you more opportunities to learn and grow.",
+  "You can also open your Journal to review detailed notes about what you've learned. Everything you discover will be recorded there.",
+  "When you're ready to begin a new day, simply click 'Start New Day'. Don't forget to unlock stars before you leave - they'll give you the energy to learn more tomorrow!",
+  "Good luck, and remember - the night sky is a reflection of your growing knowledge. Make it shine brightly!"
+];
+
 export const NightPhase: React.FC = () => {
   const [showJournal, setShowJournal] = useState(false);
   const [, forceUpdate] = useState({});
@@ -332,9 +568,27 @@ export const NightPhase: React.FC = () => {
   const [selectedStar, setSelectedStar] = useState<KnowledgeStar | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   
+  // Tutorial state
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [displayedText, setDisplayedText] = useState('');
+  const [isTyping, setIsTyping] = useState(true);
+  const [typingSpeed, setTypingSpeed] = useState(30); // milliseconds per character
+  
+  // Sorting state
+  type SortByType = 'default' | 'name' | 'domain' | 'unlocked';
+  const [sortBy, setSortBy] = useState<SortByType>('default');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Filtering state
+  type FilterByActiveType = 'all' | 'active' | 'inactive';
+  const [filterByActive, setFilterByActive] = useState<FilterByActiveType>('all');
+  
   const daysPassed = useGameStore(state => state.daysPassed);
   const resetDay = useGameStore(state => state.resetDay);
   const starPoints = useGameStore(state => state.resources.starPoints);
+  const hasVisitedNightPhase = useGameStore(state => state.hasVisitedNightPhase);
+  const setHasVisitedNightPhase = useGameStore(state => state.setHasVisitedNightPhase);
   
   const getActiveStars = useKnowledgeStore(state => state.getActiveStars);
   const getUnlockedStars = useKnowledgeStore(state => state.getUnlockedStars);
@@ -342,11 +596,103 @@ export const NightPhase: React.FC = () => {
   const starsObject = useKnowledgeStore(state => state.stars);
   const unlockStar = useKnowledgeStore(state => state.unlockStar);
   const clearDailyDiscoveries = useKnowledgeStore(state => state.clearDailyDiscoveries);
+  const toggleStarActive = useKnowledgeStore(state => state.toggleStarActive); // Get activation function
+  
+  // Check if this is the first visit to night phase
+  useEffect(() => {
+    if (!hasVisitedNightPhase) {
+      setShowTutorial(true);
+      setHasVisitedNightPhase(true);
+      // Reset typewriter state
+      setDisplayedText('');
+      setIsTyping(true);
+      setTutorialStep(0);
+    }
+  }, [hasVisitedNightPhase, setHasVisitedNightPhase]);
+  
+  // Handle advancing the tutorial
+  const advanceTutorial = useCallback(() => {
+    if (isTyping) {
+      // Complete the current line's typing
+      setDisplayedText(tutorialDialogue[tutorialStep]);
+      setIsTyping(false);
+      return;
+    }
+    
+    if (tutorialStep < tutorialDialogue.length - 1) {
+      setTutorialStep(tutorialStep + 1);
+      setDisplayedText('');
+      setIsTyping(true);
+    } else {
+      setShowTutorial(false);
+    }
+  }, [tutorialStep, isTyping]);
+  
+  // Typewriter effect for tutorial
+  useEffect(() => {
+    if (!isTyping || !showTutorial) return;
+    
+    if (displayedText.length >= tutorialDialogue[tutorialStep].length) {
+      setIsTyping(false);
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      setDisplayedText(tutorialDialogue[tutorialStep].substring(0, displayedText.length + 1));
+    }, typingSpeed);
+    
+    return () => clearTimeout(timer);
+  }, [displayedText, isTyping, tutorialStep, showTutorial, typingSpeed]);
   
   const newlyDiscoveredStars = discoveredTodayIds
     .map(id => starsObject[id])
     .filter(Boolean);
     
+  // Memoized filtered and sorted stars list
+  const processedDiscoveredStars = useMemo(() => {
+    // 1. Filter
+    const filteredStars = newlyDiscoveredStars.filter(star => {
+      if (filterByActive === 'all') return true;
+      if (filterByActive === 'active') return star.unlocked && star.active;
+      if (filterByActive === 'inactive') return star.unlocked && !star.active;
+      return true; // Should not happen, but default to showing
+    });
+
+    // 2. Sort (using a mutable copy of filtered list)
+    const starsToSort = [...filteredStars];
+    
+    switch (sortBy) {
+      case 'name':
+        starsToSort.sort((a, b) => 
+          sortDirection === 'asc' 
+            ? a.name.localeCompare(b.name) 
+            : b.name.localeCompare(a.name)
+        );
+        break;
+      case 'domain':
+        starsToSort.sort((a, b) => {
+          const domainCompare = a.domain.localeCompare(b.domain);
+          if (domainCompare !== 0) return sortDirection === 'asc' ? domainCompare : -domainCompare;
+          // Secondary sort by name if domains are equal
+          return a.name.localeCompare(b.name);
+        });
+        break;
+      case 'unlocked':
+        starsToSort.sort((a, b) => {
+          const unlockedCompare = (a.unlocked ? 1 : 0) - (b.unlocked ? 1 : 0);
+          if (unlockedCompare !== 0) return sortDirection === 'asc' ? unlockedCompare : -unlockedCompare;
+           // Secondary sort by name if unlocked status is equal
+          return a.name.localeCompare(b.name);
+        });
+        break;
+      case 'default':
+      default:
+        // Keep original order (based on discoveredTodayIds)
+        break;
+    }
+    return starsToSort;
+  }, [newlyDiscoveredStars, sortBy, sortDirection, filterByActive]);
+  
   const activeStars = getActiveStars();
   const unlockedStars = getUnlockedStars();
   
@@ -388,8 +734,13 @@ export const NightPhase: React.FC = () => {
         // Select the new star
         setSelectedStar(star);
       }
+      // Scroll the discovery panel if the selected star is in the newly discovered list
+      if (star && newlyDiscoveredStars.some(ds => ds.id === star.id)) {
+        const cardElement = document.getElementById(`discovery-card-${star.id}`);
+        cardElement?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
     }
-  }, [selectedStar]);
+  }, [selectedStar, newlyDiscoveredStars]);
   
   // Function to handle star unlocking with a UI update
   const handleUnlockStar = useCallback((starId: string) => {
@@ -401,6 +752,29 @@ export const NightPhase: React.FC = () => {
       forceUpdate({});
     }
   }, [unlockStar]);
+  
+  // Function to handle sorting changes
+  const handleSortChange = (newSortBy: SortByType) => {
+    if (sortBy === newSortBy) {
+      // If clicking the same sort type, toggle direction
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Otherwise, set the new sort type and default to ascending
+      setSortBy(newSortBy);
+      setSortDirection('asc');
+    }
+  };
+  
+  // Function to handle filter changes
+  const handleFilterChange = (newFilter: FilterByActiveType) => {
+    setFilterByActive(newFilter);
+  };
+  
+  // Function to handle toggling star active status
+  const handleToggleActive = useCallback((starId: string) => {
+    toggleStarActive(starId);
+    forceUpdate({}); // Force re-render to reflect active status change immediately
+  }, [toggleStarActive]);
   
   if (showJournal) {
     return (
@@ -452,12 +826,29 @@ export const NightPhase: React.FC = () => {
           {newlyDiscoveredStars.length > 0 && (
             <NewDiscoveriesPanel>
               <SectionTitle>New Discoveries!</SectionTitle>
+              {/* Filter Controls */} 
+              <FilterControls>
+                <FilterButton onClick={() => handleFilterChange('all')} $active={filterByActive === 'all'}>All Unlocked</FilterButton>
+                <FilterButton onClick={() => handleFilterChange('active')} $active={filterByActive === 'active'}>Active Only</FilterButton>
+                <FilterButton onClick={() => handleFilterChange('inactive')} $active={filterByActive === 'inactive'}>Inactive Only</FilterButton>
+              </FilterControls>
+              {/* Sort Controls */} 
+              <SortControls>
+                <SortButton onClick={() => handleSortChange('default')} $active={sortBy === 'default'}>Default</SortButton>
+                <SortButton onClick={() => handleSortChange('name')} $active={sortBy === 'name'}>A-Z {sortBy === 'name' && (sortDirection === 'asc' ? '▲' : '▼')}</SortButton>
+                <SortButton onClick={() => handleSortChange('domain')} $active={sortBy === 'domain'}>Domain {sortBy === 'domain' && (sortDirection === 'asc' ? '▲' : '▼')}</SortButton>
+                <SortButton onClick={() => handleSortChange('unlocked')} $active={sortBy === 'unlocked'}>Unlocked {sortBy === 'unlocked' && (sortDirection === 'asc' ? '▲' : '▼')}</SortButton>
+              </SortControls>
               <DiscoveryGrid>
-                {newlyDiscoveredStars.map(star => (
+                {/* Use processedDiscoveredStars */} 
+                {processedDiscoveredStars.map((star: KnowledgeStar) => (
                   <DiscoveryCard 
                     key={star.id}
+                    id={`discovery-card-${star.id}`}
                     $domainColor={DomainColors[star.domain]}
                     $unlocked={star.unlocked}
+                    $isSelected={star.id === selectedStar?.id}
+                    $isActive={star.active}
                   >
                     <DomainIndicator $domainColor={DomainColors[star.domain]} />
                     <DiscoveryTitle>
@@ -467,8 +858,14 @@ export const NightPhase: React.FC = () => {
                       {star.description.substring(0, 100)}
                     </DiscoveryDescription>
                     {star.unlocked ? (
-                      <UnlockButton $disabled={false} $unlocked={true}>
-                        Unlocked
+                      // Button for unlocked stars: Activate/Deactivate
+                      <UnlockButton 
+                        onClick={() => handleToggleActive(star.id)}
+                        $disabled={false} 
+                        $unlocked={true} 
+                        $isActive={star.active}
+                      >
+                        {star.active ? 'Deactivate' : 'Activate'}
                       </UnlockButton>
                     ) : (
                       <UnlockButton 
@@ -503,6 +900,49 @@ export const NightPhase: React.FC = () => {
           Start New Day
         </StartDayButton>
       </ConstellationNav>
+      
+      {/* Tutorial overlay */}
+      {showTutorial && (
+        <TutorialOverlay>
+          <CharacterPortrait>
+            <Image 
+              src="/images/garcia.png" 
+              alt="Dr. Garcia" 
+              width={384} 
+              height={384}
+              style={{ imageRendering: 'pixelated' }}
+              priority
+            />
+          </CharacterPortrait>
+          <DialogueBox>
+            <DialogueHeader>Dr. Garcia</DialogueHeader>
+            <DialogueContent>
+              {displayedText}
+              {isTyping && <span className="cursor">|</span>}
+            </DialogueContent>
+            <InstructionText>
+              {isTyping ? 'Click to speed up text' : 'Click to continue'}
+            </InstructionText>
+            <ContinueButton onClick={advanceTutorial}>
+              {isTyping ? 'Speed Up' : (tutorialStep < tutorialDialogue.length - 1 ? 'Continue' : 'Got it!')}
+            </ContinueButton>
+          </DialogueBox>
+        </TutorialOverlay>
+      )}
+      
+      {/* Add cursor style for typewriter effect */}
+      <style jsx global>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+        
+        .cursor {
+          display: inline-block;
+          animation: blink 0.8s infinite;
+          color: ${colors.highlight};
+        }
+      `}</style>
     </NightPhaseContainer>
   );
 }; 

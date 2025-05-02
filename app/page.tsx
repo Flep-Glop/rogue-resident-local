@@ -61,22 +61,19 @@ const Game: React.FC = () => {
     handlePhaseChange();
   }, [currentPhase, displayPhase, startLoading, stopLoading]);
   
-  // Use useMemo to prevent unnecessary re-renders
-  return useMemo(() => {
-    // Render the appropriate component based on the current game phase
-    switch (displayPhase) {
-      case GamePhase.TITLE:
-        return <TitleScreen />;
-      case GamePhase.PROLOGUE:
-        return <Prologue />;
-      case GamePhase.DAY:
-        return <DayPhase />;
-      case GamePhase.NIGHT:
-        return <NightPhase />;
-      default:
-        return <TitleScreen />;
-    }
-  }, [displayPhase]); // Only re-render when displayPhase changes
+  // Render the appropriate component based on the current game phase
+  switch (displayPhase) {
+    case GamePhase.TITLE:
+      return <TitleScreen />;
+    case GamePhase.PROLOGUE:
+      return <Prologue />;
+    case GamePhase.DAY:
+      return <DayPhase />;
+    case GamePhase.NIGHT:
+      return <NightPhase />;
+    default:
+      return <TitleScreen />;
+  }
 };
 
 export default function Home() {

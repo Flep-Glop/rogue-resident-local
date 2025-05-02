@@ -12,10 +12,10 @@ import Image from 'next/image';
 
 // Mapping from MentorId to chibi image path
 const mentorChibiMap: Record<MentorId, string> = {
-  [MentorId.GARCIA]: '/images/garcia-chibi.png',
-  [MentorId.KAPOOR]: '/images/kapoor-chibi.png',
-  [MentorId.QUINN]: '/images/quinn-chibi.png',
-  [MentorId.JESSE]: '/images/jesse-chibi.png',
+  [MentorId.GARCIA]: '/images/garcia-simple.png',
+  [MentorId.KAPOOR]: '/images/kapoor-simple.png',
+  [MentorId.QUINN]: '/images/quinn-simple.png',
+  [MentorId.JESSE]: '/images/jesse-simple.png',
 };
 
 // Function to check if value is a valid MentorId
@@ -61,7 +61,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
   morning_rounds: {
     questions: [
       {
-        title: "EASY Challenge - Question 1",
         content: "This is the first EASY question about radiation therapy. Pick the CORRECT answer to gain momentum and insight.",
         options: [
           {
@@ -82,7 +81,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
         ],
       },
       {
-        title: "EASY Challenge - Question 2",
         content: "This is the second EASY question about radiation therapy. Select the CORRECT answer to continue your progress.",
         options: [
           {
@@ -111,7 +109,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
   morning_rounds_tangent: {
     questions: [
       {
-        title: "TANGENT Challenge - Question 1",
         content: "This is a TANGENT question (costs 25 Insight). It's still EASY difficulty but gives different concepts.",
         options: [
           {
@@ -132,7 +129,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
         ],
       },
       {
-        title: "TANGENT Challenge - Question 2",
         content: "Here's a follow-up question on a different treatment approach.",
         options: [
           {
@@ -161,7 +157,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
   morning_rounds_boast: {
     questions: [
       {
-        title: "BOAST Challenge - Question 1",
         content: "This is a HARD (BOAST) question. It costs all 3 momentum but gives 1.5x rewards if correct. You have a higher chance of SP.",
         options: [
           {
@@ -182,7 +177,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
         ],
       },
       {
-        title: "BOAST Challenge - Question 2",
         content: "This advanced question tests your understanding of adaptive radiotherapy protocols.",
         options: [
           {
@@ -211,7 +205,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
   qa_protocol_review: {
     questions: [
       {
-        title: "MEDIUM Challenge - Question 1",
         content: "This is a MEDIUM difficulty question about QA protocols. It's worth more Insight (20) than an EASY question.",
         options: [
           {
@@ -232,7 +225,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
         ],
       },
       {
-        title: "MEDIUM Challenge - Question 2",
         content: "Now, consider this scenario related to isocenter verification techniques.",
         options: [
           {
@@ -261,7 +253,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
   qa_protocol_review_tangent: {
     questions: [
       {
-        title: "TANGENT Medium - Question 1",
         content: "This is a TANGENT question at MEDIUM difficulty. It costs 25 Insight to see this question.",
         options: [
           {
@@ -282,7 +273,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
         ],
       },
       {
-        title: "TANGENT Medium - Question 2",
         content: "Let's explore specialized QA equipment for SBRT treatments.",
         options: [
           {
@@ -311,7 +301,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
   qa_protocol_review_boast: {
     questions: [
       {
-        title: "BOAST Medium→Hard - Question 1",
         content: "This is a BOAST question, raising difficulty to HARD. It costs all momentum but gives 1.5x rewards.",
         options: [
           {
@@ -332,7 +321,6 @@ const SAMPLE_CHALLENGES: Record<string, any> = {
         ],
       },
       {
-        title: "BOAST Medium→Hard - Question 2",
         content: "This challenging question addresses small field dosimetry in SBRT treatments.",
         options: [
           {
@@ -776,16 +764,6 @@ export default function ActivityEngagement() {
             </div>
           </div>
           
-          {/* Activity Description */}
-          <div>
-            <p style={{ 
-              color: 'rgba(255, 255, 255, 0.85)',
-              fontSize: typography.fontSize.sm,
-              lineHeight: '1.5',
-              padding: `${spacing.xs} 0`
-            }}>{currentActivity.description}</p>
-          </div>
-          
           {/* Mentor Section */}
           {currentActivity.mentor && (
             <div style={{
@@ -800,8 +778,8 @@ export default function ActivityEngagement() {
               }}>
                 {/* Mentor image */}
                 <div style={{
-                  width: '80px',
-                  height: '80px',
+                  width: '160px',
+                  height: '160px',
                   borderRadius: '50%',
                   backgroundColor: colors.highlight,
                   display: 'flex',
@@ -816,8 +794,8 @@ export default function ActivityEngagement() {
                     <Image 
                       src={mentorChibiMap[currentActivity.mentor as MentorId]}
                       alt={currentActivity.mentor}
-                      width={75}
-                      height={75}
+                      width={150}
+                      height={150}
                       style={{ 
                         objectFit: 'contain',
                         imageRendering: 'pixelated',
@@ -1019,13 +997,6 @@ export default function ActivityEngagement() {
                   paddingBottom: spacing.sm,
                   borderBottom: `1px dotted ${colors.border}`
                 }}>
-                  <h4 style={{ 
-                    fontSize: typography.fontSize.md, 
-                    fontWeight: 'semibold',
-                    textShadow: `${typography.textShadow.pixel}, 0 0 8px rgba(255, 255, 255, 0.15)`,
-                    margin: 0,
-                    letterSpacing: '0.5px'
-                  }}>{currentQuestion.title}</h4>
                   {challenge.difficulty === ActivityDifficulty.HARD && (
                     <span style={{
                       backgroundColor: colors.starGlow,
@@ -1226,7 +1197,7 @@ export default function ActivityEngagement() {
         <div style={{
           backgroundColor: colors.background,
           color: colors.text,
-          padding: spacing.md,
+          padding: spacing.sm,
           borderRadius: spacing.sm,
           width: '22%',
           fontFamily: typography.fontFamily.pixel,
@@ -1235,96 +1206,71 @@ export default function ActivityEngagement() {
           border: `2px solid ${colors.border}`,
           display: 'flex',
           flexDirection: 'column',
-          gap: spacing.md,
+          gap: spacing.xs,
           alignSelf: 'flex-start'
         }}>
           {/* Player Stats */}
-          <div style={{ 
+          <h3 style={{ 
+            fontSize: typography.fontSize.md, 
+            fontWeight: 'bold',
+            textShadow: typography.textShadow.pixel,
+            margin: 0,
             borderBottom: `1px dotted ${colors.border}`,
-            paddingBottom: spacing.md
-          }}>
-            <h3 style={{ 
-              fontSize: typography.fontSize.md, 
-              fontWeight: 'bold',
-              textShadow: typography.textShadow.pixel,
-              margin: `0 0 ${spacing.sm} 0`
-            }}>Player Stats</h3>
+            paddingBottom: spacing.xs
+          }}>Player Stats</h3>
             
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: spacing.sm
-            }}>
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: spacing.sm 
-              }}>
-                <span style={{ 
-                  color: colors.momentum,
-                  fontSize: typography.fontSize.md,
-                  textShadow: '0px 0px 3px rgba(255, 255, 255, 0.3)'
-                }}>⚡</span>
-                <div>
-                  <span style={{ fontWeight: 'bold' }}>Momentum:</span>
-                  <span style={{ marginLeft: spacing.xs }}>{resources.momentum} / 3</span>
-                </div>
-              </div>
-              
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: spacing.sm 
-              }}>
-                <span style={{ 
-                  color: colors.insight,
-                  fontSize: typography.fontSize.md,
-                  textShadow: '0px 0px 3px rgba(255, 255, 255, 0.3)'
-                }}>◆</span>
-                <div>
-                  <span style={{ fontWeight: 'bold' }}>Insight:</span>
-                  <span style={{ marginLeft: spacing.xs }}>{resources.insight}</span>
-                </div>
-              </div>
-              
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: spacing.sm 
-              }}>
-                <span style={{ 
-                  color: colors.highlight,
-                  fontSize: typography.fontSize.md,
-                  textShadow: '0px 0px 3px rgba(255, 255, 255, 0.3)'
-                }}>★</span>
-                <div>
-                  <span style={{ fontWeight: 'bold' }}>Star Points:</span>
-                  <span style={{ marginLeft: spacing.xs }}>{resources.starPoints}</span>
-                </div>
-              </div>
-            </div>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            fontSize: typography.fontSize.sm,
+            padding: `${spacing.xxs} 0`
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: spacing.xxs }}>
+              <span style={{ color: colors.momentum }}>⚡</span> Momentum
+            </span>
+            <span>{resources.momentum}/3</span>
+          </div>
+          
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            fontSize: typography.fontSize.sm,
+            padding: `${spacing.xxs} 0`
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: spacing.xxs }}>
+              <span style={{ color: colors.insight }}>◆</span> Insight
+            </span>
+            <span>{resources.insight}</span>
+          </div>
+          
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            fontSize: typography.fontSize.sm,
+            padding: `${spacing.xxs} 0`,
+            borderBottom: `1px dotted ${colors.border}`,
+            paddingBottom: spacing.xs
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: spacing.xxs }}>
+              <span style={{ color: colors.highlight }}>★</span> Star Points
+            </span>
+            <span>{resources.starPoints}</span>
           </div>
           
           {/* Special Abilities */}
           {!showQuote && (
-            <div>
-              <h3 style={{ 
-                fontSize: typography.fontSize.md, 
-                fontWeight: 'bold',
-                textShadow: typography.textShadow.pixel,
-                margin: `0 0 ${spacing.sm} 0`
-              }}>Special Abilities</h3>
-              
+            <>
               <div style={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
-                gap: spacing.sm
+                gap: spacing.xs,
+                paddingTop: spacing.xxs
               }}>
                 <button
                   style={{
-                    padding: `${spacing.sm} ${spacing.md}`,
+                    padding: `${spacing.xs} ${spacing.sm}`,
                     borderRadius: spacing.xs,
-                    fontSize: typography.fontSize.sm,
+                    fontSize: typography.fontSize.xs,
                     backgroundColor: canUseTangent ? 'rgba(45, 156, 219, 0.3)' : 'rgba(50, 50, 60, 0.3)',
                     color: canUseTangent ? colors.text : colors.inactive,
                     opacity: canUseTangent ? 1 : 0.5,
@@ -1335,24 +1281,20 @@ export default function ActivityEngagement() {
                     alignItems: 'center',
                     gap: spacing.xs,
                     boxShadow: canUseTangent ? `${shadows.md}, 0 0 8px rgba(45, 156, 219, 0.3)` : 'none',
-                    transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
-                    position: 'relative'
+                    transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
                   }}
                   disabled={!canUseTangent}
                   onClick={handleTangent}
                   title={canUseTangent ? "Change the current question (25 Insight)" : "Not enough Insight or already used"}
                 >
-                  <span style={{ 
-                    color: colors.insight,
-                    textShadow: '0 0 3px rgba(45, 156, 219, 0.5)'
-                  }}>⟲</span> Tangent (25 ◆)
+                  <span style={{ color: colors.insight }}>⟲</span> Tangent (25 ◆)
                 </button>
                 
                 <button
                   style={{
-                    padding: `${spacing.sm} ${spacing.md}`,
+                    padding: `${spacing.xs} ${spacing.sm}`,
                     borderRadius: spacing.xs,
-                    fontSize: typography.fontSize.sm,
+                    fontSize: typography.fontSize.xs,
                     backgroundColor: canUseBoast ? 'rgba(231, 126, 35, 0.3)' : 'rgba(50, 50, 60, 0.3)',
                     color: canUseBoast ? colors.text : colors.inactive,
                     opacity: canUseBoast ? 1 : 0.5,
@@ -1363,93 +1305,41 @@ export default function ActivityEngagement() {
                     alignItems: 'center',
                     gap: spacing.xs,
                     boxShadow: canUseBoast ? `${shadows.md}, 0 0 8px rgba(231, 126, 35, 0.3)` : 'none',
-                    transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
-                    position: 'relative'
+                    transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
                   }}
                   disabled={!canUseBoast}
                   onClick={handleBoast}
                   title={canUseBoast ? "Attempt a harder question for more rewards" : "Not enough Momentum or already used"}
                 >
-                  <span style={{ 
-                    color: colors.momentum,
-                    textShadow: '0 0 3px rgba(231, 126, 35, 0.5)'
-                  }}>⤴</span> Boast (⚡⚡⚡)
+                  <span style={{ color: colors.momentum }}>⤴</span> Boast (⚡⚡⚡)
                 </button>
               </div>
               
               {/* Ability usage indicators */}
               {(usedTangent || usedBoast) && (
                 <div style={{ 
-                  marginTop: spacing.sm, 
                   fontSize: typography.fontSize.xs,
-                  padding: `${spacing.xs} ${spacing.md}`,
+                  padding: `${spacing.xxs} ${spacing.xs}`,
                   backgroundColor: 'rgba(30, 40, 60, 0.4)',
                   borderRadius: spacing.xs,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: spacing.md,
-                  boxShadow: '0 0 5px rgba(0, 0, 0, 0.2)'
+                  gap: spacing.sm
                 }}>
                   {usedTangent && (
-                    <span style={{ 
-                      color: colors.insight,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: spacing.xxs,
-                      textShadow: '0 0 3px rgba(45, 156, 219, 0.5)'
-                    }}>
-                      <span>◆</span> Tangent used
+                    <span style={{ color: colors.insight }}>
+                      <span>◆</span> Used
                     </span>
                   )}
                   {usedBoast && (
-                    <span style={{ 
-                      color: colors.momentum,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: spacing.xxs,
-                      textShadow: '0 0 3px rgba(231, 126, 35, 0.5)'
-                    }}>
-                      <span>⚡</span> Boast used
+                    <span style={{ color: colors.momentum }}>
+                      <span>⚡</span> Used
                     </span>
                   )}
                 </div>
               )}
-            </div>
+            </>
           )}
-          
-          {/* Game Info */}
-          <div style={{ 
-            marginTop: 'auto',
-            borderTop: `1px dotted ${colors.border}`,
-            paddingTop: spacing.md
-          }}>
-            <h3 style={{ 
-              fontSize: typography.fontSize.md, 
-              fontWeight: 'bold',
-              textShadow: typography.textShadow.pixel,
-              margin: `0 0 ${spacing.sm} 0`
-            }}>Activity Info</h3>
-            
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: spacing.sm
-            }}>
-              <div>
-                <span style={{ fontWeight: 'bold' }}>Difficulty:</span>
-                <span style={{ marginLeft: spacing.xs }}>
-                  <DifficultyStars difficulty={challenge.difficulty} />
-                </span>
-              </div>
-              
-              <div>
-                <span style={{ fontWeight: 'bold' }}>Duration:</span>
-                <span style={{ marginLeft: spacing.xs }}>
-                  {currentActivity.duration} min
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
       

@@ -286,67 +286,94 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   
   // Generate available activities based on current time
   generateAvailableActivities: () => {
-    const gameState = useGameStore.getState();
-    const currentTime = gameState.currentTime;
-    const currentSeason = gameState.currentSeason;
-    const difficulty = gameState.difficulty;
-    
-    // Format time block key for lookup in schedule
+    const { currentTime, difficulty, currentSeason } = useGameStore.getState();
+    const { getActiveStars } = useKnowledgeStore.getState();
     const timeKey = `${currentTime.hour}:${currentTime.minute}`;
     
     let activities: ActivityOption[] = [];
     
-    // Check if there's a scheduled appointment for this time
-    const scheduledAppointment = get().scheduledAppointment;
-    if (scheduledAppointment) {
-      activities.push(scheduledAppointment);
-      set({ scheduledAppointment: null }); // Clear after adding
-    }
-    
-    // Check if this time has standard scheduled activities
+    // Check standard schedule
     if (hospitalSchedule[timeKey]) {
       activities = [...activities, ...hospitalSchedule[timeKey]];
     }
     
-    // Check for any triggered special events
-    const specialEventsForSeason = specialEvents[currentSeason];
-    const triggeredEvents = get().triggeredSpecialEvents;
-    triggeredEvents.forEach(eventId => {
-      if (specialEventsForSeason[eventId]) {
-        activities.push(specialEventsForSeason[eventId]);
-      }
-    });
-    
-    // If we have fewer than 2 activities, always add self-study
-    if (activities.length < 2) {
+    // Add self-study option (always available during the day)
+    if (currentTime.hour >= 8 && currentTime.hour < 17 && timeKey !== '12:0') {
       activities.push(generateSelfStudyOption(currentTime));
     }
     
-    // Apply difficulty adjustments
-    activities = activities.map(activity => {
-      const activityCopy = { ...activity };
-      
-      // Adjust difficulty based on player's selected difficulty
-      if (difficulty === Difficulty.BEGINNER && activity.difficulty === ActivityDifficulty.HARD) {
-        activityCopy.difficulty = ActivityDifficulty.MEDIUM;
-      } else if (difficulty === Difficulty.EXPERT && activity.difficulty === ActivityDifficulty.EASY) {
-        activityCopy.difficulty = ActivityDifficulty.MEDIUM;
-      }
-      
-      // Adjust duration based on relationship levels - high relationship reduces time
-      if (activity.mentor) {
-        const relationshipLevel = gameState.getRelationshipLevel(activity.mentor);
-        if (relationshipLevel >= 4 && activity.duration > 30) {
-          // 15 minute reduction for high relationship
-          activityCopy.duration = Math.max(30, activity.duration - 15);
+    // Check for triggered special events for the current season
+    const seasonEvents = specialEvents[currentSeason] || {};
+    const activeStars = getActiveStars();
+    
+    Object.values(seasonEvents).forEach(event => {
+      if (event.requirements) {
+        // Check star requirements
+        if (event.requirements.stars) {
+          const req = event.requirements.stars;
+          const matchingStars = activeStars.filter(star => star.domain === req.domain);
+          
+          if (matchingStars.length >= req.count) {
+            // Basic count check passed
+            let meetsRequirement = true;
+            
+            // Check for connectivity if required
+            // if (req.connected) { <-- Temporarily removed connectivity check
+            //   // Need a new way to check this without getConstellations
+            // }
+            
+            if (meetsRequirement && !get().triggeredSpecialEvents.includes(event.id)) {
+              // Add the event if requirements met and not already triggered
+              activities.push(event);
+            }
+          }
+        }
+        
+        // Check time requirement
+        if (event.requirements.time && event.requirements.time !== timeKey) {
+          // Remove event if time requirement is not met
+          activities = activities.filter(a => a.id !== event.id);
         }
       }
-      
-      return activityCopy;
     });
     
-    // Set available activities
-    set({ availableActivities: activities });
+    // Apply difficulty modifications (if any)
+    activities = activities.map(activity => {
+      // Adjust difficulty based on global setting
+      let adjustedDifficulty = activity.difficulty;
+      if (difficulty === Difficulty.HARD && adjustedDifficulty === ActivityDifficulty.MEDIUM) {
+        adjustedDifficulty = ActivityDifficulty.HARD;
+      } else if (difficulty === Difficulty.EASY && adjustedDifficulty === ActivityDifficulty.MEDIUM) {
+        adjustedDifficulty = ActivityDifficulty.EASY;
+      }
+      return { ...activity, difficulty: adjustedDifficulty };
+    });
+    
+    // Remove networking activities if the player prefers focused work
+    // TODO: Implement a setting or state for player preference
+    // if (playerPrefersFocus) {
+    //   activities = activities.filter(activity => !activity.isNetworking);
+    // }
+
+    // Add scheduled appointment if it exists and matches current time
+    const scheduled = get().scheduledAppointment;
+    if (scheduled && `${scheduled.startTime?.hour}:${scheduled.startTime?.minute}` === timeKey) {
+      activities.push(scheduled);
+    }
+    
+    // Update state and mark locations as seen within the same update batch
+    set((state) => {
+      // Get the action from the other store *inside* the update function
+      const { markLocationAsSeen } = useGameStore.getState();
+      
+      // Perform the side-effect (marking seen)
+      activities.forEach(activity => {
+        markLocationAsSeen(activity.location);
+      });
+      
+      // Return the new state for this store
+      return { availableActivities: activities };
+    });
   },
   
   // Select an activity
@@ -416,9 +443,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       }
     }
     
-    // Clear current activity and generate new ones
+    // Clear current activity. The useEffect in DayPhase will handle generating new ones.
     set({ currentActivity: null });
-    get().generateAvailableActivities();
   },
   
   // Trigger a special event

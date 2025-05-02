@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GamePhase, Resources, Season, TimeBlock, Difficulty, MentorId, GameEventType, SEASON_REQUIREMENTS, KnowledgeDomain } from '@/app/types';
+import { GamePhase, Resources, Season, TimeBlock, Difficulty, MentorId, GameEventType, SEASON_REQUIREMENTS, KnowledgeDomain, LocationId } from '@/app/types';
 import { TimeManager } from '@/app/core/time/TimeManager';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
@@ -12,6 +12,7 @@ interface GameState {
   currentSeason: Season;
   daysPassed: number;
   playerName: string;
+  seenLocations: Set<LocationId>;
   
   // Time management
   timeManager: TimeManager;
@@ -19,6 +20,10 @@ interface GameState {
   
   // Resources
   resources: Resources;
+  
+  // Phase tracking
+  hasVisitedNightPhase: boolean;
+  setHasVisitedNightPhase: (visited: boolean) => void;
   
   // Actions
   setPhase: (phase: GamePhase) => void;
@@ -35,6 +40,9 @@ interface GameState {
   convertInsightToSP: () => void;
   addStarPoints: (amount: number) => void;
   spendStarPoints: (amount: number) => boolean;
+  
+  // Location tracking
+  markLocationAsSeen: (locationId: LocationId) => void;
   
   // Difficulty management
   difficulty: Difficulty;
@@ -67,6 +75,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   timeManager: new TimeManager(),
   currentTime: { hour: 8, minute: 0 }, // Start at 8:00 AM
   
+  // Initialize phase tracking
+  hasVisitedNightPhase: false,
+  setHasVisitedNightPhase: (visited: boolean) => set({ hasVisitedNightPhase: visited }),
+  
   // Initialize resources
   resources: {
     momentum: 0, // 0-3 scale
@@ -79,6 +91,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       [MentorId.QUINN]: { level: 0, interactions: 0 },
     }
   },
+  
+  // Initialize seen locations
+  seenLocations: new Set<LocationId>(),
   
   // Phase management
   setPhase: (phase: GamePhase) => {
@@ -379,6 +394,20 @@ export const useGameStore = create<GameState>((set, get) => ({
       return true;
     }
     return false;
+  },
+  
+  // Location tracking action implementation
+  markLocationAsSeen: (locationId: LocationId) => {
+    set((state) => {
+      // Only update if the location hasn't been seen before
+      if (!state.seenLocations.has(locationId)) {
+        console.log(`[gameStore] Marking location ${locationId} as seen.`);
+        const newSeenLocations = new Set(state.seenLocations);
+        newSeenLocations.add(locationId);
+        return { seenLocations: newSeenLocations };
+      }
+      return {}; // Return empty object if no change
+    });
   },
   
   // Difficulty management

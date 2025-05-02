@@ -381,6 +381,7 @@ const CancelButton = styled.button`
 export const DayPhase: React.FC = () => {
   const currentTime = useGameStore(state => state.currentTime);
   const resources = useGameStore(state => state.resources);
+  const seenLocations = useGameStore(state => state.seenLocations);
   
   const availableActivities = useActivityStore(state => state.availableActivities);
   const currentActivity = useActivityStore(state => state.currentActivity);
@@ -630,6 +631,9 @@ export const DayPhase: React.FC = () => {
         
         {/* Hospital map with locations */}
         <MapContainer>
+          {/* --- DEBUG LOG --- */}
+          {/* React.useMemo(() => { console.log('[DayPhase] Rendering map. Seen locations:', seenLocations); return null; }, [seenLocations]) */}
+          {/* ----------------- */}
           {/* Floor layout using CSS Grid */}
           <FloorGrid>
             {Object.entries(LOCATIONS).map(([id, location]) => {
@@ -638,6 +642,7 @@ export const DayPhase: React.FC = () => {
               
               const locationId = id as LocationId;
               const hasActivities = activitiesByLocation[locationId]?.length > 0;
+              const hasBeenSeen = seenLocations.has(locationId);
               const displayInfo = getLocationDisplayInfo(locationId);
               
               return (
@@ -661,7 +666,7 @@ export const DayPhase: React.FC = () => {
                     $departmentColor={location.department.color}
                   >
                     <Image 
-                      src={`/images/${location.icon}`}
+                      src={hasBeenSeen ? `/images/${location.icon}` : '/images/Note.png'}
                       alt={location.label}
                       width={48}
                       height={48}
@@ -694,7 +699,7 @@ export const DayPhase: React.FC = () => {
                     textAlign: 'center',
                     color: hasActivities ? colors.text : colors.inactive
                   }}>
-                    {location.label}
+                    {hasBeenSeen ? location.label : '???'}
                   </p>
                   
                   {/* Add activity count badge if there are multiple activities */}
