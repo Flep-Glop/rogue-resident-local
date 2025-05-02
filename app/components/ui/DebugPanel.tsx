@@ -13,6 +13,7 @@ import { dialogues } from '@/app/data/dialogueData';
 import pixelTheme, { colors, spacing, typography, borders, shadows } from '@/app/styles/pixelTheme';
 import { initializeKnowledgeStore } from '@/app/data/conceptData';
 import shuffle from 'lodash/shuffle';
+import { useLoading } from '@/app/providers/LoadingProvider';
 
 // Styled components
 const DebugButton = styled.button`
@@ -243,6 +244,17 @@ export default function DebugPanel() {
     setIsExpanded(!isExpanded);
   }, [isExpanded]);
 
+  // Loading transition test
+  const { startLoading, stopLoading } = useLoading();
+  const testLoading = useCallback(async () => {
+    console.log('Testing loading transition...');
+    await startLoading();
+    setTimeout(() => {
+      console.log('Stopping test loading after 3 seconds');
+      stopLoading();
+    }, 3000);
+  }, [startLoading, stopLoading]);
+
   // Phase controls
   const switchToDay = useCallback(() => setPhase(GamePhase.DAY), [setPhase]);
   const switchToNight = useCallback(() => setPhase(GamePhase.NIGHT), [setPhase]);
@@ -391,6 +403,16 @@ export default function DebugPanel() {
       </PanelHeader>
       
       <SectionsContainer>
+        {/* System Tests Section */}
+        <Section>
+          <SectionTitle>System Tests</SectionTitle>
+          <ButtonRow>
+            <PixelButton onClick={testLoading} $color={colors.primary}>
+              Test Loading
+            </PixelButton>
+          </ButtonRow>
+        </Section>
+        
         {/* Game State */}
         <Section>
           <SectionTitle>Game State</SectionTitle>

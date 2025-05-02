@@ -99,7 +99,6 @@ const DialogueHeader = styled.div`
 
 const DialogueContent = styled.div`
   ${components.dialog.content}
-  animation: fadeIn ${animation.duration.normal} ${animation.easing.pixel};
 `;
 
 const NameInputForm = styled.form`
@@ -273,6 +272,11 @@ export const Prologue: React.FC = () => {
   const [confirmationText, setConfirmationText] = useState('');
   const [pendingDifficulty, setPendingDifficulty] = useState<Difficulty | null>(null);
   
+  // Typewriter effect states
+  const [displayedText, setDisplayedText] = useState('');
+  const [isTyping, setIsTyping] = useState(true);
+  const [typingSpeed, setTypingSpeed] = useState(30); // milliseconds per character
+
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   // Wrap dialogue in useMemo to prevent recreating on every render
@@ -346,29 +350,29 @@ export const Prologue: React.FC = () => {
     { 
       speaker: 'garcia', 
       text: "Excellent! We'll make sure to provide you with plenty of foundational knowledge. You'll have more opportunities for self-study, and we'll take a bit more time with the technical concepts. It's a perfect starting point.",
-      id: "beginner_garcia_response"
+      id: "beginner_garcia_response",
+      nextId: "mentor_intro"
     },
     { 
       speaker: 'garcia', 
       text: "Perfect timing then! You have the theoretical foundation, and now you'll get to see how it applies in practice. We'll balance explanation with application throughout your time here.",
-      id: "standard_garcia_response"
+      id: "standard_garcia_response",
+      nextId: "mentor_intro"
     },
     { 
       speaker: 'garcia', 
       text: "Fantastic! Your experience will be valuable. We'll be able to move at a quicker pace and focus on advanced topics sooner. I look forward to your international perspective on our methods.",
-      id: "expert_garcia_response"
+      id: "expert_garcia_response",
+      nextId: "mentor_intro"
     },
     { 
       speaker: 'garcia', 
-      text: "You'll rotate through all areas of our department—treatment planning, radiation therapy, equipment QA, and dosimetry. I see these not as separate fields but as interconnected stars in the night sky of medical physics." 
+      text: "You'll work with several mentors: myself, Dr. Kapoor—who believes protocols are sacred texts, Jesse—who can diagnose a linac malfunction from the sound it makes, and Dr. Quinn—whose ideas occasionally bend the laws of physics.",
+      id: "mentor_intro"
     },
     { 
       speaker: 'garcia', 
       text: "Time management is crucial here. Unlike subatomic particles, we can't be in two places at once—though Dr. Quinn has a theory about that too. Choose your daily activities wisely."
-    },
-    { 
-      speaker: 'garcia', 
-      text: "You'll work with several mentors: myself, Dr. Kapoor—who believes protocols are sacred texts, Jesse—who can diagnose a linac malfunction from the sound it makes, and Dr. Quinn—whose ideas occasionally bend the laws of physics."
     },
     { 
       speaker: 'garcia', 
@@ -454,6 +458,13 @@ export const Prologue: React.FC = () => {
 
   const currentLine = dialogue[currentLineIndex] || dialogue[0];
 
+  // Reset typewriter effect when dialogue line changes
+  useEffect(() => {
+    // Reset typewriter
+    setDisplayedText('');
+    setIsTyping(true);
+  }, [currentLineIndex]);
+
   // Focus the name input field when it appears
   useEffect(() => {
     if (currentLine.isNameInput && nameInputRef.current) {
@@ -461,83 +472,52 @@ export const Prologue: React.FC = () => {
     }
   }, [currentLineIndex, currentLine.isNameInput]);
 
-  // Replace names with colored versions
-  const getDisplayText = (text: string) => {
-    // Process all highlights in a single pass using a more robust approach
-    const patterns = [
-      { 
-        regex: /\[PLAYER_NAME\]/g,
-        replacement: (match: string) => <PlayerName key={`player-${Math.random()}`}>{playerNameInput || 'Resident'}</PlayerName>
-      },
-      { 
-        regex: /Memorial General Hospital/g,
-        replacement: (match: string) => <HospitalName key={`hospital-${Math.random()}`}>{match}</HospitalName>
-      },
-      { 
-        regex: /Dr\. Garcia/g,
-        replacement: (match: string) => <DrGarciaName key={`garcia-${Math.random()}`}>{match}</DrGarciaName>
-      },
-      { 
-        regex: /Dr\. Kapoor/g, 
-        replacement: (match: string) => <DrKapoorName key={`kapoor-${Math.random()}`}>{match}</DrKapoorName>
-      },
-      { 
-        regex: /Dr\. Quinn/g,
-        replacement: (match: string) => <DrQuinnName key={`quinn-${Math.random()}`}>{match}</DrQuinnName>
-      },
-      { 
-        regex: /\bJesse\b/g,
-        replacement: (match: string) => <JesseName key={`jesse-${Math.random()}`}>{match}</JesseName>
+  // Typewriter effect
+  useEffect(() => {
+    if (!isTyping || !currentLine.text) return;
+    
+    // Replace [PLAYER_NAME] immediately instead of showing it character by character
+    const processedText = currentLine.text.replace(/\[PLAYER_NAME\]/g, playerNameInput || 'Resident');
+    
+    if (displayedText.length >= processedText.length) {
+      setIsTyping(false);
+      
+      // Show choices only after typing is complete
+      if (currentLine.choices && !showChoices) {
+        setShowChoices(true);
       }
-    ];
+      return;
+    }
     
-    // Split the text into segments based on all patterns
-    let segments: (string | React.ReactElement)[] = [text];
+    const timer = setTimeout(() => {
+      setDisplayedText(processedText.substring(0, displayedText.length + 1));
+    }, typingSpeed);
     
-    // Process each pattern
-    patterns.forEach(({ regex, replacement }) => {
-      segments = segments.flatMap(segment => {
-        // Only process string segments
-        if (typeof segment !== 'string') return segment;
-        
-        // Split the segment by regex and create an array of strings and React elements
-        const parts: (string | React.ReactElement)[] = [];
-        const matches = segment.match(regex);
-        
-        if (!matches) return segment;
-        
-        let lastIndex = 0;
-        let match;
-        
-        // Reset regex to start from beginning
-        regex.lastIndex = 0;
-        
-        while ((match = regex.exec(segment)) !== null) {
-          // Add text before match
-          if (match.index > lastIndex) {
-            parts.push(segment.substring(lastIndex, match.index));
-          }
-          
-          // Add the replacement for the match
-          parts.push(replacement(match[0]));
-          
-          lastIndex = regex.lastIndex;
-        }
-        
-        // Add any remaining text
-        if (lastIndex < segment.length) {
-          parts.push(segment.substring(lastIndex));
-        }
-        
-        return parts;
-      });
-    });
-    
-    return <>{segments}</>;
+    return () => clearTimeout(timer);
+  }, [currentLine.text, displayedText, isTyping, typingSpeed, showChoices, playerNameInput, currentLine.choices]);
+
+  // Function to complete the current line's typing animation
+  const completeTyping = () => {
+    if (isTyping && currentLine.text) {
+      const processedText = currentLine.text.replace(/\[PLAYER_NAME\]/g, playerNameInput || 'Resident');
+      setDisplayedText(processedText);
+      setIsTyping(false);
+      
+      // If there are choices, show them after typing completes
+      if (currentLine.choices && !showChoices) {
+        setShowChoices(true);
+      }
+    }
   };
 
   // Handle advancing the dialogue
   const advanceDialogue = () => {
+    // If text is still typing, complete it first
+    if (isTyping) {
+      completeTyping();
+      return;
+    }
+    
     // Handle name input special case
     if (currentLine.isNameInput) {
       if (playerNameInput.trim()) {
@@ -545,12 +525,14 @@ export const Prologue: React.FC = () => {
         setPlayerName(playerNameInput.trim());
         setCurrentLineIndex(currentLineIndex + 1);
         setFadeKey(prevKey => prevKey + 1);
+        setShowChoices(false); // Reset choices when moving to next dialogue
       }
       return;
     }
 
+    // If we have choices but they're not shown yet, let the useEffect handle showing them
+    // after typing completes, so don't do anything here
     if (currentLine.choices && !showChoices) {
-      setShowChoices(true);
       return;
     }
 
@@ -559,9 +541,10 @@ export const Prologue: React.FC = () => {
       setCurrentLineIndex(dialogueMap[currentLine.nextId]);
       setFadeKey(prevKey => prevKey + 1);
       setShowChoices(false);
-      return;
+      return; // Return early to prevent advancing to the next dialogue line
     }
 
+    // If no nextId is specified, just move to the next line
     if (currentLineIndex < dialogue.length - 1) {
       setCurrentLineIndex(currentLineIndex + 1);
       setFadeKey(prevKey => prevKey + 1);
@@ -602,12 +585,13 @@ export const Prologue: React.FC = () => {
       setCurrentLineIndex(dialogueMap[choice.nextId]);
       setFadeKey(prevKey => prevKey + 1);
       setShowChoices(false);
-    } else {
-      // Otherwise just move to the next line
-      setCurrentLineIndex(currentLineIndex + 1);
-      setFadeKey(prevKey => prevKey + 1);
-      setShowChoices(false);
+      return; // Return early to prevent advancing to the next dialogue line
     }
+    
+    // Otherwise just move to the next line
+    setCurrentLineIndex(currentLineIndex + 1);
+    setFadeKey(prevKey => prevKey + 1);
+    setShowChoices(false);
   };
 
   // Handle name input form submission
@@ -647,12 +631,10 @@ export const Prologue: React.FC = () => {
       setDifficulty(pendingDifficulty);
       
       // Find the dialogue line with the appropriate nextId based on the chosen difficulty
-      const chosenNextId = currentLine.choices?.find(
-        choice => choice.isDifficultySelection && 
-        ((pendingDifficulty === Difficulty.BEGINNER && choice.nextId === "beginner_garcia_response") ||
-         (pendingDifficulty === Difficulty.STANDARD && choice.nextId === "standard_garcia_response") ||
-         (pendingDifficulty === Difficulty.EXPERT && choice.nextId === "expert_garcia_response"))
-      )?.nextId;
+      const chosenNextId = 
+        pendingDifficulty === Difficulty.BEGINNER ? "beginner_garcia_response" :
+        pendingDifficulty === Difficulty.STANDARD ? "standard_garcia_response" :
+        "expert_garcia_response";
       
       // Now advance to the appropriate response
       if (chosenNextId && dialogueMap[chosenNextId] !== undefined) {
@@ -675,6 +657,84 @@ export const Prologue: React.FC = () => {
       to { opacity: 1; }
     }
   `;
+
+  // Function to apply colored styling to names without partial text display
+  const getStyledText = (text: string) => {
+    // Replace colored names
+    let styledText = text;
+    
+    // Replace Dr. Garcia with styled version
+    styledText = styledText.replace(/Dr\. Garcia/g, (match) => {
+      return `<dr-garcia>${match}</dr-garcia>`;
+    });
+    
+    // Replace Dr. Kapoor with styled version
+    styledText = styledText.replace(/Dr\. Kapoor/g, (match) => {
+      return `<dr-kapoor>${match}</dr-kapoor>`;
+    });
+    
+    // Replace Dr. Quinn with styled version
+    styledText = styledText.replace(/Dr\. Quinn/g, (match) => {
+      return `<dr-quinn>${match}</dr-quinn>`;
+    });
+    
+    // Replace Memorial General Hospital with styled version
+    styledText = styledText.replace(/Memorial General Hospital/g, (match) => {
+      return `<hospital>${match}</hospital>`;
+    });
+    
+    // Replace Jesse with styled version
+    styledText = styledText.replace(/\bJesse\b/g, (match) => {
+      return `<jesse>${match}</jesse>`;
+    });
+    
+    // Split by custom tags and create React elements
+    const parts = [];
+    let remaining = styledText;
+    
+    while (remaining.length > 0) {
+      // Find the first tag
+      const tagMatch = remaining.match(/<(dr-garcia|dr-kapoor|dr-quinn|hospital|jesse)>(.*?)<\/\1>/);
+      
+      if (!tagMatch) {
+        // No more tags, add the remaining text
+        parts.push(remaining);
+        break;
+      }
+      
+      // Add text before the tag
+      const beforeTag = remaining.substring(0, tagMatch.index);
+      if (beforeTag) {
+        parts.push(beforeTag);
+      }
+      
+      // Add the styled element based on tag type
+      const [fullMatch, tagType, content] = tagMatch;
+      
+      switch (tagType) {
+        case 'dr-garcia':
+          parts.push(<DrGarciaName key={`garcia-${Math.random()}`}>{content}</DrGarciaName>);
+          break;
+        case 'dr-kapoor':
+          parts.push(<DrKapoorName key={`kapoor-${Math.random()}`}>{content}</DrKapoorName>);
+          break;
+        case 'dr-quinn':
+          parts.push(<DrQuinnName key={`quinn-${Math.random()}`}>{content}</DrQuinnName>);
+          break;
+        case 'hospital':
+          parts.push(<HospitalName key={`hospital-${Math.random()}`}>{content}</HospitalName>);
+          break;
+        case 'jesse':
+          parts.push(<JesseName key={`jesse-${Math.random()}`}>{content}</JesseName>);
+          break;
+      }
+      
+      // Update remaining text
+      remaining = remaining.substring(tagMatch.index! + fullMatch.length);
+    }
+    
+    return <>{parts}</>;
+  };
 
   return (
     <PrologueContainer>
@@ -705,7 +765,7 @@ export const Prologue: React.FC = () => {
       
       {/* Dialogue box */}
       <DialogueBox 
-        $isNameInput={currentLine.isNameInput}
+        $isNameInput={currentLine.isNameInput && !isTyping}
         $showChoices={showChoices}
         onClick={(!currentLine.isNameInput && !showChoices) ? advanceDialogue : undefined}
       >
@@ -714,11 +774,12 @@ export const Prologue: React.FC = () => {
         </DialogueHeader>
         
         <DialogueContent key={fadeKey}>
-          {getDisplayText(currentLine.text)}
+          {getStyledText(displayedText)}
+          {isTyping && <span className="cursor">|</span>}
         </DialogueContent>
         
-        {/* Name input form */}
-        {currentLine.isNameInput && (
+        {/* Name input form - only show after typing is complete */}
+        {currentLine.isNameInput && !isTyping && (
           <NameInputForm onSubmit={handleNameSubmit}>
             <NameInput
               ref={nameInputRef}
@@ -746,7 +807,7 @@ export const Prologue: React.FC = () => {
                 key={index}
                 onClick={() => handleChoiceSelect(choice)}
               >
-                {choice.displayElement ? 
+                {'displayElement' in choice ? 
                   choice.displayElement(choice.text) : 
                   choice.text}
               </ChoiceButton>
@@ -754,8 +815,8 @@ export const Prologue: React.FC = () => {
           </ChoiceContainer>
         )}
         
-        {/* Continue button */}
-        {!showChoices && !currentLine.isNameInput && (
+        {/* Continue button - only show when typing is complete */}
+        {!showChoices && !currentLine.isNameInput && !isTyping && (
           <ContinueButton>
             {currentLineIndex < dialogue.length - 1 ? 'Continue' : 'Begin Day 1'}
           </ContinueButton>
@@ -763,7 +824,9 @@ export const Prologue: React.FC = () => {
       </DialogueBox>
       
       <InstructionText>
-        {currentLine.isNameInput ? 'Enter your name' : (showChoices ? 'Select a response' : 'Click to continue')}
+        {currentLine.isNameInput && !isTyping ? 'Enter your name' : 
+         (showChoices ? 'Select a response' : 
+          (isTyping ? 'Click to speed up text' : 'Click to continue'))}
       </InstructionText>
 
       {showConfirmation && (
@@ -781,9 +844,20 @@ export const Prologue: React.FC = () => {
         </ConfirmationModal>
       )}
 
-      {/* Add keyframes for fade-in animation */}
+      {/* Add keyframes for fade-in and blinking cursor animations */}
       <style jsx global>{`
         ${fadeInAnimation}
+        
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+        
+        .cursor {
+          display: inline-block;
+          animation: blink 0.8s infinite;
+          color: ${colors.highlight};
+        }
       `}</style>
     </PrologueContainer>
   );

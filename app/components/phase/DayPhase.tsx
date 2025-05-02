@@ -80,18 +80,27 @@ const LOCATIONS = {
     icon: 'Warning Icon.png'
   },
   [LocationId.TREATMENT_ROOM_3]: { 
-    row: 0, 
-    col: 2, 
+    row: -1, 
+    col: -1, 
     label: 'Treatment Room 3',
     department: DEPARTMENTS.TREATMENT,
     icon: 'Warning Icon.png'
   },
   [LocationId.WARD]: { 
     row: 0, 
-    col: 3, 
+    col: 2, 
     label: 'Ward',
     department: DEPARTMENTS.PATIENT,
     icon: 'Red Book (1).png'
+  },
+  
+  // Additional Locations - Top Row
+  [LocationId.CLINIC]: { 
+    row: 0, 
+    col: 3, 
+    label: 'Clinic',
+    department: DEPARTMENTS.PATIENT,
+    icon: 'Note.png'
   },
   
   // Middle Row
@@ -152,15 +161,6 @@ const LOCATIONS = {
     label: 'Library',
     department: DEPARTMENTS.RESEARCH,
     icon: 'Red Book (1).png'
-  },
-  
-  // Additional Locations - Top Row (optional)
-  [LocationId.CLINIC]: { 
-    row: 0, 
-    col: 3, 
-    label: 'Clinic',
-    department: DEPARTMENTS.PATIENT,
-    icon: 'Note.png'
   },
 };
 
@@ -502,35 +502,12 @@ export const DayPhase: React.FC = () => {
         
         {/* Hospital map with locations */}
         <MapContainer>
-          {/* Map legend */}
-          <div style={{
-            position: 'absolute',
-            top: spacing.sm,
-            right: spacing.sm,
-            backgroundColor: colors.background,
-            padding: spacing.xs,
-            borderRadius: spacing.sm,
-            fontSize: typography.fontSize.xs,
-            zIndex: 20,
-            border: borders.thin
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: spacing.xxs }}>
-              <span style={{ color: colors.starGlow, marginRight: spacing.xs }}>★</span>
-              <span style={{ color: colors.textDim }}>Easy</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: spacing.xxs }}>
-              <span style={{ color: colors.starGlow, marginRight: spacing.xs }}>★★</span>
-              <span style={{ color: colors.textDim }}>Medium</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ color: colors.starGlow, marginRight: spacing.xs }}>★★★</span>
-              <span style={{ color: colors.textDim }}>Hard</span>
-            </div>
-          </div>
-          
           {/* Floor layout using CSS Grid */}
           <FloorGrid>
             {Object.entries(LOCATIONS).map(([id, location]) => {
+              // Skip locations with negative row or column values
+              if (location.row < 0 || location.col < 0) return null;
+              
               const locationId = id as LocationId;
               const hasActivities = activitiesByLocation[locationId]?.length > 0;
               const displayInfo = getLocationDisplayInfo(locationId);

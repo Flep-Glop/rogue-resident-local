@@ -27,6 +27,11 @@ interface KnowledgeState {
   getActiveStars: () => KnowledgeStar[];
   getUnlockedStars: () => KnowledgeStar[];
   getDiscoveredNotUnlocked: () => KnowledgeStar[];
+  getTimeReductionForDomain: (domain: KnowledgeDomain) => number;
+  hasPattern: (pattern: string) => boolean;
+  hasConnection: (star1Id: string, star2Id: string) => boolean;
+  getDomainCompletion: (domain: KnowledgeDomain) => number;
+  getInsightBonus: () => number;
 }
 
 // Template entries for generating concept journal entries
@@ -367,16 +372,108 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
   
   // Get mastery level by domain
   getMasteryByDomain: (domain: KnowledgeDomain) => {
-    const state = get();
-    const domainStars = Object.values(state.stars).filter(star => 
-      star.domain === domain && star.unlocked
+    const stars = get().stars;
+    let domainStars = Object.values(stars).filter(
+      star => star.unlocked && star.domain === domain
+    );
+    
+    if (domainStars.length === 0) {
+      return 0;
+    }
+    
+    const totalMastery = domainStars.reduce(
+      (sum, star) => sum + star.mastery, 0
+    );
+    
+    return totalMastery / domainStars.length;
+  },
+  
+  // Calculate time reduction for activities based on domain mastery
+  getTimeReductionForDomain: (domain: KnowledgeDomain): number => {
+    const domainMastery = get().getMasteryByDomain(domain);
+    
+    // No time reduction below 50% mastery
+    if (domainMastery < 50) return 0;
+    
+    // 15 minute reduction at 75% mastery for this domain
+    if (domainMastery >= 75) return 15;
+    
+    // 5 minute reduction at 50% mastery
+    return 5;
+  },
+  
+  // Check if specific stars form a pattern
+  hasPattern: (pattern: string): boolean => {
+    const { stars, connections } = get();
+    
+    // Triangle pattern requires 3 stars that are all connected to each other
+    if (pattern === 'triangle') {
+      // Get all active stars
+      const activeStars = Object.values(stars).filter(star => star.active);
+      
+      // Need at least 3 stars for a triangle
+      if (activeStars.length < 3) return false;
+      
+      // Check for triangle pattern
+      for (let i = 0; i < activeStars.length - 2; i++) {
+        for (let j = i + 1; j < activeStars.length - 1; j++) {
+          for (let k = j + 1; k < activeStars.length; k++) {
+            // Check if all three stars are connected to each other
+            const star1 = activeStars[i];
+            const star2 = activeStars[j];
+            const star3 = activeStars[k];
+            
+            const conn1_2 = hasConnectionBetween(star1.id, star2.id);
+            const conn1_3 = hasConnectionBetween(star1.id, star3.id);
+            const conn2_3 = hasConnectionBetween(star2.id, star3.id);
+            
+            if (conn1_2 && conn1_3 && conn2_3) {
+              // Found a triangle
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+    
+    return false;
+  },
+  
+  // Check if there's a connection between two stars
+  hasConnection: (star1Id: string, star2Id: string): boolean => {
+    const { connections } = get();
+    
+    // Check both directions
+    const connectionKey1 = `${star1Id}-${star2Id}`;
+    const connectionKey2 = `${star2Id}-${star1Id}`;
+    
+    return connections[connectionKey1] !== undefined || 
+           connections[connectionKey2] !== undefined;
+  },
+  
+  // Calculate domain completion percentage
+  getDomainCompletion: (domain: KnowledgeDomain): number => {
+    const stars = get().stars;
+    
+    // Filter stars by domain
+    const domainStars = Object.values(stars).filter(
+      star => star.domain === domain
     );
     
     if (domainStars.length === 0) return 0;
     
-    // Calculate average mastery for this domain
-    const totalMastery = domainStars.reduce((sum, star) => sum + star.mastery, 0);
-    return totalMastery / domainStars.length;
+    // Count unlocked stars
+    const unlockedCount = domainStars.filter(star => star.unlocked).length;
+    
+    return (unlockedCount / domainStars.length) * 100;
+  },
+  
+  // Calculate insight bonus based on active stars
+  getInsightBonus: (): number => {
+    // Each active star provides +1 Insight at day start
+    const activeStars = get().getActiveStars();
+    return activeStars.length;
   },
   
   // Get all currently active stars
@@ -395,4 +492,17 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
       star => star.discovered && !star.unlocked
     );
   }
-})); 
+}));
+
+// Add a helper function for connection checking
+const hasConnectionBetween = (star1Id: string, star2Id: string): boolean => {
+  const state = useKnowledgeStore.getState();
+  const connections = state.connections;
+  
+  // Check both directions
+  const connectionKey1 = `${star1Id}-${star2Id}`;
+  const connectionKey2 = `${star2Id}-${star1Id}`;
+  
+  return connections[connectionKey1] !== undefined || 
+         connections[connectionKey2] !== undefined;
+}; 

@@ -53,8 +53,10 @@ export class TimeManager {
   /**
    * Check if the day has ended
    */
-  public isDayEnded(): boolean {
-    const { hour, minute } = this.currentTime;
+  public isDayEnded(): boolean;
+  public isDayEnded(time?: TimeBlock): boolean {
+    const timeToCheck = time || this.currentTime;
+    const { hour, minute } = timeToCheck;
     
     return (
       hour > TimeManager.END_HOUR || 

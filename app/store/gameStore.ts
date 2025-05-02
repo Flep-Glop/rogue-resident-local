@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { GamePhase, Resources, Season, TimeBlock, Difficulty } from '@/app/types';
+import { GamePhase, Resources, Season, TimeBlock, Difficulty, MentorId, GameEventType, SEASON_REQUIREMENTS, KnowledgeDomain } from '@/app/types';
 import { TimeManager } from '@/app/core/time/TimeManager';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
-import { GameEventType } from '@/app/types';
+import { useKnowledgeStore } from '@/app/store/knowledgeStore';
+import { useActivityStore } from '@/app/store/activityStore';
 
 // State interface for the game store
 interface GameState {
@@ -41,6 +42,17 @@ interface GameState {
   
   // Player data
   setPlayerName: (name: string) => void;
+  
+  // Relationship management
+  improveRelationship: (mentorId: MentorId, amount: number) => void;
+  getRelationshipLevel: (mentorId: MentorId) => number;
+  isControlMechanicUnlocked: (mechanic: string) => boolean;
+  
+  // Check if the player meets requirements to advance to the next season
+  checkSeasonProgression: () => boolean;
+  
+  // Advance to the next season
+  advanceToNextSeason: () => boolean;
 }
 
 // Create the game store
@@ -60,6 +72,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     momentum: 0, // 0-3 scale
     insight: 0, // 0-100 points
     starPoints: 0,
+    relationships: {
+      [MentorId.GARCIA]: { level: 0, interactions: 0 },
+      [MentorId.KAPOOR]: { level: 0, interactions: 0 },
+      [MentorId.JESSE]: { level: 0, interactions: 0 },
+      [MentorId.QUINN]: { level: 0, interactions: 0 },
+    }
   },
   
   // Phase management
@@ -135,6 +153,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { timeManager } = get();
     const newTime = timeManager.resetToStartOfDay();
     
+    // Get the knowledge store to check for active stars and constellation effects
+    const knowledgeStore = useKnowledgeStore.getState();
+    
+    // Calculate insight bonus from active stars
+    const insightBonus = knowledgeStore.getInsightBonus();
+    
     // Convert any remaining insight to SP before resetting
     get().convertInsightToSP();
     
@@ -144,9 +168,23 @@ export const useGameStore = create<GameState>((set, get) => ({
       resources: {
         ...get().resources,
         momentum: 0,
-        insight: 0,
+        insight: insightBonus, // Start with bonus from active stars
       }
     });
+    
+    // If insight bonus was applied, dispatch an event
+    if (insightBonus > 0) {
+      centralEventBus.dispatch(
+        GameEventType.INSIGHT_GAINED,
+        { 
+          previous: 0,
+          current: insightBonus,
+          change: insightBonus,
+          source: 'active stars bonus'
+        },
+        'gameStore.resetDay'
+      );
+    }
     
     // Increment day counter
     set((state) => ({ daysPassed: state.daysPassed + 1 }));
@@ -156,6 +194,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       { day: get().daysPassed + 1 },
       'gameStore.resetDay'
     );
+    
+    // Check for special events based on constellation patterns
+    setTimeout(() => {
+      try {
+        const activityStore = useActivityStore.getState();
+        if (activityStore) {
+          activityStore.checkSpecialEventRequirements();
+        }
+      } catch (error) {
+        console.error('Failed to check special event requirements:', error);
+      }
+    }, 0);
   },
   
   // Resource management
@@ -337,6 +387,170 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   // Player data
   setPlayerName: (name: string) => set({ playerName: name }),
+  
+  // Relationship management
+  improveRelationship: (mentorId: MentorId, amount: number = 1) => {
+    set(state => {
+      // Clone current relationships
+      const relationships = { ...state.resources.relationships };
+      
+      if (!relationships[mentorId]) {
+        relationships[mentorId] = { level: 0, interactions: 0 };
+      }
+      
+      // Increment interactions count
+      relationships[mentorId].interactions += amount;
+      
+      // Every 3 interactions, increase level (up to max 5)
+      const interactionsNeeded = 3;
+      if (relationships[mentorId].interactions >= 
+          (relationships[mentorId].level + 1) * interactionsNeeded &&
+          relationships[mentorId].level < 5) {
+        relationships[mentorId].level += 1;
+        
+        // Dispatch relationship level up event
+        centralEventBus.dispatch(
+          GameEventType.RELATIONSHIP_LEVEL_UP,
+          { 
+            mentorId, 
+            newLevel: relationships[mentorId].level 
+          },
+          'gameStore.improveRelationship'
+        );
+      }
+      
+      // Dispatch relationship improved event
+      centralEventBus.dispatch(
+        GameEventType.RELATIONSHIP_IMPROVED,
+        { 
+          mentorId, 
+          amount,
+          level: relationships[mentorId].level,
+          interactions: relationships[mentorId].interactions
+        },
+        'gameStore.improveRelationship'
+      );
+      
+      return {
+        resources: {
+          ...state.resources,
+          relationships
+        }
+      };
+    });
+  },
+  
+  getRelationshipLevel: (mentorId: MentorId) => {
+    const { resources } = get();
+    return resources.relationships?.[mentorId]?.level || 0;
+  },
+  
+  // Check if a specific Progressive Control mechanic is unlocked
+  isControlMechanicUnlocked: (mechanic: string): boolean => {
+    const state = get();
+    const relationships = state.resources.relationships || {};
+    
+    switch (mechanic) {
+      case 'FOCUSED_QUESTION':
+        // Level 3 with all mentors required
+        return Object.values(relationships).every(r => r.level >= 3);
+        
+      case 'SCHEDULE_PEEK':
+        // Level 4 with any two mentors required
+        return Object.values(relationships).filter(r => r.level >= 4).length >= 2;
+        
+      case 'APPOINTMENT_SETTING':
+        // Level 5 with any mentor required
+        return Object.values(relationships).some(r => r.level >= 5);
+        
+      default:
+        return false;
+    }
+  },
+  
+  // Check if the player meets requirements to advance to the next season
+  checkSeasonProgression: () => {
+    const state = get();
+    const { currentSeason, difficulty } = state;
+    const knowledgeStore = useKnowledgeStore.getState();
+    
+    // Get the requirements for the current season and difficulty
+    const requirements = SEASON_REQUIREMENTS[difficulty][currentSeason];
+    
+    // Get all unlocked stars and calculate average mastery
+    const unlockedStars = knowledgeStore.getUnlockedStars();
+    const starCount = unlockedStars.length;
+    const totalMastery = knowledgeStore.totalMastery;
+    
+    // Check star count requirement
+    if (starCount < requirements.starCount) return false;
+    
+    // Check average mastery requirement
+    if (totalMastery < requirements.averageMastery) return false;
+    
+    // Check domain requirement if needed
+    if (requirements.domainsRequired) {
+      const domains = [
+        KnowledgeDomain.TREATMENT_PLANNING,
+        KnowledgeDomain.RADIATION_THERAPY,
+        KnowledgeDomain.LINAC_ANATOMY,
+        KnowledgeDomain.DOSIMETRY
+      ];
+      
+      // Ensure at least 2 stars from each domain
+      const hasEnoughDomainsRepresented = domains.every(domain => {
+        const starsInDomain = unlockedStars.filter(star => star.domain === domain);
+        return starsInDomain.length >= 2;
+      });
+      
+      if (!hasEnoughDomainsRepresented) return false;
+    }
+    
+    // Check pattern requirement if needed
+    if (requirements.patternRequired) {
+      if (!knowledgeStore.hasPattern(requirements.patternRequired)) {
+        return false;
+      }
+    }
+    
+    // All requirements met
+    return true;
+  },
+  
+  // Advance to the next season
+  advanceToNextSeason: () => {
+    const state = get();
+    const { currentSeason } = state;
+    let nextSeason: Season;
+    
+    switch (currentSeason) {
+      case Season.SPRING:
+        nextSeason = Season.SUMMER;
+        break;
+      case Season.SUMMER:
+        nextSeason = Season.FALL;
+        break;
+      case Season.FALL:
+        nextSeason = Season.WINTER;
+        break;
+      case Season.WINTER:
+        // Winter is the last season, no advancement
+        return false;
+    }
+    
+    set({ currentSeason: nextSeason });
+    
+    centralEventBus.dispatch(
+      GameEventType.SEASON_CHANGED,
+      { 
+        previousSeason: currentSeason, 
+        newSeason: nextSeason 
+      },
+      'gameStore.advanceToNextSeason'
+    );
+    
+    return true;
+  },
 }));
 
 // Make the game store accessible globally

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import PixelThemeProvider from "./providers/ThemeProvider";
+import LoadingProvider from "./providers/LoadingProvider";
 import { VT323, Press_Start_2P } from 'next/font/google';
 import { Roboto_Mono } from 'next/font/google';
 import InitScripts from './components/InitScripts';
+import LoadingTransition from "./components/ui/LoadingTransition";
 
 // Define fonts
 const vt323 = VT323({ 
@@ -42,9 +44,12 @@ export default function RootLayout({
         <InitScripts />
       </head>
       <body>
-        <PixelThemeProvider>
-          {children}
-        </PixelThemeProvider>
+        <LoadingProvider>
+          <PixelThemeProvider>
+            {children}
+            <LoadingTransition />
+          </PixelThemeProvider>
+        </LoadingProvider>
       </body>
     </html>
   );
