@@ -14,13 +14,13 @@ import Image from 'next/image';
 const DifficultyStars = ({ difficulty }: { difficulty: ActivityDifficulty }) => {
   switch (difficulty) {
     case ActivityDifficulty.EASY:
-      return <span style={{ color: colors.starGlow }}>★☆☆</span>;
+      return <span style={{ color: colors.starGlow, fontSize: typography.fontSize.xxl, textShadow: '0px 0px 6px rgba(255, 215, 0, 0.9)' }}>★☆☆</span>;
     case ActivityDifficulty.MEDIUM:
-      return <span style={{ color: colors.starGlow }}>★★☆</span>;
+      return <span style={{ color: colors.starGlow, fontSize: typography.fontSize.xxl, textShadow: '0px 0px 6px rgba(255, 215, 0, 0.9)' }}>★★☆</span>;
     case ActivityDifficulty.HARD:
-      return <span style={{ color: colors.starGlow }}>★★★</span>;
+      return <span style={{ color: colors.starGlow, fontSize: typography.fontSize.xxl, textShadow: '0px 0px 6px rgba(255, 215, 0, 0.9)' }}>★★★</span>;
     default:
-      return <span style={{ color: colors.inactive }}>☆☆☆</span>;
+      return <span style={{ color: colors.inactive, fontSize: typography.fontSize.xxl }}>☆☆☆</span>;
   }
 };
 
@@ -413,6 +413,134 @@ export const DayPhase: React.FC = () => {
     }
   });
   
+  // Find Dr. Garcia's current location
+  const garciaActivity = availableActivities.find(activity => activity.mentor === MentorId.GARCIA);
+  const garciaLocationConfig = garciaActivity ? LOCATIONS[garciaActivity.location] : null;
+
+  // Calculate position style for Garcia chibi
+  const garciaPositionStyle = React.useMemo(() => {
+    if (garciaLocationConfig && garciaLocationConfig.row >= 0 && garciaLocationConfig.col >= 0) {
+      const cellHeight = 180; // Based on 540px grid height / 3 rows
+      const cellWidthPercent = 25; // Based on 4 columns
+      const imageSize = 64; // Increased image width/height
+      const topOffset = 8; // Offset from the top edge
+      const rightOffset = 8; // Offset from the right edge
+
+      const top = (garciaLocationConfig.row * cellHeight) + topOffset;
+      const left = `calc(${(garciaLocationConfig.col + 1) * cellWidthPercent}% - ${imageSize}px - ${rightOffset}px)`;
+
+      return {
+        position: 'absolute',
+        top: `${top}px`,
+        left: left,
+        zIndex: 6, // Ensure it's above the grid cards
+        width: `${imageSize}px`,
+        height: `${imageSize}px`,
+        overflow: 'hidden', // Prevent scrollbars on the container
+        transition: 'top 0.3s ease, left 0.3s ease' // Add smooth transition
+      } as React.CSSProperties;
+    }
+    return { display: 'none' } as React.CSSProperties; // Hide if not found or invalid location
+  }, [garciaLocationConfig]);
+  
+  // Find Dr. Kapoor's current location
+  const kapoorActivity = availableActivities.find(activity => activity.mentor === MentorId.KAPOOR);
+  const kapoorLocationConfig = kapoorActivity ? LOCATIONS[kapoorActivity.location] : null;
+
+  // Calculate position style for Kapoor chibi
+  const kapoorPositionStyle = React.useMemo(() => {
+    if (kapoorLocationConfig && kapoorLocationConfig.row >= 0 && kapoorLocationConfig.col >= 0) {
+      const cellHeight = 180; // Based on 540px grid height / 3 rows
+      const cellWidthPercent = 25; // Based on 4 columns
+      const imageSize = 64; // Image width/height
+      const topOffset = 8; // Offset from the top edge
+      const rightOffset = 8; // Offset from the right edge
+
+      const top = (kapoorLocationConfig.row * cellHeight) + topOffset;
+      const left = `calc(${(kapoorLocationConfig.col + 1) * cellWidthPercent}% - ${imageSize}px - ${rightOffset}px)`;
+
+      return {
+        position: 'absolute',
+        top: `${top}px`,
+        left: left,
+        zIndex: 6, // Ensure it's above the grid cards
+        width: `${imageSize}px`,
+        height: `${imageSize}px`,
+        overflow: 'hidden',
+        transition: 'top 0.3s ease, left 0.3s ease'
+      } as React.CSSProperties;
+    }
+    return { display: 'none' } as React.CSSProperties;
+  }, [kapoorLocationConfig]);
+  
+  // Find Dr. Quinn's current location
+  const quinnActivity = availableActivities.find(activity => activity.mentor === MentorId.QUINN);
+  const quinnLocationConfig = quinnActivity ? LOCATIONS[quinnActivity.location] : null;
+
+  // Calculate position style for Quinn chibi
+  const quinnPositionStyle = React.useMemo(() => {
+    if (quinnLocationConfig && quinnLocationConfig.row >= 0 && quinnLocationConfig.col >= 0) {
+      const cellHeight = 180; // Based on 540px grid height / 3 rows
+      const cellWidthPercent = 25; // Based on 4 columns
+      const imageSize = 64; // Image width/height
+      const topOffset = 8; // Offset from the top edge
+      const rightOffset = 8; // Offset from the right edge
+
+      const top = (quinnLocationConfig.row * cellHeight) + topOffset;
+      const left = `calc(${(quinnLocationConfig.col + 1) * cellWidthPercent}% - ${imageSize}px - ${rightOffset}px)`;
+
+      return {
+        position: 'absolute',
+        top: `${top}px`,
+        left: left,
+        zIndex: 6,
+        width: `${imageSize}px`,
+        height: `${imageSize}px`,
+        overflow: 'hidden',
+        transition: 'top 0.3s ease, left 0.3s ease'
+      } as React.CSSProperties;
+    }
+    return { display: 'none' } as React.CSSProperties;
+  }, [quinnLocationConfig]);
+
+  // Find Jesse's current location
+  const jesseActivity = availableActivities.find(activity => activity.mentor === MentorId.JESSE);
+  const jesseLocationConfig = jesseActivity ? LOCATIONS[jesseActivity.location] : null;
+
+  // Calculate position style for Jesse chibi
+  const jessePositionStyle = React.useMemo(() => {
+    if (jesseLocationConfig && jesseLocationConfig.row >= 0 && jesseLocationConfig.col >= 0) {
+      const cellHeight = 180; // Based on 540px grid height / 3 rows
+      const cellWidthPercent = 25; // Based on 4 columns
+      const imageSize = 64; // Image width/height
+      const topOffset = 8; // Offset from the top edge
+      const rightOffset = 8; // Offset from the right edge
+
+      const top = (jesseLocationConfig.row * cellHeight) + topOffset;
+      const left = `calc(${(jesseLocationConfig.col + 1) * cellWidthPercent}% - ${imageSize}px - ${rightOffset}px)`;
+
+      return {
+        position: 'absolute',
+        top: `${top}px`,
+        left: left,
+        zIndex: 6,
+        width: `${imageSize}px`,
+        height: `${imageSize}px`,
+        overflow: 'hidden',
+        transition: 'top 0.3s ease, left 0.3s ease'
+      } as React.CSSProperties;
+    }
+    return { display: 'none' } as React.CSSProperties;
+  }, [jesseLocationConfig]);
+  
+  // Mapping from MentorId to chibi image path
+  const mentorChibiMap: Record<MentorId, string> = {
+    [MentorId.GARCIA]: '/images/garcia-chibi.png',
+    [MentorId.KAPOOR]: '/images/kapoor-chibi.png',
+    [MentorId.QUINN]: '/images/quinn-chibi.png',
+    [MentorId.JESSE]: '/images/jesse-chibi.png',
+  };
+  
   // Handle location click to directly show activity options
   const handleLocationClick = (locationId: LocationId) => {
     const locationActivities = activitiesByLocation[locationId];
@@ -593,6 +721,86 @@ export const DayPhase: React.FC = () => {
               );
             })}
           </FloorGrid>
+
+          {/* Add Dr. Garcia Chibi Image */}
+          <div style={garciaPositionStyle}>
+            <Image 
+              src="/images/garcia-chibi.png" 
+              alt="Dr. Garcia Chibi" 
+              width={48} 
+              height={48}
+              style={{ 
+                objectFit: 'contain',
+                imageRendering: 'pixelated',
+                transform: 'translateZ(0)',
+                backfaceVisibility: 'hidden',
+                WebkitFontSmoothing: 'none',
+                MozOsxFontSmoothing: 'none'
+              }}
+              unoptimized={true}
+              priority={true} 
+            />
+          </div>
+
+          {/* Add Dr. Kapoor Chibi Image */}
+          <div style={kapoorPositionStyle}>
+            <Image 
+              src="/images/kapoor-chibi.png" 
+              alt="Dr. Kapoor Chibi" 
+              width={64} 
+              height={64}
+              style={{ 
+                objectFit: 'contain',
+                imageRendering: 'pixelated',
+                transform: 'translateZ(0)',
+                backfaceVisibility: 'hidden',
+                WebkitFontSmoothing: 'none',
+                MozOsxFontSmoothing: 'none'
+              }}
+              unoptimized={true}
+              priority={true} 
+            />
+          </div>
+
+          {/* Add Dr. Quinn Chibi Image */}
+          <div style={quinnPositionStyle}>
+            <Image 
+              src="/images/quinn-chibi.png" 
+              alt="Dr. Quinn Chibi" 
+              width={64} 
+              height={64}
+              style={{ 
+                objectFit: 'contain',
+                imageRendering: 'pixelated',
+                transform: 'translateZ(0)',
+                backfaceVisibility: 'hidden',
+                WebkitFontSmoothing: 'none',
+                MozOsxFontSmoothing: 'none'
+              }}
+              unoptimized={true}
+              priority={true} 
+            />
+          </div>
+
+          {/* Add Jesse Chibi Image */}
+          <div style={jessePositionStyle}>
+            <Image 
+              src="/images/jesse-chibi.png" 
+              alt="Jesse Chibi" 
+              width={64} 
+              height={64}
+              style={{ 
+                objectFit: 'contain',
+                imageRendering: 'pixelated',
+                transform: 'translateZ(0)',
+                backfaceVisibility: 'hidden',
+                WebkitFontSmoothing: 'none',
+                MozOsxFontSmoothing: 'none'
+              }}
+              unoptimized={true}
+              priority={true} 
+            />
+          </div>
         </MapContainer>
         
         {/* Activity selection modal - keep this but enhance it */}
@@ -618,52 +826,94 @@ export const DayPhase: React.FC = () => {
                     key={activity.id}
                     onClick={() => handleActivitySelect(activity.id)}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: colors.text }}>
-                      <h4 style={{ fontWeight: 'medium', margin: 0 }}>{activity.title}</h4>
-                      <span style={{ 
-                        color: colors.textDim, 
-                        backgroundColor: colors.background, 
-                        padding: `0 ${spacing.xs}`, 
-                        borderRadius: '4px', 
-                        fontSize: typography.fontSize.xs, 
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm }}>
+                      {/* Mentor Image - Made much larger */}
+                      <div style={{ 
                         display: 'flex', 
-                        alignItems: 'center' 
+                        alignItems: 'center', 
+                        marginRight: spacing.md,
+                        background: colors.background,
+                        padding: spacing.sm,
+                        borderRadius: spacing.xs,
+                        border: `1px solid ${colors.border}`
                       }}>
-                        {activity.durationMinutes} min
-                      </span>
+                        {activity.mentor && mentorChibiMap[activity.mentor] && (
+                          <Image 
+                            src={mentorChibiMap[activity.mentor]}
+                            alt={getMentorShortName(activity.mentor)}
+                            width={80} 
+                            height={80}
+                            style={{ 
+                              objectFit: 'contain',
+                              imageRendering: 'pixelated',
+                              borderRadius: '4px'
+                            }}
+                            unoptimized={true}
+                          />
+                        )}
+                      </div>
+                      
+                      <div style={{ flex: 1 }}>
+                        <h4 style={{ 
+                          fontWeight: 'bold', 
+                          margin: 0, 
+                          color: colors.text,
+                          fontSize: typography.fontSize.xl,
+                          marginBottom: spacing.xs,
+                          textShadow: typography.textShadow.pixel
+                        }}>{activity.title}</h4>
+                        
+                        {/* Time and Difficulty - Made even more visible */}
+                        <div style={{ 
+                          display: 'flex', 
+                          gap: spacing.md, 
+                          marginTop: spacing.sm,
+                          alignItems: 'center'
+                        }}>
+                          <span style={{ 
+                            color: colors.text,
+                            backgroundColor: colors.highlight,
+                            padding: `${spacing.xxs} ${spacing.xs}`,
+                            borderRadius: '4px',
+                            fontSize: typography.fontSize.sm,
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: spacing.xxs
+                          }}>
+                            ⏱️ {activity.duration} min
+                          </span>
+                          
+                          <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            marginLeft: spacing.md
+                          }}>
+                            <DifficultyStars difficulty={activity.difficulty} />
+                          </div>
+                        </div>
+                      </div>
                     </div>
+                    
                     <p style={{ 
                       color: colors.textDim, 
                       fontSize: typography.fontSize.sm, 
-                      marginTop: spacing.xs,
-                      marginBottom: 0 
+                      marginBottom: spacing.sm,
+                      borderTop: `1px solid ${colors.border}`,
+                      paddingTop: spacing.xs
                     }}>
                       {activity.description}
                     </p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: spacing.xs }}>
-                      <div>
-                        {activity.mentor && (
-                          <span style={{ 
-                            color: colors.textDim, 
-                            fontSize: typography.fontSize.sm, 
-                            display: 'flex', 
-                            alignItems: 'center' 
-                          }}>
-                            <span style={{ color: colors.highlight, marginRight: spacing.xs }}>👤</span>
-                            {getMentorShortName(activity.mentor)}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-                        {activity.domains.length > 0 && (
-                          <div style={{ display: 'flex', gap: spacing.xs }}>
-                            {activity.domains.map((domain, idx) => (
-                              <DomainIndicator key={`modal-${activity.id}-${domain}-${idx}`} domain={domain} />
-                            ))}
-                          </div>
-                        )}
-                        <DifficultyStars difficulty={activity.difficulty} />
-                      </div>
+                    
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}> 
+                      {/* Domain indicators moved to the bottom right */}
+                      {activity.domains.length > 0 && (
+                        <div style={{ display: 'flex', gap: spacing.xs }}>
+                          {activity.domains.map((domain, idx) => (
+                            <DomainIndicator key={`modal-${activity.id}-${domain}-${idx}`} domain={domain} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </ActivityButton>
                 ))}

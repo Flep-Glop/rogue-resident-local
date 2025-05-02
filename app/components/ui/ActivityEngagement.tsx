@@ -8,6 +8,20 @@ import { ActivityDifficulty, GameEventType, KnowledgeDomain, MentorId, DomainCol
 import { TimeManager } from '@/app/core/time/TimeManager';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import pixelTheme, { colors, typography, animation, components, mixins, borders, shadows, spacing } from '@/app/styles/pixelTheme';
+import Image from 'next/image';
+
+// Mapping from MentorId to chibi image path
+const mentorChibiMap: Record<MentorId, string> = {
+  [MentorId.GARCIA]: '/images/garcia-chibi.png',
+  [MentorId.KAPOOR]: '/images/kapoor-chibi.png',
+  [MentorId.QUINN]: '/images/quinn-chibi.png',
+  [MentorId.JESSE]: '/images/jesse-chibi.png',
+};
+
+// Function to check if value is a valid MentorId
+const isValidMentor = (value: any): value is MentorId => {
+  return Object.values(MentorId).includes(value);
+};
 
 // Helper to render domain badges
 const DomainBadge = ({ domain }: { domain: KnowledgeDomain }) => {
@@ -31,11 +45,11 @@ const DomainBadge = ({ domain }: { domain: KnowledgeDomain }) => {
 const DifficultyStars = ({ difficulty }: { difficulty: ActivityDifficulty }) => {
   switch (difficulty) {
     case ActivityDifficulty.EASY:
-      return <span style={{ color: colors.starGlow }}>★☆☆</span>;
+      return <span style={{ color: colors.starGlow, textShadow: '0px 0px 3px rgba(255, 215, 0, 0.5)' }}>★☆☆</span>;
     case ActivityDifficulty.MEDIUM:
-      return <span style={{ color: colors.starGlow }}>★★☆</span>;
+      return <span style={{ color: colors.starGlow, textShadow: '0px 0px 3px rgba(255, 215, 0, 0.5)' }}>★★☆</span>;
     case ActivityDifficulty.HARD:
-      return <span style={{ color: colors.starGlow }}>★★★</span>;
+      return <span style={{ color: colors.starGlow, textShadow: '0px 0px 3px rgba(255, 215, 0, 0.5)' }}>★★★</span>;
     default:
       return <span style={{ color: colors.inactive }}>☆☆☆</span>;
   }
@@ -519,11 +533,14 @@ export default function ActivityEngagement() {
           const spGained = challenge.difficulty === ActivityDifficulty.HARD ? 2 : 1;
           addStarPoints(spGained);
           
+          /*
+          // TODO: Consolidate GameEventType definition and uncomment
           centralEventBus.dispatch(
-            GameEventType.SP_GAINED,
+            GameEventType.sp_gained,
             { amount: spGained, source: 'activity_bonus' },
             'ActivityEngagement.handleOptionSelect'
           );
+          */
         }
       }
     }
@@ -559,7 +576,7 @@ export default function ActivityEngagement() {
     completeActivity(success);
     
     centralEventBus.dispatch(
-      success ? GameEventType.ACTIVITY_COMPLETED : GameEventType.ACTIVITY_FAILED,
+      success ? GameEventType.ACTIVITY_COMPLETED : GameEventType.ACTIVITY_COMPLETED, // Temporarily using ACTIVITY_COMPLETED for failed case
       { activityId: currentActivity.id },
       'ActivityEngagement.handleContinue'
     );
@@ -583,11 +600,14 @@ export default function ActivityEngagement() {
         setUsedTangent(true);
         
         // Dispatch event
+        /*
+        // TODO: Consolidate GameEventType definition and uncomment
         centralEventBus.dispatch(
-          GameEventType.TANGENT_USED,
+          GameEventType.tangent_used,
           { activityId: currentActivity.id },
           'ActivityEngagement.handleTangent'
         );
+        */
       }
     }
   };
@@ -613,11 +633,14 @@ export default function ActivityEngagement() {
       setUsedBoast(true);
       
       // Dispatch event
+      /*
+      // TODO: Consolidate GameEventType definition and uncomment
       centralEventBus.dispatch(
-        GameEventType.BOAST_USED,
+        GameEventType.boast_used,
         { activityId: currentActivity.id },
         'ActivityEngagement.handleBoast'
       );
+      */
     }
   };
   
@@ -667,601 +690,766 @@ export default function ActivityEngagement() {
         zIndex: 0
       }} />
       
+      {/* Time header remains at the top */}
       <div style={{
         backgroundColor: colors.background,
         color: colors.text,
-        padding: spacing.md,
+        padding: `${spacing.sm} ${spacing.md}`,
         borderRadius: spacing.sm,
-        maxWidth: '600px',
-        width: '100%',
+        width: '95%',
+        maxWidth: '1200px',
         fontFamily: typography.fontFamily.pixel,
         boxShadow: `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`,
         imageRendering: 'pixelated',
         border: `2px solid ${colors.border}`,
         position: 'relative',
+        zIndex: 1,
+        marginBottom: spacing.md,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <div>
+          <h2 style={{ 
+            fontSize: typography.fontSize.xl, 
+            fontWeight: 'bold',
+            textShadow: `${typography.textShadow.pixel}, 0 0 10px rgba(255, 255, 255, 0.1)`,
+            margin: 0,
+            letterSpacing: '1px'
+          }}>{formattedTime}</h2>
+          <p style={{ 
+            color: 'rgba(255, 255, 255, 0.75)',
+            margin: `${spacing.xxs} 0 0 0`,
+            fontSize: typography.fontSize.sm
+          }}>Activity in progress</p>
+        </div>
+      </div>
+      
+      {/* Three-panel layout container */}
+      <div style={{
+        display: 'flex',
+        width: '95%',
+        maxWidth: '1200px',
+        gap: spacing.md,
+        position: 'relative',
         zIndex: 1
       }}>
-        {/* Time and Resources Header - Enhanced visual separation */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          marginBottom: spacing.md,
-          paddingBottom: spacing.sm,
-          borderBottom: `1px solid ${colors.border}`
-        }}>
-          <div>
-            <h2 style={{ 
-              fontSize: typography.fontSize.xl, 
-              fontWeight: 'bold',
-              textShadow: typography.textShadow.pixel,
-              margin: 0,
-              letterSpacing: '1px'
-            }}>{formattedTime}</h2>
-            <p style={{ 
-              color: colors.textDim,
-              margin: `${spacing.xxs} 0 0 0`,
-              fontSize: typography.fontSize.sm
-            }}>Activity in progress</p>
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            gap: spacing.md,
-            backgroundColor: colors.backgroundAlt,
-            padding: `${spacing.xs} ${spacing.sm}`,
-            borderRadius: spacing.xs,
-            border: `1px solid ${colors.border}`
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              gap: spacing.xxs
-            }}>
-              <span style={{ 
-                color: colors.momentum,
-                fontSize: typography.fontSize.md,
-                textShadow: '0px 0px 3px rgba(255, 255, 255, 0.3)'
-              }}>⚡</span>
-              <span style={{ fontSize: typography.fontSize.sm }}>{resources.momentum} / 3</span>
-            </div>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              gap: spacing.xxs
-            }}>
-              <span style={{ 
-                color: colors.insight,
-                fontSize: typography.fontSize.md,
-                textShadow: '0px 0px 3px rgba(255, 255, 255, 0.3)'
-              }}>◆</span>
-              <span style={{ fontSize: typography.fontSize.sm }}>{resources.insight}</span>
-            </div>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              gap: spacing.xxs
-            }}>
-              <span style={{ 
-                color: colors.highlight,
-                fontSize: typography.fontSize.md,
-                textShadow: '0px 0px 3px rgba(255, 255, 255, 0.3)'
-              }}>★</span>
-              <span style={{ fontSize: typography.fontSize.sm }}>{resources.starPoints}</span>
-            </div>
-          </div>
-        </div>
-        
-        {/* Main Activity Container - Enhanced card-like appearance */}
+        {/* Left panel - Activity info and mentor */}
         <div style={{
-          backgroundColor: colors.backgroundAlt,
+          backgroundColor: colors.background,
+          color: colors.text,
           padding: spacing.md,
           borderRadius: spacing.sm,
-          marginBottom: spacing.md,
-          border: borders.medium,
-          boxShadow: shadows.md
+          width: '25%',
+          fontFamily: typography.fontFamily.pixel,
+          boxShadow: `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`,
+          imageRendering: 'pixelated',
+          border: `2px solid ${colors.border}`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: spacing.md,
+          alignSelf: 'flex-start'
         }}>
-          {/* Activity Header - Better domain badge spacing */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            marginBottom: spacing.md,
-            paddingBottom: spacing.sm,
-            borderBottom: `1px dotted ${colors.border}`
+          {/* Activity Title */}
+          <div style={{
+            borderBottom: `1px dotted ${colors.border}`,
+            paddingBottom: spacing.sm
           }}>
             <h3 style={{ 
               fontSize: typography.fontSize.lg, 
               fontWeight: 'bold',
-              textShadow: typography.textShadow.pixel,
+              textShadow: `${typography.textShadow.pixel}, 0 0 8px rgba(255, 255, 255, 0.15)`,
               margin: 0,
               letterSpacing: '1px'
             }}>{currentActivity.title}</h3>
+            
+            {/* Domain tags */}
             <div style={{ 
               display: 'flex', 
               gap: spacing.xs,
-              alignItems: 'flex-start'
+              flexWrap: 'wrap',
+              marginTop: spacing.xs
             }}>
               {currentActivity.domains.map((domain) => (
                 <DomainBadge key={domain} domain={domain} />
               ))}
             </div>
           </div>
-          <p style={{ 
-            color: colors.textDim, 
-            marginBottom: spacing.md,
-            fontSize: typography.fontSize.sm,
-            lineHeight: '1.4'
-          }}>{currentActivity.description}</p>
           
-          {/* Display lunch quote if it's a lunch activity */}
-          {showQuote ? (
+          {/* Activity Description */}
+          <div>
+            <p style={{ 
+              color: 'rgba(255, 255, 255, 0.85)',
+              fontSize: typography.fontSize.sm,
+              lineHeight: '1.5',
+              padding: `${spacing.xs} 0`
+            }}>{currentActivity.description}</p>
+          </div>
+          
+          {/* Mentor Section */}
+          {currentActivity.mentor && (
             <div style={{
-              backgroundColor: colors.background,
-              padding: spacing.md,
-              borderRadius: spacing.sm,
-              marginBottom: spacing.md,
-              border: borders.thin,
-              boxShadow: shadows.sm
+              marginTop: 'auto',
+              borderTop: `1px dotted ${colors.border}`,
+              paddingTop: spacing.md
             }}>
               <div style={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
-                alignItems: 'center', 
-                marginBottom: spacing.md 
+                alignItems: 'center'
               }}>
-                {/* Show mentor icon/avatar here if available */}
+                {/* Mentor image */}
                 <div style={{
-                  width: spacing.xl,
-                  height: spacing.xl,
+                  width: '80px',
+                  height: '80px',
                   borderRadius: '50%',
                   backgroundColor: colors.highlight,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginBottom: spacing.xs,
-                  fontSize: typography.fontSize.xl,
+                  marginBottom: spacing.sm,
                   border: `2px solid ${colors.border}`,
-                  boxShadow: shadows.md
+                  boxShadow: shadows.md,
+                  overflow: 'hidden'
                 }}>
-                  {challenge.mentor === MentorId.GARCIA ? 'G' : 
-                   challenge.mentor === MentorId.KAPOOR ? 'K' : 
-                   challenge.mentor === MentorId.JESSE ? 'J' : 'Q'}
+                  {currentActivity.mentor && isValidMentor(currentActivity.mentor) && (
+                    <Image 
+                      src={mentorChibiMap[currentActivity.mentor as MentorId]}
+                      alt={currentActivity.mentor}
+                      width={75}
+                      height={75}
+                      style={{ 
+                        objectFit: 'contain',
+                        imageRendering: 'pixelated',
+                        transform: 'translateZ(0)',
+                        backfaceVisibility: 'hidden',
+                        WebkitFontSmoothing: 'none',
+                        MozOsxFontSmoothing: 'none'
+                      }}
+                      unoptimized={true}
+                      priority={true}
+                    />
+                  )}
                 </div>
+                
+                {/* Mentor name */}
                 <h4 style={{ 
                   fontSize: typography.fontSize.md, 
                   fontWeight: 'semibold',
                   margin: 0,
                   textShadow: typography.textShadow.pixel
-                }}>{
-                  challenge.mentor === MentorId.GARCIA ? 'Dr. Garcia' : 
-                  challenge.mentor === MentorId.KAPOOR ? 'Dr. Kapoor' : 
-                  challenge.mentor === MentorId.JESSE ? 'Jesse' : 'Dr. Quinn'
-                }</h4>
-              </div>
-              
-              <blockquote style={{
-                fontStyle: 'italic',
-                color: colors.textDim,
-                borderLeft: `4px solid ${colors.highlight}`,
-                paddingLeft: spacing.md,
-                paddingTop: spacing.xs,
-                paddingBottom: spacing.xs,
-                marginBottom: spacing.md,
-                marginLeft: spacing.sm,
-                marginRight: 0,
-                fontSize: typography.fontSize.sm,
-                lineHeight: '1.5'
-              }}>
-                "{challenge.quote}"
-              </blockquote>
-              
-              {showFeedback ? (
-                <div style={{
-                  marginTop: spacing.md,
-                  padding: spacing.sm,
-                  borderRadius: spacing.sm,
-                  backgroundColor: colors.backgroundAlt,
-                  border: `1px dashed ${colors.border}`,
-                  animation: `fadeIn ${animation.duration.normal} ${animation.easing.pixel}`
                 }}>
-                  <p style={{ 
-                    color: colors.active,
-                    margin: 0,
-                    fontSize: typography.fontSize.sm
-                  }}>{challenge.feedback}</p>
-                  
-                  {/* Continue button - Enhanced button style */}
+                  {currentActivity.mentor}
+                </h4>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Center panel - Main content (questions and options) */}
+        <div style={{
+          backgroundColor: colors.background,
+          color: colors.text,
+          padding: spacing.lg,
+          borderRadius: spacing.sm,
+          flex: 1,
+          fontFamily: typography.fontFamily.pixel,
+          boxShadow: `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`,
+          imageRendering: 'pixelated',
+          border: `2px solid ${colors.border}`,
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          {/* Main Activity Container - Enhanced card-like appearance */}
+          <div style={{
+            backgroundColor: colors.backgroundAlt,
+            padding: spacing.lg,
+            borderRadius: spacing.sm,
+            border: borders.medium,
+            boxShadow: `${shadows.md}, 0 0 15px rgba(0, 0, 0, 0.2)`,
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1
+          }}>
+            {/* Display lunch quote if it's a lunch activity */}
+            {showQuote ? (
+              <div style={{
+                backgroundColor: 'rgba(20, 25, 35, 0.7)',
+                padding: spacing.md,
+                borderRadius: spacing.sm,
+                marginBottom: spacing.md,
+                border: borders.thin,
+                boxShadow: shadows.sm,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <blockquote style={{
+                  fontStyle: 'italic',
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  borderLeft: `4px solid ${colors.highlight}`,
+                  paddingLeft: spacing.md,
+                  paddingTop: spacing.xs,
+                  paddingBottom: spacing.xs,
+                  marginBottom: spacing.md,
+                  marginLeft: spacing.sm,
+                  marginRight: 0,
+                  fontSize: typography.fontSize.sm,
+                  lineHeight: '1.6',
+                  backgroundColor: 'rgba(30, 40, 60, 0.3)',
+                  borderRadius: '0 4px 4px 0',
+                  flex: 1
+                }}>
+                  "{challenge.quote}"
+                </blockquote>
+                
+                {showFeedback ? (
+                  <div style={{
+                    marginTop: spacing.md,
+                    padding: spacing.sm,
+                    borderRadius: spacing.sm,
+                    backgroundColor: 'rgba(30, 40, 60, 0.5)',
+                    border: `1px dashed ${colors.border}`,
+                    animation: `fadeIn ${animation.duration.normal} ${animation.easing.pixel}`
+                  }}>
+                    <p style={{ 
+                      color: colors.active,
+                      margin: 0,
+                      fontSize: typography.fontSize.sm,
+                      padding: spacing.xs
+                    }}>{challenge.feedback}</p>
+                    
+                    {/* Continue button - Enhanced button style */}
+                    <button 
+                      onClick={handleContinue}
+                      className="continue-button"
+                      style={{
+                        marginTop: spacing.sm,
+                        padding: `${spacing.sm} ${spacing.lg}`,
+                        backgroundColor: colors.highlight,
+                        color: colors.text,
+                        border: borders.medium,
+                        borderRadius: spacing.xs,
+                        cursor: 'pointer',
+                        fontFamily: typography.fontFamily.pixel,
+                        textShadow: typography.textShadow.pixel,
+                        boxShadow: `${shadows.md}, 0 0 10px rgba(137, 87, 255, 0.3)`,
+                        letterSpacing: '0.5px',
+                        fontWeight: 'bold',
+                        width: '100%'
+                      }}
+                    >
+                      Continue
+                    </button>
+                  </div>
+                ) : (
                   <button 
-                    onClick={handleContinue}
+                    onClick={handleQuoteContinue}
                     style={{
                       marginTop: spacing.sm,
-                      padding: `${spacing.xs} ${spacing.md}`,
+                      padding: `${spacing.sm} ${spacing.md}`,
                       backgroundColor: colors.highlight,
                       color: colors.text,
                       border: borders.medium,
                       borderRadius: spacing.xs,
                       cursor: 'pointer',
+                      width: '100%',
                       fontFamily: typography.fontFamily.pixel,
                       textShadow: typography.textShadow.pixel,
                       transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
-                      boxShadow: shadows.md,
+                      boxShadow: `${shadows.md}, 0 0 10px rgba(137, 87, 255, 0.3)`,
                       letterSpacing: '0.5px',
                       fontWeight: 'bold'
                     }}
                   >
-                    Continue
+                    Continue Conversation
                   </button>
-                </div>
-              ) : (
-                <button 
-                  onClick={handleQuoteContinue}
-                  style={{
-                    marginTop: spacing.sm,
-                    padding: `${spacing.xs} ${spacing.md}`,
-                    backgroundColor: colors.highlight,
-                    color: colors.text,
-                    border: borders.medium,
-                    borderRadius: spacing.xs,
-                    cursor: 'pointer',
-                    width: '100%',
-                    fontFamily: typography.fontFamily.pixel,
-                    textShadow: typography.textShadow.pixel,
-                    transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
-                    boxShadow: shadows.md,
-                    letterSpacing: '0.5px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Continue Conversation
-                </button>
-              )}
-            </div>
-          ) : (
-            <div style={{
-              backgroundColor: colors.background,
-              padding: spacing.md,
-              borderRadius: spacing.sm,
-              marginBottom: spacing.md,
-              border: borders.thin,
-              boxShadow: shadows.sm
-            }}>
-              {/* Question Progress Indicator - Enhanced visual cue */}
-              {hasMultipleQuestions && (
-                <div style={{
-                  marginBottom: spacing.sm,
-                  fontSize: typography.fontSize.sm,
-                  color: colors.textDim,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <span>Question {currentQuestionIndex + 1} of {challenge.questions.length}</span>
-                  <div style={{
-                    display: 'flex',
-                    gap: spacing.xxs,
-                    alignItems: 'center'
-                  }}>
-                    {Array.from({length: challenge.questions.length}, (_, i) => (
-                      <div key={i} style={{
-                        width: spacing.sm,
-                        height: spacing.xs,
-                        backgroundColor: i === currentQuestionIndex ? colors.highlight : colors.inactive,
-                        borderRadius: spacing.xxs
-                      }} />
-                    ))}
-                  </div>
-                </div>
-              )}
-              
-              {/* Question Title and Difficulty - Enhanced visual grouping */}
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                marginBottom: spacing.md,
-                paddingBottom: spacing.xs,
-                borderBottom: `1px dotted ${colors.border}`
-              }}>
-                <h4 style={{ 
-                  fontSize: typography.fontSize.md, 
-                  fontWeight: 'semibold',
-                  textShadow: typography.textShadow.pixel,
-                  margin: 0,
-                  letterSpacing: '0.5px'
-                }}>{currentQuestion.title}</h4>
-                {challenge.difficulty === ActivityDifficulty.HARD && (
-                  <span style={{
-                    backgroundColor: colors.starGlow,
-                    color: colors.text,
-                    fontSize: typography.fontSize.xs,
-                    padding: `${spacing.xxs} ${spacing.xs}`,
-                    borderRadius: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: spacing.xxs,
-                    boxShadow: '0 0 4px rgba(255, 255, 0, 0.3)'
-                  }}>
-                    <DifficultyStars difficulty={ActivityDifficulty.HARD} /> Hard
-                  </span>
                 )}
               </div>
-              <p style={{ 
-                color: colors.textDim, 
-                marginBottom: spacing.md,
-                fontSize: typography.fontSize.sm,
-                lineHeight: '1.4'
-              }}>{currentQuestion.content}</p>
-              
-              {/* Question Options - Enhanced visual distinction */}
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: spacing.sm, 
-                marginTop: spacing.md 
+            ) : (
+              <div style={{
+                backgroundColor: 'rgba(20, 25, 35, 0.7)',
+                padding: spacing.lg,
+                borderRadius: spacing.sm,
+                border: borders.thin,
+                boxShadow: shadows.sm,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column'
               }}>
-                {currentQuestion.options.map((option: any, index: number) => {
-                  const isSelected = selectedOption === index;
-                  const isCorrect = option.correct;
-                  
-                  return (
-                    <button
-                      key={index}
-                      style={{
-                        padding: spacing.md,
-                        borderRadius: spacing.sm,
-                        width: '100%',
-                        textAlign: 'left',
-                        transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
-                        backgroundColor: isSelected 
-                          ? (isCorrect ? colors.active : colors.error) 
-                          : colors.backgroundAlt,
-                        color: colors.text,
-                        border: isSelected 
-                          ? `2px solid ${isCorrect ? colors.active : colors.error}` 
-                          : borders.medium,
-                        cursor: selectedOption !== null ? 'default' : 'pointer',
-                        fontFamily: typography.fontFamily.pixel,
-                        boxShadow: isSelected ? 'none' : shadows.md,
-                        transform: isSelected ? 'translateY(2px)' : 'translateY(0)',
-                        fontSize: typography.fontSize.sm,
-                        position: 'relative'
-                      }}
-                      onClick={() => selectedOption === null && handleOptionSelect(index)}
-                      disabled={selectedOption !== null}
-                    >
-                      {/* Add visual indicator for selected answer */}
-                      {isSelected && (
-                        <span style={{
-                          position: 'absolute',
-                          left: spacing.xs,
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          fontSize: typography.fontSize.md
-                        }}>
-                          {isCorrect ? '✓' : '✗'}
-                        </span>
-                      )}
-                      <span style={{ 
-                        marginLeft: isSelected ? spacing.lg : 0,
-                        display: 'block'
-                      }}>
-                        {option.text}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              
-              {/* Feedback Section - Enhanced visual feedback */}
-              {showFeedback && selectedOption !== null && (
-                <div style={{
-                  marginTop: spacing.md,
-                  padding: spacing.sm,
-                  borderRadius: spacing.sm,
-                  backgroundColor: colors.backgroundAlt,
-                  border: `1px dashed ${colors.border}`,
-                  animation: `fadeIn ${animation.duration.normal} ${animation.easing.pixel}`
-                }}>
-                  <p style={{ 
-                    color: currentQuestion.options[selectedOption].correct 
-                      ? colors.active 
-                      : colors.error,
-                    margin: 0,
+                {/* Question Progress Indicator - Enhanced visual cue */}
+                {hasMultipleQuestions && (
+                  <div style={{
+                    marginBottom: spacing.md,
                     fontSize: typography.fontSize.sm,
-                    fontWeight: 'bold'
+                    color: 'rgba(255, 255, 255, 0.75)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: 'rgba(30, 40, 60, 0.5)',
+                    padding: `${spacing.xs} ${spacing.sm}`,
+                    borderRadius: spacing.xs,
+                    border: `1px solid ${colors.border}`
                   }}>
-                    {currentQuestion.options[selectedOption].feedback}
-                  </p>
-                  
-                  {/* Concepts discovered section - Enhanced visual grouping */}
-                  {(!hasMultipleQuestions || isLastQuestion) && conceptsDiscovered.length > 0 && (
-                    <div style={{ 
-                      marginTop: spacing.md,
-                      padding: spacing.xs,
-                      borderTop: `1px dotted ${colors.border}`,
-                      paddingTop: spacing.xs
+                    <span>Question {currentQuestionIndex + 1} of {challenge.questions.length}</span>
+                    <div style={{
+                      display: 'flex',
+                      gap: spacing.xxs,
+                      alignItems: 'center'
                     }}>
-                      <p style={{ 
-                        color: colors.starGlow,
-                        margin: `0 0 ${spacing.xs} 0`,
-                        fontSize: typography.fontSize.sm,
+                      {Array.from({length: challenge.questions.length}, (_, i) => (
+                        <div key={i} style={{
+                          width: spacing.sm,
+                          height: spacing.xs,
+                          backgroundColor: i === currentQuestionIndex ? colors.highlight : colors.inactive,
+                          borderRadius: spacing.xxs,
+                          boxShadow: i === currentQuestionIndex ? '0 0 4px rgba(137, 87, 255, 0.6)' : 'none'
+                        }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Question Title and Difficulty - Enhanced visual grouping */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  marginBottom: spacing.md,
+                  paddingBottom: spacing.sm,
+                  borderBottom: `1px dotted ${colors.border}`
+                }}>
+                  <h4 style={{ 
+                    fontSize: typography.fontSize.md, 
+                    fontWeight: 'semibold',
+                    textShadow: `${typography.textShadow.pixel}, 0 0 8px rgba(255, 255, 255, 0.15)`,
+                    margin: 0,
+                    letterSpacing: '0.5px'
+                  }}>{currentQuestion.title}</h4>
+                  {challenge.difficulty === ActivityDifficulty.HARD && (
+                    <span style={{
+                      backgroundColor: colors.starGlow,
+                      color: colors.text,
+                      fontSize: typography.fontSize.xs,
+                      padding: `${spacing.xxs} ${spacing.xs}`,
+                      borderRadius: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing.xxs,
+                      boxShadow: '0 0 8px rgba(255, 215, 0, 0.4)'
+                    }}>
+                      <DifficultyStars difficulty={ActivityDifficulty.HARD} /> Hard
+                    </span>
+                  )}
+                </div>
+                <p style={{ 
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  marginBottom: spacing.lg,
+                  fontSize: typography.fontSize.sm,
+                  lineHeight: '1.5',
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  backgroundColor: 'rgba(30, 40, 60, 0.3)',
+                  borderRadius: spacing.xs
+                }}>{currentQuestion.content}</p>
+                
+                {/* Question Options - Enhanced visual distinction */}
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: spacing.md,
+                  marginTop: spacing.lg,
+                  flex: 1
+                }}>
+                  {currentQuestion.options.map((option: any, index: number) => {
+                    const isSelected = selectedOption === index;
+                    const isCorrect = option.correct;
+                    
+                    return (
+                      <button
+                        key={index}
+                        className="question-option"
+                        style={{
+                          padding: spacing.lg,
+                          borderRadius: spacing.sm,
+                          width: '100%',
+                          textAlign: 'left',
+                          transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
+                          backgroundColor: isSelected 
+                            ? (isCorrect ? 'rgba(39, 174, 96, 0.3)' : 'rgba(231, 76, 60, 0.3)')
+                            : 'rgba(30, 40, 60, 0.5)',
+                          color: 'rgba(255, 255, 255, 0.9)',
+                          border: isSelected 
+                            ? `2px solid ${isCorrect ? colors.active : colors.error}` 
+                            : borders.medium,
+                          cursor: selectedOption !== null ? 'default' : 'pointer',
+                          fontFamily: typography.fontFamily.pixel,
+                          boxShadow: isSelected ? 'none' : `${shadows.md}, 0 0 5px rgba(0, 0, 0, 0.3)`,
+                          transform: isSelected ? 'translateY(2px)' : 'translateY(0)',
+                          fontSize: typography.fontSize.sm,
+                          position: 'relative',
+                          letterSpacing: '0.3px',
+                          outline: 'none'
+                        }}
+                        onClick={() => selectedOption === null && handleOptionSelect(index)}
+                        disabled={selectedOption !== null}
+                      >
+                        {/* Add visual indicator for selected answer */}
+                        {isSelected && (
+                          <span style={{
+                            position: 'absolute',
+                            left: spacing.xs,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            fontSize: typography.fontSize.md,
+                            color: isCorrect ? colors.active : colors.error,
+                            textShadow: `0 0 4px ${isCorrect ? 'rgba(39, 174, 96, 0.6)' : 'rgba(231, 76, 60, 0.6)'}`
+                          }}>
+                            {isCorrect ? '✓' : '✗'}
+                          </span>
+                        )}
+                        <span style={{ 
+                          marginLeft: isSelected ? spacing.lg : 0,
+                          display: 'block'
+                        }}>
+                          {option.text}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* Feedback Section - Enhanced visual feedback */}
+                {showFeedback && selectedOption !== null && (
+                  <div style={{
+                    marginTop: spacing.lg,
+                    padding: spacing.md,
+                    borderRadius: spacing.sm,
+                    backgroundColor: 'rgba(30, 40, 60, 0.5)',
+                    border: `1px dashed ${colors.border}`,
+                    animation: `fadeIn ${animation.duration.normal} ${animation.easing.pixel}`,
+                    boxShadow: '0 0 10px rgba(0, 0, 0, 0.2)'
+                  }}>
+                    <p style={{ 
+                      color: currentQuestion.options[selectedOption].correct 
+                        ? colors.active 
+                        : colors.error,
+                      margin: 0,
+                      fontSize: typography.fontSize.sm,
+                      fontWeight: 'bold',
+                      padding: spacing.xs,
+                      textShadow: currentQuestion.options[selectedOption].correct
+                        ? '0 0 5px rgba(39, 174, 96, 0.5)'
+                        : '0 0 5px rgba(231, 76, 60, 0.5)'
+                    }}>
+                      {currentQuestion.options[selectedOption].feedback}
+                    </p>
+                    
+                    {/* Concepts discovered section - Enhanced visual grouping */}
+                    {(!hasMultipleQuestions || isLastQuestion) && conceptsDiscovered.length > 0 && (
+                      <div style={{ 
+                        marginTop: spacing.md,
+                        padding: spacing.md,
+                        borderTop: `1px dotted ${colors.border}`,
+                        paddingTop: spacing.sm,
+                        backgroundColor: 'rgba(20, 30, 40, 0.3)',
+                        borderRadius: spacing.xs
+                      }}>
+                        <p style={{ 
+                          color: colors.starGlow,
+                          margin: `0 0 ${spacing.xs} 0`,
+                          fontSize: typography.fontSize.sm,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: spacing.xxs,
+                          textShadow: '0 0 5px rgba(255, 215, 0, 0.4)'
+                        }}>
+                          <span style={{ fontSize: typography.fontSize.md }}>✨</span> New concepts discovered:
+                        </p>
+                        <div style={{ 
+                          display: 'flex', 
+                          gap: spacing.xs, 
+                          marginTop: spacing.xs,
+                          flexWrap: 'wrap' 
+                        }}>
+                          {conceptsDiscovered.map((concept) => (
+                            <span key={concept} style={{
+                              backgroundColor: 'rgba(40, 50, 70, 0.6)',
+                              padding: `${spacing.xs} ${spacing.sm}`,
+                              borderRadius: spacing.sm,
+                              fontSize: typography.fontSize.xs,
+                              border: `1px solid ${colors.border}`,
+                              textTransform: 'capitalize',
+                              boxShadow: '0 0 4px rgba(255, 215, 0, 0.2)'
+                            }}>
+                              {concept.replace(/_/g, ' ')}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Continue button - Enhanced button style */}
+                    <button 
+                      onClick={handleContinue}
+                      className="continue-button"
+                      style={{
+                        marginTop: spacing.md,
+                        padding: `${spacing.sm} ${spacing.md}`,
+                        backgroundColor: colors.highlight,
+                        color: colors.text,
+                        border: borders.medium,
+                        borderRadius: spacing.xs,
+                        cursor: 'pointer',
+                        fontFamily: typography.fontFamily.pixel,
+                        textShadow: typography.textShadow.pixel,
+                        boxShadow: `${shadows.md}, 0 0 10px rgba(137, 87, 255, 0.3)`,
+                        letterSpacing: '0.5px',
+                        fontWeight: 'bold',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: spacing.xxs
-                      }}>
-                        <span style={{ fontSize: typography.fontSize.md }}>✨</span> New concepts discovered:
-                      </p>
-                      <div style={{ 
-                        display: 'flex', 
-                        gap: spacing.xs, 
-                        marginTop: spacing.xxs, 
-                        flexWrap: 'wrap' 
-                      }}>
-                        {conceptsDiscovered.map((concept) => (
-                          <span key={concept} style={{
-                            backgroundColor: colors.backgroundAlt,
-                            padding: `${spacing.xxs} ${spacing.xs}`,
-                            borderRadius: spacing.sm,
-                            fontSize: typography.fontSize.xs,
-                            border: `1px solid ${colors.border}`,
-                            textTransform: 'capitalize'
-                          }}>
-                            {concept.replace(/_/g, ' ')}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Continue button - Enhanced button style */}
-                  <button 
-                    onClick={handleContinue}
-                    style={{
-                      marginTop: spacing.md,
-                      padding: `${spacing.xs} ${spacing.md}`,
-                      backgroundColor: colors.highlight,
-                      color: colors.text,
-                      border: borders.medium,
-                      borderRadius: spacing.xs,
-                      cursor: 'pointer',
-                      fontFamily: typography.fontFamily.pixel,
-                      textShadow: typography.textShadow.pixel,
-                      boxShadow: shadows.md,
-                      letterSpacing: '0.5px',
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: spacing.xs
-                    }}
-                  >
-                    {hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →"}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Footer with special abilities - Enhanced visual grouping */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            marginTop: spacing.md,
-            paddingTop: spacing.sm,
-            borderTop: `1px dotted ${colors.border}`
-          }}>
-            <div style={{ display: 'flex', gap: spacing.sm }}>
-              {/* Only show special abilities if not a lunch activity */}
-              {!showQuote && (
-                <>
-                  <button
-                    style={{
-                      padding: `${spacing.xxs} ${spacing.sm}`,
-                      borderRadius: spacing.xs,
-                      fontSize: typography.fontSize.sm,
-                      backgroundColor: canUseTangent ? colors.insight : colors.inactive,
-                      color: colors.text,
-                      opacity: canUseTangent ? 1 : 0.5,
-                      cursor: canUseTangent ? 'pointer' : 'not-allowed',
-                      border: borders.thin,
-                      fontFamily: typography.fontFamily.pixel,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: spacing.xxs,
-                      boxShadow: canUseTangent ? shadows.md : 'none',
-                      transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
-                    }}
-                    disabled={!canUseTangent}
-                    onClick={handleTangent}
-                    title={canUseTangent ? "Change the current question (25 Insight)" : "Not enough Insight or already used"}
-                  >
-                    <span style={{ color: colors.insight }}>⟲</span> Tangent (25 ◆)
-                  </button>
-                  
-                  <button
-                    style={{
-                      padding: `${spacing.xxs} ${spacing.sm}`,
-                      borderRadius: spacing.xs,
-                      fontSize: typography.fontSize.sm,
-                      backgroundColor: canUseBoast ? colors.momentum : colors.inactive,
-                      color: colors.text,
-                      opacity: canUseBoast ? 1 : 0.5,
-                      cursor: canUseBoast ? 'pointer' : 'not-allowed',
-                      border: borders.thin,
-                      fontFamily: typography.fontFamily.pixel,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: spacing.xxs,
-                      boxShadow: canUseBoast ? shadows.md : 'none',
-                      transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
-                    }}
-                    disabled={!canUseBoast}
-                    onClick={handleBoast}
-                    title={canUseBoast ? "Attempt a harder question for more rewards" : "Not enough Momentum or already used"}
-                  >
-                    <span style={{ color: colors.momentum }}>⤴</span> Boast (⚡⚡⚡)
-                  </button>
-                </>
-              )}
-            </div>
-            
-            {currentActivity.mentor && (
-              <div style={{ 
-                fontSize: typography.fontSize.sm, 
-                color: colors.textDim,
-                display: 'flex',
-                alignItems: 'center',
-                gap: spacing.xxs,
-                padding: `${spacing.xxs} ${spacing.xs}`,
-                backgroundColor: colors.backgroundAlt,
-                borderRadius: spacing.xs,
-                border: `1px solid ${colors.border}`
-              }}>
-                with <span style={{ 
-                  fontWeight: 'bold',
-                  color: colors.text
-                }}>{currentActivity.mentor}</span>
+                        justifyContent: 'center',
+                        gap: spacing.xs,
+                        width: '100%',
+                        transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
+                      }}
+                    >
+                      {hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
-          
-          {/* Ability usage indicators - Enhanced visual feedback */}
-          {(usedTangent || usedBoast) && (
+        </div>
+        
+        {/* Right panel - Player stats and powers */}
+        <div style={{
+          backgroundColor: colors.background,
+          color: colors.text,
+          padding: spacing.md,
+          borderRadius: spacing.sm,
+          width: '22%',
+          fontFamily: typography.fontFamily.pixel,
+          boxShadow: `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`,
+          imageRendering: 'pixelated',
+          border: `2px solid ${colors.border}`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: spacing.md,
+          alignSelf: 'flex-start'
+        }}>
+          {/* Player Stats */}
+          <div style={{ 
+            borderBottom: `1px dotted ${colors.border}`,
+            paddingBottom: spacing.md
+          }}>
+            <h3 style={{ 
+              fontSize: typography.fontSize.md, 
+              fontWeight: 'bold',
+              textShadow: typography.textShadow.pixel,
+              margin: `0 0 ${spacing.sm} 0`
+            }}>Player Stats</h3>
+            
             <div style={{ 
-              marginTop: spacing.sm, 
-              fontSize: typography.fontSize.xs,
-              padding: `${spacing.xxs} ${spacing.xs}`,
-              backgroundColor: colors.backgroundAlt,
-              borderRadius: spacing.xs,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: spacing.xs
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: spacing.sm
             }}>
-              {usedTangent && (
-                <span style={{ 
-                  color: colors.insight,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing.xxs
-                }}>
-                  <span>◆</span> Tangent ability used
-                </span>
-              )}
-              {usedBoast && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: spacing.sm 
+              }}>
                 <span style={{ 
                   color: colors.momentum,
-                  display: 'flex',
+                  fontSize: typography.fontSize.md,
+                  textShadow: '0px 0px 3px rgba(255, 255, 255, 0.3)'
+                }}>⚡</span>
+                <div>
+                  <span style={{ fontWeight: 'bold' }}>Momentum:</span>
+                  <span style={{ marginLeft: spacing.xs }}>{resources.momentum} / 3</span>
+                </div>
+              </div>
+              
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: spacing.sm 
+              }}>
+                <span style={{ 
+                  color: colors.insight,
+                  fontSize: typography.fontSize.md,
+                  textShadow: '0px 0px 3px rgba(255, 255, 255, 0.3)'
+                }}>◆</span>
+                <div>
+                  <span style={{ fontWeight: 'bold' }}>Insight:</span>
+                  <span style={{ marginLeft: spacing.xs }}>{resources.insight}</span>
+                </div>
+              </div>
+              
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: spacing.sm 
+              }}>
+                <span style={{ 
+                  color: colors.highlight,
+                  fontSize: typography.fontSize.md,
+                  textShadow: '0px 0px 3px rgba(255, 255, 255, 0.3)'
+                }}>★</span>
+                <div>
+                  <span style={{ fontWeight: 'bold' }}>Star Points:</span>
+                  <span style={{ marginLeft: spacing.xs }}>{resources.starPoints}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Special Abilities */}
+          {!showQuote && (
+            <div>
+              <h3 style={{ 
+                fontSize: typography.fontSize.md, 
+                fontWeight: 'bold',
+                textShadow: typography.textShadow.pixel,
+                margin: `0 0 ${spacing.sm} 0`
+              }}>Special Abilities</h3>
+              
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: spacing.sm
+              }}>
+                <button
+                  style={{
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    borderRadius: spacing.xs,
+                    fontSize: typography.fontSize.sm,
+                    backgroundColor: canUseTangent ? 'rgba(45, 156, 219, 0.3)' : 'rgba(50, 50, 60, 0.3)',
+                    color: canUseTangent ? colors.text : colors.inactive,
+                    opacity: canUseTangent ? 1 : 0.5,
+                    cursor: canUseTangent ? 'pointer' : 'not-allowed',
+                    border: borders.thin,
+                    fontFamily: typography.fontFamily.pixel,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    boxShadow: canUseTangent ? `${shadows.md}, 0 0 8px rgba(45, 156, 219, 0.3)` : 'none',
+                    transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
+                    position: 'relative'
+                  }}
+                  disabled={!canUseTangent}
+                  onClick={handleTangent}
+                  title={canUseTangent ? "Change the current question (25 Insight)" : "Not enough Insight or already used"}
+                >
+                  <span style={{ 
+                    color: colors.insight,
+                    textShadow: '0 0 3px rgba(45, 156, 219, 0.5)'
+                  }}>⟲</span> Tangent (25 ◆)
+                </button>
+                
+                <button
+                  style={{
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    borderRadius: spacing.xs,
+                    fontSize: typography.fontSize.sm,
+                    backgroundColor: canUseBoast ? 'rgba(231, 126, 35, 0.3)' : 'rgba(50, 50, 60, 0.3)',
+                    color: canUseBoast ? colors.text : colors.inactive,
+                    opacity: canUseBoast ? 1 : 0.5,
+                    cursor: canUseBoast ? 'pointer' : 'not-allowed',
+                    border: borders.thin,
+                    fontFamily: typography.fontFamily.pixel,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.xs,
+                    boxShadow: canUseBoast ? `${shadows.md}, 0 0 8px rgba(231, 126, 35, 0.3)` : 'none',
+                    transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
+                    position: 'relative'
+                  }}
+                  disabled={!canUseBoast}
+                  onClick={handleBoast}
+                  title={canUseBoast ? "Attempt a harder question for more rewards" : "Not enough Momentum or already used"}
+                >
+                  <span style={{ 
+                    color: colors.momentum,
+                    textShadow: '0 0 3px rgba(231, 126, 35, 0.5)'
+                  }}>⤴</span> Boast (⚡⚡⚡)
+                </button>
+              </div>
+              
+              {/* Ability usage indicators */}
+              {(usedTangent || usedBoast) && (
+                <div style={{ 
+                  marginTop: spacing.sm, 
+                  fontSize: typography.fontSize.xs,
+                  padding: `${spacing.xs} ${spacing.md}`,
+                  backgroundColor: 'rgba(30, 40, 60, 0.4)',
+                  borderRadius: spacing.xs,
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  gap: spacing.xxs
+                  gap: spacing.md,
+                  boxShadow: '0 0 5px rgba(0, 0, 0, 0.2)'
                 }}>
-                  <span>⚡</span> Boast ability used
-                </span>
+                  {usedTangent && (
+                    <span style={{ 
+                      color: colors.insight,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing.xxs,
+                      textShadow: '0 0 3px rgba(45, 156, 219, 0.5)'
+                    }}>
+                      <span>◆</span> Tangent used
+                    </span>
+                  )}
+                  {usedBoast && (
+                    <span style={{ 
+                      color: colors.momentum,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing.xxs,
+                      textShadow: '0 0 3px rgba(231, 126, 35, 0.5)'
+                    }}>
+                      <span>⚡</span> Boast used
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           )}
+          
+          {/* Game Info */}
+          <div style={{ 
+            marginTop: 'auto',
+            borderTop: `1px dotted ${colors.border}`,
+            paddingTop: spacing.md
+          }}>
+            <h3 style={{ 
+              fontSize: typography.fontSize.md, 
+              fontWeight: 'bold',
+              textShadow: typography.textShadow.pixel,
+              margin: `0 0 ${spacing.sm} 0`
+            }}>Activity Info</h3>
+            
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: spacing.sm
+            }}>
+              <div>
+                <span style={{ fontWeight: 'bold' }}>Difficulty:</span>
+                <span style={{ marginLeft: spacing.xs }}>
+                  <DifficultyStars difficulty={challenge.difficulty} />
+                </span>
+              </div>
+              
+              <div>
+                <span style={{ fontWeight: 'bold' }}>Duration:</span>
+                <span style={{ marginLeft: spacing.xs }}>
+                  {currentActivity.duration} min
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -1271,6 +1459,32 @@ export default function ActivityEngagement() {
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
+        }
+        
+        button:focus {
+          outline: none;
+          box-shadow: 0 0 0 2px ${colors.highlight}, 0 0 10px rgba(137, 87, 255, 0.5);
+        }
+        
+        /* Add hover effects that work with dynamic styles */
+        button:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 0 10px rgba(137, 87, 255, 0.3);
+        }
+        
+        button:active:not(:disabled) {
+          transform: translateY(1px);
+        }
+        
+        /* Specific button hover effects */
+        .question-option:hover:not(:disabled) {
+          background-color: rgba(40, 55, 75, 0.7) !important;
+          box-shadow: ${shadows.lg}, 0 0 8px rgba(137, 87, 255, 0.2) !important;
+        }
+        
+        .continue-button:hover:not(:disabled) {
+          transform: translateY(-2px) !important;
+          box-shadow: ${shadows.lg}, 0 0 15px rgba(137, 87, 255, 0.4) !important;
         }
       `}</style>
     </div>
