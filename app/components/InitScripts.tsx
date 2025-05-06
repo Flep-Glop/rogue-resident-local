@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import ServiceWorkerRegistration from './ServiceWorkerRegistration';
 
 export default function InitScripts() {
   useEffect(() => {
@@ -22,5 +23,5 @@ export default function InitScripts() {
     }
   }, []);
   
-  return null;
+  return <ServiceWorkerRegistration />;
 } 
