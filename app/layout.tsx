@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PixelThemeProvider from "./providers/ThemeProvider";
 import LoadingProvider from "./providers/LoadingProvider";
@@ -32,6 +32,9 @@ export const metadata: Metadata = {
   title: "Rogue Resident - Medical Physics Educational Game",
   description: "An educational roguelike game that transforms medical physics education into a narrative-driven experience.",
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
   themeColor: "#3b82f6",
 };
 
@@ -43,8 +46,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${vt323.variable} ${pressStart2P.variable} ${robotoMono.variable}`}>
       <head>
-        <meta name="theme-color" content="#3b82f6" />
-        <link rel="manifest" href="/manifest.json" />
         <InitScripts />
       </head>
       <body>

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useCallback, useMemo } from 'react';
 import { useJournalStore, JournalEntry, ConceptJournalEntry, MentorJournalEntry } from '@/app/store/journalStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';

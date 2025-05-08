@@ -1,0 +1,238 @@
+{
+  "metadata": {
+    "domain": "Radiation Therapy",
+    "lastUpdated": "2025-05-06"
+  },
+  "matchingBanks": [
+    {
+      "id": "radiobiology-concepts",
+      "type": "matchingBank",
+      "title": "Radiobiological Concepts and Descriptions",
+      "items": [
+        {
+          "id": "A",
+          "label": "Alpha/beta ratio",
+          "matches": [
+            {"id": 1, "text": "Measurement of sensitivity to changes in fraction size", "difficulty": 1},
+            {"id": 5, "text": "Ratio of linear and quadratic components in cell survival curves", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "Therapeutic ratio",
+          "matches": [
+            {"id": 2, "text": "Ratio of tumor control to normal tissue complications", "difficulty": 1},
+            {"id": 6, "text": "Measure of treatment efficacy versus toxicity", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Reoxygenation",
+          "matches": [
+            {"id": 3, "text": "Process of hypoxic cells becoming oxygenated between fractions", "difficulty": 1},
+            {"id": 7, "text": "Mechanism that improves radiation sensitivity in previously resistant cells", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Redistribution",
+          "matches": [
+            {"id": 4, "text": "Describes cell cycle phase sensitivity to radiation", "difficulty": 1},
+            {"id": 8, "text": "Progression of cells into more radiosensitive phases between fractions", "difficulty": 2}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "treatment-techniques",
+      "type": "matchingBank",
+      "title": "Treatment Delivery Techniques and Characteristics",
+      "items": [
+        {
+          "id": "A",
+          "label": "3D Conformal Radiation Therapy",
+          "matches": [
+            {"id": 1, "text": "Shapes beam to target using blocks or MLCs, uniform intensity", "difficulty": 1},
+            {"id": 5, "text": "Uses CT imaging to deliver dose that conforms to target volume in three dimensions", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "Intensity-Modulated Radiation Therapy (IMRT)",
+          "matches": [
+            {"id": 2, "text": "Uses multiple beam angles with varying intensity patterns", "difficulty": 1},
+            {"id": 6, "text": "Enables delivery of concave dose distributions and dose painting", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Volumetric Modulated Arc Therapy (VMAT)",
+          "matches": [
+            {"id": 3, "text": "Delivers treatment while rotating continuously around patient", "difficulty": 1},
+            {"id": 7, "text": "Combines gantry rotation with dynamic MLC motion and dose rate variation", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Stereotactic Body Radiation Therapy (SBRT)",
+          "matches": [
+            {"id": 4, "text": "Uses high doses per fraction to small, well-defined targets", "difficulty": 1},
+            {"id": 8, "text": "Employs precise immobilization and image guidance for hypofractionated treatment", "difficulty": 2}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "image-guidance-methods",
+      "type": "matchingBank",
+      "title": "Image Guidance Methods and Advantages",
+      "items": [
+        {
+          "id": "A",
+          "label": "kV planar imaging",
+          "matches": [
+            {"id": 1, "text": "Better bony anatomy visualization with less dose than MV", "difficulty": 1},
+            {"id": 5, "text": "Uses kilovoltage X-rays to produce high-contrast 2D verification images", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "MV portal imaging",
+          "matches": [
+            {"id": 2, "text": "Can image through high-density materials like hip prostheses", "difficulty": 1},
+            {"id": 6, "text": "Uses treatment beam for imaging, avoiding additional equipment", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Cone Beam CT",
+          "matches": [
+            {"id": 3, "text": "Provides 3D volumetric information for positioning", "difficulty": 1},
+            {"id": 7, "text": "Enables soft tissue visualization and 3D position verification", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Ultrasound guidance",
+          "matches": [
+            {"id": 4, "text": "Excellent soft tissue contrast without additional radiation", "difficulty": 1},
+            {"id": 8, "text": "Real-time imaging of organ motion without ionizing radiation", "difficulty": 2}
+          ]
+        }
+      ]
+    }
+  ],
+  "proceduralBanks": [
+    {
+      "id": "cell-radiation-response",
+      "type": "proceduralBank",
+      "title": "Events After Radiation Exposure to a Cell",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Initial ionization events",
+          "explanation": "Radiation interacts with atoms, ejecting electrons"
+        },
+        {
+          "id": 2,
+          "description": "Formation of free radicals",
+          "explanation": "Ionized molecules become highly reactive"
+        },
+        {
+          "id": 3,
+          "description": "Formation of DNA double-strand breaks",
+          "explanation": "Free radicals damage DNA structure"
+        },
+        {
+          "id": 4,
+          "description": "Cell cycle arrest",
+          "explanation": "Checkpoints halt cell cycle to allow for repair"
+        },
+        {
+          "id": 5,
+          "description": "DNA repair or failure to repair",
+          "explanation": "Cell attempts to fix damage or fails to do so"
+        },
+        {
+          "id": 6,
+          "description": "Cell death during mitosis (if repair fails)",
+          "explanation": "Damaged cells often die when attempting division"
+        }
+      ]
+    },
+    {
+      "id": "imrt-treatment-workflow",
+      "type": "proceduralBank",
+      "title": "IMRT Treatment Delivery Steps",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Position patient on treatment couch",
+          "explanation": "Initial setup according to immobilization device"
+        },
+        {
+          "id": 2,
+          "description": "Therapist acquires verification imaging",
+          "explanation": "IGRT to confirm patient position"
+        },
+        {
+          "id": 3,
+          "description": "Apply positioning corrections based on image",
+          "explanation": "Automatic or manual couch shifts to align patient"
+        },
+        {
+          "id": 4,
+          "description": "Therapist leaves treatment room",
+          "explanation": "For radiation safety during beam delivery"
+        },
+        {
+          "id": 5,
+          "description": "Beam delivery",
+          "explanation": "Actual radiation treatment administration"
+        },
+        {
+          "id": 6,
+          "description": "Therapist enters treatment room after delivery",
+          "explanation": "Assist patient after treatment is complete"
+        }
+      ]
+    },
+    {
+      "id": "cbct-workflow",
+      "type": "proceduralBank",
+      "title": "IGRT Workflow with CBCT",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Position patient according to setup marks",
+          "explanation": "Initial alignment based on skin marks or tattoos"
+        },
+        {
+          "id": 2,
+          "description": "Acquire cone-beam CT",
+          "explanation": "3D imaging of patient in treatment position"
+        },
+        {
+          "id": 3,
+          "description": "Perform automatic registration between CBCT and planning CT",
+          "explanation": "Computer algorithm aligns treatment and reference images"
+        },
+        {
+          "id": 4,
+          "description": "Verify correct alignment with manual review",
+          "explanation": "Human validation of the automatic registration"
+        },
+        {
+          "id": 5,
+          "description": "Apply couch shift to align patient properly",
+          "explanation": "Adjust patient position based on registration results"
+        },
+        {
+          "id": 6,
+          "description": "Deliver treatment",
+          "explanation": "Administer radiation after proper positioning is confirmed"
+        }
+      ]
+    }
+  ]
+}

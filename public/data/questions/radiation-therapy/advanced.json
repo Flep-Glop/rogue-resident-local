@@ -1,0 +1,116 @@
+{
+  "metadata": {
+    "domain": "Radiation Therapy",
+    "difficulty": "Advanced",
+    "questionCount": 3,
+    "lastUpdated": "2025-05-06",
+    "contributors": ["Luke", "Zachariah"],
+    "stars": ["rt-radiobiology-expert", "rt-delivery-expert", "rt-igrt-expert"]
+  },
+  "contentMap": [
+    "Complex Radiobiological Analysis",
+    "Advanced Treatment Techniques",
+    "Complex IGRT Applications"
+  ],
+  "questions": [
+    {
+      "id": "BOAST-RT-001",
+      "type": "boast",
+      "tags": {
+        "domain": "RadiationTherapy",
+        "subtopic": "Radiobiology",
+        "difficulty": 3,
+        "mentor": "Quinn",
+        "knowledgeNode": "rt-radiobiology-expert"
+      },
+      "question": "Dr. Quinn's eyes sparkle with excitement: \"A fascinating case! This patient has two tumors: a prostate adenocarcinoma (α/β ≈ 1.5 Gy) and a head/neck squamous cell carcinoma (α/β ≈ 10 Gy). If we were to use a uniform hypofractionated approach of 3 Gy per fraction, explain the differential radiobiological impact on each tumor and the surrounding normal tissues in quantitative terms.\"",
+      "options": [
+        {
+          "id": 1,
+          "text": "Prostate benefits most from hypofractionation due to its low α/β ratio compared to normal tissues.",
+          "isCorrect": false
+        },
+        {
+          "id": 2,
+          "text": "Both tumors benefit equally from hypofractionation when adjusted for equivalent BED.",
+          "isCorrect": false
+        },
+        {
+          "id": 3,
+          "text": "H&N tumors respond better to hypofractionation because of higher α/β ratio and faster cell proliferation.",
+          "isCorrect": true
+        }
+      ],
+      "feedback": {
+        "correct": "Brilliant analysis! You've precisely quantified the differential radiobiological effects on tissues with varying α/β ratios and recognized the clinical implications. This mathematical relationship between dose per fraction and BED is precisely why hypofractionation has been adopted for prostate cancer but remains experimental for many head and neck cancers.",
+        "incorrect": "The mathematical relationship between fraction size, alpha/beta ratio, and biological effect follows a specific pattern that impacts tissues differently based on their repair capacity. Let's reconsider the quantitative effects on tissues with different alpha/beta ratios."
+      }
+    },
+    {
+      "id": "BOAST-RT-002",
+      "type": "boast",
+      "tags": {
+        "domain": "RadiationTherapy",
+        "subtopic": "DeliveryMethods",
+        "difficulty": 3,
+        "mentor": "Quinn",
+        "knowledgeNode": "rt-delivery-expert"
+      },
+      "question": "Dr. Quinn leans forward excitedly: \"A fascinating case! This patient requires total body irradiation but has compromised pulmonary function. Compare and contrast THREE different TBI delivery techniques, analyzing their dosimetric impact on the lungs quantitatively and explaining the radiobiological implications of each approach.\"",
+      "options": [
+        {
+          "id": 1,
+          "text": "Standard AP/PA with custom lung blocks provides the best balance of sparing and homogeneity.",
+          "isCorrect": true
+        },
+        {
+          "id": 2,
+          "text": "IMRT-based TBI reduces lung dose by 35% but creates dose inhomogeneity in other tissues.",
+          "isCorrect": false
+        },
+        {
+          "id": 3,
+          "text": "Helical Tomotherapy offers best lung sparing but requires extended treatment time and complex planning.",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Exceptional analysis! You've precisely quantified the dosimetric differences between techniques and connected them to the radiobiological implications for both disease control and toxicity. Your understanding of the complex trade-offs between dose heterogeneity, overall reduction, and potential sanctuary sites reflects sophisticated clinical reasoning.",
+        "incorrect": "TBI techniques differ significantly in their ability to spare lungs and in the dose heterogeneity they create, which has important radiobiological implications for both disease control and toxicity. A more comprehensive analysis of these differences is needed."
+      }
+    },
+    {
+      "id": "BOAST-RT-003",
+      "type": "boast",
+      "tags": {
+        "domain": "RadiationTherapy",
+        "subtopic": "IGRT",
+        "difficulty": 3,
+        "mentor": "Kapoor",
+        "knowledgeNode": "rt-igrt-expert"
+      },
+      "question": "Dr. Kapoor presents a challenging case study: \"This patient has a pancreatic tumor treated with SBRT. The tumor is adjacent to both the duodenum and the stomach, with respiratory motion of approximately 1.5cm primarily in the superior-inferior direction. Compare THREE different IGRT strategies scientifically, analyzing their geometric uncertainties and dosimetric impact with quantitative assessment.\"",
+      "options": [
+        {
+          "id": 1,
+          "text": "Fiducial-based kV imaging provides submillimeter precision but 1D tracking only, with residual rotational uncertainty of approximately 2-3°. 4D-CBCT captures the tumor motion envelope with accuracy of 1-2mm but delivers 2-5cGy imaging dose per fraction. MR-guided radiotherapy provides superior soft-tissue visualization (±0.5mm) with real-time tracking but introduces magnetic-induced dose distortions of 3-5% at tissue interfaces. Dosimetrically, each 1mm of positioning error results in approximately 5-10% dose deviation to the duodenum in this steep-gradient region, making the MR-guided approach optimal despite its dose calculation limitations",
+          "isCorrect": true
+        },
+        {
+          "id": 2,
+          "text": "All IGRT approaches provide similar millimeter accuracy with negligible dosimetric differences",
+          "isCorrect": false
+        },
+        {
+          "id": 3,
+          "text": "Only implanted transponders with continuous tracking can adequately address this motion",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Exceptional analysis! You've quantitatively compared the geometric uncertainties of each approach and linked them directly to clinically relevant dosimetric consequences. Your understanding of both the technical aspects and their clinical implications demonstrates sophisticated knowledge of modern IGRT systems and their limitations.",
+        "incorrect": "Different IGRT approaches have distinct technical capabilities and limitations that translate to specific geometric uncertainties, which in turn have quantifiable dosimetric impacts, especially in high-dose gradient regions. A more rigorous analysis of these differences is needed."
+      }
+    }
+  ]
+}

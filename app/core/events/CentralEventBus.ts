@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Central Event Bus for Rogue Resident
  * 

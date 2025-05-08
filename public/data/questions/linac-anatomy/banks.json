@@ -1,0 +1,285 @@
+{
+  "metadata": {
+    "domain": "Linac Anatomy",
+    "lastUpdated": "2025-05-06"
+  },
+  "matchingBanks": [
+    {
+      "id": "linac-components",
+      "type": "matchingBank",
+      "title": "Linac Components and Functions",
+      "items": [
+        {
+          "id": "A",
+          "label": "Electron gun",
+          "matches": [
+            {"id": 1, "text": "Produces the initial electrons", "difficulty": 1},
+            {"id": 5, "text": "Contains a heated cathode that emits electrons via thermionic emission", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "Waveguide",
+          "matches": [
+            {"id": 2, "text": "Accelerates electrons to high energies", "difficulty": 1},
+            {"id": 6, "text": "Uses microwave energy to create accelerating electric fields", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Bending magnet",
+          "matches": [
+            {"id": 3, "text": "Changes the direction of the electron beam", "difficulty": 1},
+            {"id": 7, "text": "Uses magnetic fields to steer charged particles through 270° angle", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Flattening filter",
+          "matches": [
+            {"id": 4, "text": "Shapes the beam profile to create a more uniform dose distribution", "difficulty": 1},
+            {"id": 8, "text": "Conical-shaped attenuator that reduces the forward-peaked beam intensity", "difficulty": 2}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "beam-modifying-devices",
+      "type": "matchingBank",
+      "title": "Beam Modifying Devices and Effects",
+      "items": [
+        {
+          "id": "A",
+          "label": "Flattening filter",
+          "matches": [
+            {"id": 1, "text": "Flattens the beam intensity profile", "difficulty": 1},
+            {"id": 5, "text": "Conical metal filter that attenuates the central axis more than the periphery", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "Wedge filter",
+          "matches": [
+            {"id": 2, "text": "Creates an intentional dose gradient across the field", "difficulty": 1},
+            {"id": 6, "text": "Used to compensate for missing tissue or sloped surfaces", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Multileaf collimator (MLC)",
+          "matches": [
+            {"id": 3, "text": "Creates complex field shapes by independent leaf movements", "difficulty": 1},
+            {"id": 7, "text": "Enables intensity-modulated radiation therapy by dynamic leaf motion", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Electron cone",
+          "matches": [
+            {"id": 4, "text": "Shapes the beam for a specific electron field size", "difficulty": 1},
+            {"id": 8, "text": "Provides lateral electron equilibrium and reduces bremsstrahlung contamination", "difficulty": 2}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qa-frequencies",
+      "type": "matchingBank",
+      "title": "QA Checks and Frequencies",
+      "items": [
+        {
+          "id": "A",
+          "label": "Beam output constancy",
+          "matches": [
+            {"id": 1, "text": "Daily", "difficulty": 1},
+            {"id": 5, "text": "Monitors day-to-day consistency of beam calibration", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "Mechanical and optical distance indicator check",
+          "matches": [
+            {"id": 1, "text": "Daily", "difficulty": 1},
+            {"id": 6, "text": "Verifies accuracy of positioning indicators", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Annual calibration",
+          "matches": [
+            {"id": 3, "text": "Annual", "difficulty": 1},
+            {"id": 7, "text": "Full recalibration to absolute dose standard", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Winston-Lutz test for isocenter accuracy",
+          "matches": [
+            {"id": 4, "text": "Prior to SRS/SBRT treatments", "difficulty": 1},
+            {"id": 8, "text": "Verifies geometric accuracy for high-precision treatments", "difficulty": 2}
+          ]
+        }
+      ]
+    }
+  ],
+  "proceduralBanks": [
+    {
+      "id": "photon-radiation-path",
+      "type": "proceduralBank",
+      "title": "Photon Radiation Path Through a Linear Accelerator",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Electron gun",
+          "explanation": "Produces the initial electrons through thermionic emission"
+        },
+        {
+          "id": 2,
+          "description": "Waveguide",
+          "explanation": "Accelerates electrons to high energies using microwave fields"
+        },
+        {
+          "id": 3,
+          "description": "Bending magnet (270°)",
+          "explanation": "Changes the direction of the electron beam to aim at the target"
+        },
+        {
+          "id": 4,
+          "description": "Target",
+          "explanation": "Converts electron energy to photon energy through bremsstrahlung"
+        },
+        {
+          "id": 5,
+          "description": "Primary collimator",
+          "explanation": "Creates the initial beam shape and removes off-axis radiation"
+        },
+        {
+          "id": 6,
+          "description": "Flattening filter",
+          "explanation": "Shapes the beam profile to create a more uniform dose distribution"
+        },
+        {
+          "id": 7,
+          "description": "Secondary collimators (jaws)",
+          "explanation": "Define the rectangular field size"
+        },
+        {
+          "id": 8,
+          "description": "Multileaf collimator (MLC)",
+          "explanation": "Creates complex field shapes by independent leaf movements"
+        }
+      ]
+    },
+    {
+      "id": "beam-commissioning",
+      "type": "proceduralBank",
+      "title": "Photon Beam Commissioning Steps",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Verify beam quality (PDD10/PDD20 ratio or TPR20/10)",
+          "explanation": "Establishes the beam energy characteristics"
+        },
+        {
+          "id": 2,
+          "description": "Measure depth doses and profiles at multiple depths",
+          "explanation": "Characterizes beam behavior in water"
+        },
+        {
+          "id": 3,
+          "description": "Measure output factors for various field sizes",
+          "explanation": "Determines how output changes with field dimensions"
+        },
+        {
+          "id": 4,
+          "description": "Set absolute dose calibration",
+          "explanation": "Establishes the dose per monitor unit under reference conditions"
+        },
+        {
+          "id": 5,
+          "description": "Configure beam model in treatment planning system",
+          "explanation": "Creates a computational model matching measured data"
+        },
+        {
+          "id": 6,
+          "description": "Perform independent verification measurements",
+          "explanation": "Validates the accuracy of the commissioned beam model"
+        }
+      ]
+    },
+    {
+      "id": "cbct-workflow",
+      "type": "proceduralBank",
+      "title": "IGRT Workflow with CBCT",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Position patient according to setup marks",
+          "explanation": "Initial alignment based on skin marks or tattoos"
+        },
+        {
+          "id": 2,
+          "description": "Acquire cone-beam CT",
+          "explanation": "3D imaging of patient in treatment position"
+        },
+        {
+          "id": 3,
+          "description": "Perform automatic registration between CBCT and planning CT",
+          "explanation": "Computer algorithm aligns treatment and reference images"
+        },
+        {
+          "id": 4,
+          "description": "Verify correct alignment with manual review",
+          "explanation": "Human validation of the automatic registration"
+        },
+        {
+          "id": 5,
+          "description": "Apply couch shift to align patient properly",
+          "explanation": "Adjust patient position based on registration results"
+        },
+        {
+          "id": 6,
+          "description": "Deliver treatment",
+          "explanation": "Administer radiation after proper positioning is confirmed"
+        }
+      ]
+    },
+    {
+      "id": "interlock-response",
+      "type": "proceduralBank",
+      "title": "Response to Beam Output Interlock",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Pause treatment and ensure patient safety",
+          "explanation": "Primary concern is patient wellbeing"
+        },
+        {
+          "id": 2,
+          "description": "Notify medical physicist on duty",
+          "explanation": "Expert assessment is required"
+        },
+        {
+          "id": 3,
+          "description": "Perform output check to verify beam constancy",
+          "explanation": "Determine if beam parameters are within tolerance"
+        },
+        {
+          "id": 4,
+          "description": "Resume treatment if output is within tolerance",
+          "explanation": "Continue if safety is confirmed"
+        },
+        {
+          "id": 5,
+          "description": "Call service engineer if problem persists",
+          "explanation": "Escalate to technical support if issue cannot be resolved"
+        },
+        {
+          "id": 6,
+          "description": "Document the incident in the appropriate log",
+          "explanation": "Record keeping for quality assurance"
+        }
+      ]
+    }
+  ]
+}

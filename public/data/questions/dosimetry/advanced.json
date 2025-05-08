@@ -1,0 +1,150 @@
+{
+  "metadata": {
+    "domain": "Dosimetry",
+    "difficulty": "Advanced",
+    "questionCount": 4,
+    "lastUpdated": "2025-05-06",
+    "contributors": ["Luke", "Zachariah"],
+    "stars": ["dos-calibration-advanced", "dos-small-field-physics", "dos-electron-advanced", "dos-qa-metrics"]
+  },
+  "contentMap": [
+    "Complex Calibration Protocols",
+    "Advanced Small Field Physics",
+    "Specialized Electron Applications",
+    "QA Program Design"
+  ],
+  "questions": [
+    {
+      "id": "BOAST-DOS-001",
+      "type": "boast",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "Calibration",
+        "difficulty": 3,
+        "mentor": "Kapoor",
+        "knowledgeNode": "dos-fff-calibration"
+      },
+      "question": "Dr. Kapoor presents an unusual case: \"We've just installed a flattening filter free (FFF) beam with an extremely high dose rate (2400 MU/min). Explain the unique dosimetric challenges in calibrating this beam and how you would modify the standard TG-51 protocol to address ion recombination effects, including a quantitative assessment.\"",
+      "options": [
+        {
+          "id": 1,
+          "text": "Use a comprehensive ion recombination study with multiple chambers and dose rates for best accuracy.",
+          "isCorrect": false
+        },
+        {
+          "id": 2,
+          "text": "Use the modified TG-51 protocol with extended two-voltage measurements to account for higher recombination effects.",
+          "isCorrect": true
+        },
+        {
+          "id": 3,
+          "text": "Standard TG-51 is adequate if you use a specialized FFF chamber instead of typical Farmer-type ionization chambers.",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Exceptional analysis! You've identified the critical physical phenomenon that affects calibration accuracy, proposed a thorough experimental methodology extending beyond the standard protocol, and quantified the potential impact. Your approach demonstrates sophisticated understanding of both the protocol limitations and the fundamental ion collection physics for different chamber designs.",
+        "incorrect": "High dose rate FFF beams present significant challenges related to ion recombination physics that require specific protocol modifications. The standard two-voltage technique may be insufficient, and the magnitude of this effect requires more careful quantitative assessment."
+      }
+    },
+    {
+      "id": "BOAST-DOS-002",
+      "type": "boast",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "SmallField",
+        "difficulty": 3,
+        "mentor": "Quinn",
+        "knowledgeNode": "dos-small-field-physics"
+      },
+      "question": "Dr. Quinn points to a graph: \"These are measurements of relative output factors for a 6 MV FFF beam using five different detectors for fields ranging from 0.5×0.5 cm² to 10×10 cm². Explain the detector-dependent discrepancies observed below 2×2 cm² and determine the most appropriate methodology to establish the 'true' output factors.\"",
+      "options": [
+        {
+          "id": 1,
+          "text": "The observed discrepancies stem from three competing effects: (1) volume averaging causing underresponse in finite-sized detectors; (2) density effects causing overresponse in higher-Z detectors due to photoelectric enhancement; and (3) loss of lateral charged particle equilibrium creating detector-specific perturbations. To determine the 'true' output factors, I would implement a multi-detector approach using the daisy-chaining method with field-specific correction factors from TRS-483. This involves using each detector in its optimal range (microDiamond or plastic scintillator for smallest fields, diode for intermediate fields, and small ion chamber for larger fields), with appropriate correction factors (kQclin,Qmsr). I would validate using Monte Carlo simulations for the linac-specific beam with precise field size verification using high-resolution radiochromic film",
+          "isCorrect": true
+        },
+        {
+          "id": 2,
+          "text": "All discrepancies are due to measurement errors and any detector should work if properly centered",
+          "isCorrect": false
+        },
+        {
+          "id": 3,
+          "text": "The differences are clinically insignificant and can be ignored in treatment planning",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Brilliant analysis! You've precisely identified the three fundamental physical effects causing detector-dependent responses and proposed a sophisticated methodology combining the international formalism (TRS-483) with multi-detector cross-validation. Your understanding of both the measurement challenges and their solutions demonstrates exceptional insight into small-field dosimetry.",
+        "incorrect": "Small-field measurements show systematic detector-dependent variations due to fundamental physical effects beyond simple positioning errors. A more comprehensive approach using detector-specific correction factors and cross-validation methods is necessary to establish the 'true' output factors."
+      }
+    },
+    {
+      "id": "BOAST-DOS-003",
+      "type": "boast",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "ElectronBeam",
+        "difficulty": 3,
+        "mentor": "Kapoor",
+        "knowledgeNode": "dos-electron-advanced"
+      },
+      "question": "Dr. Kapoor presents a complex case: \"We need to treat a 3 mm-thick superficial target on a curved surface with an irregular shape. The target sits on critical structures that must be completely spared. Compare three potential approaches - standard electron with custom cutout, electron bolus conformal therapy, and modulated electron radiation therapy (MERT) - including their physical principles and quantitative dosimetric advantages.\"",
+      "options": [
+        {
+          "id": 1,
+          "text": "Standard electrons with cutout will create dose heterogeneity of ±15% due to scatter loss at narrow regions and oblique incidence on the curved surface. The 90% isodose wouldn't properly conform to the target depth, requiring higher energy that would expose underlying structures to ~20% of prescription dose. Bolus conformal therapy creates a custom bolus to provide constant SSD and stops electrons at the target depth using variable thickness. This improves dose homogeneity to ±7% and reduces deep dose to ~5% but requires complex fabrication with 0.5mm precision. MERT uses multiple intensity-modulated electron fields of different energies, creating the most conformal dose (±5% heterogeneity) with minimal deep dose (2-3%) through optimization of the energy spectrum but requires Monte Carlo-based planning and complex collimation that few centers can implement",
+          "isCorrect": true
+        },
+        {
+          "id": 2,
+          "text": "All three approaches give clinically equivalent results for superficial targets",
+          "isCorrect": false
+        },
+        {
+          "id": 3,
+          "text": "Standard electrons are always preferable due to simplicity and reliability",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Exceptional analysis! You've quantitatively compared the three approaches with specific dose metrics that highlight the physics-based trade-offs between them. Your understanding of both the physical interactions in electron beam therapy and their clinical implications demonstrates sophisticated knowledge of advanced electron techniques.",
+        "incorrect": "This complex superficial target scenario requires careful consideration of electron scatter effects, depth dose characteristics, and surface conformality. A more detailed analysis of the dosimetric differences between these approaches is needed."
+      }
+    },
+    {
+      "id": "BOAST-DOS-004",
+      "type": "boast",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "PatientQA",
+        "difficulty": 3,
+        "mentor": "Quinn",
+        "knowledgeNode": "dos-qa-program"
+      },
+      "question": "Dr. Quinn presents complex QA data: \"Here are the results of our patient-specific QA program over the past year, showing surprising discrepancies between three different verification methods for the same IMRT plans. Analyze the physics behind these systematic differences and propose a comprehensive QA protocol that addresses the limitations of each method.\"",
+      "options": [
+        {
+          "id": 1,
+          "text": "The systematic differences stem from fundamental measurement limitations of each system: (1) Ion chamber arrays have 5-7mm detector spacing creating spatial sampling issues for high-gradient regions and volume-averaging effects, leading to artificially high (~98%) passing rates; (2) Film provides high spatial resolution (0.3mm) but suffers from energy response dependencies, calibration uncertainties of 3-5%, and evaluation artifacts at field edges; (3) EPID-based methods have excellent resolution but introduce uncertainties in dose-to-water conversion and different sensitivity to MLC errors than the other methods. I would implement a three-tier protocol: Level 1 - Ion chamber array verification for all patients with 3%/2mm criteria and 98% threshold; Level 2 - Selected random sampling (25% of plans) with film or EPID using 2%/1mm with 90% threshold; Level 3 - Quarterly end-to-end testing with anthropomorphic phantoms including motion effects for critical techniques. This provides efficient screening while maintaining sensitivity to clinically relevant errors",
+          "isCorrect": true
+        },
+        {
+          "id": 2,
+          "text": "The discrepancies are likely due to setup errors and all three methods are equally valid",
+          "isCorrect": false
+        },
+        {
+          "id": 3,
+          "text": "We should simply use whichever method gives the highest passing rates to streamline workflow",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Outstanding analysis! You've identified the fundamental physical limitations of each verification approach and designed a multi-tiered protocol that balances efficiency with error detection sensitivity. Your understanding of both the measurement physics and practical clinical implementation demonstrates sophisticated knowledge of comprehensive QA program design.",
+        "incorrect": "IMRT verification methods have inherent physics-based limitations and different sensitivities to specific error types. A more comprehensive analysis of these differences is needed to develop an effective QA protocol."
+      }
+    }
+  ]
+}

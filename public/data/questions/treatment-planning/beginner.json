@@ -1,0 +1,466 @@
+{
+  "metadata": {
+    "domain": "Treatment Planning",
+    "difficulty": "Beginner",
+    "questionCount": 12,
+    "lastUpdated": "2025-05-06",
+    "contributors": ["Luke", "Zachariah"],
+    "stars": ["tp-dose-calculation", "tp-optimization", "tp-heterogeneity", "tp-target-volume", "tp-techniques", "tp-evaluation"]
+  },
+  "contentMap": [
+    "Dose Calculation Algorithms",
+    "Plan Optimization Techniques",
+    "Heterogeneity Corrections",
+    "Target Volume Definition",
+    "Treatment Modalities",
+    "Plan Evaluation Metrics"
+  ],
+  "questions": [
+    {
+      "id": "MC-TP-001",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "DoseCalculation",
+        "difficulty": 1,
+        "mentor": "Garcia",
+        "knowledgeNode": "tp-dose-calculation"
+      },
+      "question": "Dr. Garcia smiles encouragingly: \"Let's talk about the basics. What does a dose calculation algorithm help us determine in radiation therapy?\"",
+      "options": [
+        {
+          "text": "The schedule for treatment appointments",
+          "isCorrect": false
+        },
+        {
+          "text": "The distribution of radiation dose in the patient",
+          "isCorrect": true
+        },
+        {
+          "text": "The type of cancer being treated",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "That's right! Algorithms help us see how radiation will distribute throughout the patient's tissues.",
+        "incorrect": "Not quite. Let's review the fundamental purpose of these calculations."
+      },
+      "followUp": {
+        "question": "Why do we need to calculate dose before delivering treatment?",
+        "options": [
+          {
+            "text": "To determine the length of each treatment",
+            "isCorrect": false
+          },
+          {
+            "text": "To ensure the target receives enough dose while protecting healthy tissue",
+            "isCorrect": true
+          },
+          {
+            "text": "To decide which machine to use",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-TP-002",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "DoseCalculation",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "tp-dose-calculation"
+      },
+      "question": "Dr. Kapoor reviews the basic concepts: \"Name the most basic type of dose calculation algorithm used in radiation therapy planning.\"",
+      "options": [
+        {
+          "text": "Monte Carlo",
+          "isCorrect": false
+        },
+        {
+          "text": "Pencil Beam",
+          "isCorrect": true
+        },
+        {
+          "text": "Artificial Intelligence",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Correct. The pencil beam algorithm is the most fundamental approach.",
+        "incorrect": "That is not correct. Consider the simplest, most commonly used basic algorithm."
+      },
+      "followUp": {
+        "question": "The pencil beam algorithm gets its name because it models radiation as:",
+        "options": [
+          {
+            "text": "Many narrow beams of radiation",
+            "isCorrect": true
+          },
+          {
+            "text": "A wide cone of radiation",
+            "isCorrect": false
+          },
+          {
+            "text": "A circular field",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MATCH-TP-001",
+      "type": "matching",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "DoseCalculation",
+        "difficulty": 1,
+        "mentor": "Quinn",
+        "knowledgeNode": "tp-dose-calculation"
+      },
+      "bankRef": "dose-calculation-algorithms",
+      "includeItems": [
+        {"itemId": "A", "matchIds": [1]},
+        {"itemId": "B", "matchIds": [2]},
+        {"itemId": "C", "matchIds": [3]},
+        {"itemId": "D", "matchIds": [4]}
+      ],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Excellent! You've correctly identified the fundamental principles behind each algorithm.",
+        "incorrect": "Let's review these connections more carefully. Each algorithm has a distinctive approach to modeling radiation."
+      }
+    },
+    {
+      "id": "PROC-TP-001",
+      "type": "procedural",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "DoseCalculation",
+        "difficulty": 1,
+        "mentor": "Garcia",
+        "knowledgeNode": "tp-dose-calculation"
+      },
+      "bankRef": "dose-calculation-workflow",
+      "includeSteps": [1, 2, 3, 4, 5],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Perfect sequence! This workflow ensures we have all the necessary information before calculating dose.",
+        "incorrect": "The order is important here. Think about what information we need at each stage of the process."
+      }
+    },
+    {
+      "id": "CALC-TP-001",
+      "type": "calculation",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "DoseCalculation",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "tp-dose-calculation"
+      },
+      "question": "Dr. Kapoor presents a simple calculation: \"Let's determine the percent depth dose (PDD) at a specific depth. \n\nGiven:\n- Maximum dose (Dmax) is ${Dmax} cGy\n- Depth of ${depth} cm has a measured dose of ${depthDose} cGy\n\nCalculate the percent depth dose at ${depth} cm.\"",
+      "variables": [
+        {"name": "Dmax", "range": [95, 105], "unit": "cGy"},
+        {"name": "depth", "range": [10, 20], "unit": "cm"},
+        {"name": "depthDose", "range": [50, 70], "unit": "cGy"}
+      ],
+      "solution": [
+        {"step": "PDD = (Dose at depth / Dmax) × 100%", "isFormula": true},
+        {"step": "PDD = (${depthDose} cGy / ${Dmax} cGy) × 100%", "isFormula": true},
+        {"step": "PDD = ${(depthDose/Dmax*100).toFixed(1)}%", "isFormula": true}
+      ],
+      "answer": {
+        "formula": "${(depthDose/Dmax*100).toFixed(1)}%",
+        "precision": 1
+      },
+      "feedback": {
+        "correct": "Excellent! The percent depth dose calculation tells us how the dose changes with depth in tissue.",
+        "incorrect": "Remember that percent depth dose is the ratio of dose at a specific depth to the maximum dose, multiplied by 100%."
+      }
+    },
+    {
+      "id": "MC-TP-003",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "Optimization",
+        "difficulty": 1,
+        "mentor": "Garcia",
+        "knowledgeNode": "tp-optimization"
+      },
+      "question": "Dr. Garcia introduces a basic concept: \"In simple terms, what is treatment plan optimization?\"",
+      "options": [
+        {
+          "text": "Making the treatment machines work faster",
+          "isCorrect": false
+        },
+        {
+          "text": "Finding the best way to deliver radiation to hit the target while avoiding healthy tissues",
+          "isCorrect": true
+        },
+        {
+          "text": "Optimizing the patient's treatment schedule",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "That's exactly right! We're trying to find the best approach to treat the cancer while protecting normal tissues.",
+        "incorrect": "Not quite. Let's focus on the fundamental goal of treatment planning."
+      },
+      "followUp": {
+        "question": "What are we trying to optimize in a treatment plan?",
+        "options": [
+          {
+            "text": "Treatment time only",
+            "isCorrect": false
+          },
+          {
+            "text": "Radiation dose distribution",
+            "isCorrect": true
+          },
+          {
+            "text": "Number of treatment beams",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MATCH-TP-002",
+      "type": "matching",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "Optimization",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "tp-optimization"
+      },
+      "bankRef": "optimization-techniques",
+      "includeItems": [
+        {"itemId": "A", "matchIds": [1]},
+        {"itemId": "B", "matchIds": [2]},
+        {"itemId": "C", "matchIds": [3]},
+        {"itemId": "D", "matchIds": [4]}
+      ],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Excellent! You've correctly matched each optimization approach with its defining characteristic.",
+        "incorrect": "These techniques differ significantly in their approach. Let's review how each one functions in the planning process."
+      }
+    },
+    {
+      "id": "MC-TP-004",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "Heterogeneity",
+        "difficulty": 1,
+        "mentor": "Garcia",
+        "knowledgeNode": "tp-heterogeneity"
+      },
+      "question": "Dr. Garcia explains a basic concept: \"What do we mean by 'heterogeneity' in radiation therapy dose calculations?\"",
+      "options": [
+        {
+          "text": "Variations in treatment machine output",
+          "isCorrect": false
+        },
+        {
+          "text": "Differences in tissue density throughout the patient",
+          "isCorrect": true
+        },
+        {
+          "text": "Variations in radiation beam energy",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Exactly right! Heterogeneity refers to the different tissue densities in the body, like the difference between lung and bone.",
+        "incorrect": "Not quite. Let's focus on what 'heterogeneity' is referring to in the patient's body."
+      },
+      "followUp": {
+        "question": "Which of these represents a tissue heterogeneity that would affect radiation dose?",
+        "options": [
+          {
+            "text": "Difference between male and female patients",
+            "isCorrect": false
+          },
+          {
+            "text": "Transition from lung tissue to chest wall",
+            "isCorrect": true
+          },
+          {
+            "text": "Variation in skin color",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-TP-005",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "TargetVolume",
+        "difficulty": 1,
+        "mentor": "Garcia",
+        "knowledgeNode": "tp-target-volume"
+      },
+      "question": "Dr. Garcia introduces a fundamental concept: \"What does the abbreviation 'PTV' stand for in radiation therapy?\"",
+      "options": [
+        {
+          "text": "Primary Tumor Volume",
+          "isCorrect": false
+        },
+        {
+          "text": "Planning Target Volume",
+          "isCorrect": true
+        },
+        {
+          "text": "Physician Treatment Verification",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "That's right! PTV stands for Planning Target Volume.",
+        "incorrect": "Not quite. Let's review this basic terminology that we use every day."
+      },
+      "followUp": {
+        "question": "What is the main purpose of defining a PTV?",
+        "options": [
+          {
+            "text": "To identify where the cancer is located",
+            "isCorrect": false
+          },
+          {
+            "text": "To account for uncertainties in treatment delivery",
+            "isCorrect": true
+          },
+          {
+            "text": "To calculate the treatment time",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MATCH-TP-003",
+      "type": "matching",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "TargetVolume",
+        "difficulty": 1,
+        "mentor": "Garcia",
+        "knowledgeNode": "tp-target-volume"
+      },
+      "bankRef": "treatment-volumes",
+      "includeItems": [
+        {"itemId": "A", "matchIds": [1]},
+        {"itemId": "B", "matchIds": [2]},
+        {"itemId": "C", "matchIds": [3]},
+        {"itemId": "D", "matchIds": [4]}
+      ],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Excellent! These volume definitions are fundamental to radiation therapy planning.",
+        "incorrect": "These volumes have specific definitions according to ICRU reports. Let's review what each one represents."
+      }
+    },
+    {
+      "id": "MC-TP-006",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "Techniques",
+        "difficulty": 1,
+        "mentor": "Quinn",
+        "knowledgeNode": "tp-techniques"
+      },
+      "question": "Dr. Quinn introduces different planning approaches: \"What is the key feature that distinguishes IMRT from 3D conformal radiation therapy?\"",
+      "options": [
+        {
+          "text": "IMRT uses CT scanning while 3D conformal does not",
+          "isCorrect": false
+        },
+        {
+          "text": "IMRT modulates the intensity of radiation across the treatment field",
+          "isCorrect": true
+        },
+        {
+          "text": "IMRT uses higher energy beams than 3D conformal",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Exactly right! IMRT - Intensity Modulated Radiation Therapy - uses varying intensities across the field, which allows for more complex dose distributions.",
+        "incorrect": "That's not the distinguishing feature. Think about what the 'IM' in IMRT stands for."
+      },
+      "followUp": {
+        "question": "What device is essential for delivering IMRT treatments?",
+        "options": [
+          {
+            "text": "Multileaf collimator (MLC)",
+            "isCorrect": true
+          },
+          {
+            "text": "Bolus material",
+            "isCorrect": false
+          },
+          {
+            "text": "Electron applicator",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-TP-007",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "TreatmentPlanning",
+        "subtopic": "Evaluation",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "tp-evaluation"
+      },
+      "question": "Dr. Kapoor points to a computer screen: \"What is a dose-volume histogram (DVH) used for in radiation therapy planning?\"",
+      "options": [
+        {
+          "text": "To visualize the beam arrangement",
+          "isCorrect": false
+        },
+        {
+          "text": "To summarize the dose distribution in target volumes and normal structures",
+          "isCorrect": true
+        },
+        {
+          "text": "To determine the treatment time",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Correct. The DVH is a powerful tool that condenses the 3D dose distribution into a graph that shows how much volume of each structure receives various dose levels.",
+        "incorrect": "That is not the primary purpose of a DVH. Consider what information this graph is designed to convey."
+      },
+      "followUp": {
+        "question": "Which of these metrics can be read directly from a DVH?",
+        "options": [
+          {
+            "text": "The quality of the CT scan",
+            "isCorrect": false
+          },
+          {
+            "text": "The percentage of an organ receiving at least a specific dose",
+            "isCorrect": true
+          },
+          {
+            "text": "The treatment machine used",
+            "isCorrect": false
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { DomainColors, KnowledgeDomain } from '@/app/types';

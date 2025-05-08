@@ -1,0 +1,206 @@
+{
+  "metadata": {
+    "domain": "Dosimetry",
+    "difficulty": "Intermediate",
+    "questionCount": 4,
+    "lastUpdated": "2025-05-06",
+    "contributors": ["Luke", "Zachariah"],
+    "stars": ["dos-calibration-advanced", "dos-small-field-physics", "dos-electron-advanced", "dos-qa-metrics"]
+  },
+  "contentMap": [
+    "Advanced Calibration Concepts",
+    "Small Field Physics",
+    "Electron Dosimetry Applications",
+    "IMRT QA Analysis"
+  ],
+  "questions": [
+    {
+      "id": "MC-DOS-101",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "Calibration",
+        "difficulty": 2,
+        "mentor": "Kapoor",
+        "knowledgeNode": "dos-calibration-advanced"
+      },
+      "question": "Dr. Kapoor reviews calibration results: \"When calibrating a 6 MV photon beam according to TG-51, at what depth is the reference measurement taken?\"",
+      "options": [
+        {
+          "text": "dmax (depth of maximum dose)",
+          "isCorrect": false
+        },
+        {
+          "text": "5 cm depth",
+          "isCorrect": false
+        },
+        {
+          "text": "10 cm depth",
+          "isCorrect": true
+        }
+      ],
+      "feedback": {
+        "correct": "Correct. TG-51 specifies 10 cm as the reference depth for photon beam calibration.",
+        "incorrect": "That is incorrect. The TG-51 protocol explicitly specifies the reference depth."
+      },
+      "followUp": {
+        "question": "Why was the reference depth changed from dmax (used in older protocols) to 10 cm depth?",
+        "options": [
+          {
+            "text": "To make setup easier",
+            "isCorrect": false
+          },
+          {
+            "text": "To reduce measurement uncertainty",
+            "isCorrect": true
+          },
+          {
+            "text": "To match international standards",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-DOS-102",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "SmallField",
+        "difficulty": 2,
+        "mentor": "Kapoor",
+        "knowledgeNode": "dos-small-field-physics"
+      },
+      "question": "Dr. Kapoor discusses small field challenges: \"What is the primary cause of volume averaging effects in small field dosimetry?\"",
+      "options": [
+        {
+          "text": "Detector has active volume larger than dose gradients in the field",
+          "isCorrect": true
+        },
+        {
+          "text": "Beam energy changes in small fields",
+          "isCorrect": false
+        },
+        {
+          "text": "Detector causes backscatter in small fields",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Correct. When the detector volume is large relative to the field size and its gradients, it averages the dose across regions of varying intensity.",
+        "incorrect": "That is not the primary cause. Consider the relationship between detector size and field dose distribution."
+      },
+      "followUp": {
+        "question": "How does volume averaging typically affect measured output factors for small fields?",
+        "options": [
+          {
+            "text": "It artificially increases the measured output factor",
+            "isCorrect": false
+          },
+          {
+            "text": "It artificially decreases the measured output factor",
+            "isCorrect": true
+          },
+          {
+            "text": "It has no predictable effect",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-DOS-103",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "ElectronBeam",
+        "difficulty": 2,
+        "mentor": "Quinn",
+        "knowledgeNode": "dos-electron-advanced"
+      },
+      "question": "Dr. Quinn contemplates electron scatter: \"When using electron cutouts, what effect does decreasing the field size have on the depth dose curve?\"",
+      "options": [
+        {
+          "text": "Depth of maximum dose moves deeper",
+          "isCorrect": false
+        },
+        {
+          "text": "Depth of maximum dose moves shallower",
+          "isCorrect": true
+        },
+        {
+          "text": "Depth of maximum dose remains unchanged",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Correct! As the field size decreases, lateral scatter equilibrium is lost, causing the depth of maximum dose to shift toward the surface.",
+        "incorrect": "Let's consider how lateral electron scatter affects the depth dose distribution as field size changes."
+      },
+      "followUp": {
+        "question": "What is the typical minimum field size for maintaining full lateral scatter equilibrium for a 10 MeV electron beam?",
+        "options": [
+          {
+            "text": "1×1 cm²",
+            "isCorrect": false
+          },
+          {
+            "text": "4×4 cm²",
+            "isCorrect": true
+          },
+          {
+            "text": "10×10 cm²",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-DOS-104",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "PatientQA",
+        "difficulty": 2,
+        "mentor": "Garcia",
+        "knowledgeNode": "dos-qa-metrics"
+      },
+      "question": "Dr. Garcia reviews QA metrics: \"What are the two parameters in the gamma evaluation method for IMRT QA?\"",
+      "options": [
+        {
+          "text": "Gantry angle and couch position",
+          "isCorrect": false
+        },
+        {
+          "text": "Dose difference and distance-to-agreement",
+          "isCorrect": true
+        },
+        {
+          "text": "Field size and beam energy",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Correct! The gamma method combines dose difference and distance-to-agreement criteria into a single evaluation metric.",
+        "incorrect": "Those are not the parameters used in gamma evaluation. Consider what we're comparing between measured and calculated distributions."
+      },
+      "followUp": {
+        "question": "What does a gamma index value of less than 1 indicate?",
+        "options": [
+          {
+            "text": "The measurement failed",
+            "isCorrect": false
+          },
+          {
+            "text": "The point passes the combined dose/distance criteria",
+            "isCorrect": true
+          },
+          {
+            "text": "The calculation is inaccurate",
+            "isCorrect": false
+          }
+        ]
+      }
+    }
+  ]
+}

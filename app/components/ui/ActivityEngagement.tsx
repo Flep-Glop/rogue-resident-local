@@ -9,6 +9,7 @@ import { TimeManager } from '@/app/core/time/TimeManager';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import pixelTheme, { colors, typography, animation, components, mixins, borders, shadows, spacing } from '@/app/styles/pixelTheme';
 import Image from 'next/image';
+import { MultipleChoiceQuestion, QuestionType } from '@/app/types/questions';
 
 // Mapping from MentorId to chibi image path
 const mentorChibiMap: Record<MentorId, string> = {
@@ -422,24 +423,96 @@ export default function ActivityEngagement() {
   // Initialize challenge data when activity changes
   useEffect(() => {
     if (currentActivity) {
-      // Get challenge based on activity ID or use default
-      const activityChallenge = 
-        SAMPLE_CHALLENGES[currentActivity.id] || 
-        SAMPLE_CHALLENGES.default;
+      // For morning_rounds activity, try to fetch questions from API
+      if (currentActivity.id === 'morning_rounds') {
+        fetchQuestions(KnowledgeDomain.RADIATION_THERAPY)
+          .then(apiQuestions => {
+            if (apiQuestions && apiQuestions.length > 0) {
+              // Transform API questions to the format expected by the component
+              const transformedChallenge = transformQuestionsToChallenge(apiQuestions);
+              setChallenge(transformedChallenge);
+            } else {
+              // Fall back to sample questions if API fails
+              setChallenge(SAMPLE_CHALLENGES[currentActivity.id] || SAMPLE_CHALLENGES.default);
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching questions:', error);
+            // Fall back to sample questions if API fails
+            setChallenge(SAMPLE_CHALLENGES[currentActivity.id] || SAMPLE_CHALLENGES.default);
+          });
+      } else {
+        // Use existing sample challenges for other activities
+        const activityChallenge = 
+          SAMPLE_CHALLENGES[currentActivity.id] || 
+          SAMPLE_CHALLENGES.default;
+        
+        setChallenge(activityChallenge);
+      }
       
-      setChallenge(activityChallenge);
+      // Reset state
       setSelectedOption(null);
       setShowFeedback(false);
       setConceptsDiscovered([]);
       setUsedTangent(false);
       setUsedBoast(false);
-      setShowQuote(activityChallenge.type === "lunch_quote");
+      setShowQuote(SAMPLE_CHALLENGES[currentActivity.id]?.type === "lunch_quote");
       
       // Reset question tracking
       setCurrentQuestionIndex(0);
       setAllAnswers([]);
     }
   }, [currentActivity]);
+  
+  // Function to fetch questions from the API
+  const fetchQuestions = async (domain: KnowledgeDomain) => {
+    try {
+      const response = await fetch(`/api/questions/${domain}`);
+      
+      if (!response.ok) {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      throw error;
+    }
+  };
+  
+  // Transform API questions to the challenge format expected by the component
+  const transformQuestionsToChallenge = (apiQuestions: MultipleChoiceQuestion[]): any => {
+    // Filter to only use multiple choice questions
+    const multipleChoiceQuestions = apiQuestions.filter(q => q.type === QuestionType.MULTIPLE_CHOICE);
+    
+    if (multipleChoiceQuestions.length === 0) {
+      return SAMPLE_CHALLENGES.morning_rounds;
+    }
+    
+    // Transform to the format expected by the component
+    const transformedQuestions = multipleChoiceQuestions.slice(0, 3).map(q => ({
+      content: q.question,
+      options: q.options.map(option => ({
+        text: option.text,
+        correct: option.isCorrect,
+        feedback: option.isCorrect 
+          ? q.feedback?.correct || "Correct answer!"
+          : q.feedback?.incorrect || "Incorrect answer."
+      }))
+    }));
+    
+    // Collect unique concepts across the selected questions
+    const concepts = Array.from(new Set(
+      multipleChoiceQuestions.flatMap(q => q.tags?.knowledgeNode ? [q.tags.knowledgeNode] : [])
+    )) as string[];
+
+    return {
+      questions: transformedQuestions,
+      concepts,
+      difficulty: ActivityDifficulty.EASY
+    };
+  };
   
   // No activity to show
   if (!currentActivity || !challenge) {
@@ -499,37 +572,37 @@ export default function ActivityEngagement() {
       
       // For single question challenges or the last question of multi-question challenges
       if (!hasMultipleQuestions || isLastQuestion) {
-        // Discover concepts
         if (challenge.concepts && challenge.concepts.length > 0) {
-          setConceptsDiscovered(challenge.concepts);
+          // Deduplicate concepts to avoid duplicate React keys and repeated badges
+          const uniqueConcepts = Array.from(new Set(challenge.concepts)) as string[];
+          setConceptsDiscovered(uniqueConcepts);
           
           // Import knowledge store here
           const { discoverConcept } = useKnowledgeStore.getState();
           
           // Use the knowledge store to discover concepts
-          challenge.concepts.forEach((conceptId: string) => {
+          uniqueConcepts.forEach((conceptId) => {
             // Call the knowledge store method directly
             discoverConcept(conceptId, 'activity_engagement');
             
             // Event is now dispatched by the knowledge store itself
           });
         }
-        
-        // Random chance to earn SP directly (10%, 20% with Boast)
-        const spChance = usedBoast ? 0.2 : 0.1;
-        if (Math.random() < spChance) {
-          const spGained = challenge.difficulty === ActivityDifficulty.HARD ? 2 : 1;
-          addStarPoints(spGained);
-          
-          /*
-          // TODO: Consolidate GameEventType definition and uncomment
-          centralEventBus.dispatch(
-            GameEventType.sp_gained,
-            { amount: spGained, source: 'activity_bonus' },
-            'ActivityEngagement.handleOptionSelect'
-          );
-          */
-        }
+      }
+
+      // Random chance to earn Star Points directly (10%, or 20% with Boast)
+      const spChance = usedBoast ? 0.2 : 0.1;
+      if (Math.random() < spChance) {
+        const spGained = challenge.difficulty === ActivityDifficulty.HARD ? 2 : 1;
+        addStarPoints(spGained);
+        /*
+        // TODO: Consolidate GameEventType definition and uncomment when ready
+        centralEventBus.dispatch(
+          GameEventType.sp_gained,
+          { amount: spGained, source: 'activity_bonus' },
+          'ActivityEngagement.handleOptionSelect'
+        );
+        */
       }
     }
   };

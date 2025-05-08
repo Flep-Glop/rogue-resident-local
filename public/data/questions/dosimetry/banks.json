@@ -1,0 +1,314 @@
+{
+  "metadata": {
+    "domain": "Dosimetry",
+    "lastUpdated": "2025-05-06"
+  },
+  "matchingBanks": [
+    {
+      "id": "calibration-equipment",
+      "type": "matchingBank",
+      "title": "Dosimetry Equipment and Purposes",
+      "items": [
+        {
+          "id": "A",
+          "label": "Farmer-type ionization chamber",
+          "matches": [
+            {"id": 1, "text": "Standard detector for absolute dose measurements", "difficulty": 1},
+            {"id": 5, "text": "Cylindrical chamber with active volume around 0.6cc", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "Electrometer",
+          "matches": [
+            {"id": 2, "text": "Collects charge from the ionization chamber", "difficulty": 1},
+            {"id": 6, "text": "Converts ionization current to digital reading", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Water phantom",
+          "matches": [
+            {"id": 3, "text": "Provides tissue-equivalent medium for measurements", "difficulty": 1},
+            {"id": 7, "text": "Allows precise positioning of detectors at different depths", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Barometer",
+          "matches": [
+            {"id": 4, "text": "Measures atmospheric pressure for correction factors", "difficulty": 1},
+            {"id": 8, "text": "Used to calculate air density corrections", "difficulty": 2}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "small-field-detectors",
+      "type": "matchingBank",
+      "title": "Small Field Detectors and Characteristics",
+      "items": [
+        {
+          "id": "A",
+          "label": "Standard Farmer chamber (0.6cc)",
+          "matches": [
+            {"id": 1, "text": "Too large for accurate measurements in fields < 3×3 cm²", "difficulty": 1},
+            {"id": 5, "text": "Suffers from significant volume averaging effects in small fields", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "Micro-diamond detector",
+          "matches": [
+            {"id": 2, "text": "Small, water-equivalent detector with minimal energy dependence", "difficulty": 1},
+            {"id": 6, "text": "Synthetic diamond with extremely small sensitive volume", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Radiochromic film",
+          "matches": [
+            {"id": 3, "text": "Excellent 2D spatial resolution, but challenging absolute calibration", "difficulty": 1},
+            {"id": 7, "text": "Provides full planar dose distribution with sub-millimeter resolution", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Diode detector",
+          "matches": [
+            {"id": 4, "text": "Small sensitive volume but requires correction for non-water equivalence", "difficulty": 1},
+            {"id": 8, "text": "Higher sensitivity per volume but over-responds to low-energy photons", "difficulty": 2}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "electron-beam-applications",
+      "type": "matchingBank",
+      "title": "Electron Beam Energies and Applications",
+      "items": [
+        {
+          "id": "A",
+          "label": "6-9 MeV electrons",
+          "matches": [
+            {"id": 1, "text": "Boost to surgical scar (≤ 2 cm depth)", "difficulty": 1},
+            {"id": 5, "text": "Practical range of approximately 2-3 cm in tissue", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "12-16 MeV electrons",
+          "matches": [
+            {"id": 2, "text": "Boost to lymph nodes (2-3 cm depth)", "difficulty": 1},
+            {"id": 6, "text": "Practical range of approximately 4-6 cm in tissue", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "18-22 MeV electrons",
+          "matches": [
+            {"id": 3, "text": "Chest wall irradiation", "difficulty": 1},
+            {"id": 7, "text": "Practical range of approximately 6-8 cm in tissue", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "4-5 MeV electrons",
+          "matches": [
+            {"id": 4, "text": "Superficial lesions (≤ 1 cm depth)", "difficulty": 1},
+            {"id": 8, "text": "Practical range of approximately 1.5-2 cm in tissue", "difficulty": 2}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qa-devices",
+      "type": "matchingBank",
+      "title": "QA Devices and Applications",
+      "items": [
+        {
+          "id": "A",
+          "label": "2D ion chamber array",
+          "matches": [
+            {"id": 1, "text": "Pre-treatment verification of IMRT/VMAT fields", "difficulty": 1},
+            {"id": 5, "text": "Multiple detectors arranged in a grid for efficient verification", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "OSLD/TLD dosimeters",
+          "matches": [
+            {"id": 2, "text": "In-vivo dosimetry on patient skin", "difficulty": 1},
+            {"id": 6, "text": "Small passive detectors that can be placed directly on patients", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "EPID (electronic portal imaging device)",
+          "matches": [
+            {"id": 3, "text": "Transit dosimetry during treatment", "difficulty": 1},
+            {"id": 7, "text": "Captures exit dose information that can be used for reconstruction", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Radiochromic film",
+          "matches": [
+            {"id": 4, "text": "High-resolution 2D dose distribution verification", "difficulty": 1},
+            {"id": 8, "text": "Self-developing film that changes color in proportion to absorbed dose", "difficulty": 2}
+          ]
+        }
+      ]
+    }
+  ],
+  "proceduralBanks": [
+    {
+      "id": "tg51-calibration",
+      "type": "proceduralBank",
+      "title": "TG-51 Photon Beam Calibration Steps",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Measure beam quality (PDD10/PDD20 or %dd(10)x)",
+          "explanation": "Determining the beam quality is the first step in the TG-51 protocol"
+        },
+        {
+          "id": 2,
+          "description": "Set up ionization chamber at reference depth",
+          "explanation": "Chamber is positioned at 10 cm depth for photons in water phantom"
+        },
+        {
+          "id": 3,
+          "description": "Take reference ionization reading",
+          "explanation": "Collect charge under reference conditions"
+        },
+        {
+          "id": 4,
+          "description": "Apply temperature and pressure corrections",
+          "explanation": "Correct for differences from reference conditions"
+        },
+        {
+          "id": 5,
+          "description": "Apply beam quality conversion factor kQ",
+          "explanation": "Account for beam quality differences from calibration quality"
+        },
+        {
+          "id": 6,
+          "description": "Calculate absorbed dose using chamber calibration factor",
+          "explanation": "Determine dose to water at the reference point"
+        }
+      ]
+    },
+    {
+      "id": "small-field-output",
+      "type": "proceduralBank",
+      "title": "Small Field Output Factor Measurement Steps",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Select appropriate detector based on field size",
+          "explanation": "Choose detector with small enough active volume"
+        },
+        {
+          "id": 2,
+          "description": "Verify beam alignment and centering",
+          "explanation": "Critical for small fields where positional accuracy is paramount"
+        },
+        {
+          "id": 3,
+          "description": "Measure detector signal in reference field (e.g., 10×10 cm²)",
+          "explanation": "Establish baseline under standard conditions"
+        },
+        {
+          "id": 4,
+          "description": "Measure detector signal in small field of interest",
+          "explanation": "Collect reading under test conditions"
+        },
+        {
+          "id": 5,
+          "description": "Calculate output factor as ratio of readings",
+          "explanation": "Determine relative output compared to reference field"
+        },
+        {
+          "id": 6,
+          "description": "Apply appropriate small field correction factors",
+          "explanation": "Account for detector-specific effects in small fields"
+        }
+      ]
+    },
+    {
+      "id": "electron-calibration",
+      "type": "proceduralBank",
+      "title": "Electron Beam Calibration According to TG-51",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Measure PDD or depth-ionization curve",
+          "explanation": "Collect depth distribution data to determine beam quality"
+        },
+        {
+          "id": 2,
+          "description": "Determine beam quality (R50) from the depth-ionization curve",
+          "explanation": "R50 is the depth at which the ionization is 50% of maximum"
+        },
+        {
+          "id": 3,
+          "description": "Convert depth-ionization to depth-dose curve",
+          "explanation": "Apply necessary corrections to convert ionization to dose"
+        },
+        {
+          "id": 4,
+          "description": "Place chamber at reference depth",
+          "explanation": "Position at depth of 0.6R50 as specified by TG-51"
+        },
+        {
+          "id": 5,
+          "description": "Take ionization reading at reference depth",
+          "explanation": "Collect charge measurement under reference conditions"
+        },
+        {
+          "id": 6,
+          "description": "Calculate dose using appropriate quality conversion factor",
+          "explanation": "Apply electron beam-specific factors to determine dose"
+        }
+      ]
+    },
+    {
+      "id": "imrt-qa",
+      "type": "proceduralBank",
+      "title": "Patient-Specific IMRT QA Procedure",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Export the patient plan to the QA phantom",
+          "explanation": "Transfer treatment fields to verification geometry"
+        },
+        {
+          "id": 2,
+          "description": "Recalculate the dose distribution on the phantom",
+          "explanation": "Generate expected dose for comparison"
+        },
+        {
+          "id": 3,
+          "description": "Set up the phantom and detector on the treatment couch",
+          "explanation": "Position verification equipment precisely"
+        },
+        {
+          "id": 4,
+          "description": "Deliver the treatment plan to the QA phantom",
+          "explanation": "Irradiate the phantom with the patient's plan"
+        },
+        {
+          "id": 5,
+          "description": "Compare measured and calculated dose distributions",
+          "explanation": "Analyze agreement between expected and delivered dose"
+        },
+        {
+          "id": 6,
+          "description": "Evaluate gamma passing rates and other metrics",
+          "explanation": "Determine if plan meets acceptance criteria"
+        }
+      ]
+    }
+  ]
+}

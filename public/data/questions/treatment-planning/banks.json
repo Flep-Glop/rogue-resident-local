@@ -1,0 +1,228 @@
+{
+  "metadata": {
+    "domain": "Treatment Planning",
+    "lastUpdated": "2025-05-06"
+  },
+  "matchingBanks": [
+    {
+      "id": "dose-calculation-algorithms",
+      "type": "matchingBank",
+      "title": "Dose Calculation Algorithms and Characteristics",
+      "items": [
+        {
+          "id": "A",
+          "label": "Pencil Beam",
+          "matches": [
+            {"id": 1, "text": "Models radiation as narrow beams that deposit energy along central axis", "difficulty": 1},
+            {"id": 5, "text": "Fastest algorithm but least accurate in heterogeneous tissues", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "Convolution/Superposition",
+          "matches": [
+            {"id": 2, "text": "Accounts for scatter by convolving energy with dose spread kernels", "difficulty": 1},
+            {"id": 6, "text": "Balance of speed and accuracy with reasonable handling of heterogeneities", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Monte Carlo",
+          "matches": [
+            {"id": 3, "text": "Uses random sampling to simulate individual particle interactions", "difficulty": 1},
+            {"id": 7, "text": "Most accurate algorithm but computationally intensive", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Ray Tracing",
+          "matches": [
+            {"id": 4, "text": "Models primary photon attenuation along straight-line paths", "difficulty": 1},
+            {"id": 8, "text": "Simplest algorithm that does not account for lateral scatter", "difficulty": 2}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "optimization-techniques",
+      "type": "matchingBank",
+      "title": "Plan Optimization Techniques and Characteristics",
+      "items": [
+        {
+          "id": "A",
+          "label": "Forward Planning",
+          "matches": [
+            {"id": 1, "text": "Planner directly designs beam shapes and weights", "difficulty": 1},
+            {"id": 5, "text": "Manual iterative approach used for simple treatment techniques", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "Inverse Planning",
+          "matches": [
+            {"id": 2, "text": "System optimizes beam parameters to meet specified dose constraints", "difficulty": 1},
+            {"id": 6, "text": "Mathematical approach that solves for optimal fluence patterns", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Multi-Criteria Optimization (MCO)",
+          "matches": [
+            {"id": 3, "text": "Interactive exploration of different planning trade-offs", "difficulty": 1},
+            {"id": 7, "text": "Allows real-time navigation between competing clinical goals", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Knowledge-Based Planning (KBP)",
+          "matches": [
+            {"id": 4, "text": "Uses previously successful treatment plans to guide new plan creation", "difficulty": 1},
+            {"id": 8, "text": "Leverages database of plans to predict achievable dose distributions", "difficulty": 2}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "treatment-volumes",
+      "type": "matchingBank",
+      "title": "Target Volume Definitions",
+      "items": [
+        {
+          "id": "A",
+          "label": "Gross Tumor Volume (GTV)",
+          "matches": [
+            {"id": 1, "text": "Visible or palpable tumor extent", "difficulty": 1},
+            {"id": 5, "text": "Demonstrable extent of malignant growth", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "B",
+          "label": "Clinical Target Volume (CTV)",
+          "matches": [
+            {"id": 2, "text": "Includes GTV plus subclinical microscopic disease", "difficulty": 1},
+            {"id": 6, "text": "Volume containing demonstrable tumor and areas of suspected spread", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "C",
+          "label": "Planning Target Volume (PTV)",
+          "matches": [
+            {"id": 3, "text": "Includes all previous volumes plus setup uncertainties", "difficulty": 1},
+            {"id": 7, "text": "Geometric concept that accounts for all possible variations in treatment delivery", "difficulty": 2}
+          ]
+        },
+        {
+          "id": "D",
+          "label": "Internal Target Volume (ITV)",
+          "matches": [
+            {"id": 4, "text": "Accounts for internal organ motion and deformation", "difficulty": 1},
+            {"id": 8, "text": "Expansion of CTV to include expected internal organ movement", "difficulty": 2}
+          ]
+        }
+      ]
+    }
+  ],
+  "proceduralBanks": [
+    {
+      "id": "dose-calculation-workflow",
+      "type": "proceduralBank",
+      "title": "Model-Based Dose Calculation Steps",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Obtain patient CT dataset",
+          "explanation": "Initial imaging is the first step in the planning process"
+        },
+        {
+          "id": 2,
+          "description": "Create 3D patient model with density information",
+          "explanation": "CT data must be converted to a usable 3D model"
+        },
+        {
+          "id": 3,
+          "description": "Define beam parameters (energy, field size, etc.)",
+          "explanation": "Beam setup must be defined before calculation"
+        },
+        {
+          "id": 4,
+          "description": "Apply heterogeneity corrections",
+          "explanation": "Account for different tissue densities in the calculation"
+        },
+        {
+          "id": 5,
+          "description": "Calculate dose distribution",
+          "explanation": "Run the algorithm to determine the final dose distribution"
+        }
+      ]
+    },
+    {
+      "id": "imrt-inverse-planning",
+      "type": "proceduralBank",
+      "title": "IMRT Inverse Planning Steps",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Obtain planning CT images",
+          "explanation": "Acquire images for treatment planning"
+        },
+        {
+          "id": 2,
+          "description": "Create contours of targets and critical structures",
+          "explanation": "Define volumes for dose planning and evaluation"
+        },
+        {
+          "id": 3,
+          "description": "Set dose constraints and objectives for targets and organs at risk",
+          "explanation": "Define planning goals that the optimizer will try to meet"
+        },
+        {
+          "id": 4,
+          "description": "Run the optimization algorithm",
+          "explanation": "Computer solves for beam parameters that best meet objectives"
+        },
+        {
+          "id": 5,
+          "description": "Evaluate the plan using DVH and isodose distributions",
+          "explanation": "Assess whether plan meets clinical goals"
+        },
+        {
+          "id": 6,
+          "description": "Make adjustments to constraints and re-optimize if necessary",
+          "explanation": "Iterative refinement to improve plan quality"
+        }
+      ]
+    },
+    {
+      "id": "lung-treatment-volumes",
+      "type": "proceduralBank",
+      "title": "Target Volume Definition for Lung Cancer",
+      "steps": [
+        {
+          "id": 1,
+          "description": "Perform 4DCT scan to assess respiratory motion",
+          "explanation": "Captures tumor movement throughout breathing cycle"
+        },
+        {
+          "id": 2,
+          "description": "Define GTV using diagnostic imaging",
+          "explanation": "Delineates visible tumor on CT, PET, etc."
+        },
+        {
+          "id": 3,
+          "description": "Add margin for microscopic disease to create CTV",
+          "explanation": "Expands to include areas of suspected subclinical spread"
+        },
+        {
+          "id": 4,
+          "description": "Create ITV from 4DCT to account for respiratory motion",
+          "explanation": "Encompasses all tumor positions during respiratory cycle"
+        },
+        {
+          "id": 5,
+          "description": "Add setup margin to create PTV",
+          "explanation": "Accounts for setup uncertainties and positioning errors"
+        }
+      ]
+    }
+  ]
+}

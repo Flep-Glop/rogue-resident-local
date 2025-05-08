@@ -1,0 +1,485 @@
+{
+  "metadata": {
+    "domain": "Linac Anatomy",
+    "difficulty": "Beginner",
+    "questionCount": 13,
+    "lastUpdated": "2025-05-06",
+    "contributors": ["Luke", "Zachariah"],
+    "stars": ["la-components", "la-beam-modification", "la-safety", "la-imaging", "la-beam-generation", "la-mechanical"]
+  },
+  "contentMap": [
+    "Linear Accelerator Components",
+    "Beam Characteristics and Modification",
+    "Safety Systems and QA",
+    "Imaging Systems",
+    "Beam Generation",
+    "Mechanical Systems"
+  ],
+  "questions": [
+    {
+      "id": "MC-LA-001",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "Components",
+        "difficulty": 1,
+        "mentor": "Jesse",
+        "knowledgeNode": "la-components"
+      },
+      "question": "Jesse points to a diagram of a linear accelerator: \"Let's start with the basics. What component creates the initial electrons at the beginning of the process?\"",
+      "options": [
+        {
+          "text": "Waveguide",
+          "isCorrect": false
+        },
+        {
+          "text": "Electron gun",
+          "isCorrect": true
+        },
+        {
+          "text": "Target",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "You got it! The electron gun is where it all starts - like the ignition in a car.",
+        "incorrect": "Not quite. Think about what comes first in the whole process."
+      },
+      "followUp": {
+        "question": "What's the purpose of the electron gun in a linac?",
+        "options": [
+          {
+            "text": "To aim the radiation beam",
+            "isCorrect": false
+          },
+          {
+            "text": "To produce the initial electrons that will be accelerated",
+            "isCorrect": true
+          },
+          {
+            "text": "To generate X-rays directly",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-LA-002",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "Components",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "la-components"
+      },
+      "question": "Dr. Kapoor explains a fundamental concept: \"In a medical linear accelerator, identify the component that converts electrons into photons for treatment.\"",
+      "options": [
+        {
+          "text": "Waveguide",
+          "isCorrect": false
+        },
+        {
+          "text": "Bending magnet",
+          "isCorrect": false
+        },
+        {
+          "text": "Target",
+          "isCorrect": true
+        }
+      ],
+      "feedback": {
+        "correct": "Correct. The target, typically made of tungsten, converts electron energy to photon energy through bremsstrahlung.",
+        "incorrect": "That is incorrect. Consider the primary interaction that produces photons from electrons."
+      },
+      "followUp": {
+        "question": "What physical process occurs when electrons strike the target?",
+        "options": [
+          {
+            "text": "Nuclear fusion",
+            "isCorrect": false
+          },
+          {
+            "text": "Bremsstrahlung (braking radiation)",
+            "isCorrect": true
+          },
+          {
+            "text": "Magnetic resonance",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MATCH-LA-001",
+      "type": "matching",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "Components",
+        "difficulty": 1,
+        "mentor": "Jesse",
+        "knowledgeNode": "la-components"
+      },
+      "bankRef": "linac-components",
+      "includeItems": [
+        {"itemId": "A", "matchIds": [1]},
+        {"itemId": "B", "matchIds": [2]},
+        {"itemId": "C", "matchIds": [3]},
+        {"itemId": "D", "matchIds": [4]}
+      ],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Perfect! You understand the purpose of each major component.",
+        "incorrect": "Each component has a specific role in the treatment process. Let's review their functions."
+      }
+    },
+    {
+      "id": "PROC-LA-001",
+      "type": "procedural",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "Components",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "la-components"
+      },
+      "bankRef": "photon-radiation-path",
+      "includeSteps": [1, 2, 3, 4, 5, 6, 7, 8],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Excellent sequencing! You understand the path radiation takes through the machine.",
+        "incorrect": "The sequence follows the path of radiation from generation to delivery. Let's reconsider the logical flow."
+      }
+    },
+    {
+      "id": "CALC-LA-001",
+      "type": "calculation",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "Components",
+        "difficulty": 1,
+        "mentor": "Quinn",
+        "knowledgeNode": "la-target"
+      },
+      "question": "Dr. Quinn presents a simple calculation: \"Let's calculate the energy lost by electrons in the target.\n\nGiven:\n- Initial electron energy: ${initialEnergy} MeV\n- Average X-ray energy produced: ${xrayEnergy} MeV\n- Percentage of electron energy converted to X-rays: ${conversionRate}%\n\nCalculate the energy deposited as heat in the target.\"",
+      "variables": [
+        {"name": "initialEnergy", "range": [6, 20], "unit": "MeV"},
+        {"name": "xrayEnergy", "range": [2, 6], "unit": "MeV", "constraint": "< initialEnergy"},
+        {"name": "conversionRate", "range": [3, 7], "unit": "%"}
+      ],
+      "solution": [
+        {"step": "Step 1: Calculate total energy converted to X-rays per electron", "isFormula": false},
+        {"step": "Energy to X-rays = ${initialEnergy} MeV × (${conversionRate}% / 100) = ${(initialEnergy * conversionRate / 100).toFixed(2)} MeV", "isFormula": true},
+        {"step": "Step 2: Calculate energy deposited as heat", "isFormula": false},
+        {"step": "Energy as heat = ${initialEnergy} MeV - ${(initialEnergy * conversionRate / 100).toFixed(2)} MeV = ${(initialEnergy - initialEnergy * conversionRate / 100).toFixed(2)} MeV", "isFormula": true}
+      ],
+      "answer": {
+        "formula": "${(initialEnergy - initialEnergy * conversionRate / 100).toFixed(2)} MeV",
+        "precision": 2
+      },
+      "feedback": {
+        "correct": "Excellent calculation! This is why the target requires cooling - most of the electron energy becomes heat.",
+        "incorrect": "Most of the electron energy becomes heat in the target. Let's recalculate step by step."
+      }
+    },
+    {
+      "id": "MC-LA-003",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "BeamModification",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "la-beam-modification"
+      },
+      "question": "Dr. Kapoor draws a beam profile: \"What is the primary purpose of the flattening filter in a linear accelerator?\"",
+      "options": [
+        {
+          "text": "To increase beam intensity",
+          "isCorrect": false
+        },
+        {
+          "text": "To make the beam intensity profile more uniform across the field",
+          "isCorrect": true
+        },
+        {
+          "text": "To filter out low-energy photons",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Correct. The flattening filter creates a more uniform dose distribution across the treatment field.",
+        "incorrect": "That is not the primary purpose. Consider the name 'flattening' and what that suggests."
+      },
+      "followUp": {
+        "question": "What is the shape of a photon beam's intensity profile WITHOUT a flattening filter?",
+        "options": [
+          {
+            "text": "Completely flat",
+            "isCorrect": false
+          },
+          {
+            "text": "Bell-shaped/peaked in the center",
+            "isCorrect": true
+          },
+          {
+            "text": "Uniform with sharp edges",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MATCH-LA-002",
+      "type": "matching",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "BeamModification",
+        "difficulty": 1,
+        "mentor": "Quinn",
+        "knowledgeNode": "la-beam-modification"
+      },
+      "bankRef": "beam-modifying-devices",
+      "includeItems": [
+        {"itemId": "A", "matchIds": [1]},
+        {"itemId": "B", "matchIds": [2]},
+        {"itemId": "C", "matchIds": [3]},
+        {"itemId": "D", "matchIds": [4]}
+      ],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Excellent! Each device modifies the beam in a specific way for different clinical purposes.",
+        "incorrect": "These devices each modify the radiation beam in distinct ways. Let's review their primary functions."
+      }
+    },
+    {
+      "id": "MC-LA-004",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "Safety",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "la-safety"
+      },
+      "question": "Dr. Kapoor discusses an important safety feature: \"What is the primary purpose of the interlocks in a linear accelerator?\"",
+      "options": [
+        {
+          "text": "To make the linac run more efficiently",
+          "isCorrect": false
+        },
+        {
+          "text": "To prevent the beam from operating in unsafe conditions",
+          "isCorrect": true
+        },
+        {
+          "text": "To record patient treatment data",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Correct. Interlocks are safety systems that prevent operation when unsafe conditions exist.",
+        "incorrect": "That is not the primary purpose of interlocks. Consider their role in safety."
+      },
+      "followUp": {
+        "question": "What happens when an interlock is triggered during treatment?",
+        "options": [
+          {
+            "text": "The machine continues but displays a warning",
+            "isCorrect": false
+          },
+          {
+            "text": "The beam turns off immediately",
+            "isCorrect": true
+          },
+          {
+            "text": "The beam completes the current field then stops",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MATCH-LA-003",
+      "type": "matching",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "Safety",
+        "difficulty": 1,
+        "mentor": "Jesse",
+        "knowledgeNode": "la-safety"
+      },
+      "bankRef": "qa-frequencies",
+      "includeItems": [
+        {"itemId": "A", "matchIds": [1]},
+        {"itemId": "B", "matchIds": [1]},
+        {"itemId": "C", "matchIds": [3]},
+        {"itemId": "D", "matchIds": [4]}
+      ],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Perfect! Understanding QA frequencies is essential for safe operation.",
+        "incorrect": "QA tests have specific recommended frequencies based on their importance and likelihood of variation. Let's review these schedules."
+      }
+    },
+    {
+      "id": "PROC-LA-002",
+      "type": "procedural",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "Safety",
+        "difficulty": 1,
+        "mentor": "Garcia",
+        "knowledgeNode": "la-safety"
+      },
+      "bankRef": "interlock-response",
+      "includeSteps": [1, 2, 3, 4, 5, 6],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Excellent sequence! Patient safety always comes first, followed by proper verification and documentation.",
+        "incorrect": "When responding to interlocks, we follow a specific protocol that prioritizes safety. Let's reconsider the logical order."
+      }
+    },
+    {
+      "id": "MC-LA-005",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "Imaging",
+        "difficulty": 1,
+        "mentor": "Jesse",
+        "knowledgeNode": "la-imaging"
+      },
+      "question": "Jesse explains a key linac component: \"What is the primary purpose of on-board imaging systems in modern linear accelerators?\"",
+      "options": [
+        {
+          "text": "To create diagnostic images for cancer detection",
+          "isCorrect": false
+        },
+        {
+          "text": "To verify patient positioning before treatment delivery",
+          "isCorrect": true
+        },
+        {
+          "text": "To calibrate the radiation output",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "That's right! The on-board imaging systems help us verify that the patient is positioned correctly before we deliver radiation.",
+        "incorrect": "Think about why we would need imaging systems attached to the treatment machine itself."
+      },
+      "followUp": {
+        "question": "Which imaging modality is commonly available on modern linear accelerators?",
+        "options": [
+          {
+            "text": "MRI",
+            "isCorrect": false
+          },
+          {
+            "text": "Cone-beam CT",
+            "isCorrect": true
+          },
+          {
+            "text": "Ultrasound",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-LA-006",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "BeamGeneration",
+        "difficulty": 1,
+        "mentor": "Quinn",
+        "knowledgeNode": "la-beam-generation"
+      },
+      "question": "Dr. Quinn discusses the beginning of the treatment beam: \"In linac beam generation, what provides the energy to accelerate electrons in the waveguide?\"",
+      "options": [
+        {
+          "text": "Radioactive source",
+          "isCorrect": false
+        },
+        {
+          "text": "Magnetron or klystron (microwave generator)",
+          "isCorrect": true
+        },
+        {
+          "text": "Battery power",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Exactly right! The magnetron or klystron generates the microwave power that creates the accelerating electric fields in the waveguide.",
+        "incorrect": "Not quite. Think about what creates the microwave energy needed for acceleration."
+      },
+      "followUp": {
+        "question": "What is the approximate frequency of the microwaves used in medical linear accelerators?",
+        "options": [
+          {
+            "text": "1-10 kHz (kilohertz)",
+            "isCorrect": false
+          },
+          {
+            "text": "2-3 GHz (gigahertz)",
+            "isCorrect": true
+          },
+          {
+            "text": "100-300 MHz (megahertz)",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-LA-007",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "LinacAnatomy",
+        "subtopic": "Mechanical",
+        "difficulty": 1,
+        "mentor": "Jesse",
+        "knowledgeNode": "la-mechanical"
+      },
+      "question": "Jesse points to the treatment machine: \"What is the purpose of the gantry in a linear accelerator?\"",
+      "options": [
+        {
+          "text": "To generate the radiation beam",
+          "isCorrect": false
+        },
+        {
+          "text": "To allow the beam to be directed from different angles around the patient",
+          "isCorrect": true
+        },
+        {
+          "text": "To hold the patient in position",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "You got it! The gantry rotation allows us to deliver radiation from multiple angles, which is crucial for modern treatments.",
+        "incorrect": "Not quite. Think about what physical movement the gantry provides."
+      },
+      "followUp": {
+        "question": "Around which point does the gantry rotate in a properly calibrated linear accelerator?",
+        "options": [
+          {
+            "text": "The electron gun",
+            "isCorrect": false
+          },
+          {
+            "text": "The machine isocenter",
+            "isCorrect": true
+          },
+          {
+            "text": "The control console",
+            "isCorrect": false
+          }
+        ]
+      }
+    }
+  ]
+}

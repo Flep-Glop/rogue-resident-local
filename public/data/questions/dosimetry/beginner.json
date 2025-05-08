@@ -1,0 +1,467 @@
+{
+  "metadata": {
+    "domain": "Dosimetry",
+    "difficulty": "Beginner",
+    "questionCount": 12,
+    "lastUpdated": "2025-05-06",
+    "contributors": ["Luke", "Zachariah"],
+    "stars": ["dos-calibration", "dos-small-field", "dos-electron", "dos-qa", "dos-concepts", "dos-detectors"]
+  },
+  "contentMap": [
+    "Absolute Calibration Protocols",
+    "Small Field Dosimetry",
+    "Electron Beam Physics",
+    "In-vivo and Patient QA",
+    "Fundamental Dose Concepts",
+    "Radiation Detector Physics"
+  ],
+  "questions": [
+    {
+      "id": "MC-DOS-001",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "Calibration",
+        "difficulty": 1,
+        "mentor": "Quinn",
+        "knowledgeNode": "dos-calibration"
+      },
+      "question": "Dr. Quinn looks up from a calibration report: \"Absolute calibration—the foundation of everything we do here—tells us something fundamental. What is it we're determining when we perform absolute calibration?\"",
+      "options": [
+        {
+          "text": "The age of the linear accelerator",
+          "isCorrect": false
+        },
+        {
+          "text": "The dose per monitor unit delivered by the machine",
+          "isCorrect": true
+        },
+        {
+          "text": "The maximum number of patients treatable per day",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Yes! We're establishing that critical relationship—how much dose for each monitor unit—the cornerstone of all treatments!",
+        "incorrect": "No, we're measuring something much more fundamental to treatment delivery..."
+      },
+      "followUp": {
+        "question": "Why is absolute calibration so important in radiation therapy?",
+        "options": [
+          {
+            "text": "It fulfills regulatory requirements",
+            "isCorrect": false
+          },
+          {
+            "text": "It ensures patients receive the prescribed dose accurately",
+            "isCorrect": true
+          },
+          {
+            "text": "It helps the machine run more efficiently",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-DOS-002",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "Calibration",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "dos-calibration"
+      },
+      "question": "Dr. Kapoor reviews calibration protocols: \"What is the current standard protocol for photon beam calibration in the United States?\"",
+      "options": [
+        {
+          "text": "TG-21",
+          "isCorrect": false
+        },
+        {
+          "text": "TG-51",
+          "isCorrect": true
+        },
+        {
+          "text": "TRS-398",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Correct. TG-51 is the AAPM protocol currently used for photon and electron beam calibration in North America.",
+        "incorrect": "That is not the current standard protocol. TG-51 replaced TG-21 and is the current standard in North America."
+      },
+      "followUp": {
+        "question": "What organization publishes the TG-51 protocol?",
+        "options": [
+          {
+            "text": "American Association of Physicists in Medicine (AAPM)",
+            "isCorrect": true
+          },
+          {
+            "text": "International Atomic Energy Agency (IAEA)",
+            "isCorrect": false
+          },
+          {
+            "text": "Nuclear Regulatory Commission (NRC)",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MATCH-DOS-001",
+      "type": "matching",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "Calibration",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "dos-calibration"
+      },
+      "bankRef": "calibration-equipment",
+      "includeItems": [
+        {"itemId": "A", "matchIds": [1]},
+        {"itemId": "B", "matchIds": [2]},
+        {"itemId": "C", "matchIds": [3]},
+        {"itemId": "D", "matchIds": [4]}
+      ],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Excellent! Each piece of equipment has a specific role in the calibration process.",
+        "incorrect": "These equipment pieces each serve a specific function in calibration. Let's review their purposes."
+      }
+    },
+    {
+      "id": "PROC-DOS-001",
+      "type": "procedural",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "Calibration",
+        "difficulty": 1,
+        "mentor": "Garcia",
+        "knowledgeNode": "dos-calibration"
+      },
+      "bankRef": "tg51-calibration",
+      "includeSteps": [1, 2, 3, 4, 5, 6],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Perfect sequence! This follows the TG-51 protocol exactly.",
+        "incorrect": "The TG-51 procedure follows a specific sequence. Let's reconsider the steps in order."
+      }
+    },
+    {
+      "id": "CALC-DOS-001",
+      "type": "calculation",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "Calibration",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "dos-calibration"
+      },
+      "question": "Dr. Kapoor reviews calibration measurements: \"Let's calculate the temperature-pressure correction factor for an ionization chamber reading.\n\nGiven:\n- Temperature: ${temperature}°C\n- Pressure: ${pressure} kPa\n- Reference temperature: 22°C\n- Reference pressure: 101.325 kPa\n\nCalculate the temperature-pressure correction factor (PTP).\"",
+      "variables": [
+        {"name": "temperature", "range": [18, 27], "unit": "°C"},
+        {"name": "pressure", "range": [97, 103], "unit": "kPa"}
+      ],
+      "solution": [
+        {"step": "PTP = [(273.15 + 22)/(273.15 + ${temperature})] × [${pressure}/101.325]", "isFormula": true},
+        {"step": "PTP = [295.15/(273.15 + ${temperature})] × [${pressure}/101.325]", "isFormula": true},
+        {"step": "PTP = [295.15/${(273.15 + temperature).toFixed(2)}] × [${pressure}/101.325]", "isFormula": true},
+        {"step": "PTP = ${(295.15/(273.15 + temperature)).toFixed(4)} × ${(pressure/101.325).toFixed(4)}", "isFormula": true},
+        {"step": "PTP = ${((295.15/(273.15 + temperature))*(pressure/101.325)).toFixed(4)}", "isFormula": true}
+      ],
+      "answer": {
+        "formula": "${((295.15/(273.15 + temperature))*(pressure/101.325)).toFixed(4)}",
+        "precision": 4
+      },
+      "feedback": {
+        "correct": "Excellent calculation! This correction factor accounts for the difference in air density between measurement and reference conditions.",
+        "incorrect": "The temperature-pressure correction adjusts for air density differences. Let's recalculate step by step."
+      }
+    },
+    {
+      "id": "MC-DOS-003",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "SmallField",
+        "difficulty": 1,
+        "mentor": "Quinn",
+        "knowledgeNode": "dos-small-field"
+      },
+      "question": "Dr. Quinn draws a diagram: \"What defines a small field in radiation therapy dosimetry?\"",
+      "options": [
+        {
+          "text": "Any field smaller than 10×10 cm²",
+          "isCorrect": false
+        },
+        {
+          "text": "A field where lateral charged particle equilibrium is compromised",
+          "isCorrect": true
+        },
+        {
+          "text": "Fields used only for SRS treatments",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Yes! The physics—it's about charged particle equilibrium—fundamental to accurate dosimetry!",
+        "incorrect": "Let's think about the underlying physics that makes small fields special..."
+      },
+      "followUp": {
+        "question": "At what approximate field size does lateral charged particle equilibrium become compromised for a 6 MV beam?",
+        "options": [
+          {
+            "text": "10×10 cm²",
+            "isCorrect": false
+          },
+          {
+            "text": "3×3 cm² to 4×4 cm²",
+            "isCorrect": true
+          },
+          {
+            "text": "1×1 mm²",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MATCH-DOS-002",
+      "type": "matching",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "SmallField",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "dos-small-field"
+      },
+      "bankRef": "small-field-detectors",
+      "includeItems": [
+        {"itemId": "A", "matchIds": [1]},
+        {"itemId": "B", "matchIds": [2]},
+        {"itemId": "C", "matchIds": [3]},
+        {"itemId": "D", "matchIds": [4]}
+      ],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Excellent! Each detector has specific characteristics that make it more or less suitable for small field measurements.",
+        "incorrect": "Detector characteristics significantly impact small field measurements. Let's review what makes each detector suitable or unsuitable."
+      }
+    },
+    {
+      "id": "MC-DOS-004",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "ElectronBeam",
+        "difficulty": 1,
+        "mentor": "Garcia",
+        "knowledgeNode": "dos-electron"
+      },
+      "question": "Dr. Garcia introduces electron beams: \"What is a key difference between electron beams and photon beams regarding dose distribution?\"",
+      "options": [
+        {
+          "text": "Electron beams have a relatively uniform dose from surface to a specific depth, then a rapid falloff",
+          "isCorrect": true
+        },
+        {
+          "text": "Electron beams always deliver more dose than photon beams",
+          "isCorrect": false
+        },
+        {
+          "text": "Electron beams require more shielding than photon beams",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "That's right! This characteristic dose distribution makes electron beams ideal for treating superficial targets.",
+        "incorrect": "Let's consider the fundamental depth dose characteristics of electron beams."
+      },
+      "followUp": {
+        "question": "What clinical advantage does the rapid dose falloff of electron beams provide?",
+        "options": [
+          {
+            "text": "Increased patient comfort",
+            "isCorrect": false
+          },
+          {
+            "text": "Sparing of deep tissues beyond the target",
+            "isCorrect": true
+          },
+          {
+            "text": "Faster treatment time",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MATCH-DOS-003",
+      "type": "matching",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "ElectronBeam",
+        "difficulty": 1,
+        "mentor": "Garcia",
+        "knowledgeNode": "dos-electron"
+      },
+      "bankRef": "electron-beam-applications",
+      "includeItems": [
+        {"itemId": "A", "matchIds": [1]},
+        {"itemId": "B", "matchIds": [2]},
+        {"itemId": "C", "matchIds": [3]},
+        {"itemId": "D", "matchIds": [4]}
+      ],
+      "difficulty": "beginner",
+      "feedback": {
+        "correct": "Excellent! Each energy range has specific penetration characteristics suited for different treatment depths.",
+        "incorrect": "Electron beam penetration is directly related to energy. Let's review which energies are appropriate for different treatment depths."
+      }
+    },
+    {
+      "id": "MC-DOS-005",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "PatientQA",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "dos-qa"
+      },
+      "question": "Dr. Kapoor explains IMRT verification: \"What is the primary purpose of patient-specific QA for IMRT plans?\"",
+      "options": [
+        {
+          "text": "To check if the plan was approved properly",
+          "isCorrect": false
+        },
+        {
+          "text": "To verify that the planned dose can be accurately delivered by the machine",
+          "isCorrect": true
+        },
+        {
+          "text": "To measure the patient's dimensions",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Correct. Patient-specific QA ensures that the complex delivery pattern can be accurately executed by the treatment machine.",
+        "incorrect": "That is not the primary purpose. Consider what we're trying to verify about the treatment before the patient receives it."
+      },
+      "followUp": {
+        "question": "What equipment is commonly used for IMRT patient-specific QA?",
+        "options": [
+          {
+            "text": "CT scanner",
+            "isCorrect": false
+          },
+          {
+            "text": "2D or 3D detector arrays in a phantom",
+            "isCorrect": true
+          },
+          {
+            "text": "Blood pressure monitor",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-DOS-006",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "Concepts",
+        "difficulty": 1,
+        "mentor": "Kapoor",
+        "knowledgeNode": "dos-concepts"
+      },
+      "question": "Dr. Kapoor discusses a fundamental concept: \"What is the definition of absorbed dose in radiation therapy?\"",
+      "options": [
+        {
+          "text": "The number of monitor units delivered",
+          "isCorrect": false
+        },
+        {
+          "text": "The energy deposited per unit mass of material",
+          "isCorrect": true
+        },
+        {
+          "text": "The number of photons in the beam",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "Correct. Absorbed dose is defined as the energy absorbed per unit mass, measured in Gray (Gy), where 1 Gy = 1 J/kg.",
+        "incorrect": "That is not the definition of absorbed dose. Consider the formal physical definition used in dosimetry."
+      },
+      "followUp": {
+        "question": "What is the SI unit for absorbed dose?",
+        "options": [
+          {
+            "text": "Sievert (Sv)",
+            "isCorrect": false
+          },
+          {
+            "text": "Gray (Gy)",
+            "isCorrect": true
+          },
+          {
+            "text": "Becquerel (Bq)",
+            "isCorrect": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "MC-DOS-007",
+      "type": "multipleChoice",
+      "tags": {
+        "domain": "Dosimetry",
+        "subtopic": "Detectors",
+        "difficulty": 1,
+        "mentor": "Quinn",
+        "knowledgeNode": "dos-detectors"
+      },
+      "question": "Dr. Quinn points to different devices in the physics lab: \"What is the most common type of dosimeter used for routine beam calibration in radiation therapy?\"",
+      "options": [
+        {
+          "text": "Radiochromic film",
+          "isCorrect": false
+        },
+        {
+          "text": "Ionization chamber",
+          "isCorrect": true
+        },
+        {
+          "text": "Thermoluminescent dosimeter (TLD)",
+          "isCorrect": false
+        }
+      ],
+      "feedback": {
+        "correct": "You're right! Ionization chambers are our workhorses for calibration - they're accurate, precise, and directly traceable to primary standards.",
+        "incorrect": "Not quite. Think about which detector we rely on most for absolute dose calibration."
+      },
+      "followUp": {
+        "question": "What physical principle does an ionization chamber use to measure radiation?",
+        "options": [
+          {
+            "text": "Heat generation",
+            "isCorrect": false
+          },
+          {
+            "text": "Collection of charge from ionization events",
+            "isCorrect": true
+          },
+          {
+            "text": "Color change in chemicals",
+            "isCorrect": false
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import styled from 'styled-components';
 import { useGameStore } from '@/app/store/gameStore';

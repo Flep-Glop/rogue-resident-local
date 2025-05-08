@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { useGameStore } from '@/app/store/gameStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
