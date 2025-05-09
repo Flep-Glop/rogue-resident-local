@@ -1,4 +1,4 @@
-import { KnowledgeDomain } from "../../types";
+import { KnowledgeDomain, ActivityDifficulty } from "../../types";
 import { Question, QuestionType } from "../../types/questions";
 import { getAllDomainQuestions, getQuestionsForStar, loadQuestions } from "./questionLoader";
 
@@ -144,33 +144,46 @@ function selectRandomQuestions(questions: Question[], count: number): Question[]
 }
 
 /**
- * Select questions for an activity challenge
+ * Select questions for an activity challenge based on activity difficulty
  */
 export async function selectActivityQuestions(
   domain: KnowledgeDomain,
-  difficulty: "easy" | "medium" | "hard",
-  masteryPercentage: number,
-  count: number = 5
+  activityDifficulty: ActivityDifficulty,
+  count: number = 3,
+  questionTypes?: QuestionType[]
 ): Promise<Question[]> {
-  // Map activity difficulty to question difficulty bias
-  let difficultyBias = 0;
-  
-  switch (difficulty) {
-    case "easy":
-      difficultyBias = -10; // Bias toward easier questions
-      break;
-    case "medium":
-      difficultyBias = 0; // No bias
-      break;
-    case "hard":
-      difficultyBias = 15; // Bias toward harder questions
-      break;
+  try {
+    // Map activity difficulty to mastery percentage and difficulty bias
+    let masteryPercentage = 0;
+    let difficultyBias = 0;
+    
+    switch (activityDifficulty) {
+      case ActivityDifficulty.EASY:
+        masteryPercentage = 25; // Lower mastery = easier questions
+        difficultyBias = -10;   // Bias toward easier questions
+        break;
+      case ActivityDifficulty.MEDIUM:
+        masteryPercentage = 50; // Medium mastery = balanced questions
+        difficultyBias = 0;     // No bias
+        break;
+      case ActivityDifficulty.HARD:
+        masteryPercentage = 75; // Higher mastery = harder questions
+        difficultyBias = 15;    // Bias toward harder questions
+        break;
+      default:
+        masteryPercentage = 40; // Default mastery level
+        difficultyBias = 0;     // No bias by default
+    }
+    
+    // Adjust mastery percentage with difficulty bias (clamped to 0-100)
+    const adjustedMastery = Math.max(0, Math.min(100, masteryPercentage + difficultyBias));
+    
+    // Select questions using the main selection function
+    return selectQuestions(domain, undefined, adjustedMastery, count, questionTypes);
+  } catch (error) {
+    console.error("Error selecting activity questions:", error);
+    return [];
   }
-  
-  // Adjust mastery percentage with difficulty bias (clamped to 0-100)
-  const adjustedMastery = Math.max(0, Math.min(100, masteryPercentage + difficultyBias));
-  
-  return selectQuestions(domain, undefined, adjustedMastery, count);
 }
 
 /**

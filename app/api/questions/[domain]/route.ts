@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 
 import { getAllDomainQuestions } from '@/app/core/questions/questionLoader';
 import { KnowledgeDomain } from '@/app/types';

@@ -54,9 +54,14 @@ const DropTarget = ({ onDrop, matchedItem, matchItem }: any) => {
     }),
   });
 
+  // Create a div ref that will be used with drop
+  const dropRef = (el: HTMLDivElement | null) => {
+    drop(el);
+  };
+
   return (
     <div
-      ref={drop}
+      ref={dropRef}
       className={`h-24 p-3 mb-2 border-2 border-dashed rounded-md flex items-center justify-center transition-all ${
         isOver && canDrop ? 'bg-blue-100 border-blue-500' : 'bg-gray-50 border-gray-300'
       } ${matchedItem ? 'border-solid border-green-400' : ''}`}

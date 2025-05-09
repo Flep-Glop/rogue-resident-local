@@ -11,8 +11,6 @@ import {
   QuestionType,
   BoastQuestion
 } from "../../types/questions";
-import fs from "fs/promises";
-import path from "path";
 
 // Mapping from KnowledgeDomain to directory names in the public/data/questions folder
 const DOMAIN_DIR_NAMES: Record<KnowledgeDomain, string> = {
@@ -34,11 +32,22 @@ const BANKS_FILE = "banks.json";
 let questionCache: Record<string, QuestionCollection> = {};
 let bankCache: Record<string, any> = {}; // Will store both MatchingBank and ProceduralBank
 
-// Helper to read JSON from the public folder (server-side only)
+// Helper to read JSON from the public folder using fetch
 async function readJsonFromPublic(relativePath: string) {
-  const filePath = path.join(process.cwd(), "public", relativePath);
-  const fileContent = await fs.readFile(filePath, "utf8");
-  return JSON.parse(fileContent);
+  try {
+    // Create a URL path for fetch (works in both client and server)
+    const url = `/${relativePath}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`Error reading JSON from ${relativePath}:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -57,7 +66,7 @@ export async function loadQuestions(
   
   try {
     const dirName = DOMAIN_DIR_NAMES[domain];
-    const relativePath = path.join("data", "questions", dirName, DIFFICULTY_FILES[difficulty]);
+    const relativePath = `data/questions/${dirName}/${DIFFICULTY_FILES[difficulty]}`;
     const questionCollection = await readJsonFromPublic(relativePath) as QuestionCollection;
     
     // Validate the collection
@@ -84,7 +93,7 @@ export async function loadBanks(domain: KnowledgeDomain): Promise<any> {
   
   try {
     const dirName = DOMAIN_DIR_NAMES[domain];
-    const relativePath = path.join("data", "questions", dirName, BANKS_FILE);
+    const relativePath = `data/questions/${dirName}/${BANKS_FILE}`;
     const banks = await readJsonFromPublic(relativePath);
     
     // Validate banks

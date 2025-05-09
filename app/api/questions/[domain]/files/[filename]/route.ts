@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 
-import fs from 'fs';
-import path from 'path';
 import { KnowledgeDomain } from '@/app/types';
 
 export async function GET(
@@ -38,20 +36,23 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid filename' }, { status: 400 });
     }
     
-    // Get the absolute path to the question file
-    const publicDir = path.join(process.cwd(), 'public');
-    const filePath = path.join(publicDir, 'data', 'questions', dirName, filename);
+    // Create the URL to the file in the public directory
+    const url = new URL(request.url);
+    const baseUrl = `${url.protocol}//${url.host}`;
+    const fileUrl = `${baseUrl}/data/questions/${dirName}/${filename}`;
     
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
+    // Fetch the file
+    const response = await fetch(fileUrl);
+    
+    if (!response.ok) {
       return NextResponse.json({ 
-        error: `File not found: ${filePath}` 
+        error: `File not found: ${fileUrl}`, 
+        status: response.status 
       }, { status: 404 });
     }
     
-    // Read the file content
-    const fileContent = fs.readFileSync(filePath, 'utf8');
-    const jsonData = JSON.parse(fileContent);
+    // Parse the JSON data
+    const jsonData = await response.json();
     
     return NextResponse.json(jsonData);
   } catch (error) {

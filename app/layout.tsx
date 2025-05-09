@@ -6,6 +6,7 @@ import { VT323, Press_Start_2P } from 'next/font/google';
 import { Roboto_Mono } from 'next/font/google';
 import InitScripts from './components/InitScripts';
 import LoadingTransition from "./components/ui/LoadingTransition";
+import { MathJaxContext } from 'better-react-mathjax';
 
 // Define fonts
 const vt323 = VT323({ 
@@ -28,6 +29,16 @@ const robotoMono = Roboto_Mono({
   variable: '--font-roboto-mono',
 });
 
+// MathJax configuration
+const mathJaxConfig = {
+  loader: { load: ["[tex]/html"] },
+  tex: {
+    packages: { "[+]": ["html"] },
+    inlineMath: [["$", "$"]],
+    displayMath: [["$$", "$$"]]
+  }
+};
+
 export const metadata: Metadata = {
   title: "Rogue Resident - Medical Physics Educational Game",
   description: "An educational roguelike game that transforms medical physics education into a narrative-driven experience.",
@@ -49,12 +60,14 @@ export default function RootLayout({
         <InitScripts />
       </head>
       <body>
-        <LoadingProvider>
-          <PixelThemeProvider>
-            {children}
-            <LoadingTransition />
-          </PixelThemeProvider>
-        </LoadingProvider>
+        <MathJaxContext config={mathJaxConfig}>
+          <LoadingProvider>
+            <PixelThemeProvider>
+              {children}
+              <LoadingTransition />
+            </PixelThemeProvider>
+          </LoadingProvider>
+        </MathJaxContext>
       </body>
     </html>
   );

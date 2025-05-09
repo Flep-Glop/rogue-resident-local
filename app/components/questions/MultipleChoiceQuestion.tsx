@@ -36,18 +36,18 @@ const OptionsContainer = styled.div`
   gap: 0.8rem;
 `;
 
-const OptionButton = styled.button<{ selected?: boolean, correct?: boolean, incorrect?: boolean }>`
+const OptionButton = styled.button<{ $selected?: boolean, $correct?: boolean, $incorrect?: boolean, disabled?: boolean }>`
   padding: 0.8rem 1rem;
   background-color: ${props => 
-    props.correct ? 'rgba(0, 128, 0, 0.2)' : 
-    props.incorrect ? 'rgba(128, 0, 0, 0.2)' : 
-    props.selected ? 'rgba(64, 64, 224, 0.2)' : 
+    props.$correct ? 'rgba(0, 128, 0, 0.2)' : 
+    props.$incorrect ? 'rgba(128, 0, 0, 0.2)' : 
+    props.$selected ? 'rgba(64, 64, 224, 0.2)' : 
     'rgba(32, 32, 32, 0.8)'
   };
   border: 1px solid ${props => 
-    props.correct ? '#0f0' : 
-    props.incorrect ? '#f00' : 
-    props.selected ? '#00f' : 
+    props.$correct ? '#0f0' : 
+    props.$incorrect ? '#f00' : 
+    props.$selected ? '#00f' : 
     '#333'
   };
   border-radius: 4px;
@@ -58,20 +58,20 @@ const OptionButton = styled.button<{ selected?: boolean, correct?: boolean, inco
   
   &:hover {
     background-color: ${props => props.disabled ? 
-      (props.correct ? 'rgba(0, 128, 0, 0.2)' : 
-       props.incorrect ? 'rgba(128, 0, 0, 0.2)' : 
-       props.selected ? 'rgba(64, 64, 224, 0.2)' : 
+      (props.$correct ? 'rgba(0, 128, 0, 0.2)' : 
+       props.$incorrect ? 'rgba(128, 0, 0, 0.2)' : 
+       props.$selected ? 'rgba(64, 64, 224, 0.2)' : 
        'rgba(32, 32, 32, 0.8)')
       : 'rgba(64, 64, 224, 0.3)'
     };
   }
 `;
 
-const FeedbackContainer = styled.div<{ correct: boolean }>`
+const FeedbackContainer = styled.div<{ $correct: boolean }>`
   margin-top: 1.5rem;
   padding: 1rem;
-  background-color: ${props => props.correct ? 'rgba(0, 128, 0, 0.2)' : 'rgba(128, 0, 0, 0.2)'};
-  border: 1px solid ${props => props.correct ? '#0f0' : '#f00'};
+  background-color: ${props => props.$correct ? 'rgba(0, 128, 0, 0.2)' : 'rgba(128, 0, 0, 0.2)'};
+  border: 1px solid ${props => props.$correct ? '#0f0' : '#f00'};
   border-radius: 4px;
   color: #fff;
 `;
@@ -161,9 +161,9 @@ const MultipleChoiceQuestion: React.FC<Props> = ({
         {question.options.map((option, index) => (
           <OptionButton
             key={index}
-            selected={selectedOption === index}
-            correct={showFeedback && option.isCorrect}
-            incorrect={showFeedback && selectedOption === index && !option.isCorrect}
+            $selected={selectedOption === index}
+            $correct={showFeedback && option.isCorrect}
+            $incorrect={showFeedback && selectedOption === index && !option.isCorrect}
             disabled={disabled}
             onClick={() => handleOptionClick(index)}
           >
@@ -173,7 +173,7 @@ const MultipleChoiceQuestion: React.FC<Props> = ({
       </OptionsContainer>
       
       {showFeedback && feedback && (
-        <FeedbackContainer correct={feedback.correct}>
+        <FeedbackContainer $correct={feedback.correct}>
           {feedback.message}
         </FeedbackContainer>
       )}

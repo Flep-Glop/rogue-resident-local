@@ -4,12 +4,21 @@ import React, { useEffect, useState } from 'react';
 import { useGameStore } from '@/app/store/gameStore';
 import { useActivityStore } from '@/app/store/activityStore';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
-import { ActivityDifficulty, GameEventType, KnowledgeDomain, MentorId, DomainColors } from '@/app/types';
+import { 
+  ActivityDifficulty, 
+  GameEventType, 
+  KnowledgeDomain, 
+  MentorId, 
+  DomainColors,
+  LocationId,
+  ActivityOption
+} from '@/app/types';
 import { TimeManager } from '@/app/core/time/TimeManager';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import pixelTheme, { colors, typography, animation, components, mixins, borders, shadows, spacing } from '@/app/styles/pixelTheme';
 import Image from 'next/image';
-import { MultipleChoiceQuestion, QuestionType } from '@/app/types/questions';
+import { MultipleChoiceQuestion, QuestionType, Question } from '@/app/types/questions';
+import { selectActivityQuestions } from '@/app/core/questions/questionManager';
 
 // Mapping from MentorId to chibi image path
 const mentorChibiMap: Record<MentorId, string> = {
@@ -423,33 +432,6 @@ export default function ActivityEngagement() {
   // Initialize challenge data when activity changes
   useEffect(() => {
     if (currentActivity) {
-      // For morning_rounds activity, try to fetch questions from API
-      if (currentActivity.id === 'morning_rounds') {
-        fetchQuestions(KnowledgeDomain.RADIATION_THERAPY)
-          .then(apiQuestions => {
-            if (apiQuestions && apiQuestions.length > 0) {
-              // Transform API questions to the format expected by the component
-              const transformedChallenge = transformQuestionsToChallenge(apiQuestions);
-              setChallenge(transformedChallenge);
-            } else {
-              // Fall back to sample questions if API fails
-              setChallenge(SAMPLE_CHALLENGES[currentActivity.id] || SAMPLE_CHALLENGES.default);
-            }
-          })
-          .catch(error => {
-            console.error('Error fetching questions:', error);
-            // Fall back to sample questions if API fails
-            setChallenge(SAMPLE_CHALLENGES[currentActivity.id] || SAMPLE_CHALLENGES.default);
-          });
-      } else {
-        // Use existing sample challenges for other activities
-        const activityChallenge = 
-          SAMPLE_CHALLENGES[currentActivity.id] || 
-          SAMPLE_CHALLENGES.default;
-        
-        setChallenge(activityChallenge);
-      }
-      
       // Reset state
       setSelectedOption(null);
       setShowFeedback(false);
@@ -461,45 +443,90 @@ export default function ActivityEngagement() {
       // Reset question tracking
       setCurrentQuestionIndex(0);
       setAllAnswers([]);
+
+      // For lunch activities or activities with no associated domains, use sample challenges
+      if (currentActivity.location === LocationId.CAFETERIA || 
+          !currentActivity.domains || 
+          currentActivity.domains.length === 0 ||
+          currentActivity.id.includes('lunch_')) {
+        setChallenge(SAMPLE_CHALLENGES[currentActivity.id] || SAMPLE_CHALLENGES.default);
+        return;
+      }
+
+      // For all other activities, fetch questions based on associated domain
+      const primaryDomain = currentActivity.domains[0]; // Use the first domain as primary
+      
+      fetchQuestionsForActivity(currentActivity)
+        .then(apiQuestions => {
+          if (apiQuestions && apiQuestions.length > 0) {
+            // Transform API questions to the format expected by the component
+            const transformedChallenge = transformQuestionsToChallenge(apiQuestions, currentActivity);
+            setChallenge(transformedChallenge);
+          } else {
+            // Fall back to sample questions if API fails
+            setChallenge(SAMPLE_CHALLENGES[currentActivity.id] || SAMPLE_CHALLENGES.default);
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching questions:', error);
+          // Fall back to sample questions if API fails
+          setChallenge(SAMPLE_CHALLENGES[currentActivity.id] || SAMPLE_CHALLENGES.default);
+        });
     }
   }, [currentActivity]);
   
-  // Function to fetch questions from the API
-  const fetchQuestions = async (domain: KnowledgeDomain) => {
+  // Function to fetch questions for an activity using the questionManager
+  const fetchQuestionsForActivity = async (activity: ActivityOption) => {
     try {
-      const response = await fetch(`/api/questions/${domain}`);
+      // Determine primary domain for the activity
+      const domain = activity.domains && activity.domains.length > 0 
+        ? activity.domains[0] 
+        : KnowledgeDomain.RADIATION_THERAPY; // Default fallback
       
-      if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status}`);
-      }
+      // Determine number of questions based on activity difficulty
+      const questionCount = activity.difficulty === ActivityDifficulty.HARD ? 3 :
+                           activity.difficulty === ActivityDifficulty.MEDIUM ? 2 : 1;
       
-      const data = await response.json();
-      return data;
+      // Use the selectActivityQuestions function to get appropriate questions
+      const questions = await selectActivityQuestions(
+        domain,
+        activity.difficulty,
+        questionCount,
+        [QuestionType.MULTIPLE_CHOICE] // Start with multiple choice for now
+      );
+      
+      return questions;
     } catch (error) {
-      console.error('Error fetching questions:', error);
+      console.error('Error fetching questions for activity:', error);
       throw error;
     }
   };
   
   // Transform API questions to the challenge format expected by the component
-  const transformQuestionsToChallenge = (apiQuestions: MultipleChoiceQuestion[]): any => {
+  const transformQuestionsToChallenge = (apiQuestions: Question[], activity: ActivityOption): any => {
     // Filter to only use multiple choice questions
-    const multipleChoiceQuestions = apiQuestions.filter(q => q.type === QuestionType.MULTIPLE_CHOICE);
+    const multipleChoiceQuestions = apiQuestions.filter(q => q.type === QuestionType.MULTIPLE_CHOICE) as MultipleChoiceQuestion[];
     
     if (multipleChoiceQuestions.length === 0) {
-      return SAMPLE_CHALLENGES.morning_rounds;
+      return SAMPLE_CHALLENGES[activity.id] || SAMPLE_CHALLENGES.default;
     }
     
+    // Determine number of questions based on activity difficulty
+    const questionCount = activity.difficulty === ActivityDifficulty.HARD ? 3 :
+                        activity.difficulty === ActivityDifficulty.MEDIUM ? 2 : 1;
+    
     // Transform to the format expected by the component
-    const transformedQuestions = multipleChoiceQuestions.slice(0, 3).map(q => ({
-      content: q.question,
-      options: q.options.map(option => ({
-        text: option.text,
-        correct: option.isCorrect,
-        feedback: option.isCorrect 
-          ? q.feedback?.correct || "Correct answer!"
-          : q.feedback?.incorrect || "Incorrect answer."
-      }))
+    const transformedQuestions = multipleChoiceQuestions
+      .slice(0, questionCount)
+      .map(q => ({
+        content: q.question,
+        options: q.options.map(option => ({
+          text: option.text,
+          correct: option.isCorrect,
+          feedback: option.isCorrect 
+            ? q.feedback?.correct || "Correct answer!"
+            : q.feedback?.incorrect || "Incorrect answer."
+        }))
     }));
     
     // Collect unique concepts across the selected questions
@@ -510,7 +537,7 @@ export default function ActivityEngagement() {
     return {
       questions: transformedQuestions,
       concepts,
-      difficulty: ActivityDifficulty.EASY
+      difficulty: activity.difficulty
     };
   };
   
