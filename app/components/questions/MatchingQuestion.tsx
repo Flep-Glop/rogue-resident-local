@@ -168,7 +168,7 @@ const MatchingQuestion: React.FC<MatchingQuestionProps> = ({
     if (question.itemsData && question.matchesMap) {
       // Process the items and matches for display
       const processedItems = question.itemsData.map((item: any) => ({
-        id: item.id,
+        id: String(item.id), // Convert ID to string for consistent comparison
         text: item.text || item.label, // Accommodate different formats
       }));
 
@@ -176,9 +176,9 @@ const MatchingQuestion: React.FC<MatchingQuestionProps> = ({
       const allMatches: any[] = [];
       Object.entries(question.matchesMap).forEach(([itemId, itemMatches]) => {
         itemMatches.forEach((match: any) => {
-          if (!allMatches.some(m => m.id === match.id)) {
+          if (!allMatches.some(m => String(m.id) === String(match.id))) {
             allMatches.push({
-              id: match.id,
+              id: String(match.id), // Convert ID to string for consistent comparison
               text: match.text,
             });
           }
@@ -187,21 +187,46 @@ const MatchingQuestion: React.FC<MatchingQuestionProps> = ({
 
       setItems(processedItems);
       setMatchOptions(allMatches);
+      
+      // Reset matches when question changes
+      setMatches({});
     }
   }, [question]);
 
   // Handler for drag-and-drop matching
   const handleDrop = (itemIndex: number, matchId: string) => {
     const item = items[itemIndex];
+    if (!item) return;
+    
     const newMatches = { ...matches, [item.id]: matchId };
     setMatches(newMatches);
-    onAnswer(newMatches);
+    
+    // Normalize before sending to evaluator
+    const normalizedAnswer = Object.entries(newMatches).reduce(
+      (result, [itemId, matchId]) => ({
+        ...result,
+        [itemId]: matchId
+      }), 
+      {}
+    );
+    
+    onAnswer(normalizedAnswer);
   };
 
   // Handler for selection-based matching
   const handleMatch = (matchPairs: Record<string, string>) => {
     setMatches(matchPairs);
-    onAnswer(matchPairs);
+    
+    // Normalize before sending to evaluator
+    const normalizedAnswer = Object.entries(matchPairs).reduce(
+      (result, [itemId, matchId]) => ({
+        ...result,
+        [itemId]: matchId
+      }), 
+      {}
+    );
+    
+    onAnswer(normalizedAnswer);
   };
 
   // Get the matched item for a match

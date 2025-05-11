@@ -167,6 +167,12 @@ const MentorName = styled.span`
   color: #fff;
 `;
 
+const ErrorMessage = styled.div`
+  color: #ff6b6b;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+`;
+
 const CalculationQuestion: React.FC<Props> = ({
   question,
   onAnswer,
@@ -176,8 +182,14 @@ const CalculationQuestion: React.FC<Props> = ({
   currentVariables = {}
 }) => {
   const [answer, setAnswer] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
   const [formattedQuestion, setFormattedQuestion] = useState<string>('');
   const [formattedSolution, setFormattedSolution] = useState<SolutionStep[]>([]);
+  
+  // Reset error when answer changes
+  useEffect(() => {
+    if (error) setError(null);
+  }, [answer]);
   
   // Format the question by replacing variable placeholders with values
   useEffect(() => {
@@ -217,19 +229,45 @@ const CalculationQuestion: React.FC<Props> = ({
   
   // Handle input change
   const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow only numbers, decimal point, and minus sign
+    // Allow numbers, decimal point, and minus sign
     const value = e.target.value;
-    if (/^-?\d*\.?\d*$/.test(value) || value === '') {
+    
+    // More permissive regex to allow for scientific notation and partial inputs
+    if (/^-?\d*\.?\d*(?:[eE][+-]?\d*)?$/.test(value) || value === '') {
       setAnswer(value);
     }
   };
   
   // Handle submit
   const handleSubmit = () => {
-    if (answer.trim() === '') return;
+    if (answer.trim() === '') {
+      setError('Please enter an answer');
+      return;
+    }
     
-    const numericAnswer = parseFloat(answer);
-    onAnswer(numericAnswer);
+    try {
+      const numericAnswer = parseFloat(answer);
+      
+      // Check if the answer is a valid number
+      if (isNaN(numericAnswer)) {
+        setError('Please enter a valid number');
+        return;
+      }
+      
+      // Proceed with submission
+      setError(null);
+      onAnswer(numericAnswer);
+    } catch (err) {
+      console.error("Error parsing numeric input:", err);
+      setError('Invalid number format');
+    }
+  };
+  
+  // Handle keydown for Enter key
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !disabled) {
+      handleSubmit();
+    }
   };
   
   // Get answer unit from the answer formula
@@ -285,12 +323,17 @@ const CalculationQuestion: React.FC<Props> = ({
             onChange={handleAnswerChange}
             placeholder="Enter your answer"
             disabled={disabled}
+            onKeyDown={handleKeyDown}
           />
           <UnitLabel>{getAnswerUnit()}</UnitLabel>
         </InputContainer>
         
+        {error && (
+          <ErrorMessage>{error}</ErrorMessage>
+        )}
+        
         {!disabled && !showFeedback && (
-          <Button onClick={handleSubmit} disabled={disabled || answer.trim() === ''}>
+          <Button onClick={handleSubmit} disabled={disabled}>
             Submit
           </Button>
         )}

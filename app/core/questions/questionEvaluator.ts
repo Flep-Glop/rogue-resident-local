@@ -73,50 +73,89 @@ export function evaluateMultipleChoice(
  */
 export async function evaluateMatching(
   question: MatchingQuestion,
-  userMatches: Record<string, number[]>
+  userMatches: Record<string, number[] | string[] | number | string>
 ): Promise<QuestionResult> {
   try {
-    // Load the matching bank
-    const banks = await loadBanks(question.tags.domain);
-    const matchingBank = banks.matchingBanks.find(
-      (bank: any) => bank.bankId === question.bankRef
-    );
+    // Normalize user matches to handle both arrays and single values
+    const normalizedUserMatches: Record<string, string[]> = {};
     
-    if (!matchingBank) {
-      throw new Error(`Matching bank ${question.bankRef} not found`);
-    }
-    
-    // Check each user match against the correct relationships
-    let allCorrect = true;
-    
-    for (const itemId in userMatches) {
-      // Get the correct match IDs for this item
-      const correctMatchIds = matchingBank.relationships[itemId] || [];
-      const userMatchIds = userMatches[itemId] || [];
-      
-      // Sort arrays for comparison
-      const sortedCorrect = [...correctMatchIds].sort();
-      const sortedUser = [...userMatchIds].sort();
-      
-      // Check if arrays are equal
-      if (sortedCorrect.length !== sortedUser.length ||
-          !sortedCorrect.every((id, i) => id === sortedUser[i])) {
-        allCorrect = false;
-        break;
+    Object.entries(userMatches).forEach(([itemId, matchValue]) => {
+      if (Array.isArray(matchValue)) {
+        // Convert all IDs to strings for consistent comparison
+        normalizedUserMatches[itemId] = matchValue.map(id => String(id));
+      } else {
+        // Single value case - convert to array of strings
+        normalizedUserMatches[itemId] = [String(matchValue)];
       }
+    });
+    
+    // If we're using includeItems directly from the question (more reliable)
+    if (question.includeItems && question.includeItems.length > 0) {
+      let allCorrect = true;
+      
+      for (const pair of question.includeItems) {
+        // Convert pair matchIds to strings for consistent comparison
+        const correctMatchIds = pair.matchIds.map(id => String(id)).sort();
+        const userMatchIds = (normalizedUserMatches[pair.itemId] || []).slice().sort();
+        
+        // Check if arrays are equal
+        if (correctMatchIds.length !== userMatchIds.length ||
+            !correctMatchIds.every((id, i) => id === userMatchIds[i])) {
+          allCorrect = false;
+          break;
+        }
+      }
+      
+      // Calculate mastery gain
+      const masteryGain = allCorrect ? calculateMasteryGain(question) : 0;
+      
+      // Get appropriate feedback
+      const feedback = allCorrect ? question.feedback.correct : question.feedback.incorrect;
+      
+      return {
+        correct: allCorrect,
+        masteryGain,
+        feedback
+      };
+    } else {
+      // Load the matching bank if needed (fallback to the original approach)
+      const banks = await loadBanks(question.tags.domain);
+      const matchingBank = banks.matchingBanks.find(
+        (bank: any) => bank.bankId === question.bankRef
+      );
+      
+      if (!matchingBank) {
+        throw new Error(`Matching bank ${question.bankRef} not found`);
+      }
+      
+      // Check each user match against the correct relationships
+      let allCorrect = true;
+      
+      for (const itemId in normalizedUserMatches) {
+        // Get the correct match IDs for this item (converted to strings)
+        const correctMatchIds = (matchingBank.relationships[itemId] || []).map(id => String(id)).sort();
+        const userMatchIds = normalizedUserMatches[itemId].sort();
+        
+        // Check if arrays are equal
+        if (correctMatchIds.length !== userMatchIds.length ||
+            !correctMatchIds.every((id, i) => id === userMatchIds[i])) {
+          allCorrect = false;
+          break;
+        }
+      }
+      
+      // Calculate mastery gain
+      const masteryGain = allCorrect ? calculateMasteryGain(question) : 0;
+      
+      // Get appropriate feedback
+      const feedback = allCorrect ? question.feedback.correct : question.feedback.incorrect;
+      
+      return {
+        correct: allCorrect,
+        masteryGain,
+        feedback
+      };
     }
-    
-    // Calculate mastery gain
-    const masteryGain = allCorrect ? calculateMasteryGain(question) : 0;
-    
-    // Get appropriate feedback
-    const feedback = allCorrect ? question.feedback.correct : question.feedback.incorrect;
-    
-    return {
-      correct: allCorrect,
-      masteryGain,
-      feedback
-    };
   } catch (error) {
     console.error("Error evaluating matching question:", error);
     return {
@@ -189,15 +228,27 @@ export function evaluateCalculation(
     // Replace variable placeholders in the formula
     let processedFormula = formula;
     for (const [name, value] of Object.entries(variables)) {
-      const placeholder = new RegExp(`\\$\\{${name}\\}`, 'g');
+      const placeholder = new RegExp(`\\$\\{${name}\\}|\\{${name}\\}`, 'g');
       processedFormula = processedFormula.replace(placeholder, value.toString());
     }
     
-    // Evaluate the formula
-    // Note: Using eval is generally not recommended for security reasons
-    // A better approach would be to use a safe expression evaluator library
-    // For illustration purposes only:
-    const correctAnswer = eval(processedFormula);
+    // Evaluate the formula using a safer approach than eval
+    // Create a safe evaluation context with basic Math functions
+    const evalContext: any = {
+      ...Math,  // Include all Math functions (sin, cos, etc.)
+    };
+    
+    // Add variables to the context
+    Object.entries(variables).forEach(([name, value]) => {
+      evalContext[name] = value;
+    });
+    
+    // Create a function with our context that evaluates the formula
+    const formula2Evaluate = processedFormula.replace(/\{([^}]+)\}/g, (_, name) => name);
+    const evaluator = new Function(...Object.keys(evalContext), `return ${formula2Evaluate};`);
+    
+    // Calculate the result
+    const correctAnswer = evaluator(...Object.values(evalContext));
     
     // Check if user's answer is within acceptable precision
     const tolerance = Math.pow(10, -precision);
@@ -264,7 +315,7 @@ export async function evaluateQuestion(
       case QuestionType.MATCHING:
         return await evaluateMatching(
           question as MatchingQuestion,
-          answer as Record<string, number[]>
+          answer as Record<string, number[] | string[] | number | string>
         );
       
       case QuestionType.PROCEDURAL:

@@ -42,10 +42,10 @@ export enum LocationId {
 }
 
 export enum MentorId {
-  GARCIA = 'GARCIA',
-  KAPOOR = 'KAPOOR',
-  JESSE = 'JESSE',
-  QUINN = 'QUINN',
+  GARCIA = 'Garcia',
+  KAPOOR = 'Kapoor',
+  JESSE = 'Jesse',
+  QUINN = 'Quinn',
 }
 
 export interface TimeBlock {

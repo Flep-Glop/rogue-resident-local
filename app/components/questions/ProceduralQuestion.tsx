@@ -278,19 +278,18 @@ const ProceduralQuestion: React.FC<Props> = ({
     }
   }, [steps, disabled]);
   
-  const moveStep = (dragIndex: number, hoverIndex: number) => {
-    if (disabled) return;
+  const moveStep = (fromIndex: number, toIndex: number) => {
+    if (disabled || fromIndex === toIndex) return;
     
-    const newOrder = [...orderedSteps];
-    const draggedItem = newOrder[dragIndex];
+    // Log for debugging
+    console.log(`Moving step from index ${fromIndex} to index ${toIndex}`);
     
-    // Remove the dragged item
-    newOrder.splice(dragIndex, 1);
-    // Insert it at the new position
-    newOrder.splice(hoverIndex, 0, draggedItem);
-    
-    setOrderedSteps(newOrder);
-    onAnswer(newOrder.map(step => step.stepId));
+    setOrderedSteps(prevSteps => {
+      const newSteps = [...prevSteps];
+      const [movedStep] = newSteps.splice(fromIndex, 1);
+      newSteps.splice(toIndex, 0, movedStep);
+      return newSteps;
+    });
   };
 
   // Get mentor information 
@@ -328,13 +327,36 @@ const ProceduralQuestion: React.FC<Props> = ({
   
   // Handle submit button
   const handleSubmit = () => {
-    onAnswer(orderedSteps.map(step => step.stepId));
+    if (disabled) return;
+    
+    // Validate that all steps are ordered
+    if (orderedSteps.length === 0) {
+      // No steps to submit
+      console.warn("Cannot submit - no steps are ordered");
+      return;
+    }
+    
+    // Extract just the stepIds in their current order
+    const submittedOrder = orderedSteps.map(step => step.stepId);
+    console.log("Submitting step order:", submittedOrder);
+    
+    // Send answer to the parent component
+    onAnswer(submittedOrder);
   };
   
   // Handle shuffling steps
   const handleShuffle = () => {
     if (disabled) return;
-    const shuffled = [...orderedSteps].sort(() => Math.random() - 0.5);
+    
+    // Create a copy to avoid mutating the original
+    const shuffled = [...orderedSteps];
+    
+    // Fisher-Yates shuffle algorithm for more randomness
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    
     setOrderedSteps(shuffled);
   };
   

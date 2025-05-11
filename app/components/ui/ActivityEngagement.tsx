@@ -478,24 +478,38 @@ export default function ActivityEngagement() {
   // Function to fetch questions for an activity using the questionManager
   const fetchQuestionsForActivity = async (activity: ActivityOption) => {
     try {
-      // Determine primary domain for the activity
-      const domain = activity.domains && activity.domains.length > 0 
-        ? activity.domains[0] 
-        : KnowledgeDomain.RADIATION_THERAPY; // Default fallback
-      
-      // Determine number of questions based on activity difficulty
-      const questionCount = activity.difficulty === ActivityDifficulty.HARD ? 3 :
-                           activity.difficulty === ActivityDifficulty.MEDIUM ? 2 : 1;
-      
-      // Use the selectActivityQuestions function to get appropriate questions
-      const questions = await selectActivityQuestions(
-        domain,
-        activity.difficulty,
-        questionCount,
-        [QuestionType.MULTIPLE_CHOICE] // Start with multiple choice for now
-      );
-      
-      return questions;
+      // If the activity has a mentor, use a mentor-specific challenge
+      if (activity.mentor) {
+        // Import challengeManager functions directly to avoid circular dependencies
+        const { createMentorSpecificChallenge } = await import('../../core/activities/challengeManager');
+        
+        // Create a challenge that prioritizes mentor matching over domain matching
+        const challenge = await createMentorSpecificChallenge(activity.mentor, activity.title);
+        
+        // Extract questions from the challenge
+        return challenge.questions;
+      } 
+      // For activities without a mentor, fall back to domain-based selection
+      else {
+        // Determine primary domain for the activity
+        const domain = activity.domains && activity.domains.length > 0 
+          ? activity.domains[0] 
+          : KnowledgeDomain.RADIATION_THERAPY; // Default fallback
+        
+        // Determine number of questions based on activity difficulty
+        const questionCount = activity.difficulty === ActivityDifficulty.HARD ? 3 :
+                            activity.difficulty === ActivityDifficulty.MEDIUM ? 2 : 1;
+        
+        // Use the selectActivityQuestions function to get appropriate questions
+        const questions = await selectActivityQuestions(
+          domain,
+          activity.difficulty,
+          questionCount,
+          [QuestionType.MULTIPLE_CHOICE] // Start with multiple choice for now
+        );
+        
+        return questions;
+      }
     } catch (error) {
       console.error('Error fetching questions for activity:', error);
       throw error;

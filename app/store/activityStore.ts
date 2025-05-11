@@ -83,6 +83,74 @@ const hospitalSchedule: Record<string, ActivityOption[]> = {
     }
   ],
   
+  // 10:00 AM
+  '10:0': [
+    {
+      id: 'treatment_planning_session',
+      title: 'Treatment Planning Session',
+      description: 'Work with Dr. Kapoor on a new treatment plan.',
+      location: LocationId.PHYSICS_OFFICE,
+      duration: 60,
+      mentor: MentorId.KAPOOR,
+      domains: [KnowledgeDomain.TREATMENT_PLANNING, KnowledgeDomain.DOSIMETRY],
+      difficulty: ActivityDifficulty.MEDIUM,
+    },
+    {
+      id: 'quality_assurance_review',
+      title: 'Quality Assurance Review',
+      description: 'Join Dr. Quinn for a review of QA procedures.',
+      location: LocationId.TREATMENT_ROOM_3,
+      duration: 60,
+      mentor: MentorId.QUINN,
+      domains: [KnowledgeDomain.DOSIMETRY],
+      difficulty: ActivityDifficulty.MEDIUM,
+    },
+    {
+      id: 'patient_observation',
+      title: 'Patient Observation',
+      description: 'Shadow Dr. Garcia during patient consultations.',
+      location: LocationId.CLINIC,
+      duration: 60,
+      mentor: MentorId.GARCIA,
+      domains: [KnowledgeDomain.RADIATION_THERAPY],
+      difficulty: ActivityDifficulty.EASY,
+    }
+  ],
+  
+  // 11:00 AM
+  '11:0': [
+    {
+      id: 'linac_troubleshooting',
+      title: 'Linac Troubleshooting',
+      description: 'Help Jesse diagnose and fix issues with a linear accelerator.',
+      location: LocationId.TREATMENT_ROOM_1,
+      duration: 60,
+      mentor: MentorId.JESSE,
+      domains: [KnowledgeDomain.LINAC_ANATOMY],
+      difficulty: ActivityDifficulty.MEDIUM,
+    },
+    {
+      id: 'dosimetry_calculations',
+      title: 'Dosimetry Calculations',
+      description: 'Practice dosimetry calculations with Dr. Kapoor.',
+      location: LocationId.PHYSICS_OFFICE,
+      duration: 60,
+      mentor: MentorId.KAPOOR,
+      domains: [KnowledgeDomain.DOSIMETRY],
+      difficulty: ActivityDifficulty.MEDIUM,
+    },
+    {
+      id: 'treatment_observation',
+      title: 'Treatment Observation',
+      description: 'Observe Dr. Quinn conducting patient treatments.',
+      location: LocationId.TREATMENT_ROOM_2,
+      duration: 60,
+      mentor: MentorId.QUINN,
+      domains: [KnowledgeDomain.RADIATION_THERAPY],
+      difficulty: ActivityDifficulty.EASY,
+    }
+  ],
+  
   // 12:00 PM (Lunch)
   '12:0': [
     {
@@ -128,6 +196,108 @@ const hospitalSchedule: Record<string, ActivityOption[]> = {
       domains: [],
       difficulty: ActivityDifficulty.NONE,
       isNetworking: true
+    }
+  ],
+  
+  // 1:00 PM
+  '13:0': [
+    {
+      id: 'afternoon_patient_cases',
+      title: 'Afternoon Patient Cases',
+      description: 'Review afternoon cases with Dr. Garcia.',
+      location: LocationId.CONFERENCE_ROOM,
+      duration: 60,
+      mentor: MentorId.GARCIA,
+      domains: [KnowledgeDomain.RADIATION_THERAPY, KnowledgeDomain.TREATMENT_PLANNING],
+      difficulty: ActivityDifficulty.MEDIUM,
+    },
+    {
+      id: 'advanced_planning_techniques',
+      title: 'Advanced Planning Techniques',
+      description: 'Learn advanced treatment planning techniques with Dr. Kapoor.',
+      location: LocationId.PHYSICS_OFFICE,
+      duration: 60,
+      mentor: MentorId.KAPOOR,
+      domains: [KnowledgeDomain.TREATMENT_PLANNING, KnowledgeDomain.DOSIMETRY],
+      difficulty: ActivityDifficulty.HARD,
+    },
+    {
+      id: 'equipment_calibration',
+      title: 'Equipment Calibration',
+      description: 'Assist Jesse with calibrating treatment equipment.',
+      location: LocationId.TREATMENT_ROOM_2,
+      duration: 60,
+      mentor: MentorId.JESSE,
+      domains: [KnowledgeDomain.LINAC_ANATOMY],
+      difficulty: ActivityDifficulty.MEDIUM,
+    }
+  ],
+  
+  // 2:00 PM
+  '14:0': [
+    {
+      id: 'research_discussion',
+      title: 'Research Discussion',
+      description: 'Discuss current research topics with Dr. Quinn.',
+      location: LocationId.RESEARCH_LAB,
+      duration: 60,
+      mentor: MentorId.QUINN,
+      domains: [KnowledgeDomain.RADIATION_THERAPY, KnowledgeDomain.DOSIMETRY],
+      difficulty: ActivityDifficulty.HARD,
+    },
+    {
+      id: 'patient_followup',
+      title: 'Patient Follow-up',
+      description: 'Join Dr. Garcia for patient follow-up consultations.',
+      location: LocationId.CLINIC,
+      duration: 60,
+      mentor: MentorId.GARCIA,
+      domains: [KnowledgeDomain.RADIATION_THERAPY],
+      difficulty: ActivityDifficulty.EASY,
+    },
+    {
+      id: 'maintenance_procedures',
+      title: 'Maintenance Procedures',
+      description: 'Learn about weekly maintenance procedures with Jesse.',
+      location: LocationId.TREATMENT_ROOM_1,
+      duration: 60,
+      mentor: MentorId.JESSE,
+      domains: [KnowledgeDomain.LINAC_ANATOMY],
+      difficulty: ActivityDifficulty.MEDIUM,
+    }
+  ],
+  
+  // 3:00 PM
+  '15:0': [
+    {
+      id: 'plan_evaluation',
+      title: 'Plan Evaluation',
+      description: 'Evaluate treatment plans with Dr. Kapoor.',
+      location: LocationId.PHYSICS_OFFICE,
+      duration: 60,
+      mentor: MentorId.KAPOOR,
+      domains: [KnowledgeDomain.DOSIMETRY, KnowledgeDomain.TREATMENT_PLANNING],
+      difficulty: ActivityDifficulty.MEDIUM,
+    },
+    {
+      id: 'advanced_imaging',
+      title: 'Advanced Imaging Techniques',
+      description: 'Explore advanced imaging techniques with Dr. Quinn.',
+      location: LocationId.TREATMENT_ROOM_3,
+      duration: 60,
+      mentor: MentorId.QUINN,
+      domains: [KnowledgeDomain.RADIATION_THERAPY],
+      difficulty: ActivityDifficulty.MEDIUM,
+    },
+    {
+      id: 'chart_rounds',
+      title: 'Chart Rounds',
+      description: 'Participate in chart rounds with Dr. Garcia.',
+      location: LocationId.CONFERENCE_ROOM,
+      duration: 60,
+      mentor: MentorId.GARCIA,
+      domains: [KnowledgeDomain.TREATMENT_PLANNING, KnowledgeDomain.RADIATION_THERAPY],
+      difficulty: ActivityDifficulty.MEDIUM,
     }
   ],
   
