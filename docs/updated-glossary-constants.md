@@ -1,7 +1,7 @@
 # ROGUE RESIDENT: GLOSSARY & CONSTANTS
-**Document Version:** 3.0  
+**Document Version:** 4.0  
 **Status:** Reference Document  
-**Last Updated:** May 07, 2025
+**Last Updated:** May 15, 2025
 
 ## DOCUMENT PURPOSE
 
@@ -11,32 +11,32 @@ This document serves as the central reference for all key terminology, concepts,
 
 ### 1.1 Day/Night Cycle
 
-**Day Phase:** The 8am-5pm period where players complete educational activities, divided into:
-- **Morning Block 1:** 8:00 AM - 10:00 AM
-- **Morning Block 2:** 10:00 AM - 12:00 PM
-- **Lunch:** 12:00 PM - 1:00 PM
-- **Afternoon Block 1:** 1:00 PM - 3:00 PM
-- **Afternoon Block 2:** 3:00 PM - 5:00 PM
+**Day Phase:** The daily period of hospital activities, visualized through:
+- **Fluid Time System:** Visual sun/shadow progression
+- **Challenge-based advancement:** Each challenge advances time slightly
+- **Three phases:** Morning, Afternoon, Evening
+- **Visual indicators:** Background color temperature shifts, lighting changes
 
-**Night Phase:** The evening period (post-5pm) when players have two key activities:
+**Night Phase:** The evening period when players return to hill home for:
 - **Knowledge Constellation (Observatory):** Review, develop, and expand constellation
-- **Clinical Applications (Study Desk):** Select abilities for the next day
+- **Applications (Study Desk/Journal):** Review and select cards for the next day
+- **Character Customization (Wardrobe/Mirror):** Modify character appearance
 
 ### 1.2 Seasonal Structure
 
-The game spans a one-year residency (four seasons) with major boss encounters after each season:
+The game spans a one-year residency (four seasons) with major boss encounters available after reaching mastery thresholds:
 
 - **Spring (Season 1):** Introduction to hospital and fundamentals
-  - **BOSS 1: The Difficult Coworker - "The Entropic Colleague"** (Technical application to workplace scenarios)
+  - **BOSS 1: The Difficult Coworker - "The Entropic Colleague"** (Available at 40% mastery)
 
 - **Summer (Season 2):** Clinical introduction and specialization
-  - **BOSS 2: The Vendor Trio - "Triskelion Solutions"** (Technology evaluation focus)
+  - **BOSS 2: The Vendor Trio - "Triskelion Solutions"** (Available at 50% mastery)
 
 - **Fall (Season 3):** Integration and advanced concepts
-  - **BOSS 3: The Audit Team - "Protocol Incarnate"** (QA/protocol focus)
+  - **BOSS 3: The Audit Team - "Protocol Incarnate"** (Available at 60% mastery)
 
 - **Winter (Season 4):** Professional identity and synthesis
-  - **BOSS 4: Ionix - "The Calibration Singularity"** (Cross-domain integration)
+  - **BOSS 4: Ionix - "The Calibration Singularity"** (Available at 75% mastery)
 
 ### 1.3 Progressive Control System
 
@@ -74,11 +74,11 @@ As players progress, they gain increasing control over gameplay aspects:
 ### 2.2 Insight (Daily Tactical Resource)
 
 - **Visualization:** ◆ Meter (0-100 points)
-- **Scope:** Persists between activities within a single day
+- **Scope:** Persists between activities within a single day, resets at night
 - **Generation:** 15-30 Insight per activity (80-120 daily)
 - **Daily Bonus:** +1 Insight at day start for each domain with 25% total mastery
 - **Primary Uses:**
-  - Power Clinical Applications (20-75 Insight per use)
+  - Power Application active effects (20-75 Insight per use)
   - Convert to SP at day end (5:1 ratio)
   - Perform Boast actions (50 Insight)
 
@@ -142,7 +142,7 @@ As players progress, they gain increasing control over gameplay aspects:
 - **Secondary Aptitude:** Innovation
 - **Associated Mentor:** Dr. Quinn
 - **Challenge Types:** Calculation, case analysis, optimization
-- **Clinical Application Focus:** Plan optimization, precision
+- **Application Focus:** Plan optimization, precision
 
 ### 3.2 Radiation Therapy (Green)
 
@@ -152,7 +152,7 @@ As players progress, they gain increasing control over gameplay aspects:
 - **Secondary Aptitude:** Comprehension
 - **Associated Mentor:** Dr. Garcia
 - **Challenge Types:** Patient communication, clinical scenarios
-- **Clinical Application Focus:** Communication, adaptability
+- **Application Focus:** Communication, adaptability
 
 ### 3.3 Linac Anatomy (Amber)
 
@@ -162,7 +162,7 @@ As players progress, they gain increasing control over gameplay aspects:
 - **Secondary Aptitude:** Innovation
 - **Associated Mentor:** Technician Jesse
 - **Challenge Types:** Equipment operation, troubleshooting
-- **Clinical Application Focus:** Technical analysis, component understanding
+- **Application Focus:** Technical analysis, component understanding
 
 ### 3.4 Dosimetry (Pink)
 
@@ -172,7 +172,7 @@ As players progress, they gain increasing control over gameplay aspects:
 - **Secondary Aptitude:** Fluency
 - **Associated Mentor:** Dr. Kapoor
 - **Challenge Types:** Measurement, protocol adherence, calculation
-- **Clinical Application Focus:** Accuracy, quality control
+- **Application Focus:** Accuracy, quality control
 
 ## 4. CHARACTERS
 
@@ -202,32 +202,34 @@ As players progress, they gain increasing control over gameplay aspects:
 - **Teaching Style:** Systematic instruction with emphasis on accuracy
 - **Challenge Style:** Detailed protocol adherence and calculation precision
 - **Special Focus:** Calibration protocols and quality assurance
+- **Connection:** Former student of The Audit Team boss
 
 ### 4.2 Boss Encounters
 
 **The Difficult Coworker ("The Entropic Colleague")**
-- **Appears:** After Spring
+- **Appears:** Available at 40% mastery in primary domain
 - **Metaphorical Role:** Embodies workplace challenges requiring technical knowledge
 - **Primary Domain:** Radiation Therapy
 - **Secondary Domain:** Treatment Planning
 - **Primary Challenge:** Technical application to clinical scenarios and communication
 
 **The Vendor Trio ("Triskelion Solutions")**
-- **Appears:** After Summer
+- **Appears:** Available at 50% mastery in primary domain
 - **Metaphorical Role:** Embodies critical evaluation of commercial technology claims
 - **Primary Domain:** Linac Anatomy
 - **Secondary Domain:** Dosimetry
 - **Primary Challenge:** Technology evaluation and specification analysis
 
 **The Audit Team ("Protocol Incarnate")**
-- **Appears:** After Fall
+- **Appears:** Available at 60% mastery in primary domain
 - **Metaphorical Role:** Embodies protocol adherence and quality assurance
 - **Primary Domain:** Dosimetry
 - **Secondary Domain:** Linac Anatomy
 - **Primary Challenge:** Protocol adherence and QA procedures
+- **Leader:** Dr. Kapoor's former mentor (strict but fair)
 
 **Ionix ("The Calibration Singularity")**
-- **Appears:** After Winter
+- **Appears:** Available at 75% mastery in primary domain
 - **Metaphorical Role:** Embodies knowledge integration and synthesis
 - **Primary Domain:** Cross-domain
 - **Secondary Domain:** All domains
@@ -276,23 +278,30 @@ As players progress, they gain increasing control over gameplay aspects:
 - **Primary Activities:** Research, self-study
 - **Primary Domains:** All domains
 - **Challenge Focus:** Literature review, knowledge synthesis
+- **Special Mechanics:** Etching discovery, research minigame, time manipulation
 
 ### 5.2 Hill Home Locations (Night Phase)
 
 **Observatory**
 - **Primary Function:** Knowledge Constellation interface
-- **Activities:** Review new discoveries, unlock stars, observe patterns
+- **Activities:** Review new discoveries, unlock stars, apply etchings
 - **Special Feature:** Visual representation of knowledge development
 
 **Study Desk**
-- **Primary Function:** Clinical Applications interface
-- **Activities:** Select abilities for next day, review domain development
-- **Special Feature:** Connects knowledge to daily application
+- **Primary Function:** Applications/Journal interface
+- **Activities:** Select cards for next day, review domain development
+- **Special Feature:** Journal system with three card slots
+
+**Wardrobe/Mirror**
+- **Primary Function:** Character customization
+- **Activities:** Modify character appearance, review unlocked options
+- **Special Feature:** Customization progression
 
 ## 6. CHALLENGE TYPES
 
 **Multiple Choice Questions**
 - **Format:** Question with several possible answers
+- **Quantity:** 4-8 questions per challenge
 - **Difficulty Scaling:** Complexity of concepts and nuance between options
 - **Primary Use:** Testing knowledge recall and comprehension
 - **Mastery Gain:** 1-4% based on difficulty
@@ -321,33 +330,35 @@ As players progress, they gain increasing control over gameplay aspects:
 - **Success Reward:** 2× mastery gain, 2× Insight, +1 relationship point
 - **Failure Penalty:** No gain, no Insight, -1 relationship point, reset Momentum
 
-## 7. BUILD ARCHETYPES
+## 7. VIABLE BUILD PATHS
 
-**The Specialist**
+While formal archetypes have been removed, these build paths remain viable:
+
+**Domain Specialization**
 - **Focus:** Deep knowledge in one domain
 - **Stars:** 90%+ mastery in primary domain
-- **Abilities:** Domain-specific clinical applications
+- **Applications:** Domain-specific cards
 - **Relationships:** Strong with one mentor
 - **Boss Effectiveness:** Very strong against domain-aligned bosses
 
-**The Integrator**
+**Cross-Domain Integration**
 - **Focus:** Balanced knowledge across domains
 - **Stars:** 50%+ mastery in multiple domains
-- **Abilities:** Cross-domain synthesis applications
+- **Applications:** Cross-domain synthesis cards
 - **Relationships:** Moderate with all mentors
 - **Boss Effectiveness:** Consistent performance across all bosses
 
-**The Technician**
+**Technical Focus**
 - **Focus:** Technical and procedural expertise
 - **Stars:** 70%+ mastery in LA and DOS domains
-- **Abilities:** Component analysis, precision-focused
+- **Applications:** Component analysis, precision-focused
 - **Relationships:** Strong with technical mentors
 - **Boss Effectiveness:** Strong against Audit Team and Vendor Trio
 
-**The Communicator**
+**Communication Focus**
 - **Focus:** Clinical and communication skills
 - **Stars:** 70%+ mastery in RT and TP domains
-- **Abilities:** Clinical translation, relationship-focused
+- **Applications:** Clinical translation, relationship-focused
 - **Relationships:** Strong with multiple mentors
 - **Boss Effectiveness:** Strong against Difficult Coworker
 
@@ -389,9 +400,35 @@ As players progress, they gain increasing control over gameplay aspects:
 - **Challenge Types:** Dialogue, presentations, team interactions
 - **Primary Domains:** Related to mentor
 
-## 9. GAME CONSTANTS DATABASE
+## 9. JOURNAL & ETCHING SYSTEM
 
-### 9.1 Resource Economy Constants
+### 9.1 Journal Properties
+
+- **Physical Form:** Leather-bound medical journal
+- **Interface:** Page-turning interactive book
+- **Sections:**
+  - Application Card Collection
+  - Etching Catalog
+  - Daily Card Selection (3 slots)
+  - Progress Notes
+  - Discovery Tracking
+
+### 9.2 Etching Properties
+
+- **Definition:** Hand-drawn constellation diagrams showing star connection patterns
+- **Discovery:** Found in library books, mentor gifts, environmental locations
+- **Function:** Enable players to form specific star connections
+- **Storage:** Collected in journal
+- **Types:**
+  - Domain Etchings (domain-specific, simpler patterns)
+  - Cross-Domain Etchings (connecting multiple domains)
+  - Special Etchings (unique patterns with powerful effects)
+
+See the Card & Etching System Document for complete details.
+
+## 10. GAME CONSTANTS DATABASE
+
+### 10.1 Resource Economy Constants
 
 | Constant Name | Value | Description | Used By |
 |---------------|-------|-------------|---------|
@@ -404,19 +441,22 @@ As players progress, they gain increasing control over gameplay aspects:
 | DAILY_INSIGHT_GENERATION | 80-120 | Target Insight generation per day | Day Phase activities |
 | ACTIVE_STAR_INSIGHT_BONUS | 1 | Insight gained at day start per domain with 25% mastery | Night Phase |
 
-### 9.2 Boss Encounter Constants
+### 10.2 Boss Encounter Constants
 
 | Constant Name | Value | Description | Used By |
 |---------------|-------|-------------|---------|
+| BOSS_1_MASTERY_THRESHOLD | 40% | Mastery threshold for Boss 1 availability | Boss Encounters |
+| BOSS_2_MASTERY_THRESHOLD | 50% | Mastery threshold for Boss 2 availability | Boss Encounters |
+| BOSS_3_MASTERY_THRESHOLD | 60% | Mastery threshold for Boss 3 availability | Boss Encounters |
+| BOSS_4_MASTERY_THRESHOLD | 75% | Mastery threshold for Boss 4 availability | Boss Encounters |
 | BOSS_1_SP_REWARD | 25 | SP reward for defeating Boss 1 | Boss Encounters |
 | BOSS_2_SP_REWARD | 25 | SP reward for defeating Boss 2 | Boss Encounters |
 | BOSS_3_SP_REWARD | 30 | SP reward for defeating Boss 3 | Boss Encounters |
 | BOSS_4_SP_REWARD | 30 | SP reward for defeating Boss 4 | Boss Encounters |
 | BOSS_MASTERY_BOOST | 15% | Mastery boost to stars used in boss encounters | Boss Encounters |
 | BOSS_RELATIONSHIP_REWARD | 5 | Relationship points gained with primary mentor | Boss Encounters |
-| BOSS_WARNING_DAYS | 2 | Days of warning before boss encounter | Seasonal System |
 
-### 9.3 Star Unlock Cost Constants
+### 10.3 Star Unlock Cost Constants
 
 | Constant Name | Value | Description | Used By |
 |---------------|-------|-------------|---------|
@@ -426,7 +466,7 @@ As players progress, they gain increasing control over gameplay aspects:
 | DOMAIN_DISCOUNT | 5 | SP discount for additional stars in same domain | Knowledge Constellation |
 | DOMAIN_DISCOUNT_MINIMUM | 10 | Minimum SP cost after domain discounts | Knowledge Constellation |
 
-### 9.4 Mastery Progression Constants
+### 10.4 Mastery Progression Constants
 
 | Constant Name | Value | Description | Used By |
 |---------------|-------|-------------|---------|
@@ -442,7 +482,7 @@ As players progress, they gain increasing control over gameplay aspects:
 | PASSIVE_CONNECTION_MASTERY_GAIN | 0.5% | Daily passive mastery gain per connection | Constellation System |
 | MENTOR_MASTERY_BONUS_PER_LEVEL | 5% | Increase to mastery gain rate per mentor level | Relationship System |
 
-### 9.5 Challenge Difficulty Constants
+### 10.5 Challenge Difficulty Constants
 
 | Constant Name | Value | Description | Used By |
 |---------------|-------|-------------|---------|
@@ -454,7 +494,7 @@ As players progress, they gain increasing control over gameplay aspects:
 | BOAST_SUCCESS_RELATIONSHIP | +1 | Relationship point gain on successful Boast | Challenge System |
 | BOAST_FAILURE_RELATIONSHIP | -1 | Relationship point loss on failed Boast | Challenge System |
 
-### 9.6 Relationship System Constants
+### 10.6 Relationship System Constants
 
 | Constant Name | Value | Description | Used By |
 |---------------|-------|-------------|---------|
@@ -470,7 +510,7 @@ As players progress, they gain increasing control over gameplay aspects:
 | RELATIONSHIP_INSIGHT_BONUS_L4 | +20% | Insight bonus at relationship Level 4 | Relationship System |
 | RELATIONSHIP_INSIGHT_BONUS_L5 | +25% | Insight bonus at relationship Level 5 | Relationship System |
 
-### 9.7 Activity System Constants
+### 10.7 Activity System Constants
 
 | Constant Name | Value | Description | Used By |
 |---------------|-------|-------------|---------|
@@ -486,112 +526,48 @@ As players progress, they gain increasing control over gameplay aspects:
 | RELEVANT_STAR_TIME_MODIFIER_75 | 0.8x | Time modifier for 75-90% star mastery | Activity System |
 | RELEVANT_STAR_TIME_MODIFIER_90 | 0.7x | Time modifier for >90% star mastery | Activity System |
 
-### 9.8 Clinical Applications System Constants
+### 10.8 Applications System Constants
 
 | Constant Name | Value | Description | Used By |
 |---------------|-------|-------------|---------|
-| ABILITY_SLOTS | 3 | Total ability slots available | Clinical Applications System |
-| MINOR_ABILITY_COST | 20-25 | Insight cost for minor effect abilities | Clinical Applications System |
-| STANDARD_ABILITY_COST | 25-35 | Insight cost for standard effect abilities | Clinical Applications System |
-| MAJOR_ABILITY_COST | 35-50 | Insight cost for major effect abilities | Clinical Applications System |
-| SPECIAL_ABILITY_COST | 45-75 | Insight cost for special effect abilities | Clinical Applications System |
+| ABILITY_SLOTS | 3 | Total ability slots available | Applications System |
+| MINOR_ABILITY_COST | 20-25 | Insight cost for minor effect abilities | Applications System |
+| STANDARD_ABILITY_COST | 25-35 | Insight cost for standard effect abilities | Applications System |
+| MAJOR_ABILITY_COST | 35-50 | Insight cost for major effect abilities | Applications System |
+| SPECIAL_ABILITY_COST | 45-75 | Insight cost for special effect abilities | Applications System |
 
-## 10. SYSTEM RELATIONSHIPS
+## 11. SYSTEM RELATIONSHIPS
 
-### 10.1 Knowledge-Ability Relationship
+### 11.1 Knowledge-Ability Relationship
 
-```
-┌───────────────────────┐      Unlocks      ┌───────────────────────┐
-│                       ├─────────────────► │                       │
-│       Knowledge       │                   │       Clinical        │
-│      Constellation    │                   │      Applications     │
-│                       │◄─────────────────┤                       │
-└───────────────────────┘      Enables      └───────────────────────┘
-          │                                              │
-          │                                              │
-          │                                              │
-          ▼                                              ▼
-┌───────────────────────┐                    ┌───────────────────────┐
-│                       │                    │                       │
-│    Knowledge Domain   │                    │    Day-to-Day         │
-│    Understanding      │                    │    Application        │
-│                       │                    │                       │
-└───────────────────────┘                    └───────────────────────┘
-```
+The Knowledge Constellation and Applications systems are interconnected, with stars unlocking cards and patterns enabling cross-domain abilities.
 
-### 10.2 Day-Night Cycle Integration
+### 11.2 Day-Night Cycle Integration
 
-```
-                  ┌───────────────────────────────┐
-                  │                               │
-                  │            DAY PHASE          │
-                  │                               │
-┌─────────────────┼───────────────────────────────┼─────────────────┐
-│                 │                               │                 │
-│  - Activities   │  - Insight Generation        │ - Star Glimpses │
-│  - Challenges   │  - Relationship Building     │ - Mastery Dev   │
-│  - Ability Use  │  - Knowledge Application     │ - Connections   │
-│                 │                               │                 │
-└─────────────────┼───────────────────────────────┼─────────────────┘
-                  │                               │
-                  │                               │
-                  ▼                               ▼
-                  │                               │
-┌─────────────────┼───────────────────────────────┼─────────────────┐
-│                 │                               │                 │
-│ - Constellation │  - SP Allocation             │ - Ability       │
-│   Development   │  - System Review             │   Selection     │
-│ - Knowledge     │  - Progress Assessment       │ - Preparation   │
-│   Integration   │                               │                 │
-│                 │                               │                 │
-└─────────────────┼───────────────────────────────┼─────────────────┘
-                  │                               │
-                  │           NIGHT PHASE         │
-                  │                               │
-                  └───────────────────────────────┘
-```
+The day phase focuses on hospital activities, insight generation, and knowledge glimpses, while the night phase centers on constellation development, card selection, and progress assessment.
 
-### 10.3 Knowledge Domain Interconnections
+### 11.3 Knowledge Domain Interconnections
 
-```
-         ┌───────────────────────────────┐
-         │                               │
-         │     Treatment Planning        │◄─────┐
-         │          (Blue)               │      │
-         │                               │      │
-         └─────────────┬─────────────────┘      │
-                       │                         │
-                       │                         │
-          Cross-Domain │                         │ Cross-Domain
-         Connections   │                         │ Connections
-                       │                         │
-                       ▼                         │
-┌───────────────────────────────┐  Cross-Domain  │
-│                               │  Connections    │
-│     Radiation Therapy         ├─────────────────┘
-│          (Green)              │
-│                               │
-└─────────────┬─────────────────┘
-              │
-              │
- Cross-Domain │
-Connections   │
-              │
-              ▼
-┌───────────────────────────────┐
-│                               │
-│       Linac Anatomy           │───────┐
-│          (Amber)              │       │
-│                               │       │
-└───────────────────────────────┘       │
-                                        │ Cross-Domain
-                                        │ Connections
-                                        │
-                                        ▼
-                   ┌───────────────────────────────┐
-                   │                               │
-                   │         Dosimetry             │
-                   │          (Pink)               │
-                   │                               │
-                   └───────────────────────────────┘
-```
+The four knowledge domains (Treatment Planning, Radiation Therapy, Linac Anatomy, and Dosimetry) can connect through cross-domain connections, enabling more complex patterns and abilities.
+
+### 11.4 Journal-Etching-Constellation Relationship
+
+The journal contains etchings (blueprints) that enable constellation connections and application cards, creating an integrated system of discovery and application.
+
+### 11.5 Hill Home Integration
+
+The hill home contains three key areas: Observatory (constellation), Study Desk (journal/applications), and Wardrobe (character customization), plus the bed for advancing to the next day.
+
+## 12. CONTENT HIERARCHY
+
+### 12.1 Terminology Structure
+1. **Question**: Single educational prompt (10-30 seconds)
+2. **Challenge**: 3-5 related questions (1-3 minutes)
+3. **Activity**: 3-4 challenges around theme (3-10 minutes)
+4. **Day**: 3-5 activities total (10-12 minutes)
+
+### 12.2 Daily Content Target
+- 4-5 activities
+- 10-15 challenges
+- 40-55 questions
+- ~10-12 minutes total

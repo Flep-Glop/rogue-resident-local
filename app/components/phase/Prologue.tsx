@@ -6,6 +6,8 @@ import { useGameStore } from '@/app/store/gameStore';
 import { GamePhase, Difficulty } from '@/app/types';
 import Image from 'next/image';
 import pixelTheme, { colors, typography, animation, components, mixins, borders, shadows, spacing } from '@/app/styles/pixelTheme';
+import SpriteImage from '@/app/components/ui/SpriteImage';
+import { getPortraitCoordinates, SPRITE_SHEETS } from '@/app/utils/spriteMap';
 
 interface DialogueLine {
   text: string;
@@ -71,14 +73,13 @@ const BackgroundImage = styled.div`
 
 const CharacterPortrait = styled.div`
   position: absolute;
-  bottom: 210px;
+  bottom: 140px;
   left: 150px;
   width: 384px;
   height: 384px;
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow: hidden;
   z-index: 2;
 `;
 
@@ -755,14 +756,27 @@ export const Prologue: React.FC = () => {
       
       {/* Character portrait */}
       <CharacterPortrait>
-        <Image 
-          src="/images/garcia.png" 
-          alt="Dr. Garcia" 
-          width={384} 
-          height={384}
-          style={{ imageRendering: 'pixelated' }}
-          priority
-        />
+        <div style={{ 
+          position: 'relative',
+          width: `${42 * 8}px`, // Exact width of one sprite tile × scale
+          height: `${42 * 8}px`, // Exact height of one sprite tile × scale
+          overflow: 'hidden'
+        }}>
+          <Image 
+            src="/images/characters-portrait.png"
+            alt="Dr. Garcia"
+            width={210} // Full sprite sheet width
+            height={42}  // Full sprite sheet height
+            style={{
+              objectFit: 'none',
+              objectPosition: `-${3 * 42}px 0px`, // 'garcia' is at index 3, width is 42px
+              imageRendering: 'pixelated',
+              transform: 'scale(8)', // Scale up the pixel art
+              transformOrigin: 'top left'
+            }}
+            unoptimized={true}
+          />
+        </div>
       </CharacterPortrait>
       
       {/* Dialogue box */}

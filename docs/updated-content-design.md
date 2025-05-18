@@ -1,7 +1,7 @@
 # ROGUE RESIDENT: CONTENT DESIGN DOCUMENT
-**Document Version:** 2.0  
+**Document Version:** 3.0  
 **Status:** Design Specification  
-**Last Updated:** May 07, 2025
+**Last Updated:** May 15, 2025
 
 ## DOCUMENT PURPOSE
 
@@ -206,9 +206,9 @@ Each activity in the game has the following properties:
 - **Difficulty:** Level 1, 2, or 3
   
 - **Time Properties:**
-  - **Duration:** Base duration in minutes
-  - **Start Hour:** Earliest hour activity can start
-  - **End Hour:** Latest hour activity can end
+  - **Duration Impact:** How much time is advanced per challenge
+  - **Start Phase:** Earliest phase activity can start (morning, afternoon, evening)
+  - **End Phase:** Latest phase activity can end
   - **Fixed Time:** Whether activity can be rescheduled
   
 - **Reward Properties:**
@@ -219,10 +219,12 @@ Each activity in the game has the following properties:
 - **Knowledge Properties:**
   - **Related Stars:** Star IDs related to this activity
   - **Discovery Chance:** Chance to discover new stars
+  - **Etching Discovery:** Chance to find etchings
   
 - **Challenge Properties:**
   - **Challenge Type:** Format of educational challenges
   - **Challenge Count:** Number of challenges in activity
+  - **Questions Per Challenge:** Typically 4-8 questions per challenge
 
 ### 2.2 Activity Categories
 
@@ -379,7 +381,7 @@ Activities provide several types of rewards:
 **Knowledge Discovery**
 - **Star Glimpses:** Chance to glimpse new stars related to activity
 - **Connection Insights:** Discover potential connections between stars
-- **Pattern Revelations:** Hints about valuable star patterns
+- **Etching Discoveries:** Find etchings in books, mentor interactions, or environments
 - **Domain Affinity:** Increases domain affinity for the activity's domain
 
 **Relationship Development**
@@ -433,6 +435,11 @@ Each season focuses on different activity types and domains:
 - **Activity Types:** Didactic, guided practice
 - **Challenge Types:** Multiple choice, matching
 - **Primary Domains:** Balanced across all
+- **Progressive Introduction:** 
+  - Days 1-2: Dr. Garcia & RT domain only
+  - Days 3-4: Dr. Quinn & TP domain added  
+  - Days 5-6: Technician Jesse & LA domain added
+  - Days 7-8: Dr. Kapoor & DOS domain added
 
 #### Summer: Clinical Introduction
 - **Focus:** Patient care and treatment basics
@@ -458,9 +465,9 @@ Activities contain an appropriate number of challenges based on duration and dif
 
 | Activity Duration | Difficulty 1 | Difficulty 2 | Difficulty 3 |
 |------------------|--------------|--------------|--------------|
-| 1 hour | 3-4 | 4-5 | 5-6 |
-| 2 hours | 5-7 | 7-9 | 9-12 |
-| 4 hours | 10-15 | 15-20 | 20-25 |
+| Short | 3-4 | 4-5 | 5-6 |
+| Medium | 5-7 | 7-9 | 9-12 |
+| Long | 10-15 | 15-20 | 20-25 |
 
 ### 2.8 Time-Challenge Balance
 
@@ -481,6 +488,30 @@ Total time for challenges should be 60-80% of activity duration, leaving time fo
 - Feedback and explanation
 - Summary and conclusion
 
+### 2.9 Library Special Mechanics
+
+The Library location features unique mechanics:
+
+**Discovery Mode**
+- Browse for knowledge through a card catalog interface
+- Find etchings hidden in specific books
+- Special rewards for exploration
+
+**Research Minigame**
+- Search and cross-reference research topics
+- Connect papers with related concepts
+- Discover connections between stars
+
+**Flexible Difficulty**
+- Player chooses depth of research
+- Higher difficulty yields better rewards
+- Advanced research requires higher mastery
+
+**Time Manipulation**
+- Extended hours (available in evening)
+- Time dilation (activities take less time)
+- Special night research options
+
 ## 3. BOSS ENCOUNTER SYSTEM
 
 ### 3.1 Encounter Properties
@@ -490,7 +521,7 @@ Each boss encounter has the following properties:
 - **Identifier:** Unique ID for the encounter
 - **Name:** Display name
 - **Subtitle:** Thematic subtitle
-- **Season:** When encounter appears
+- **Mastery Threshold:** Mastery required to unlock (40%, 50%, 60%, 75%)
 - **Primary Domain:** Primary knowledge domain tested
 - **Secondary Domain:** Secondary knowledge domain tested
   
@@ -556,7 +587,7 @@ All boss encounters follow a consistent 5-phase structure:
 The Difficult Coworker represents interpersonal challenges in professional environments. They appear as a coworker who creates challenging scenarios requiring technical knowledge application.
 
 - **Metaphorical Role:** Embodies workplace challenges requiring technical explanations
-- **Narrative Placement:** Summer (end of spring season)
+- **Narrative Placement:** End of Spring (available at 40% mastery)
 - **Educational Purpose:** Tests application of treatment planning and radiation therapy knowledge
 
 #### Encounter Mechanics
@@ -614,7 +645,7 @@ The Difficult Coworker represents interpersonal challenges in professional envir
 
 **Recommended Configuration**
 - **Active Stars:** Treatment planning and radiation therapy stars
-- **Abilities:** Clinical Translation, Target Contouring, Dose Distribution
+- **Application Cards:** Perfect Path, Adaptive Flux, Overdrive
 - **Mentor Boon:** Dr. Garcia's Clinical Insight (reveals key clinical factors)
 
 ### 3.4 Boss 2: The Vendor Trio ("Triskelion Solutions")
@@ -623,7 +654,7 @@ The Difficult Coworker represents interpersonal challenges in professional envir
 The Vendor Trio represents the challenge of evaluating commercial claims and technology. They appear as three synchronized sales representatives with uncanny coordination and polished presentations.
 
 - **Metaphorical Role:** Embodies the critical evaluation of technology claims
-- **Narrative Placement:** Fall (end of summer season)
+- **Narrative Placement:** End of Summer (available at 50% mastery)
 - **Educational Purpose:** Tests ability to evaluate technology claims and specifications
 
 #### Encounter Mechanics
@@ -681,16 +712,16 @@ The Vendor Trio represents the challenge of evaluating commercial claims and tec
 
 **Recommended Configuration**
 - **Active Stars:** Linac anatomy and equipment-related stars
-- **Abilities:** Component Analysis, Machine Quality Assurance, Beam Geometry
+- **Application Cards:** Fast Learner, Second Chance, Emergency Protocol
 - **Mentor Boon:** Technician Jesse's Technical Insight (reveals hidden specifications)
 
 ### 3.5 Boss 3: The Audit Team ("Protocol Incarnate")
 
 #### Concept & Narrative
-The Audit Team represents the rigid structures of quality assurance and procedural correctness. They appear as a trio of clipboard-wielding figures who speak in regulations and checklists.
+The Audit Team represents the rigid structures of quality assurance and procedural correctness. They appear as a trio of clipboard-wielding figures led by Dr. Kapoor's former mentor, who is strict but fair.
 
 - **Metaphorical Role:** Embodies technical standards and quality assurance principles
-- **Narrative Placement:** Winter (end of fall season)
+- **Narrative Placement:** End of Fall (available at 60% mastery)
 - **Educational Purpose:** Tests mastery of quality assurance procedures and protocol knowledge
 
 #### Encounter Mechanics
@@ -748,7 +779,7 @@ The Audit Team represents the rigid structures of quality assurance and procedur
 
 **Recommended Configuration**
 - **Active Stars:** Dosimetry and quality assurance-related stars
-- **Abilities:** Precision Analysis, Calibration Expertise, Quality Assurance
+- **Application Cards:** Perfect Precision, Detector Array, Relative Measure
 - **Mentor Boon:** Dr. Kapoor's Precision Focus (reduces error margin requirements)
 
 ### 3.6 Boss 4: Ionix ("The Calibration Singularity")
@@ -757,7 +788,7 @@ The Audit Team represents the rigid structures of quality assurance and procedur
 Ionix represents the ultimate integration of all medical physics knowledge domains. It appears as a fluid, glitching entity that sometimes speaks in the player's voice, challenging them with complex, multi-domain problems.
 
 - **Metaphorical Role:** Embodies the need for knowledge synthesis and cross-domain mastery
-- **Narrative Placement:** End of Winter (final challenge)
+- **Narrative Placement:** End of Winter (available at 75% mastery)
 - **Educational Purpose:** Tests comprehensive understanding across all domains
 
 #### Encounter Mechanics
@@ -815,87 +846,30 @@ Ionix represents the ultimate integration of all medical physics knowledge domai
 
 **Recommended Configuration**
 - **Active Stars:** Balanced selection across all domains with emphasis on connections
-- **Abilities:** Domain Synthesis, Dose Distribution, Beam Geometry
+- **Application Cards:** Tomorrow's Promise, Network Effect, Quantum Leap
 - **Mentor Boon:** Combined Mentor Insight (provides hints during critical moments)
 
-### 3.7 Boss Preparation System
+### 3.7 Boss Encounter Availability
 
-#### Warning System
+Boss encounters are available based on mastery thresholds rather than fixed days:
 
-Two days before a boss encounter becomes available, players receive:
+| Boss | Mastery Threshold | Preparation Phase | Description |
+|------|-------------------|-------------------|-------------|
+| The Difficult Coworker | 40% in primary domain | Available at 35% | Treatment Planning & RT focus |
+| The Vendor Trio | 50% in primary domain | Available at 45% | Linac Anatomy & Dosimetry focus |
+| The Audit Team | 60% in primary domain | Available at 55% | Dosimetry & QA focus |
+| Ionix | 75% in primary domain | Available at 70% | Cross-domain integration |
 
-**Warning Notification**
-- **Visual Alert:** "Boss Encounter Approaching" notification
-- **Mentor Message:** Associated mentor provides context
-- **Calendar Marking:** Boss day marked on schedule
-- **Preparation Guide:** Overview of recommended preparations
+If the player fails a boss encounter, they can retry immediately or continue normal gameplay until ready.
 
-**System Changes**
-- **Activity Pool:** Special preparation activities appear
-- **Constellation Access:** Extended Night Phase for optimization
-- **Resource Boost:** Bonus Insight generation during preparation days
-- **Mentor Availability:** Associated mentor always available for consultation
+#### Boss Encounter Progression
 
-#### Preparation Activities
+As players build mastery, they receive progressive hints about upcoming bosses:
 
-Special activities become available during the preparation period:
-
-**Mentor-Guided Preparation**
-- **Format:** One-on-one session with associated mentor
-- **Benefit:** +20% effectiveness against specific boss phase
-- **Duration:** 2 hours (1 time block)
-- **Requirement:** Minimum relationship level with mentor
-
-**Knowledge Review**
-- **Format:** Focused study of relevant domain
-- **Benefit:** Temporary mastery boost to related stars
-- **Duration:** 4 hours (2 time blocks)
-- **Requirement:** Stars must be unlocked but not fully mastered
-
-**Practical Simulation**
-- **Format:** Hands-on practice of relevant skills
-- **Benefit:** Improved performance in practical challenge phases
-- **Duration:** 2 hours (1 time block)
-- **Requirement:** Completion of related basic activities
-
-**Strategic Planning**
-- **Format:** Analysis of boss encounter structure
-- **Benefit:** Reveals boss phase sequence and key mechanics
-- **Duration:** 2 hours (1 time block)
-- **Requirement:** None (always available)
-
-#### Mentor Boon System
-
-Each mentor can provide a special boon for boss encounters based on relationship level:
-
-**Boon Power by Relationship Tier**
-- **Tier 1 (10+ relationship):** Minor assistance in specific situation
-- **Tier 2 (20+ relationship):** Moderate help in broader situations
-- **Tier 3 (30+ relationship):** Significant advantage in critical moments
-- **Tier 4 (40+ relationship):** Major assistance throughout encounter
-- **Tier 5 (50 relationship):** Powerful effect that can turn the tide
-
-**Mentor-Specific Boons**
-
-**Dr. Kapoor (Dosimetry Expert)**
-- **Tier 1 - Precision Focus:** Reduces error margin requirements by 10%
-- **Tier 3 - Protocol Insight:** Highlight critical protocol elements
-- **Tier 5 - Perfect Precision:** Auto-succeed one precision-based challenge
-
-**Dr. Garcia (Radiation Therapy Expert)**
-- **Tier 1 - Clinical Insight:** Reveals key clinical factors in patient cases
-- **Tier 3 - Treatment Optimization:** Provides guidance on optimal approach
-- **Tier 5 - Clinical Mastery:** Automatically succeed one clinical challenge
-
-**Technician Jesse (Linac Anatomy Expert)**
-- **Tier 1 - Technical Insight:** Reveals one hidden specification
-- **Tier 3 - Mechanical Mastery:** Provide technical solution to equipment challenge
-- **Tier 5 - Engineering Excellence:** Auto-succeed one technical challenge
-
-**Dr. Quinn (Treatment Planning Expert)**
-- **Tier 1 - Conceptual Clarity:** Simplifies one complex concept
-- **Tier 3 - Optimization Insight:** Shows optimal solution path
-- **Tier 5 - Brilliant Intuition:** Auto-succeed one conceptual challenge
+**10% Mastery:** Narrative tease (mention in dialogue)
+**20% Mastery:** Mechanic tease (glimpse of challenge type)
+**30% Mastery:** More specific foreshadowing
+**40%/50%/60%/75%:** Boss available
 
 ## 4. CONTENT CREATION GUIDELINES
 
@@ -1039,3 +1013,17 @@ Tools for addressing balance issues:
 - Revise success requirements
 - Add recovery options for struggling builds
 - Create secondary success routes
+
+## 6. CONTENT HIERARCHY
+
+### 6.1 Terminology Structure
+1. **Question**: Single educational prompt (10-30 seconds)
+2. **Challenge**: 3-5 related questions (1-3 minutes)
+3. **Activity**: 3-4 challenges around theme (3-10 minutes)
+4. **Day**: 3-5 activities total (10-12 minutes)
+
+### 6.2 Daily Content Target
+- 4-5 activities
+- 10-15 challenges
+- 40-55 questions
+- ~10-12 minutes total

@@ -420,81 +420,7 @@ const StatusFooter = styled.div`
   color: ${colors.textDim};
 `;
 
-const CharacterPortrait = styled.div`
-  position: absolute;
-  bottom: 210px;
-  left: 150px;
-  width: 384px;
-  height: 384px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  z-index: 20;
-`;
 
-const TutorialOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  z-index: 19;
-  padding-bottom: ${spacing.xl};
-  ${pixelTheme.mixins.pixelPerfect}
-`;
-
-const DialogueBox = styled.div`
-  ${components.dialog.container}
-  position: relative;
-  margin: 0 auto ${spacing.lg};
-  width: 83%;
-  max-width: 800px;
-  z-index: 21;
-  cursor: pointer;
-`;
-
-const DialogueHeader = styled.div`
-  ${components.dialog.header}
-  font-size: ${typography.fontSize.xl};
-  font-weight: medium;
-  margin-bottom: ${spacing.xs};
-`;
-
-const DialogueContent = styled.div`
-  ${components.dialog.content}
-  margin-bottom: ${spacing.md};
-`;
-
-const ContinueButton = styled.button`
-  ${components.button.base}
-  ${components.button.primary}
-  position: absolute;
-  bottom: ${spacing.xs};
-  right: ${spacing.md};
-  padding: ${spacing.xs} ${spacing.md};
-  font-size: ${typography.fontSize.sm};
-  
-  &:hover {
-    background-color: ${colors.treatmentPlanning};
-    transform: translateY(-2px);
-    box-shadow: ${shadows.pixelDrop};
-  }
-`;
-
-// Add the InstructionText component
-const InstructionText = styled.div`
-  position: absolute;
-  bottom: ${spacing.xs};
-  left: ${spacing.md};
-  font-size: ${typography.fontSize.sm};
-  color: ${colors.textDim};
-  text-shadow: ${typography.textShadow.pixel};
-`;
 
 // Add Sort controls container and button styles
 const SortControls = styled.div`
@@ -552,30 +478,12 @@ const FilterButton = styled.button<{ $active: boolean }>`
   }
 `;
 
-// Tutorial dialogue content
-const tutorialDialogue = [
-  "Welcome to the Night Phase, the time when we reflect on what we've learned! I'm glad I caught you before you dove in.",
-  "This starry view represents your knowledge constellation. Each star is an insight you discovered during your day at the hospital.",
-  "You can hover over stars to see what you've learned. Newly discovered stars can be unlocked with Star Points you've earned.",
-  "The more stars you unlock, the more Insight you'll gain at the start of each day. This gives you more opportunities to learn and grow.",
-  "You can also open your Journal to review detailed notes about what you've learned. Everything you discover will be recorded there.",
-  "When you're ready to begin a new day, simply click 'Start New Day'. Don't forget to unlock stars before you leave - they'll give you the energy to learn more tomorrow!",
-  "Good luck, and remember - the night sky is a reflection of your growing knowledge. Make it shine brightly!"
-];
-
 export const NightPhase: React.FC = () => {
   const [showJournal, setShowJournal] = useState(false);
   const [, forceUpdate] = useState({});
   const [hoveredStar, setHoveredStar] = useState<KnowledgeStar | null>(null);
   const [selectedStar, setSelectedStar] = useState<KnowledgeStar | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  
-  // Tutorial state
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [tutorialStep, setTutorialStep] = useState(0);
-  const [displayedText, setDisplayedText] = useState('');
-  const [isTyping, setIsTyping] = useState(true);
-  const [typingSpeed, setTypingSpeed] = useState(30); // milliseconds per character
   
   // Sorting state
   type SortByType = 'default' | 'name' | 'domain' | 'unlocked';
@@ -589,8 +497,12 @@ export const NightPhase: React.FC = () => {
   const daysPassed = useGameStore(state => state.daysPassed);
   const resetDay = useGameStore(state => state.resetDay);
   const starPoints = useGameStore(state => state.resources.starPoints);
-  const hasVisitedNightPhase = useGameStore(state => state.hasVisitedNightPhase);
   const setHasVisitedNightPhase = useGameStore(state => state.setHasVisitedNightPhase);
+  
+  // Mark the night phase as visited since we removed the tutorial
+  useEffect(() => {
+    setHasVisitedNightPhase(true);
+  }, [setHasVisitedNightPhase]);
   
   const getActiveStars = useKnowledgeStore(state => state.getActiveStars);
   const getUnlockedStars = useKnowledgeStore(state => state.getUnlockedStars);
@@ -599,52 +511,6 @@ export const NightPhase: React.FC = () => {
   const unlockStar = useKnowledgeStore(state => state.unlockStar);
   const clearDailyDiscoveries = useKnowledgeStore(state => state.clearDailyDiscoveries);
   const toggleStarActive = useKnowledgeStore(state => state.toggleStarActive); // Get activation function
-  
-  // Check if this is the first visit to night phase
-  useEffect(() => {
-    if (!hasVisitedNightPhase) {
-      setShowTutorial(true);
-      setHasVisitedNightPhase(true);
-      // Reset typewriter state
-      setDisplayedText('');
-      setIsTyping(true);
-      setTutorialStep(0);
-    }
-  }, [hasVisitedNightPhase, setHasVisitedNightPhase]);
-  
-  // Handle advancing the tutorial
-  const advanceTutorial = useCallback(() => {
-    if (isTyping) {
-      // Complete the current line's typing
-      setDisplayedText(tutorialDialogue[tutorialStep]);
-      setIsTyping(false);
-      return;
-    }
-    
-    if (tutorialStep < tutorialDialogue.length - 1) {
-      setTutorialStep(tutorialStep + 1);
-      setDisplayedText('');
-      setIsTyping(true);
-    } else {
-      setShowTutorial(false);
-    }
-  }, [tutorialStep, isTyping]);
-  
-  // Typewriter effect for tutorial
-  useEffect(() => {
-    if (!isTyping || !showTutorial) return;
-    
-    if (displayedText.length >= tutorialDialogue[tutorialStep].length) {
-      setIsTyping(false);
-      return;
-    }
-    
-    const timer = setTimeout(() => {
-      setDisplayedText(tutorialDialogue[tutorialStep].substring(0, displayedText.length + 1));
-    }, typingSpeed);
-    
-    return () => clearTimeout(timer);
-  }, [displayedText, isTyping, tutorialStep, showTutorial, typingSpeed]);
   
   const newlyDiscoveredStars = discoveredTodayIds
     .map(id => starsObject[id])
@@ -903,48 +769,7 @@ export const NightPhase: React.FC = () => {
         </StartDayButton>
       </ConstellationNav>
       
-      {/* Tutorial overlay */}
-      {showTutorial && (
-        <TutorialOverlay>
-          <CharacterPortrait>
-            <Image 
-              src="/images/garcia.png" 
-              alt="Dr. Garcia" 
-              width={384} 
-              height={384}
-              style={{ imageRendering: 'pixelated' }}
-              priority
-            />
-          </CharacterPortrait>
-          <DialogueBox>
-            <DialogueHeader>Dr. Garcia</DialogueHeader>
-            <DialogueContent>
-              {displayedText}
-              {isTyping && <span className="cursor">|</span>}
-            </DialogueContent>
-            <InstructionText>
-              {isTyping ? 'Click to speed up text' : 'Click to continue'}
-            </InstructionText>
-            <ContinueButton onClick={advanceTutorial}>
-              {isTyping ? 'Speed Up' : (tutorialStep < tutorialDialogue.length - 1 ? 'Continue' : 'Got it!')}
-            </ContinueButton>
-          </DialogueBox>
-        </TutorialOverlay>
-      )}
-      
-      {/* Add cursor style for typewriter effect */}
-      <style jsx global>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-        
-        .cursor {
-          display: inline-block;
-          animation: blink 0.8s infinite;
-          color: ${colors.highlight};
-        }
-      `}</style>
+
     </NightPhaseContainer>
   );
 }; 

@@ -40,3 +40,9 @@ html.loading::before {
   z-index: 9999;
   visibility: visible !important;
 }
+
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}

@@ -5,6 +5,8 @@ import { useDialogueStore } from '@/app/store/dialogueStore';
 import { DialogueOption } from '@/app/types';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import Image from 'next/image';
+import SpriteImage from '../ui/SpriteImage';
+import { getPortraitCoordinates, SPRITE_SHEETS } from '@/app/utils/spriteMap';
 
 interface DialogueResult {
   dialogueId: string;
@@ -139,16 +141,13 @@ export default function DialogueContainer({ dialogueId, onComplete }: DialogueCo
       <div className="flex items-center mb-4">
         {mentor && (
           <>
-            <div className="w-12 h-12 rounded-full bg-slate-700 overflow-hidden mr-3">
-              {mentor.portrait && (
-                <Image
-                  src={mentor.portrait} 
-                  alt={mentor.name} 
-                  className="w-full h-full object-cover"
-                  width={48}
-                  height={48}
-                />
-              )}
+            <div className="w-12 h-12 rounded-full bg-slate-700 overflow-hidden mr-3 flex items-center justify-center">
+              <SpriteImage
+                src={SPRITE_SHEETS.detailedPortraits}
+                coordinates={getPortraitCoordinates(mentor.id as any, 'detailed')}
+                alt={mentor.name}
+                scale={1.5}
+              />
             </div>
             <div>
               <h3 className="font-bold text-white">{mentor.name}</h3>

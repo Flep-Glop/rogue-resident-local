@@ -1,7 +1,8 @@
 'use client';
 
 import { useDialogueStore } from '@/app/store/dialogueStore';
-import Image from 'next/image';
+import { getPortraitCoordinates, SPRITE_SHEETS } from '@/app/utils/spriteMap';
+import SpriteImage from '../ui/SpriteImage';
 
 interface MentorRelationshipCardProps {
   mentorId: string;
@@ -48,17 +49,15 @@ export default function MentorRelationshipCard({
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
       <div className="flex items-center">
-        {/* Mentor portrait */}
-        <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden mr-3">
-          {mentor.portrait && (
-            <Image
-              src={mentor.portrait} 
-              alt={mentor.name} 
-              className="w-full h-full object-cover"
-              width={40}
-              height={40}
-            />
-          )}
+        {/* Mentor portrait using sprite sheet */}
+        <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden mr-3 flex items-center justify-center">
+          <SpriteImage
+            src={SPRITE_SHEETS.simplePortraits}
+            coordinates={getPortraitCoordinates(mentorId as any, 'simple')}
+            alt={mentor.name}
+            scale={1.2}
+            className="transform -translate-y-1" // Adjust position if needed
+          />
         </div>
         
         {/* Mentor info */}

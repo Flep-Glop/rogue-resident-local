@@ -5,7 +5,8 @@ import {
   CalculationQuestion,
   MatchingQuestion,
   MultipleChoiceQuestion,
-  ProceduralQuestion
+  ProceduralQuestion,
+  BoastQuestion
 } from '../types/questions';
 import { KnowledgeDomain } from '../types';
 import { selectQuestions } from '../core/questions/questionManager';
@@ -157,17 +158,17 @@ const useQuestionStore = create<QuestionState>((set, get) => ({
       
       // Process the question based on its type
       switch (question.type) {
-        case QuestionType.CALCULATION:
+        case 'calculation':
           // Generate calculation with random variables
           question = generateCalculationQuestion(question as CalculationQuestion);
           break;
           
-        case QuestionType.MATCHING:
+        case 'matching':
           // Generate matching question with items from bank
           question = await generateMatchingQuestion(question as MatchingQuestion, domain);
           break;
           
-        case QuestionType.PROCEDURAL:
+        case 'procedural':
           // Process procedural question with steps from bank
           question = await processProceduralQuestion(question as ProceduralQuestion, domain);
           break;
@@ -199,7 +200,7 @@ const useQuestionStore = create<QuestionState>((set, get) => ({
     
     try {
       switch (currentQuestion.type) {
-        case QuestionType.MULTIPLE_CHOICE:
+        case 'multipleChoice':
           const mcResult = evaluateMultipleChoiceQuestion(
             currentQuestion as MultipleChoiceQuestion,
             answer
@@ -208,7 +209,7 @@ const useQuestionStore = create<QuestionState>((set, get) => ({
           masteryGain = mcResult.masteryGain;
           break;
           
-        case QuestionType.MATCHING:
+        case 'matching':
           const matchingResult = await evaluateMatchingQuestion(
             currentQuestion as MatchingQuestion,
             answer
@@ -217,7 +218,7 @@ const useQuestionStore = create<QuestionState>((set, get) => ({
           masteryGain = matchingResult.masteryGain;
           break;
           
-        case QuestionType.PROCEDURAL:
+        case 'procedural':
           const proceduralResult = await evaluateProceduralQuestion(
             currentQuestion as ProceduralQuestion,
             answer
@@ -226,7 +227,7 @@ const useQuestionStore = create<QuestionState>((set, get) => ({
           masteryGain = proceduralResult.masteryGain;
           break;
           
-        case QuestionType.CALCULATION:
+        case 'calculation':
           const calcResult = evaluateCalculationQuestion(
             currentQuestion as CalculationQuestion,
             answer

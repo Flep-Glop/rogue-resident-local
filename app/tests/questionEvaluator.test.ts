@@ -17,7 +17,7 @@ describe('Question Evaluator', () => {
   describe('evaluateMultipleChoiceQuestion', () => {
     const mockQuestion: MultipleChoiceQuestion = {
       id: 'test-mc-1',
-      type: QuestionType.MULTIPLE_CHOICE,
+      type: 'multipleChoice',
       question: 'Which of the following is a linear accelerator component?',
       options: [
         { text: 'Gantry', isCorrect: true },
@@ -55,7 +55,7 @@ describe('Question Evaluator', () => {
   describe('evaluateMatchingQuestion', () => {
     const mockQuestion: MatchingQuestion = {
       id: 'test-match-1',
-      type: QuestionType.MATCHING,
+      type: 'matching',
       bankRef: 'test-bank',
       includeItems: [
         { itemId: 'A', matchIds: [1] },
@@ -118,7 +118,7 @@ describe('Question Evaluator', () => {
   describe('evaluateProceduralQuestion', () => {
     const mockQuestion: ProceduralQuestion = {
       id: 'test-proc-1',
-      type: QuestionType.PROCEDURAL,
+      type: 'procedural',
       bankRef: 'test-bank',
       includeSteps: [1, 2, 3, 4],
       difficulty: 'beginner',
@@ -163,7 +163,7 @@ describe('Question Evaluator', () => {
   describe('evaluateCalculationQuestion', () => {
     const mockQuestion: CalculationQuestion = {
       id: 'test-calc-1',
-      type: QuestionType.CALCULATION,
+      type: 'calculation',
       question: 'Calculate the dose for a patient with the following parameters:',
       variables: [
         { name: 'energy', range: [6, 18], unit: 'MV' },

@@ -10,31 +10,10 @@ import { useGameStore } from './store/gameStore';
 import { GamePhase } from './types';
 import DebugPanel from './components/ui/DebugPanel';
 import { useLoading } from './providers/LoadingProvider';
-import Link from 'next/link';
 
 const PageContainer = styled.div`
   min-height: 100vh;
   width: 100%;
-`;
-
-// Add a styled link to TPS page
-const TPSLink = styled(Link)`
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background-color: #3b82f6;
-  color: white;
-  font-family: var(--font-press-start-2p);
-  font-size: 0.6rem;
-  padding: 0.5rem 1rem;
-  border-radius: 0.25rem;
-  text-decoration: none;
-  z-index: 1000;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  
-  &:hover {
-    background-color: #2563eb;
-  }
 `;
 
 // Game component that renders the appropriate phase based on the game state
@@ -102,7 +81,6 @@ export default function Home() {
     <PageContainer>
       <Game />
       <DebugPanel />
-      <TPSLink href="/tps">TPS MODULE</TPSLink>
     </PageContainer>
   );
 }

@@ -44,8 +44,8 @@ export interface QuestionFilter {
     max: number;
   };
   excludeRecent?: boolean;
-  preferTypes?: QuestionType[];
-  distribution?: Record<QuestionType, number>; // Percentage distribution of question types
+  preferTypes?: string[];
+  distribution?: Record<string, number>; // Percentage distribution of question types
 }
 
 // Active challenge state
@@ -146,11 +146,11 @@ export async function createChallenge(config: ChallengeConfig): Promise<ActiveCh
   // Add distribution for boss challenges to ensure a good mix of question types
   if (config.type === ChallengeType.BOSS) {
     filter.distribution = {
-      [QuestionType.MULTIPLE_CHOICE]: 0.25,
-      [QuestionType.MATCHING]: 0.25,
-      [QuestionType.PROCEDURAL]: 0.25,
-      [QuestionType.CALCULATION]: 0.25,
-      [QuestionType.BOAST]: 0
+      'multipleChoice': 0.25,
+      'matching': 0.25,
+      'procedural': 0.25,
+      'calculation': 0.25,
+      'boast': 0
     };
   }
   
@@ -275,7 +275,10 @@ async function selectQuestionsWithFilter(
     
     // Apply mentor filter FIRST if specified - this is the highest priority
     if (filter.mentor) {
-      allDomainQuestions = allDomainQuestions.filter(q => q.tags.mentor === filter.mentor);
+      allDomainQuestions = allDomainQuestions.filter(q => 
+        typeof q.tags.mentor === 'string' && 
+        q.tags.mentor.toLowerCase() === filter.mentor.toLowerCase()
+      );
       
       // If we don't have enough questions with this mentor, log a warning but DO NOT fall back
       if (allDomainQuestions.length < count) {
@@ -285,7 +288,10 @@ async function selectQuestionsWithFilter(
     
     // Apply subtopic filter if specified
     if (filter.subtopic) {
-      const subtopicQuestions = allDomainQuestions.filter(q => q.tags.subtopic === filter.subtopic);
+      const subtopicQuestions = allDomainQuestions.filter(q => 
+        typeof q.tags.subtopic === 'string' && 
+        q.tags.subtopic.toLowerCase() === filter.subtopic.toLowerCase()
+      );
       
       // Only use subtopic filter if we have enough questions
       if (subtopicQuestions.length >= count * 0.7) { // At least 70% of requested count
@@ -310,17 +316,17 @@ async function selectQuestionsWithFilter(
     
     // If we have a distribution specified, select according to the distribution
     if (filter.distribution && Object.keys(filter.distribution).length > 0) {
-      const questionsByType: Record<QuestionType, Question[]> = {
-        [QuestionType.MULTIPLE_CHOICE]: [],
-        [QuestionType.MATCHING]: [],
-        [QuestionType.PROCEDURAL]: [],
-        [QuestionType.CALCULATION]: [],
-        [QuestionType.BOAST]: []
+      const questionsByType: Record<string, Question[]> = {
+        'multipleChoice': [],
+        'matching': [],
+        'procedural': [],
+        'calculation': [],
+        'boast': []
       };
       
       // Group questions by type
       allDomainQuestions.forEach(q => {
-        const type = q.type as QuestionType;
+        const type = q.type as string;
         if (!questionsByType[type]) {
           questionsByType[type] = [];
         }
@@ -331,7 +337,7 @@ async function selectQuestionsWithFilter(
       const distributedQuestions: Question[] = [];
       for (const [type, percentage] of Object.entries(filter.distribution)) {
         const typeCount = Math.round(count * percentage);
-        const availableQuestions = questionsByType[type as QuestionType] || [];
+        const availableQuestions = questionsByType[type] || [];
         
         const selected = selectRandomQuestions(availableQuestions, typeCount);
         distributedQuestions.push(...selected);

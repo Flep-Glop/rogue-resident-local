@@ -150,7 +150,8 @@ export async function selectActivityQuestions(
   domain: KnowledgeDomain,
   activityDifficulty: ActivityDifficulty,
   count: number = 3,
-  questionTypes?: QuestionType[]
+  questionTypes?: QuestionType[],
+  activityMentor?: string
 ): Promise<Question[]> {
   try {
     // Map activity difficulty to mastery percentage and difficulty bias
@@ -178,10 +179,48 @@ export async function selectActivityQuestions(
     // Adjust mastery percentage with difficulty bias (clamped to 0-100)
     const adjustedMastery = Math.max(0, Math.min(100, masteryPercentage + difficultyBias));
     
-    // Select questions using the main selection function
-    return selectQuestions(domain, undefined, adjustedMastery, count, questionTypes);
+    // Select questions using the main selection function - fetch more than needed to allow for filtering
+    let allQuestions = await selectQuestions(domain, undefined, adjustedMastery, count * 3, questionTypes);
+    
+    // Filter by type if specified
+    if (questionTypes && questionTypes.length > 0) {
+      allQuestions = allQuestions.filter(q => questionTypes.includes(q.type as QuestionType));
+    }
+    
+    // If we have a mentor specified, prioritize questions for that mentor
+    let selectedQuestions: Question[] = [];
+    
+    if (activityMentor) {
+      // First try to find questions specific to this mentor
+      const mentorQuestions = allQuestions.filter((q: any) => q.mentor === activityMentor);
+      
+      // Then look for questions with no specific mentor (generic)
+      const genericQuestions = allQuestions.filter((q: any) => !q.mentor);
+      
+      // Finally, use questions with other mentors if needed - these will need mentor replacement
+      const otherMentorQuestions = allQuestions.filter((q: any) => 
+        q.mentor && q.mentor !== activityMentor
+      );
+      
+      // Keep one strategic log to help diagnose mentor-specific question availability
+      if (mentorQuestions.length === 0) {
+        console.log(`[questionManager] No questions found specific to mentor ${activityMentor}, using generic questions`);
+      }
+      
+      // Combine in priority order: specific mentor, generic, then other mentors
+      selectedQuestions = [
+        ...mentorQuestions,
+        ...genericQuestions,
+        ...otherMentorQuestions
+      ].slice(0, count);
+    } else {
+      // If no mentor specified, just take the first 'count' questions
+      selectedQuestions = allQuestions.slice(0, count);
+    }
+    
+    return selectedQuestions;
   } catch (error) {
-    console.error("Error selecting activity questions:", error);
+    console.error("[questionManager] Error selecting activity questions:", error);
     return [];
   }
 }

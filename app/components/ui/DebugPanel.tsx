@@ -16,7 +16,7 @@ import shuffle from 'lodash/shuffle';
 import { useLoading } from '@/app/providers/LoadingProvider';
 // Import question components and types
 import { 
-  Question, QuestionType, MultipleChoiceQuestion as MultipleChoiceQuestionType,
+  Question, MultipleChoiceQuestion as MultipleChoiceQuestionType,
   ProceduralQuestion as ProceduralQuestionType, ProceduralStep,
   MatchingQuestion as MatchingQuestionType,
   CalculationQuestion as CalculationQuestionType,
@@ -255,6 +255,9 @@ const ModalContent = styled.div`
   padding: ${spacing.md};
 `;
 
+// Defines string literal type for question types
+type QuestionTypeString = 'multipleChoice' | 'matching' | 'procedural' | 'calculation' | 'boast';
+
 export default function DebugPanel() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedConceptId, setSelectedConceptId] = useState<string>("");
@@ -263,7 +266,7 @@ export default function DebugPanel() {
   
   // New state for question testing
   const [showQuestionModal, setShowQuestionModal] = useState(false);
-  const [activeQuestionType, setActiveQuestionType] = useState<QuestionType | null>(null);
+  const [activeQuestionType, setActiveQuestionType] = useState<QuestionTypeString>('multipleChoice');
   const [questionAnswer, setQuestionAnswer] = useState<any>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   
@@ -460,7 +463,7 @@ export default function DebugPanel() {
   // Question sample data
   const sampleMultipleChoiceQuestion: MultipleChoiceQuestionType = {
     id: "mc1",
-    type: QuestionType.MULTIPLE_CHOICE,
+    type: 'multipleChoice',
     tags: {
       domain: KnowledgeDomain.RADIATION_THERAPY,
       subtopic: "Radiation Physics",
@@ -491,7 +494,7 @@ export default function DebugPanel() {
 
   const sampleProceduralQuestion: ProceduralQuestionType = {
     id: "proc1",
-    type: QuestionType.PROCEDURAL,
+    type: 'procedural',
     tags: {
       domain: KnowledgeDomain.RADIATION_THERAPY,
       subtopic: "Treatment Delivery",
@@ -510,7 +513,7 @@ export default function DebugPanel() {
 
   const sampleMatchingQuestion: MatchingQuestionType = {
     id: "match1",
-    type: QuestionType.MATCHING,
+    type: 'matching',
     tags: {
       domain: KnowledgeDomain.DOSIMETRY,
       subtopic: "Radiation Units",
@@ -547,7 +550,7 @@ export default function DebugPanel() {
 
   const sampleCalculationQuestion: CalculationQuestionType = {
     id: "calc1",
-    type: QuestionType.CALCULATION,
+    type: 'calculation',
     tags: {
       domain: KnowledgeDomain.DOSIMETRY,
       subtopic: "Dose Calculations",
@@ -576,7 +579,7 @@ export default function DebugPanel() {
 
   const sampleBoastQuestion: BoastQuestionType = {
     id: "boast1",
-    type: QuestionType.BOAST,
+    type: 'boast',
     tags: {
       domain: KnowledgeDomain.TREATMENT_PLANNING,
       subtopic: "Treatment Techniques",
@@ -598,7 +601,7 @@ export default function DebugPanel() {
   };
 
   // Question handling functions
-  const handleShowQuestion = (type: QuestionType) => {
+  const handleShowQuestion = (type: QuestionTypeString) => {
     setActiveQuestionType(type);
     setQuestionAnswer(null);
     setShowFeedback(false);
@@ -612,7 +615,7 @@ export default function DebugPanel() {
 
   const handleCloseQuestionModal = () => {
     setShowQuestionModal(false);
-    setActiveQuestionType(null);
+    setActiveQuestionType('multipleChoice');
     setQuestionAnswer(null);
     setShowFeedback(false);
   };
@@ -627,25 +630,25 @@ export default function DebugPanel() {
     if (!questionAnswer) return false;
 
     switch (activeQuestionType) {
-      case QuestionType.MULTIPLE_CHOICE:
+      case 'multipleChoice':
         return sampleMultipleChoiceQuestion.options[questionAnswer]?.isCorrect;
       
-      case QuestionType.PROCEDURAL:
+      case 'procedural':
         // A simple check: are the steps in ascending order?
         return questionAnswer.every((stepId: number, index: number) => 
           index === 0 || stepId > questionAnswer[index - 1]
         );
       
-      case QuestionType.MATCHING:
+      case 'matching':
         // For this sample, we'll just return true for demo purposes
         return true;
       
-      case QuestionType.CALCULATION:
+      case 'calculation':
         // Using the sample question with dose = 2 Gy
         const expectedAnswer = 2 * 25; // 50 Gy
         return Math.abs(questionAnswer - expectedAnswer) < 0.1;
       
-      case QuestionType.BOAST:
+      case 'boast':
         return sampleBoastQuestion.options[questionAnswer]?.isCorrect;
       
       default:
@@ -666,7 +669,7 @@ export default function DebugPanel() {
     if (!activeQuestionType) return null;
 
     switch (activeQuestionType) {
-      case QuestionType.MULTIPLE_CHOICE:
+      case 'multipleChoice':
         return showFeedback ? (
           <QuestionFeedback 
             question={sampleMultipleChoiceQuestion}
@@ -691,7 +694,7 @@ export default function DebugPanel() {
           />
         );
       
-      case QuestionType.PROCEDURAL:
+      case 'procedural':
         return showFeedback ? (
           <QuestionFeedback 
             question={sampleProceduralQuestion}
@@ -718,7 +721,7 @@ export default function DebugPanel() {
           />
         );
       
-      case QuestionType.MATCHING:
+      case 'matching':
         return showFeedback ? (
           <QuestionFeedback 
             question={sampleMatchingQuestion}
@@ -737,7 +740,7 @@ export default function DebugPanel() {
           />
         );
       
-      case QuestionType.CALCULATION:
+      case 'calculation':
         return showFeedback ? (
           <QuestionFeedback 
             question={sampleCalculationQuestion}
@@ -763,7 +766,7 @@ export default function DebugPanel() {
           />
         );
       
-      case QuestionType.BOAST:
+      case 'boast':
         return (
           <BoastQuestion 
             questions={[sampleBoastQuestion as any]}
@@ -818,31 +821,31 @@ export default function DebugPanel() {
             <SectionTitle>Questions</SectionTitle>
             <ButtonGrid>
               <PixelButton 
-                onClick={() => handleShowQuestion(QuestionType.MULTIPLE_CHOICE)} 
+                onClick={() => handleShowQuestion('multipleChoice')} 
                 $color={colors.radiationTherapy}
               >
                 Multiple Choice
               </PixelButton>
               <PixelButton 
-                onClick={() => handleShowQuestion(QuestionType.MATCHING)} 
+                onClick={() => handleShowQuestion('matching')} 
                 $color={colors.linacAnatomy}
               >
                 Matching
               </PixelButton>
               <PixelButton 
-                onClick={() => handleShowQuestion(QuestionType.PROCEDURAL)} 
+                onClick={() => handleShowQuestion('procedural')} 
                 $color={colors.treatmentPlanning}
               >
                 Procedural
               </PixelButton>
               <PixelButton 
-                onClick={() => handleShowQuestion(QuestionType.CALCULATION)} 
+                onClick={() => handleShowQuestion('calculation')} 
                 $color={colors.dosimetry}
               >
                 Calculation
               </PixelButton>
               <PixelButton 
-                onClick={() => handleShowQuestion(QuestionType.BOAST)} 
+                onClick={() => handleShowQuestion('boast')} 
                 $color={colors.highlight}
                 $fullWidth
               >
@@ -1236,11 +1239,11 @@ export default function DebugPanel() {
           <ModalContainer>
             <ModalHeader>
               <ModalTitle>
-                {activeQuestionType === QuestionType.MULTIPLE_CHOICE && "Multiple Choice Question"}
-                {activeQuestionType === QuestionType.MATCHING && "Matching Question"}
-                {activeQuestionType === QuestionType.PROCEDURAL && "Procedural Question"}
-                {activeQuestionType === QuestionType.CALCULATION && "Calculation Question"}
-                {activeQuestionType === QuestionType.BOAST && "Boast Challenge"}
+                {activeQuestionType === 'multipleChoice' && "Multiple Choice Question"}
+                {activeQuestionType === 'matching' && "Matching Question"}
+                {activeQuestionType === 'procedural' && "Procedural Question"}
+                {activeQuestionType === 'calculation' && "Calculation Question"}
+                {activeQuestionType === 'boast' && "Boast Challenge"}
               </ModalTitle>
               <ModalCloseButton onClick={handleCloseQuestionModal}>✕</ModalCloseButton>
             </ModalHeader>

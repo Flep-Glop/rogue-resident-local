@@ -257,18 +257,21 @@ interface StarPointProps {
   $duration: string;
 }
 
-const StarPoint = styled.div<StarPointProps>`
+const StarPoint = styled.div.attrs<StarPointProps>(props => ({
+  style: {
+    width: props.$width,
+    height: props.$height,
+    top: props.$top,
+    left: props.$left,
+    opacity: props.$opacity,
+    animationDelay: props.$delay
+  }
+}))<StarPointProps>`
   position: absolute;
-  width: ${props => props.$width};
-  height: ${props => props.$height};
-  top: ${props => props.$top};
-  left: ${props => props.$left};
-  opacity: ${props => props.$opacity};
   background-color: ${colors.starGlow};
   box-shadow: ${shadows.glow(colors.starGlow)};
   border-radius: 50%;
   animation: ${twinkle} ${props => props.$duration} ease-in-out infinite;
-  animation-delay: ${props => props.$delay};
 `;
 
 const ContentContainer = styled.div`

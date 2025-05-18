@@ -10,12 +10,12 @@ import {
 import { loadBanks } from "./questionLoader";
 
 // Constants for mastery gain calculation
-const MASTERY_GAIN_RANGES = {
-  [QuestionType.MULTIPLE_CHOICE]: { min: 1, max: 4 }, // 1-4% mastery gain
-  [QuestionType.MATCHING]: { min: 2, max: 5 },        // 2-5% mastery gain
-  [QuestionType.PROCEDURAL]: { min: 3, max: 6 },      // 3-6% mastery gain
-  [QuestionType.CALCULATION]: { min: 5, max: 8 },     // 5-8% mastery gain
-  [QuestionType.BOAST]: { min: 8, max: 12 },          // 8-12% mastery gain
+const MASTERY_GAIN_RANGES: Record<string, { min: number, max: number }> = {
+  'multipleChoice': { min: 1, max: 4 }, // 1-4% mastery gain
+  'matching': { min: 2, max: 5 },        // 2-5% mastery gain
+  'procedural': { min: 3, max: 6 },      // 3-6% mastery gain
+  'calculation': { min: 5, max: 8 },     // 5-8% mastery gain
+  'boast': { min: 8, max: 12 },          // 8-12% mastery gain
 };
 
 // Difficulty multipliers for mastery gain
@@ -280,8 +280,8 @@ export function evaluateCalculation(
  */
 function calculateMasteryGain(question: Question): number {
   // Get the base mastery gain range for this question type
-  const { min, max } = MASTERY_GAIN_RANGES[question.type as QuestionType] || 
-                      MASTERY_GAIN_RANGES[QuestionType.MULTIPLE_CHOICE];
+  const { min, max } = MASTERY_GAIN_RANGES[question.type as string] || 
+                      MASTERY_GAIN_RANGES['multipleChoice'];
   
   // Get the difficulty multiplier
   const difficultyMultiplier = DIFFICULTY_MULTIPLIERS[question.tags.difficulty] || 
@@ -306,25 +306,25 @@ export async function evaluateQuestion(
 ): Promise<QuestionResult> {
   try {
     switch (question.type) {
-      case QuestionType.MULTIPLE_CHOICE:
+      case 'multipleChoice':
         return evaluateMultipleChoice(
           question as MultipleChoiceQuestion,
           answer as number
         );
       
-      case QuestionType.MATCHING:
+      case 'matching':
         return await evaluateMatching(
           question as MatchingQuestion,
           answer as Record<string, number[] | string[] | number | string>
         );
       
-      case QuestionType.PROCEDURAL:
+      case 'procedural':
         return await evaluateProcedural(
           question as ProceduralQuestion,
           answer as number[]
         );
       
-      case QuestionType.CALCULATION:
+      case 'calculation':
         return evaluateCalculation(
           question as CalculationQuestion,
           answer.userAnswer,

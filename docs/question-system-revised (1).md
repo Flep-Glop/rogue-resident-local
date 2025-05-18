@@ -1,4 +1,88 @@
-# ROGUE RESIDENT: QUESTION SYSTEM GUIDE
+# Rogue Resident Question System (Revised)
+
+## Overview
+
+The Rogue Resident question system has been redesigned to combine the advantages of (1) mentor distinctiveness with (2) content scalability. This document describes the hybrid approach that allows questions to be either:
+
+1. Fixed, mentor-specific questions (original approach)
+2. Templated questions that can be presented by any mentor with appropriate mentor-specific language patterns
+
+## Mentor Voice System
+
+The core of our hybrid approach is the new Mentor Voice system, which allows us to dynamically apply a mentor's speech patterns and phrases to question templates. This consists of:
+
+- `MentorVoiceContext`: Contains mentor-specific phrases, idioms, and speech patterns
+- `MentorVoicePatterns`: Defines replaceable patterns for customizing question templates
+- `mentorVoiceService`: A service that applies mentor-specific voice to question templates
+
+### Benefits
+
+1. **Content Scalability**: Create question templates once, then present them with any mentor's voice
+2. **Mentor Distinctiveness**: Preserve each mentor's unique personality and language patterns
+3. **Domain Coverage**: Easily distribute questions across domain/mentor combinations
+4. **Maintenance**: Easier to maintain and extend content without duplication
+
+## Question Types
+
+Questions now have two fundamental formats:
+
+1. **Fixed Questions**: Pre-written, mentor-specific questions (original approach)
+2. **Template Questions**: Questions with placeholders that can be filled with mentor-specific language
+
+```typescript
+interface Question {
+  id: string;
+  type: string; // 'multipleChoice', 'matching', etc.
+  mentor?: MentorId; // Optional fixed mentor
+  isTemplate: boolean; // Whether this is a template question
+  // For fixed questions:
+  text?: string;
+  // For template questions:
+  templateText?: string;
+  // Other fields remain the same...
+}
+```
+
+## Template System
+
+Question templates use placeholder syntax to insert mentor-specific language:
+
+```
+What do {greeting} think about {topic}? {emphasis} {mentor_catchphrase}
+```
+
+When processed for a specific mentor, these placeholders are replaced with mentor-specific phrases:
+
+- Dr. Garcia: "What do you think about radiation safety? This is critical to patient care! The physics behind it are fascinating."
+- Dr. Kapoor: "What do you reckon about radiation safety? I'd argue this is absolutely essential! Let's break down the numbers..."
+
+## Question Generator
+
+The question generator has been enhanced to:
+
+1. Identify if a question is a template or fixed
+2. For templates, generate mentor variants by applying the appropriate mentor voice
+3. For fixed questions, use them as-is
+4. Handle appropriate distribution of questions across mentors and domains
+
+## Implementation
+
+The implementation consists of:
+
+1. `mentorVoice.ts`: Defines the MentorVoiceContext, MentorVoicePatterns, and related types
+2. `mentorVoiceService.ts`: Provides methods to apply mentor voices to question templates
+3. `questionGenerator.ts`: Enhanced to handle both fixed and template questions
+4. Updated question handling throughout the application
+
+## Domain Coverage
+
+With this hybrid approach, we can ensure comprehensive coverage across all domains:
+
+- Each mentor can present questions in any domain using templated questions
+- Mentor-specific fixed questions can be preserved for high-value, authentic experiences
+- Domain specialists can still have more specific technical language in their domain
+
+This system significantly improves our ability to scale question content while maintaining the distinct personality and teaching style of each mentor.
 
 ## 1. INTRODUCTION
 

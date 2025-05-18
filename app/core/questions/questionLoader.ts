@@ -33,19 +33,35 @@ let questionCache: Record<string, QuestionCollection> = {};
 let bankCache: Record<string, any> = {}; // Will store both MatchingBank and ProceduralBank
 
 // Helper to read JSON from the public folder using fetch
-async function readJsonFromPublic(relativePath: string) {
+async function readJsonFromPublic(relativePath: string, retryCount = 2) {
   try {
     // Create a URL path for fetch (works in both client and server)
     const url = `/${relativePath}`;
     
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      cache: 'no-cache', // Add no-cache to prevent stale data
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+    
     if (!response.ok) {
       throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
     }
     
-    return await response.json();
+    const data = await response.json();
+    return data;
   } catch (error) {
-    console.error(`Error reading JSON from ${relativePath}:`, error);
+    console.error(`[questionLoader] Error reading JSON from ${relativePath}:`, error);
+    
+    // Retry logic for transient errors
+    if (retryCount > 0) {
+      console.log(`[questionLoader] Retrying fetch for ${relativePath}, ${retryCount} attempts left`);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms before retry
+      return readJsonFromPublic(relativePath, retryCount - 1);
+    }
+    
     throw error;
   }
 }
@@ -67,6 +83,7 @@ export async function loadQuestions(
   try {
     const dirName = DOMAIN_DIR_NAMES[domain];
     const relativePath = `data/questions/${dirName}/${DIFFICULTY_FILES[difficulty]}`;
+    
     const questionCollection = await readJsonFromPublic(relativePath) as QuestionCollection;
     
     // Validate the collection
@@ -77,7 +94,7 @@ export async function loadQuestions(
     
     return questionCollection;
   } catch (error) {
-    console.error(`Error loading questions for ${domain}/${difficulty}:`, error);
+    console.error(`[questionLoader] Error loading questions for ${domain}/${difficulty}:`, error);
     throw new Error(`Failed to load questions for ${domain}/${difficulty}`);
   }
 }
@@ -147,19 +164,19 @@ function validateQuestion(question: Question): void {
   
   // Type-specific validation
   switch (question.type) {
-    case QuestionType.MULTIPLE_CHOICE:
+    case 'multipleChoice':
       validateMultipleChoiceQuestion(question as MultipleChoiceQuestion);
       break;
-    case QuestionType.MATCHING:
+    case 'matching':
       validateMatchingQuestion(question as MatchingQuestion);
       break;
-    case QuestionType.PROCEDURAL:
+    case 'procedural':
       validateProceduralQuestion(question as ProceduralQuestion);
       break;
-    case QuestionType.CALCULATION:
+    case 'calculation':
       validateCalculationQuestion(question as CalculationQuestion);
       break;
-    case QuestionType.BOAST:
+    case 'boast':
       validateBoastQuestion(question as BoastQuestion);
       break;
     default:
@@ -311,21 +328,26 @@ function validateProceduralBank(bank: ProceduralBank): void {
 }
 
 /**
- * Get all questions for a specific domain
+ * Get all questions for a specific domain across all difficulty levels
  */
 export async function getAllDomainQuestions(domain: KnowledgeDomain): Promise<Question[]> {
   try {
-    const beginnerCollection = await loadQuestions(domain, "beginner");
-    const intermediateCollection = await loadQuestions(domain, "intermediate");
-    const advancedCollection = await loadQuestions(domain, "advanced");
+    // Load each difficulty level
+    const beginner = await loadQuestions(domain, "beginner");
+    const intermediate = await loadQuestions(domain, "intermediate");
+    const advanced = await loadQuestions(domain, "advanced");
     
-    return [
-      ...beginnerCollection.questions,
-      ...intermediateCollection.questions,
-      ...advancedCollection.questions,
+    // Combine all questions
+    const allQuestions = [
+      ...beginner.questions,
+      ...intermediate.questions,
+      ...advanced.questions
     ];
+    
+    return allQuestions;
   } catch (error) {
-    console.error(`Error loading all questions for ${domain}:`, error);
+    console.error(`[questionLoader] Error getting all domain questions for ${domain}:`, error);
+    // Return empty array instead of throwing to allow graceful degradation
     return [];
   }
 }

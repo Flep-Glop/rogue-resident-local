@@ -9,6 +9,8 @@ import { TimeManager } from '@/app/core/time/TimeManager';
 import ActivityEngagement from '../ui/ActivityEngagement';
 import { colors, typography, animation, borders, shadows, spacing, mixins } from '@/app/styles/pixelTheme';
 import Image from 'next/image';
+import SpriteImage from '@/app/components/ui/SpriteImage';
+import { getPortraitCoordinates, SPRITE_SHEETS } from '@/app/utils/spriteMap';
 
 // Helper components
 const DifficultyStars = ({ difficulty }: { difficulty: ActivityDifficulty }) => {
@@ -242,7 +244,7 @@ const LocationCard = styled.div<{ $isActive: boolean; $departmentColor: string }
   padding: ${spacing.sm};
   background-color: ${props => props.$isActive 
     ? `${props.$departmentColor.replace('0.4', '0.3')}` 
-    : 'rgba(30, 41, 59, 0.7)'};
+    : 'rgba(15, 20, 30, 0.8)'};
   color: ${props => props.$isActive ? colors.text : colors.inactive};
   border: ${props => props.$isActive ? '2px solid' : '1px solid'};
   border-color: ${props => props.$isActive 
@@ -270,6 +272,7 @@ const LocationIconContainer = styled.div<{ $isActive?: boolean; $departmentColor
   width: 48px;
   height: 48px;
   margin-bottom: ${spacing.xs};
+  margin-top: -22px; /* Shift up by 8px */
   opacity: 0.8;
   display: flex;
   align-items: center;
@@ -414,35 +417,68 @@ export const DayPhase: React.FC = () => {
     }
   });
   
+  // Create a map of locations to mentors to track which mentors are in each location
+  const mentorsAtLocation: Record<LocationId, MentorId[]> = Object.values(LocationId).reduce((acc, location) => {
+    acc[location] = [];
+    return acc;
+  }, {} as Record<LocationId, MentorId[]>);
+  
+  // Populate mentors by location
+  availableActivities.forEach(activity => {
+    if (activity.mentor && !mentorsAtLocation[activity.location].includes(activity.mentor)) {
+      mentorsAtLocation[activity.location].push(activity.mentor);
+    }
+  });
+  
+  // Calculate mentor position based on how many mentors are at the same location
+  const calculateMentorPosition = (
+    locationConfig: typeof LOCATIONS[keyof typeof LOCATIONS], 
+    mentor: MentorId, 
+    location: LocationId
+  ) => {
+    if (locationConfig && locationConfig.row >= 0 && locationConfig.col >= 0) {
+      const cellHeight = 180; // Based on 540px grid height / 3 rows
+      const cellWidthPercent = 25; // Based on 4 columns
+      const imageSize = 64; // Image width/height
+      const topOffset = 130; // Offset from the top edge
+      const rightOffset = 8; // Base offset from the right edge
+      
+      // Get all mentors at this location
+      const mentorsAtThisLocation = mentorsAtLocation[location] || [];
+      // Find the index of the current mentor in the list
+      const mentorIndex = mentorsAtThisLocation.indexOf(mentor);
+      // Calculate horizontal offset based on position in the list (from right to left)
+      // Reduced spacing - make them overlap by using only 40% of the image width as spacing
+      const horizontalOffset = mentorIndex * Math.floor(imageSize * 0.62);
+      
+      const top = (locationConfig.row * cellHeight) + topOffset;
+      const left = `calc(${(locationConfig.col + 1) * cellWidthPercent}% - ${imageSize}px - ${rightOffset + horizontalOffset}px)`;
+
+      return {
+        position: 'absolute',
+        top: `${top}px`,
+        left: left,
+        zIndex: 6,
+        width: `${imageSize}px`,
+        height: `${imageSize}px`,
+        overflow: 'hidden',
+        transition: 'top 0.3s ease, left 0.3s ease'
+      } as React.CSSProperties;
+    }
+    return { display: 'none' } as React.CSSProperties;
+  };
+  
   // Find Dr. Garcia's current location
   const garciaActivity = availableActivities.find(activity => activity.mentor === MentorId.GARCIA);
   const garciaLocationConfig = garciaActivity ? LOCATIONS[garciaActivity.location] : null;
 
   // Calculate position style for Garcia chibi
   const garciaPositionStyle = React.useMemo(() => {
-    if (garciaLocationConfig && garciaLocationConfig.row >= 0 && garciaLocationConfig.col >= 0) {
-      const cellHeight = 180; // Based on 540px grid height / 3 rows
-      const cellWidthPercent = 25; // Based on 4 columns
-      const imageSize = 64; // Increased image width/height
-      const topOffset = 8; // Offset from the top edge
-      const rightOffset = 8; // Offset from the right edge
-
-      const top = (garciaLocationConfig.row * cellHeight) + topOffset;
-      const left = `calc(${(garciaLocationConfig.col + 1) * cellWidthPercent}% - ${imageSize}px - ${rightOffset}px)`;
-
-      return {
-        position: 'absolute',
-        top: `${top}px`,
-        left: left,
-        zIndex: 6, // Ensure it's above the grid cards
-        width: `${imageSize}px`,
-        height: `${imageSize}px`,
-        overflow: 'hidden', // Prevent scrollbars on the container
-        transition: 'top 0.3s ease, left 0.3s ease' // Add smooth transition
-      } as React.CSSProperties;
+    if (garciaActivity && garciaLocationConfig) {
+      return calculateMentorPosition(garciaLocationConfig, MentorId.GARCIA, garciaActivity.location);
     }
-    return { display: 'none' } as React.CSSProperties; // Hide if not found or invalid location
-  }, [garciaLocationConfig]);
+    return { display: 'none' } as React.CSSProperties;
+  }, [garciaActivity, garciaLocationConfig]);
   
   // Find Dr. Kapoor's current location
   const kapoorActivity = availableActivities.find(activity => activity.mentor === MentorId.KAPOOR);
@@ -450,29 +486,11 @@ export const DayPhase: React.FC = () => {
 
   // Calculate position style for Kapoor chibi
   const kapoorPositionStyle = React.useMemo(() => {
-    if (kapoorLocationConfig && kapoorLocationConfig.row >= 0 && kapoorLocationConfig.col >= 0) {
-      const cellHeight = 180; // Based on 540px grid height / 3 rows
-      const cellWidthPercent = 25; // Based on 4 columns
-      const imageSize = 64; // Image width/height
-      const topOffset = 8; // Offset from the top edge
-      const rightOffset = 8; // Offset from the right edge
-
-      const top = (kapoorLocationConfig.row * cellHeight) + topOffset;
-      const left = `calc(${(kapoorLocationConfig.col + 1) * cellWidthPercent}% - ${imageSize}px - ${rightOffset}px)`;
-
-      return {
-        position: 'absolute',
-        top: `${top}px`,
-        left: left,
-        zIndex: 6, // Ensure it's above the grid cards
-        width: `${imageSize}px`,
-        height: `${imageSize}px`,
-        overflow: 'hidden',
-        transition: 'top 0.3s ease, left 0.3s ease'
-      } as React.CSSProperties;
+    if (kapoorActivity && kapoorLocationConfig) {
+      return calculateMentorPosition(kapoorLocationConfig, MentorId.KAPOOR, kapoorActivity.location);
     }
     return { display: 'none' } as React.CSSProperties;
-  }, [kapoorLocationConfig]);
+  }, [kapoorActivity, kapoorLocationConfig]);
   
   // Find Dr. Quinn's current location
   const quinnActivity = availableActivities.find(activity => activity.mentor === MentorId.QUINN);
@@ -480,29 +498,11 @@ export const DayPhase: React.FC = () => {
 
   // Calculate position style for Quinn chibi
   const quinnPositionStyle = React.useMemo(() => {
-    if (quinnLocationConfig && quinnLocationConfig.row >= 0 && quinnLocationConfig.col >= 0) {
-      const cellHeight = 180; // Based on 540px grid height / 3 rows
-      const cellWidthPercent = 25; // Based on 4 columns
-      const imageSize = 64; // Image width/height
-      const topOffset = 8; // Offset from the top edge
-      const rightOffset = 8; // Offset from the right edge
-
-      const top = (quinnLocationConfig.row * cellHeight) + topOffset;
-      const left = `calc(${(quinnLocationConfig.col + 1) * cellWidthPercent}% - ${imageSize}px - ${rightOffset}px)`;
-
-      return {
-        position: 'absolute',
-        top: `${top}px`,
-        left: left,
-        zIndex: 6,
-        width: `${imageSize}px`,
-        height: `${imageSize}px`,
-        overflow: 'hidden',
-        transition: 'top 0.3s ease, left 0.3s ease'
-      } as React.CSSProperties;
+    if (quinnActivity && quinnLocationConfig) {
+      return calculateMentorPosition(quinnLocationConfig, MentorId.QUINN, quinnActivity.location);
     }
     return { display: 'none' } as React.CSSProperties;
-  }, [quinnLocationConfig]);
+  }, [quinnActivity, quinnLocationConfig]);
 
   // Find Jesse's current location
   const jesseActivity = availableActivities.find(activity => activity.mentor === MentorId.JESSE);
@@ -510,29 +510,11 @@ export const DayPhase: React.FC = () => {
 
   // Calculate position style for Jesse chibi
   const jessePositionStyle = React.useMemo(() => {
-    if (jesseLocationConfig && jesseLocationConfig.row >= 0 && jesseLocationConfig.col >= 0) {
-      const cellHeight = 180; // Based on 540px grid height / 3 rows
-      const cellWidthPercent = 25; // Based on 4 columns
-      const imageSize = 64; // Image width/height
-      const topOffset = 8; // Offset from the top edge
-      const rightOffset = 8; // Offset from the right edge
-
-      const top = (jesseLocationConfig.row * cellHeight) + topOffset;
-      const left = `calc(${(jesseLocationConfig.col + 1) * cellWidthPercent}% - ${imageSize}px - ${rightOffset}px)`;
-
-      return {
-        position: 'absolute',
-        top: `${top}px`,
-        left: left,
-        zIndex: 6,
-        width: `${imageSize}px`,
-        height: `${imageSize}px`,
-        overflow: 'hidden',
-        transition: 'top 0.3s ease, left 0.3s ease'
-      } as React.CSSProperties;
+    if (jesseActivity && jesseLocationConfig) {
+      return calculateMentorPosition(jesseLocationConfig, MentorId.JESSE, jesseActivity.location);
     }
     return { display: 'none' } as React.CSSProperties;
-  }, [jesseLocationConfig]);
+  }, [jesseActivity, jesseLocationConfig]);
   
   // Mapping from MentorId to chibi image path
   const mentorChibiMap: Record<MentorId, string> = {
@@ -540,6 +522,14 @@ export const DayPhase: React.FC = () => {
     [MentorId.KAPOOR]: '/images/kapoor-chibi.png',
     [MentorId.QUINN]: '/images/quinn-chibi.png',
     [MentorId.JESSE]: '/images/jesse-chibi.png',
+  };
+  
+  // Character ID mapping for sprites
+  const mentorToCharacterId: Record<MentorId, string> = {
+    [MentorId.GARCIA]: 'garcia',
+    [MentorId.KAPOOR]: 'kapoor',
+    [MentorId.QUINN]: 'quinn',
+    [MentorId.JESSE]: 'jesse',
   };
   
   // Handle location click to directly show activity options
@@ -614,17 +604,31 @@ export const DayPhase: React.FC = () => {
             borderRadius: spacing.xs,
             border: `1px solid ${colors.border}`
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <span style={{ color: colors.momentum }}>⚡</span>
-              <span>{resources.momentum} / 3</span>
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              padding: `${spacing.xs} ${spacing.sm}`,
+              backgroundColor: 'rgba(67, 215, 230, 0.15)',
+              borderRadius: spacing.xs,
+              border: `1px solid ${colors.insight}`,
+              minWidth: '70px'
+            }}>
+              <span style={{ color: colors.insight, fontSize: typography.fontSize.xl, textShadow: '0px 0px 4px rgba(67, 215, 230, 0.7)' }}>◆</span>
+              <span style={{ fontWeight: 'bold' }}>{resources.insight}</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <span style={{ color: colors.insight }}>◆</span>
-              <span>{resources.insight}</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <span style={{ color: colors.highlight }}>★</span>
-              <span>{resources.starPoints}</span>
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              padding: `${spacing.xs} ${spacing.sm}`,
+              backgroundColor: 'rgba(255, 215, 0, 0.15)',
+              borderRadius: spacing.xs,
+              border: `1px solid ${colors.highlight}`,
+              minWidth: '70px'
+            }}>
+              <span style={{ color: colors.highlight, fontSize: typography.fontSize.xl, textShadow: '0px 0px 4px rgba(255, 215, 0, 0.7)' }}>★</span>
+              <span style={{ fontWeight: 'bold' }}>{resources.starPoints}</span>
             </div>
           </div>
         </div>
@@ -644,6 +648,7 @@ export const DayPhase: React.FC = () => {
               const hasActivities = activitiesByLocation[locationId]?.length > 0;
               const hasBeenSeen = seenLocations.has(locationId);
               const displayInfo = getLocationDisplayInfo(locationId);
+              const isUnlocked = hasBeenSeen || hasActivities;
               
               return (
                 <LocationCard 
@@ -660,67 +665,61 @@ export const DayPhase: React.FC = () => {
                   aria-label={`${location.label}${hasActivities ? " - Click to view activities" : ""}`}
                   className="location-card"
                 >
-                  {/* Location icon */}
-                  <LocationIconContainer 
-                    $isActive={hasActivities} 
-                    $departmentColor={location.department.color}
-                  >
-                    <Image 
-                      src={hasBeenSeen ? `/images/${location.icon}` : '/images/Note.png'}
-                      alt={location.label}
-                      width={48}
-                      height={48}
-                      style={{ 
-                        objectFit: 'contain',
-                        /* Pixel rendering with all necessary browser support */
-                        imageRendering: 'pixelated',
-                        /* Prevent transforms that might cause blurring */
-                        transform: 'translateZ(0)',
-                        backfaceVisibility: 'hidden',
-                        /* Disable anti-aliasing */
-                        WebkitFontSmoothing: 'none',
-                        MozOsxFontSmoothing: 'none'
-                      }}
-                      unoptimized={true}
-                      priority={true}
-                      onError={(e) => {
-                        console.warn(`Failed to load image: /images/${location.icon}`);
-                        const target = e.target as HTMLImageElement;
-                        target.onerror = null; // Prevent infinite fallback loop
-                        target.src = '/images/Note.png'; // Fallback image
-                      }}
-                    />
-                  </LocationIconContainer>
-                  
-                  {/* Location name */}
-                  <p style={{ 
-                    fontSize: typography.fontSize.sm, 
-                    fontWeight: 'medium',
-                    textAlign: 'center',
-                    color: hasActivities ? colors.text : colors.inactive
-                  }}>
-                    {hasBeenSeen ? location.label : '???'}
-                  </p>
-                  
-                  {/* Add activity count badge if there are multiple activities */}
-                  {hasActivities && displayInfo && displayInfo.activityCount > 1 && (
-                    <div style={{
-                      position: 'absolute',
-                      top: spacing.xs,
-                      right: spacing.xs,
-                      backgroundColor: colors.highlight,
-                      color: colors.text,
-                      borderRadius: '50%',
-                      width: '20px',
-                      height: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: typography.fontSize.xs,
-                      fontWeight: 'bold'
-                    }}>
-                      {displayInfo.activityCount}
-                    </div>
+                  {isUnlocked ? (
+                    <>
+                      {/* Location icon */}
+                      <LocationIconContainer 
+                        $isActive={hasActivities} 
+                        $departmentColor={location.department.color}
+                      >
+                        <Image 
+                          src={`/images/${location.icon}`}
+                          alt={location.label}
+                          width={48}
+                          height={48}
+                          style={{ 
+                            imageRendering: 'pixelated'
+                          }}
+                          unoptimized={true}
+                          priority={true}
+                        />
+                      </LocationIconContainer>
+                      
+                      {/* Location name */}
+                      <p style={{ 
+                        fontSize: typography.fontSize.sm, 
+                        fontWeight: 'medium',
+                        textAlign: 'center',
+                        color: hasActivities ? colors.text : colors.inactive,
+                        marginTop: '-4px', /* Shift up text */
+                      }}>
+                        {location.label}
+                      </p>
+                      
+                      {/* Add activity count badge if there are multiple activities */}
+                      {hasActivities && displayInfo && displayInfo.activityCount > 1 && (
+                        <div style={{
+                          position: 'absolute',
+                          top: spacing.xs,
+                          right: spacing.xs,
+                          backgroundColor: colors.highlight,
+                          color: colors.text,
+                          borderRadius: '50%',
+                          width: '20px',
+                          height: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: typography.fontSize.xs,
+                          fontWeight: 'bold'
+                        }}>
+                          {displayInfo.activityCount}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    // Content is hidden for locked locations, background handled by LocationCard style
+                    null 
                   )}
                 </LocationCard>
               );
@@ -729,81 +728,45 @@ export const DayPhase: React.FC = () => {
 
           {/* Add Dr. Garcia Chibi Image */}
           <div style={garciaPositionStyle}>
-            <Image 
-              src="/images/garcia-chibi.png" 
-              alt="Dr. Garcia Chibi" 
-              width={48} 
-              height={48}
-              style={{ 
-                objectFit: 'contain',
-                imageRendering: 'pixelated',
-                transform: 'translateZ(0)',
-                backfaceVisibility: 'hidden',
-                WebkitFontSmoothing: 'none',
-                MozOsxFontSmoothing: 'none'
-              }}
-              unoptimized={true}
-              priority={true} 
+            <SpriteImage
+              src={SPRITE_SHEETS.chibiPortraits}
+              coordinates={getPortraitCoordinates('garcia', 'chibi')}
+              alt="Dr. Garcia"
+              scale={1.5}
+              pixelated={true}
             />
           </div>
 
           {/* Add Dr. Kapoor Chibi Image */}
           <div style={kapoorPositionStyle}>
-            <Image 
-              src="/images/kapoor-chibi.png" 
-              alt="Dr. Kapoor Chibi" 
-              width={64} 
-              height={64}
-              style={{ 
-                objectFit: 'contain',
-                imageRendering: 'pixelated',
-                transform: 'translateZ(0)',
-                backfaceVisibility: 'hidden',
-                WebkitFontSmoothing: 'none',
-                MozOsxFontSmoothing: 'none'
-              }}
-              unoptimized={true}
-              priority={true} 
+            <SpriteImage
+              src={SPRITE_SHEETS.chibiPortraits}
+              coordinates={getPortraitCoordinates('kapoor', 'chibi')}
+              alt="Dr. Kapoor"
+              scale={1.5}
+              pixelated={true}
             />
           </div>
 
           {/* Add Dr. Quinn Chibi Image */}
           <div style={quinnPositionStyle}>
-            <Image 
-              src="/images/quinn-chibi.png" 
-              alt="Dr. Quinn Chibi" 
-              width={64} 
-              height={64}
-              style={{ 
-                objectFit: 'contain',
-                imageRendering: 'pixelated',
-                transform: 'translateZ(0)',
-                backfaceVisibility: 'hidden',
-                WebkitFontSmoothing: 'none',
-                MozOsxFontSmoothing: 'none'
-              }}
-              unoptimized={true}
-              priority={true} 
+            <SpriteImage
+              src={SPRITE_SHEETS.chibiPortraits}
+              coordinates={getPortraitCoordinates('quinn', 'chibi')}
+              alt="Dr. Quinn"
+              scale={1.5}
+              pixelated={true}
             />
           </div>
 
           {/* Add Jesse Chibi Image */}
           <div style={jessePositionStyle}>
-            <Image 
-              src="/images/jesse-chibi.png" 
-              alt="Jesse Chibi" 
-              width={64} 
-              height={64}
-              style={{ 
-                objectFit: 'contain',
-                imageRendering: 'pixelated',
-                transform: 'translateZ(0)',
-                backfaceVisibility: 'hidden',
-                WebkitFontSmoothing: 'none',
-                MozOsxFontSmoothing: 'none'
-              }}
-              unoptimized={true}
-              priority={true} 
+            <SpriteImage
+              src={SPRITE_SHEETS.chibiPortraits}
+              coordinates={getPortraitCoordinates('jesse', 'chibi')}
+              alt="Jesse"
+              scale={1.5}
+              pixelated={true}
             />
           </div>
         </MapContainer>
@@ -842,18 +805,13 @@ export const DayPhase: React.FC = () => {
                         borderRadius: spacing.xs,
                         border: `1px solid ${colors.border}`
                       }}>
-                        {activity.mentor && mentorChibiMap[activity.mentor] && (
-                          <Image 
-                            src={mentorChibiMap[activity.mentor]}
+                        {activity.mentor && (
+                          <SpriteImage
+                            src={SPRITE_SHEETS.chibiPortraits}
+                            coordinates={getPortraitCoordinates(mentorToCharacterId[activity.mentor] as any, 'chibi')}
                             alt={getMentorShortName(activity.mentor)}
-                            width={80} 
-                            height={80}
-                            style={{ 
-                              objectFit: 'contain',
-                              imageRendering: 'pixelated',
-                              borderRadius: '4px'
-                            }}
-                            unoptimized={true}
+                            scale={2.5}
+                            pixelated={true}
                           />
                         )}
                       </div>

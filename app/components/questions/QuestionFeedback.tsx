@@ -2,7 +2,7 @@
 
 import React from 'react';
 import styled from 'styled-components';
-import { Question, QuestionType } from '../../types/questions';
+import { Question } from '../../types/questions';
 import { MathJax } from 'better-react-mathjax';
 
 interface Props {
@@ -149,20 +149,22 @@ const QuestionFeedback: React.FC<Props> = ({
   masteryGained = 0,
   onContinue
 }) => {
-  const message = isCorrect ? question.feedback.correct : question.feedback.incorrect;
+  const message = isCorrect ? 
+    question.correctFeedback || question.feedback?.correct : 
+    question.incorrectFeedback || question.feedback?.incorrect;
   
   // Format the user's answer based on question type
   const formatUserAnswer = () => {
     if (!answer) return 'No answer provided';
     
     switch (question.type) {
-      case QuestionType.MULTIPLE_CHOICE:
+      case 'multipleChoice':
         // For multiple choice, answer might be the index or the text
         return typeof answer === 'number' 
           ? `Option ${answer + 1}` 
           : answer;
           
-      case QuestionType.MATCHING:
+      case 'matching':
         // For matching, answer is usually an object mapping item IDs to match IDs
         return (
           <div>
@@ -172,7 +174,7 @@ const QuestionFeedback: React.FC<Props> = ({
           </div>
         );
         
-      case QuestionType.PROCEDURAL:
+      case 'procedural':
         // For procedural, answer is usually an array of step IDs
         return (
           <div>
@@ -182,7 +184,7 @@ const QuestionFeedback: React.FC<Props> = ({
           </div>
         );
         
-      case QuestionType.CALCULATION:
+      case 'calculation':
         // For calculation, answer is usually a number
         return (
           <MathJax>{answer.toString()}</MathJax>
@@ -198,13 +200,13 @@ const QuestionFeedback: React.FC<Props> = ({
     if (!expectedAnswer) return 'Not provided';
     
     switch (question.type) {
-      case QuestionType.MULTIPLE_CHOICE:
+      case 'multipleChoice':
         // For multiple choice, expected answer might be the index or the text
         return typeof expectedAnswer === 'number' 
           ? `Option ${expectedAnswer + 1}` 
           : expectedAnswer;
           
-      case QuestionType.MATCHING:
+      case 'matching':
         // For matching, expected is usually an object mapping item IDs to match IDs
         return (
           <div>
@@ -214,7 +216,7 @@ const QuestionFeedback: React.FC<Props> = ({
           </div>
         );
         
-      case QuestionType.PROCEDURAL:
+      case 'procedural':
         // For procedural, expected is usually an array of step IDs
         return (
           <div>
@@ -224,7 +226,7 @@ const QuestionFeedback: React.FC<Props> = ({
           </div>
         );
         
-      case QuestionType.CALCULATION:
+      case 'calculation':
         // For calculation, expected is usually a number
         return (
           <MathJax>{expectedAnswer.toString()}</MathJax>
@@ -253,15 +255,15 @@ const QuestionFeedback: React.FC<Props> = ({
       <AnswerSection>
         <AnswerRow>
           <AnswerLabel>Your Answer:</AnswerLabel>
-          <AnswerValue $correct={isCorrect} $incorrect={!isCorrect}>
+          <AnswerValue $incorrect={!isCorrect}>
             {formatUserAnswer()}
           </AnswerValue>
         </AnswerRow>
         
-        {!isCorrect && expectedAnswer && (
+        {!isCorrect && (
           <AnswerRow>
             <AnswerLabel>Correct Answer:</AnswerLabel>
-            <AnswerValue $correct>
+            <AnswerValue $correct={true}>
               {formatExpectedAnswer()}
             </AnswerValue>
           </AnswerRow>
@@ -270,13 +272,11 @@ const QuestionFeedback: React.FC<Props> = ({
       
       {masteryGained > 0 && (
         <MasterySection>
-          <MasteryTitle>
-            Knowledge Mastery Gained
-          </MasteryTitle>
+          <MasteryTitle>Mastery Gained</MasteryTitle>
           <MasteryBarContainer>
-            <MasteryBar width={`${Math.min(masteryGained * 5, 100)}%`} />
+            <MasteryBar width={`${masteryGained}%`} />
           </MasteryBarContainer>
-          <MasteryValue>+{masteryGained.toFixed(1)}%</MasteryValue>
+          <MasteryValue>+{masteryGained}%</MasteryValue>
         </MasterySection>
       )}
       

@@ -1,11 +1,11 @@
 # ROGUE RESIDENT: CORE SYSTEMS DOCUMENT
-**Document Version:** 2.0  
+**Document Version:** 3.0  
 **Status:** Design Specification  
-**Last Updated:** May 07, 2025
+**Last Updated:** May 15, 2025
 
 ## DOCUMENT PURPOSE
 
-This document provides comprehensive specifications for the core gameplay systems in Rogue Resident, including the Knowledge Constellation, Clinical Applications System, Resource Systems, and Progression Framework. This document is the primary reference for these systems, with other documents referring to these specifications rather than duplicating them.
+This document provides comprehensive specifications for the core gameplay systems in Rogue Resident, including the Knowledge Constellation, Applications System, Resource Systems, and Progression Framework. This document is the primary reference for these systems, with other documents referring to these specifications rather than duplicating them.
 
 ## 1. RESOURCE SYSTEMS
 
@@ -49,16 +49,13 @@ Each season provides a structured amount of SP to ensure consistent progression:
 - **Daily Active Star Bonus:** ACTIVE_STAR_INSIGHT_BONUS (+1 Insight per domain with 25% total mastery)
 - **Daily Generation Target:** DAILY_INSIGHT_GENERATION (80-120 Insight per day)
 
-#### Insight Generation Formula
-```
-Insight Gained = Base Value × Mastery Multiplier × Relationship Bonus × Ability Modifiers
-```
+### 1.2 Insight Generation Formula
 
-Where:
-- **Base Value:** Activity difficulty (Easy: 5, Medium: 7, Hard: 10)
-- **Mastery Multiplier:** Based on star mastery (0.5× to 2.0×)
-- **Relationship Bonus:** Based on mentor relationship level (1.05× to 1.25×)
-- **Ability Modifiers:** Additional multipliers from active abilities
+Insight gained from activities is calculated based on multiple factors:
+
+- Base value depends on activity difficulty (Easy: 5, Medium: 7, Hard: 10)
+- Multipliers apply for mastery level, mentor relationships, and abilities
+- Additional bonuses come from momentum levels and domain affinities
 
 #### Insight Expenditure
 - **Ability Activation:** 20-75 Insight based on ability power
@@ -77,14 +74,14 @@ Where:
   - **Level 3:** Unlocks Boast action, questions worth +50% Insight
 
 #### Build-Specific Momentum Variations
-Each build archetype has unique momentum characteristics:
+Different gameplay styles have unique momentum characteristics, though formal archetypes have been removed:
 
-| Build Type | Momentum Specialty |
+| Playstyle | Momentum Specialty |
 |------------|-------------------|
-| Specialist | Reaches level 3 in 3 answers instead of 5 |
-| Technician | Momentum partially carries over between similar activities |
-| Integrator | Decay is reduced (incorrect answers -1 level instead of reset) |
-| Communicator | Special "momentum boost" options in dialogue |
+| Deep Domain Focus | Reaches level 3 in 3 answers instead of 5 |
+| Technical Expertise | Momentum partially carries over between similar activities |
+| Cross-Domain Integration | Decay is reduced (incorrect answers -1 level instead of reset) |
+| Relationship Focus | Special "momentum boost" options in dialogue |
 
 ### 1.4 Mastery Progression
 
@@ -94,16 +91,13 @@ Each build archetype has unique momentum characteristics:
 - **Connected Stars:** 0.5% passive gain per day per connection
 - **Mentor Relationship:** +5% gain rate per relationship level
 
-#### Mastery Gain Formula
-```
-MasteryGain = BaseGain × DifficultyModifier × RelationshipModifier × BuildModifier
-```
+### 1.4 Mastery Gain Formula
 
-Where:
-- **BaseGain:** Challenge type base value
-- **DifficultyModifier:** EASY_DIFFICULTY_MULTIPLIER, MEDIUM_DIFFICULTY_MULTIPLIER, HARD_DIFFICULTY_MULTIPLIER
-- **RelationshipModifier:** Based on mentor relationship level
-- **BuildModifier:** Build-specific bonuses
+Mastery increases are calculated based on several factors:
+
+- Base gain varies by challenge type
+- Multipliers apply for difficulty, relationships, and build choices
+- Additional bonuses from connected stars and pattern effects
 
 #### Mastery Tier Effects
 
@@ -144,15 +138,14 @@ Advancing mastery becomes progressively more challenging:
 
 ### 1.5 Domain Affinity System
 
-#### Domain Affinity Calculation
-Domain Affinity is calculated based on:
-- Active stars and their mastery percentage
-- Mentor relationship level (divided by 10)
+### 1.5 Domain Affinity Calculation
+
+Domain Affinity is calculated based on several factors:
+- Active stars and their mastery percentages (major contribution)
+- Mentor relationship levels (divided by 10)
 - Domain ability levels (multiplied by 5)
 
-```
-DomainAffinity = (ActiveStarMasterySum × 0.6) + (MentorLevel × 10) + (DomainAbilityLevel × 5)
-```
+Higher affinity provides benefits at thresholds of 25, 50, 75, and 100 points.
 
 #### Affinity Threshold Effects
 - **25 Affinity:** Unlock domain-specific dialogue options
@@ -235,10 +228,11 @@ Each star in the constellation has the following properties:
 - **Hidden**: Not yet visible in constellation
 
 **Gameplay properties:**
-- **Connectable To**: Stars that this star can connect with
+- **Connectable To**: Stars that this star can connect with (via etchings)
 - **SP Cost**: Star Points required to unlock
 - **Unlock Requirements**: Prerequisite stars needed
 - **Season Available**: First season this can be discovered
+- **Application**: Associated Application card unlocked when star is purchased
 
 #### Star Types
 
@@ -251,16 +245,19 @@ Each star in the constellation has the following properties:
 - Radiation Therapy (Green): rt-radiobiology
 - Linac Anatomy (Amber): la-components
 - Dosimetry (Pink): dos-calibration
+- Note: Core stars do not provide Application cards
 
 **Standard Stars**
 - Fundamental concepts available early in the game
 - Lower SP cost (15-20 SP)
 - Fewer prerequisites
+- Each unlocks an Application card
 
 **Advanced Stars**
 - Complex concepts available later in the game
 - Higher SP cost (25-30 SP)
 - More prerequisites
+- Each unlocks a more powerful Application card
 
 ### 2.2 Connection Mechanics
 
@@ -275,15 +272,19 @@ Each connection in the constellation has the following properties:
 - **Discovered**: Has player discovered this connection?
 - **Connected At**: When the connection was formed
 - **Mastery**: 0-100 connection mastery (separate from stars)
+- **Etching Required**: Which etching blueprint is needed to form this connection
 
 #### Connection Formation Requirements
 Connections can form between stars when:
 
 1. **Both stars are unlocked**
-2. **Minimum mastery threshold is met:**
+2. **Player has discovered the required etching**
+3. **Minimum mastery threshold is met:**
    - Same domain: 40% minimum mastery in both stars
    - Cross-domain: 65% minimum mastery in both stars
    - Cross-domain with ability bonus: 50% minimum mastery
+
+Connections are formed manually by players during the Night Phase in their journals.
 
 #### Connection Strength Development
 Connection strength increases based on:
@@ -300,7 +301,15 @@ Connection strength increases based on:
 3. **Pattern Formation:** Multiple connections can form patterns with special effects
 4. **Cross-Domain Synergy:** Cross-domain connections unlock unique abilities
 
-### 2.3 Constellation Patterns
+### 2.3 Constellation Patterns & Etchings
+
+#### Etching System
+Etchings are constellation pattern blueprints that players discover throughout the game:
+
+- **Physical Form**: Hand-drawn star maps found in various locations
+- **Collection**: Stored in the player's journal
+- **Function**: Allow players to form specific star connections
+- **Discovery**: Found in library books, mentor gifts, environmental locations
 
 #### Pattern Types
 
@@ -310,10 +319,12 @@ Three connected stars forming a triangle shape.
 1. **Domain Triangle:** Three stars from the same domain
    - Effect: +10% Insight from activities related to that domain
    - Visual: Domain-colored glow connecting all three stars
+   - Etching: Domain-specific etchings (4 total, one per domain)
 
 2. **Cross-Domain Triangle:** Three stars from different domains
    - Effect: Unlock special "Domain Synthesis" ability
    - Visual: White/purple glow connecting all three stars
+   - Etching: Special cross-domain etchings (3 total)
 
 **Line Patterns**
 Three stars connected in a line.
@@ -321,10 +332,12 @@ Three stars connected in a line.
 1. **Knowledge Path:** Three stars in sequence within a domain
    - Effect: +5% mastery gain rate for all three stars
    - Visual: Domain-colored pulsing connection
+   - Etching: Path-specific etchings (4 total, one per domain)
 
 2. **Cross-Domain Bridge:** Three stars from different domains in a line
    - Effect: Reduces time for activities involving these domains
    - Visual: Multicolored pulsing connection
+   - Etching: Bridge-specific etchings (2 total)
 
 **Star Patterns**
 Four or more stars in specific configurations.
@@ -332,17 +345,21 @@ Four or more stars in specific configurations.
 1. **Domain Cluster:** Four stars from same domain connected to each other
    - Effect: Unlocks domain-specific special ability
    - Visual: Bright domain-colored aura surrounding cluster
+   - Etching: Cluster-specific etchings (4 total, one per domain)
 
 2. **Knowledge Web:** Six or more interconnected stars
    - Effect: +10% SP from activities involving any of these stars
    - Visual: Web-like particles moving along connections
+   - Etching: Legendary etchings (1 total)
 
-#### Pattern Discovery
-Patterns are automatically detected when:
+#### Etching Discovery
+Etchings are discovered through various methods:
 
-1. All required stars are unlocked
-2. All required connections are formed
-3. All stars meet minimum mastery requirements
+- **Library Activities**: Research in specific sections reveals old etchings
+- **Mentor Relationships**: Reaching relationship milestones grants mentor etchings
+- **Environmental Discovery**: Hidden in various hospital locations
+- **Boss Rewards**: Defeating bosses grants special etchings
+- **Progress Milestones**: Overall mastery unlocks legendary etchings
 
 #### Pattern Benefits
 
@@ -351,6 +368,7 @@ Patterns are automatically detected when:
 3. **Time Benefits:** Reduced time for related activities
 4. **Special Unlocks:** Unique abilities or dialogue options
 5. **Boss Encounter Advantages:** Special options during boss fights
+6. **Cross-Domain Applications:** Certain patterns unlock special Application cards
 
 ### 2.4 Knowledge Discovery System
 
@@ -453,31 +471,45 @@ Patterns are automatically detected when:
    - Unlocked: Normal appearance
    - Mastery level: Visual enhancements based on mastery
 
-## 3. CLINICAL APPLICATIONS SYSTEM
+## 3. APPLICATIONS SYSTEM
 
-### 3.1 Ability Properties
+### 3.1 Application Cards
 
-Each ability in the game has the following properties:
+Each Application card in the game has the following properties:
 
-- **Identifier**: Unique ID for the ability
-- **Name**: Display name
+- **Identifier**: Unique ID for the card
+- **Name**: Display name (evocative names rather than technical)
+- **Associated Star**: Star that unlocks this card
 - **Domain**: Associated domain (TP, RT, LA, DOS) or cross-domain
-- **Description**: Brief ability description
-- **Passive Effect**: Always active while the ability is equipped
+- **Description**: Brief card description
+- **Passive Effect**: Always active while the card is equipped
 - **Active Effect**: Triggered when the player spends Insight
-- **Unlock Requirements**: Stars, mastery levels, or patterns needed to unlock
 - **Visual Properties**: Icon, animation, and visual effects
+- **Journal Location**: Which journal section contains this card
 
-### 3.2 Ability Slot System
+### 3.2 Card Acquisition
 
-Players can equip a limited number of abilities:
+Cards are acquired through:
 
-- **Total Slots:** ABILITY_SLOTS (3 ability slots)
-- **Equipping:** Changed during Night Phase only
-- **Duration:** Equipped for entire day once selected
-- **Selection Interface:** Located at the resident's desk in the hill home
+1. **Star Unlocks**: Each non-core star provides an Application card
+2. **Etching Patterns**: Completing certain etching patterns unlocks special cross-domain cards
+3. **Boss Rewards**: Defeating bosses may unlock unique cards
+4. **Special Events**: Certain events may grant unique cards
 
-### 3.3 Ability Effects & Balance
+When a star is unlocked, the associated card is delivered to the player's desk at the hill home with a visual notification.
+
+### 3.3 Journal System
+
+Applications are managed through the player's journal:
+
+- **Journal Location**: Study desk in hill home
+- **Card Storage**: Journal pages store collected cards
+- **Card Slots**: Three card slots/pockets for equipped cards
+- **Night Phase Selection**: Cards are equipped during Night Phase
+- **Day Phase Usage**: Active effects can be triggered during Day Phase
+- **Visual Interface**: Physical card placement in journal pages
+
+### 3.4 Ability Effects & Balance
 
 #### Passive Effect Types
 - **Resource Generation Effects**: Generate additional Insight, convert Insight to SP more efficiently
@@ -497,74 +529,70 @@ Players can equip a limited number of abilities:
 - **Tier 3 (Major Effect):** MAJOR_ABILITY_COST (35-50 Insight)
 - **Tier 4 (Special Effect):** SPECIAL_ABILITY_COST (45-75 Insight)
 
-### 3.4 Ability Categories
+### 3.5 Card Categories
 
 #### Treatment Planning Applications
 - Focus on optimization, planning principles, and evaluation
-- Examples: Dose Calculation, Optimization Algorithm, Heterogeneity
-- Unlock by achieving specified mastery in Treatment Planning stars
+- Examples: Perfect Path, Adaptive Flux, Foresight
+- Unlock by unlocking Treatment Planning stars
 
 #### Radiation Therapy Applications
 - Focus on clinical delivery, protection, and adaptation
-- Examples: Radiobiology, Delivery Techniques, IGRT
-- Unlock by achieving specified mastery in Radiation Therapy stars
+- Examples: Expert Hand, Crystal Clear, Overdrive
+- Unlock by unlocking Radiation Therapy stars
 
-#### Linac Anatomy Applications
+#### Linear Accelerator Applications
 - Focus on equipment, components, and technical operation
-- Examples: Components, Beam Generation, Safety
-- Unlock by achieving specified mastery in Linac Anatomy stars
+- Examples: Priority Access, Emergency Protocol, Fast Learner
+- Unlock by unlocking Linac Anatomy stars
 
 #### Dosimetry Applications
 - Focus on measurements, calibration, and quality assurance
-- Examples: Calibration, Small Field, Absolute Dosimetry
-- Unlock by achieving specified mastery in Dosimetry stars
+- Examples: Laser Focus, Perfect Precision, Detector Array
+- Unlock by unlocking Dosimetry stars
 
 #### Cross-Domain Applications
-- Require mastery across multiple domains
+- Require completion of etching patterns across multiple domains
 - Focus on synthesis and integration
-- Examples: Domain Synthesis, Professional Intuition, Patient Care
-- Unlock by achieving specified patterns or cross-domain connections
+- Examples: Tomorrow's Promise, Network Effect, Bedside Manner
+- Unlock by completing etching patterns
 
-### 3.5 Ability Unlock Progression
+### 3.6 Card Unlock Progression
 
-This table shows when abilities typically become available:
+This table shows when cards typically become available:
 
-| Season | Newly Available Abilities |
+| Season | Newly Available Applications |
 |--------|--------------------------|
-| Spring | Core domain abilities (4-5 total) |
-| Summer | Intermediate abilities (4-6 additional) |
-| Fall | Advanced domain abilities (4-6 additional) |
-| Winter | Cross-domain abilities (2-4 additional) |
+| Spring | Basic domain applications (4-5 total) |
+| Summer | Intermediate applications (4-6 additional) |
+| Fall | Advanced domain applications (4-6 additional) |
+| Winter | Cross-domain applications (2-4 additional) |
 
-### 3.6 Knowledge-Ability Integration
+### 3.7 Progressive Introduction
 
-The Knowledge Constellation and Clinical Application systems are interconnected:
+To avoid overwhelming players, Application cards are introduced gradually:
 
-#### Unlock Mechanics
-- **Domain Mastery Thresholds:** Total mastery within domains unlocks related abilities
-- **Star Pattern Recognition:** Specific star patterns unlock specialized abilities
-- **Knowledge Connections:** Strong connections between stars enhance related abilities
-- **Mentor Relationship Influence:** High relationship levels with mentors enhance domain-related abilities
+- **Days 1-2**: Dr. Garcia & RT domain only
+- **Days 3-4**: Dr. Quinn & TP domain added  
+- **Days 5-6**: Technician Jesse & LA domain added
+- **Days 7-8**: Dr. Kapoor & DOS domain added
 
-#### Interface Integration
-- Clear visual links between knowledge areas and enabled abilities
-- Dynamic ability unlocking as knowledge expands
-- Tooltip system explaining which knowledge enables which abilities
-- Ability selection interface separate from but related to constellation view
+This creates a natural tutorial flow with manageable card acquisition (1-2 per week).
 
 ## 4. PROGRESSION FRAMEWORK
 
-### 4.1 Seasonal Advancement Requirements
+### 4.1 Boss Encounter Unlocking
 
-| Transition | Star Requirements | Mastery Requirements | Relationship Requirements | Additional Requirements |
-|------------|------------------|----------------------|---------------------------|--------------------------|
-| Spring → Summer | Unlock 8 total | 35% across two domains | Level 1 with two mentors | Create 2 star connections |
-| Summer → Boss 1 | Unlock 10 total | 45% in primary domain | Level 2 with one mentor | Complete social challenges |
-| Boss 1 → Fall | Automatic | Automatic | Automatic | Defeat Difficult Coworker |
-| Fall → Boss 2 | Unlock 15 total | 60% in primary domain | Level 2 with two mentors | Complete vendor evaluation |
-| Boss 2 → Winter | Automatic | Automatic | Automatic | Defeat Vendor Trio |
-| Winter → Boss 3 | Unlock 20 total | 70% in primary domain | Level 3 with one mentor | Complete QA rotation |
-| Boss 3 → Final Boss | Unlock 22 total | 90% in primary domain | Level 4 with one mentor | Create 12 star connections |
+Boss encounters are unlocked based on mastery thresholds rather than fixed days:
+
+| Boss | Mastery Threshold | Preparation Phase | Description |
+|------|-------------------|-------------------|-------------|
+| The Difficult Coworker | 40% in primary domain | Available at 35% | Treatment Planning & RT focus |
+| The Vendor Trio | 50% in primary domain | Available at 45% | Linac Anatomy & Dosimetry focus |
+| The Audit Team | 60% in primary domain | Available at 55% | Dosimetry & QA focus |
+| Ionix | 75% in primary domain | Available at 70% | Cross-domain integration |
+
+If the player fails a boss encounter, they can retry immediately or continue normal gameplay until ready.
 
 ### 4.2 Relationship Development Timeline
 
@@ -581,23 +609,23 @@ Progressive relationship development targets:
 
 Player control over daily activities increases over time:
 
-| Phase | Time Control Feature | Season |
+| Phase | Time Control Feature | Typical Mastery Level |
 |-------|----------------------|--------|
-| Phase 1 | Fixed schedule with mandatory activities | Early Spring |
-| Phase 2 | Choose 2 of 4 daily activities, 2 still fixed | Late Spring/Early Summer |
-| Phase 3 | Choose 3 of 4 daily activities, 1 still fixed | Late Summer/Fall |
-| Phase 4 | Full control over entire daily schedule | Winter |
+| Phase 1 | Fixed schedule with mandatory activities | 0-25% |
+| Phase 2 | Choose 2 of 4 daily activities, 2 still fixed | 25-50% |
+| Phase 3 | Choose 3 of 4 daily activities, 1 still fixed | 50-75% |
+| Phase 4 | Full control over entire daily schedule | 75%+ |
 
-### 4.4 Build Viability Requirements
+### 4.4 Viable Build Paths
 
-Each build type must meet these minimum requirements to be viable against all boss encounters:
+While formal archetypes have been removed, these paths remain viable for boss encounters:
 
-| Build Type | Primary Domain | Secondary Domain | Cross-Domain | Relationships |
+| Focus Type | Primary Domain | Secondary Domain | Cross-Domain | Relationships |
 |------------|---------------|------------------|--------------|---------------|
 | Domain Specialist | 90%+ in one | 40%+ in one | 2 connections | Level 4 with one mentor |
 | Cross-Domain Integrator | 70%+ in one | 50%+ in two others | 6 connections | Level 3 with two mentors |
 | Technical Expert | 80%+ in LA/DOS | 60%+ in other tech | 3 connections | Level 3 with technical mentors |
-| Communicator | 70%+ in RT/TP | 60%+ in other people | 3 connections | Level 4 with two mentors |
+| Communication Focus | 70%+ in RT/TP | 60%+ in other people | 3 connections | Level 4 with two mentors |
 
 ### 4.5 Time Economy
 
@@ -626,199 +654,108 @@ Activity durations can be reduced by:
 | 75-90% | RELEVANT_STAR_TIME_MODIFIER_75 (0.8× - 20% faster) |
 | >90% | RELEVANT_STAR_TIME_MODIFIER_90 (0.7× - 30% faster) |
 
-## 5. DATA STRUCTURE
+## 5. DATA STRUCTURE OVERVIEW
 
-Implementation uses these data structures:
+The game's core systems rely on several key data structures that define relationships between elements:
 
-```javascript
-// Star data structure
-Star = {
-  id: String,
-  name: String,
-  domain: String,
-  description: String,
-  type: String,
-  position: {x: Number, y: Number},
-  state: {
-    glimpsed: Boolean,
-    glimpseCount: Number,
-    discovered: Boolean,
-    unlocked: Boolean,
-    mastery: Number,
-    hidden: Boolean
-  },
-  gameplay: {
-    connectableTo: [String],
-    spCost: Number,
-    unlockRequirements: [String],
-    seasonAvailable: String
-  }
-}
+### Star Data
+- Stores identifying information, domain, type, mastery progress
+- Tracks discovery state, unlock status, and connection potential
+- Links to associated Application card (if applicable)
 
-// Connection data structure
-Connection = {
-  id: String,
-  source: String,
-  target: String,
-  strength: Number,
-  crossDomain: Boolean,
-  discovered: Boolean,
-  connectedAt: Date,
-  mastery: Number
-}
+### Connection Data
+- Defines relationships between stars
+- Tracks strength, cross-domain status, and mastery
+- References required etching blueprint
+- Records when connection was formed
 
-// Pattern data structure
-Pattern = {
-  id: String,
-  type: String,
-  name: String,
-  stars: [String],
-  connections: [String],
-  active: Boolean,
-  discovered: Boolean,
-  effect: {
-    type: String,
-    magnitude: Number,
-    description: String
-  }
-}
+### Pattern Data
+- Defines special star arrangements with benefits
+- Links component stars and connections
+- Stores active status and discovery state
+- Defines effects and magnitude
 
-// Ability data structure
-Ability = {
-  id: String,
-  name: String,
-  domain: String,
-  description: String,
-  passiveEffect: {
-    type: String,
-    magnitude: Number,
-    description: String
-  },
-  activeEffect: {
-    type: String,
-    insightCost: Number,
-    magnitude: Number,
-    description: String
-  },
-  unlockRequirements: {
-    stars: [{id: String, mastery: Number}],
-    connections: [String],
-    patterns: [String]
-  },
-  visual: {
-    icon: String,
-    color: String,
-    animationEffect: String
-  }
-}
-```
+### Etching Data
+- Stores discovery information and source
+- Defines connection pattern blueprint
+- Links to associated pattern
+- Tracks visual style and availability
 
-## APPENDIX: CLINICAL APPLICATIONS LIST
+### Application Data
+- Links to source star or etching pattern
+- Defines passive and active effects
+- Stores visual design elements
+- Tracks journal organization
 
-Each Clinical Application has both a passive effect (always active when equipped) and an active effect (triggered by spending Insight).
+## 6. HILL HOME SYSTEM
 
-### Treatment Planning Applications:
+### 6.1 Hill Home Areas
 
-1. **Dose Calculation**
-   - **Passive Effect:** Expanded Mind - Maximum Insight increased by 10
-   - **Active Effect:** Problem Decomposer - Break a single complex challenge into two separate challenges with individual rewards (25 Insight)
+The hill home contains three main interactive areas:
 
-2. **Optimization Algorithm**
-   - **Passive Effect:** Resource Converter - Convert 5 Insight into 1 SP
-   - **Active Effect:** Momentum Boost - Gain 1 level of Momentum (20 Insight)
+1. **Observatory** (Constellation System)
+   - View and interact with Knowledge Constellation
+   - Review star mastery and connections
+   - Observe pattern formation and effects
 
-3. **Heterogeneity**
-   - **Passive Effect:** Momentum Stability - Maintain Momentum level when normally lost
-   - **Active Effect:** Conceptual Gravity - Questions get progressively harder but rewards increase exponentially (30 Insight)
+2. **Study Desk** (Applications System)
+   - Journal for managing Application cards
+   - Three card slots for selecting daily loadout
+   - Etching collection and pattern tracking
+   - Night-to-day transition point
 
-4. **Target Volumes**
-   - **Passive Effect:** Question Preview - See all questions in an activity before it begins, but Momentum builds 50% slower
-   - **Active Effect:** Time Compression - Fit two 1-hour activities into a single timeslot once per day (50 Insight)
+3. **Wardrobe/Mirror** (Character Customization)
+   - Appearance customization options
+   - Unlockable clothing items
+   - Customization progression
 
-5. **Treatment Techniques**
-   - **Passive Effect:** Special Access - Gain access to a unique activity not normally available
-   - **Active Effect:** Quantum Question - Replace a challenge with a 50/50 coin flip that either gives maximum or minimum rewards (35 Insight)
+### 6.2 Journal System
 
-6. **Plan Evaluation**
-   - **Passive Effect:** Insight Generator - Generate +5 Insight
-   - **Active Effect:** Double or Nothing - Next challenge either grants double rewards or zero rewards (30 Insight)
+The player's journal serves as the primary interface for the Applications system:
 
-### Radiation Therapy Applications:
+- **Physical Object:** Leather-bound medical journal
+- **Sections:**
+  - Application card collection
+  - Etching catalog
+  - Daily card selection (3 slots)
+  - Progression notes
+  - Discovery tracking
 
-1. **Radiobiology**
-   - **Passive Effect:** Morning Momentum - Begin day/activity with +1 Momentum
-   - **Active Effect:** Mentor Call - During an activity, summon the associated mentor for one-time help (30 Insight)
+### 6.3 Day-Night Cycle
 
-2. **Delivery Techniques**
-   - **Passive Effect:** None
-   - **Active Effect:** Mentor Takeover - A mentor completes the current challenge perfectly, but you gain no mastery (40 Insight)
+The hill home is the center of the day-night transition:
 
-3. **IGRT**
-   - **Passive Effect:** Image Clarity - Reveal one incorrect answer in multiple choice questions
-   - **Active Effect:** Domain Resonance - All activities in a specific location grant +3 Insight for the day (25 Insight)
+- **End of Day:** Return to hill home after hospital activities
+- **Night Phase:** Interact with desk, observatory, wardrobe
+- **Sleep:** Transition to next day after completing Night Phase
+- **Morning:** Brief moment at hill home before departing for hospital
 
-4. **Fractionation**
-   - **Passive Effect:** None
-   - **Active Effect:** Time Pressure - Activating adds a 30-second timer to all questions but doubles Insight rewards for correct answers (35 Insight)
+### 6.4. Progression Unlocks
 
-5. **Motion Management**
-   - **Passive Effect:** Adaptive Planning - Gain +2 Insight when answering questions about moving targets or changes
-   - **Active Effect:** None
+Hill home elements unlock progressively:
 
-6. **Radiation Protection**
-   - **Passive Effect:** Safety Buffer - First incorrect answer in any activity doesn't reset Momentum
-   - **Active Effect:** None
+- **Early Game:** Basic desk and observatory functions
+- **Mid Game:** Full journal functionality, more etching slots
+- **Late Game:** Wardrobe customization, advanced observatory features
 
-7. **Adaptive Response**
-   - **Passive Effect:** Momentum Efficiency - Reach Momentum level 3 with 4 successes instead of 5
-   - **Active Effect:** Momentum Overdrive - Break the Momentum cap and reach level 4 (⚡⚡⚡⚡) for triple rewards but auto-resets after one challenge (40 Insight)
+## APPENDIX: APPLICATION CARDS SUMMARY
 
-### Linear Accelerator Applications:
+Application cards are detailed in the Card & Etching System Document. Each card has:
+- A passive effect (always active when equipped)
+- An active effect (triggered by spending Insight)
+- Associated star that unlocks it
 
-1. **Components**
-   - **Passive Effect:** Night Owl - Unlock an after-hours activity slot (7-9pm) that grants +50% SP but -50% Insight
-   - **Active Effect:** Extended Day - Unlock an additional activity timeslot once per day (45 Insight)
+The system includes:
+- 5 Treatment Planning cards
+- 6 Radiation Therapy cards
+- 4 Linear Accelerator cards
+- 4 Dosimetry cards
+- 3 Cross-domain cards (unlocked via etchings)
 
-2. **Beam Generation**
-   - **Passive Effect:** None
-   - **Active Effect:** Priority Booking - Reserve a specific timeslot for a high-value activity in advance (30 Insight)
+Notable examples include:
+1. **Perfect Path** - Convert Insight to SP / Gain Momentum
+2. **Overdrive** - Reach higher Momentum levels / Break Momentum cap
+3. **Tomorrow's Promise** - Bank Insight for next day / Wager Insight
+4. **Laser Focus** - Bonus for solo activities / Reverse day schedule
 
-3. **Safety**
-   - **Passive Effect:** None
-   - **Active Effect:** Emergency Shutdown - Immediately end current activity but retain all rewards earned so far (35 Insight)
-
-4. **Beam Modification**
-   - **Passive Effect:** Adaptive Learning - Gain double mastery from challenges in your lowest-mastery domain
-   - **Active Effect:** None
-
-5. **Quality Assurance**
-   - **Passive Effect:** Error Detection - 20% chance to get a second attempt at failed challenges
-   - **Active Effect:** Comprehensive QA - Reveal the mastery gain amounts for all challenges in an activity before starting (25 Insight)
-
-### Dosimetry Applications:
-
-1. **Calibration**
-   - **Passive Effect:** Dream Study - During sleep, gain 1% mastery in three random stars
-   - **Active Effect:** Schedule Shifter - Move one scheduled activity to a different timeslot once per day (30 Insight)
-
-2. **Small Field**
-   - **Passive Effect:** Focus Intensity - Gain +3 Insight when doing solo activities without a mentor present
-   - **Active Effect:** Reverse Day - All schedules run backward from evening to morning for one day (50 Insight)
-
-3. **Absolute Dosimetry**
-   - **Passive Effect:** Precision Measurement - All percentage-based calculations round up instead of down
-   - **Active Effect:** Absolute Calibration - Set Momentum to maximum level instantly, but it will not increase further for the remainder of the activity (25 Insight)
-
-### Cross-Domain Applications:
-
-1. **Domain Synthesis**
-   - **Passive Effect:** Insight Banking - Bank up to 20 Insight to be used on the following day
-   - **Active Effect:** Insight Wager - Bet up to 10 Insight before an activity - double it if successful, lose it all if you fail (Special: varies)
-
-2. **Professional Intuition**
-   - **Passive Effect:** Career Network - Each mentor relationship level 3+ grants +5% to all rewards
-   - **Active Effect:** None
-
-3. **Patient Care**
-   - **Passive Effect:** Bedside Manner - Gain double relationship points during clinical activities with patients
-   - **Active Effect:** None
+See the Card & Etching System Document for complete details.

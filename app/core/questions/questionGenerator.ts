@@ -6,10 +6,369 @@ import {
   MatchingQuestion,
   ProceduralQuestion,
   Question,
-  SolutionStep
+  SolutionStep,
+  QuestionType,
+  Domain,
+  Difficulty,
+  MultipleChoiceQuestion,
+  BoastQuestion,
+  QuestionTemplate,
+  QuestionMetadata
 } from "../../types/questions";
 import { KnowledgeDomain } from "../../types";
 import { loadBanks } from "./questionLoader";
+import { MentorId, MentorVoiceContext } from '../../types/mentorVoice';
+import { MentorVoiceService } from '../mentors/mentorVoiceService';
+
+/**
+ * Question Generator Service
+ * Responsible for generating questions with mentor voice applied
+ */
+export class QuestionGenerator {
+  private mentorVoiceService: MentorVoiceService;
+  
+  constructor(mentorVoiceService?: MentorVoiceService) {
+    this.mentorVoiceService = mentorVoiceService || new MentorVoiceService();
+  }
+  
+  /**
+   * Generate a fully formed question with mentor voice applied
+   */
+  public generateQuestion(
+    question: Question, 
+    assignedMentor?: MentorId
+  ): Question {
+    // If the question already has fixed text (not template-based), return it unmodified
+    if (!question.template && question.text) {
+      return question;
+    }
+    
+    // Determine which mentor to use
+    const mentorId = this.determineMentor(question, assignedMentor);
+    
+    // Apply mentor voice to the question template
+    return this.applyMentorVoiceToQuestion(question, mentorId);
+  }
+  
+  /**
+   * Determine which mentor to use for a question
+   */
+  private determineMentor(question: Question, assignedMentor?: MentorId): MentorId {
+    // Priority:
+    // 1. Assigned mentor parameter (if provided)
+    // 2. Fixed mentor on the question
+    // 3. First from preferred mentors list
+    // 4. Auto-determined based on domain
+    
+    if (assignedMentor) {
+      return assignedMentor;
+    }
+    
+    if (question.mentor) {
+      return question.mentor;
+    }
+    
+    if (question.preferredMentors && question.preferredMentors.length > 0) {
+      return question.preferredMentors[0];
+    }
+    
+    // Auto-determine based on domain and difficulty
+    return this.mentorVoiceService.findBestMentor(
+      question.metadata.domain,
+      question.metadata.difficulty
+    );
+  }
+  
+  /**
+   * Apply mentor voice to a question template
+   */
+  private applyMentorVoiceToQuestion(question: Question, mentorId: MentorId): Question {
+    if (!question.template) {
+      return question;
+    }
+    
+    // Create a context for mentor voice application
+    const context: MentorVoiceContext = {
+      domain: question.metadata.domain,
+      difficulty: question.metadata.difficulty,
+      tags: question.metadata.tags,
+      isBoast: question.type === 'boast',
+      questionType: question.type as QuestionType
+    };
+    
+    // Apply mentor voice to the templates
+    const text = this.mentorVoiceService.applyMentorVoice(
+      question.template.textTemplate,
+      mentorId,
+      context
+    );
+    
+    const correctFeedback = this.mentorVoiceService.applyMentorFeedback(
+      question.template.correctFeedbackTemplate,
+      mentorId,
+      true
+    );
+    
+    const incorrectFeedback = this.mentorVoiceService.applyMentorFeedback(
+      question.template.incorrectFeedbackTemplate,
+      mentorId,
+      false
+    );
+    
+    // Return a new question with the mentor voice applied
+    return {
+      ...question,
+      text,
+      correctFeedback,
+      incorrectFeedback,
+      mentor: mentorId // Assign the mentor that was used
+    };
+  }
+  
+  /**
+   * Generate multiple variants of a templated question with different mentors
+   */
+  public generateVariants(
+    question: Question,
+    mentors: MentorId[] = ['Kapoor', 'Garcia', 'Jesse', 'Quinn']
+  ): Question[] {
+    // Skip if question doesn't use templates
+    if (!question.template) {
+      return [question];
+    }
+    
+    // Generate a variant for each mentor
+    return mentors.map(mentorId => this.generateQuestion(question, mentorId));
+  }
+  
+  /**
+   * Create a template-based multiple choice question
+   */
+  public createMultipleChoiceTemplate(
+    id: string,
+    metadata: QuestionMetadata,
+    textTemplate: string,
+    options: string[],
+    correctOptionIndices: number[],
+    correctFeedbackTemplate: string,
+    incorrectFeedbackTemplate: string,
+    preferredMentors?: MentorId[]
+  ): MultipleChoiceQuestion {
+    return {
+      id,
+      type: 'multipleChoice',
+      metadata,
+      preferredMentors,
+      template: {
+        textTemplate,
+        correctFeedbackTemplate,
+        incorrectFeedbackTemplate
+      },
+      options,
+      correctOptionIndices
+    };
+  }
+  
+  /**
+   * Create a template-based matching question
+   */
+  public createMatchingTemplate(
+    id: string,
+    metadata: QuestionMetadata,
+    textTemplate: string,
+    items: string[],
+    matches: string[],
+    correctMatchIndices: number[],
+    correctFeedbackTemplate: string,
+    incorrectFeedbackTemplate: string,
+    preferredMentors?: MentorId[],
+    bankId?: string
+  ): MatchingQuestion {
+    return {
+      id,
+      type: 'matching',
+      metadata,
+      preferredMentors,
+      template: {
+        textTemplate,
+        correctFeedbackTemplate,
+        incorrectFeedbackTemplate
+      },
+      items,
+      matches,
+      correctMatchIndices,
+      bankId
+    };
+  }
+  
+  /**
+   * Create a template-based procedural question
+   */
+  public createProceduralTemplate(
+    id: string,
+    metadata: QuestionMetadata,
+    textTemplate: string,
+    steps: string[],
+    stepExplanations: string[] | undefined,
+    correctFeedbackTemplate: string,
+    incorrectFeedbackTemplate: string,
+    preferredMentors?: MentorId[],
+    bankId?: string
+  ): ProceduralQuestion {
+    return {
+      id,
+      type: 'procedural',
+      metadata,
+      preferredMentors,
+      template: {
+        textTemplate,
+        correctFeedbackTemplate,
+        incorrectFeedbackTemplate
+      },
+      steps,
+      stepExplanations,
+      bankId
+    };
+  }
+  
+  /**
+   * Create a template-based calculation question with variable ranges
+   */
+  public createCalculationTemplate(
+    id: string,
+    metadata: QuestionMetadata,
+    textTemplate: string,
+    variableRanges: Record<string, {min: number, max: number, step?: number}>,
+    formula: string,
+    acceptableAnswerRanges: Array<{min: number, max: number, feedback?: string}>,
+    correctFeedbackTemplate: string,
+    incorrectFeedbackTemplate: string,
+    precision?: number,
+    units?: string,
+    preferredMentors?: MentorId[]
+  ): CalculationQuestion {
+    return {
+      id,
+      type: 'calculation',
+      metadata,
+      preferredMentors,
+      template: {
+        textTemplate,
+        correctFeedbackTemplate,
+        incorrectFeedbackTemplate
+      },
+      variableRanges,
+      formula,
+      acceptableAnswerRanges,
+      precision,
+      units
+    };
+  }
+  
+  /**
+   * Create a template-based boast question
+   */
+  public createBoastTemplate(
+    id: string,
+    metadata: QuestionMetadata,
+    baseQuestionType: Exclude<QuestionType, 'boast'>,
+    textTemplate: string,
+    correctFeedbackTemplate: string,
+    incorrectFeedbackTemplate: string,
+    rewardMultiplier: number,
+    penaltyMultiplier: number,
+    preferredMentors?: MentorId[],
+    // Additional parameters based on baseQuestionType
+    options?: string[],
+    correctOptionIndices?: number[],
+    items?: string[],
+    matches?: string[],
+    correctMatchIndices?: number[],
+    steps?: string[],
+    variables?: Record<string, number>,
+    acceptableAnswerRanges?: Array<{min: number, max: number}>
+  ): BoastQuestion {
+    return {
+      id,
+      type: 'boast',
+      metadata,
+      preferredMentors,
+      template: {
+        textTemplate,
+        correctFeedbackTemplate,
+        incorrectFeedbackTemplate
+      },
+      baseQuestionType,
+      rewardMultiplier,
+      penaltyMultiplier,
+      // Optional fields based on baseQuestionType
+      options,
+      correctOptionIndices,
+      items,
+      matches,
+      correctMatchIndices,
+      steps,
+      variables,
+      acceptableAnswerRanges
+    };
+  }
+  
+  /**
+   * Generate random variables for a calculation question
+   */
+  public generateRandomVariables(
+    variableRanges: Record<string, {min: number, max: number, step?: number}>
+  ): Record<string, number> {
+    const variables: Record<string, number> = {};
+    
+    for (const [name, range] of Object.entries(variableRanges)) {
+      const { min, max, step = 1 } = range;
+      
+      // Generate random value within range, respecting step
+      const steps = Math.floor((max - min) / step);
+      const randomSteps = Math.floor(Math.random() * (steps + 1));
+      const value = min + (randomSteps * step);
+      
+      // Round to avoid floating point precision issues
+      variables[name] = parseFloat(value.toFixed(10));
+    }
+    
+    return variables;
+  }
+  
+  /**
+   * Generate a calculation question with random variables
+   */
+  public generateCalculationQuestion(question: CalculationQuestion): CalculationQuestion {
+    // If the question doesn't have variable ranges, return as is
+    if (!question.variableRanges) {
+      return question;
+    }
+    
+    // Generate random variables based on ranges
+    const variables = this.generateRandomVariables(question.variableRanges);
+    
+    // Return new question with generated variables
+    return {
+      ...question,
+      variables
+    };
+  }
+  
+  /**
+   * Determine if a calculation answer is correct
+   * Can be used for testing generated calculation questions
+   */
+  public isCalculationAnswerCorrect(
+    question: CalculationQuestion,
+    answer: number
+  ): boolean {
+    // Check if answer is within any of the acceptable ranges
+    return question.acceptableAnswerRanges.some(range => 
+      answer >= range.min && answer <= range.max
+    );
+  }
+}
 
 /**
  * Generate a calculation question with random values for variables
