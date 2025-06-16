@@ -185,7 +185,7 @@ const MessageBubble = styled.div<{ $isUser?: boolean; $roomId?: string }>`
     border-left: 2px solid rgba(59, 130, 246, 0.3);
   `}
   
-  ${props => !props.$isUser && props.$roomId === 'linac-1' && `
+  ${props => !props.$isUser && props.$roomId === 'treatment-room' && `
     background: linear-gradient(135deg, 
       ${colors.backgroundAlt} 0%, 
       rgba(16, 185, 129, 0.05) 100%

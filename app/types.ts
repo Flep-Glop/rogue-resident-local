@@ -206,6 +206,10 @@ export interface DialogueOption {
   // Day 1 specific properties
   isNameInput?: boolean;
   triggersActivity?: boolean;
+  
+  // Tutorial system support
+  tutorialStepCompletion?: string;  // Tutorial step ID to complete when this option is chosen
+  receivesAbility?: string;         // Ability ID to receive when this option is chosen
 }
 
 // Relationship tracking for mentors

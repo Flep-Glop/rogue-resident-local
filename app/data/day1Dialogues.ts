@@ -908,6 +908,542 @@ export const day1Dialogues: Record<string, Dialogue> = {
     }
   },
 
+  'treatment-room-intro': {
+    id: 'treatment-room-intro',
+    title: 'Treatment Room Clinical Experience',
+    description: 'Introduction to clinical treatment delivery with Dr. Garcia',
+    startNodeId: 'treatment_room_start',
+    domain: 'radiation_therapy',
+    difficulty: 1,
+    mode: DialogueMode.NARRATIVE,
+    nodes: {
+      'treatment_room_start': {
+        id: 'treatment_room_start',
+        mentorId: 'garcia',
+        text: `Welcome to where everything we plan becomes reality - the treatment room. This is sacred space where hope meets precision, where the physics equations you'll master serve their ultimate purpose: healing human beings.`,
+        options: [
+          {
+            id: 'ask_about_atmosphere',
+            text: 'The room feels different from the others.',
+            nextNodeId: 'treatment_atmosphere'
+          },
+          {
+            id: 'ask_clinical_workflow',
+            text: 'Walk me through a typical treatment day.',
+            nextNodeId: 'daily_clinical_workflow'
+          }
+        ]
+      },
+      'treatment_atmosphere': {
+        id: 'treatment_atmosphere',
+        mentorId: 'garcia',
+        text: `You're perceptive. There's a weight to this room - every patient who lies on that table is fighting for their life. The linear accelerator may be an impressive piece of engineering, but what makes it meaningful is the human trust placed in our hands. When Mrs. Chen comes for her brain treatment, she's not thinking about dose gradients - she's thinking about her grandchildren.`,
+        options: [
+          {
+            id: 'ask_patient_perspective',
+            text: 'How do you help patients through that fear?',
+            nextNodeId: 'patient_care_approach',
+            relationshipChange: 3
+          },
+          {
+            id: 'ask_responsibility',
+            text: 'How do you handle that level of responsibility?',
+            nextNodeId: 'clinical_responsibility',
+            insightChange: 5
+          }
+        ]
+      },
+      'daily_clinical_workflow': {
+        id: 'daily_clinical_workflow',
+        mentorId: 'garcia',
+        text: `Each day begins at 6 AM with machine warm-up and quality assurance - Jesse handles the technical checks while I review the day's treatment schedule. First patient arrives at 7:30. Setup, image guidance, position verification, treatment delivery, then careful monitoring. We typically see 25-30 patients daily, each requiring 15-45 minutes depending on complexity.`,
+        options: [
+          {
+            id: 'ask_patient_interaction',
+            text: 'How much interaction do you have with each patient?',
+            nextNodeId: 'patient_interaction_details',
+            relationshipChange: 2
+          },
+          {
+            id: 'ask_safety_protocols',
+            text: 'What safety protocols guide each treatment?',
+            nextNodeId: 'safety_protocol_overview',
+            insightChange: 6
+          }
+        ]
+      },
+      'patient_care_approach': {
+        id: 'patient_care_approach',
+        mentorId: 'garcia',
+        text: `I explain everything before it happens. "You'll hear the machine move - that's normal. The table might shift slightly - we're just making tiny adjustments for precision." I stay with them during setup, maintain eye contact during positioning, and always ask if they're comfortable. Fear dissolves when patients feel seen and understood.`,
+        options: [
+          {
+            id: 'ask_positioning_process',
+            text: 'Tell me about the positioning process.',
+            nextNodeId: 'patient_positioning',
+            insightChange: 7
+          },
+          {
+            id: 'ask_emotional_challenges',
+            text: 'What\'s the most challenging part emotionally?',
+            nextNodeId: 'emotional_challenges',
+            relationshipChange: 4
+          }
+        ]
+      },
+      'clinical_responsibility': {
+        id: 'clinical_responsibility',
+        mentorId: 'garcia',
+        text: `Every treatment decision carries weight. When I verify a plan, I'm not just checking numbers - I'm holding someone's future in my hands. But here's what I've learned: that responsibility, when embraced fully, sharpens your intuition. You start noticing patterns, feeling when something isn't quite right, sensing what each patient needs.`,
+        options: [
+          {
+            id: 'ask_intuition_development',
+            text: 'How do you develop that clinical intuition?',
+            nextNodeId: 'clinical_intuition',
+            insightChange: 8,
+            momentumChange: 2
+          },
+          {
+            id: 'ask_decision_making',
+            text: 'How do you make difficult treatment decisions?',
+            nextNodeId: 'clinical_decision_making',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'patient_interaction_details': {
+        id: 'patient_interaction_details',
+        mentorId: 'garcia',
+        text: `More than you might expect. I greet each patient personally, review any concerns from their previous session, and check how they're tolerating treatment. Some patients want to chat - distraction helps them relax. Others prefer quiet focus. Reading each person's needs is part of the skill set you'll develop.`,
+        options: [
+          {
+            id: 'ask_individual_needs',
+            text: 'How do you adapt to different patient personalities?',
+            nextNodeId: 'patient_adaptation',
+            relationshipChange: 4
+          },
+          {
+            id: 'continue_workflow',
+            text: 'Personalized care within a technical environment.',
+            nextNodeId: 'treatment_delivery_process',
+            insightChange: 5
+          }
+        ]
+      },
+      'safety_protocol_overview': {
+        id: 'safety_protocol_overview',
+        mentorId: 'garcia',
+        text: `Patient safety is paramount. We verify patient identity, review treatment parameters, confirm positioning with imaging, check dose calculations, and monitor throughout delivery. But safety isn't just checklists - it's cultivating awareness, staying present, and never becoming complacent. One distracted moment could have consequences.`,
+        options: [
+          {
+            id: 'ask_imaging_verification',
+            text: 'Tell me about the imaging verification process.',
+            nextNodeId: 'imaging_verification',
+            insightChange: 8
+          },
+          {
+            id: 'ask_staying_present',
+            text: 'How do you maintain that level of attention throughout long days?',
+            nextNodeId: 'maintaining_focus',
+            relationshipChange: 3,
+            momentumChange: 1
+          }
+        ]
+      },
+      'patient_positioning': {
+        id: 'patient_positioning',
+        mentorId: 'garcia',
+        text: `Positioning is both art and science. We use the immobilization devices from simulation, but each day brings subtle variations - weight changes, medication effects, anxiety levels. I watch for signs of discomfort, adjust padding when needed, and ensure reproducibility without sacrificing compassion. Sometimes an extra pillow makes all the difference.`,
+        options: [
+          {
+            id: 'ask_reproducibility_challenges',
+            text: 'How do you balance comfort with reproducibility?',
+            nextNodeId: 'comfort_precision_balance',
+            insightChange: 7,
+            relationshipChange: 2
+          },
+          {
+            id: 'continue_treatment',
+            text: 'Small adjustments that honor the person receiving treatment.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'emotional_challenges': {
+        id: 'emotional_challenges',
+        mentorId: 'garcia',
+        text: `Watching people you've grown to care about struggle through treatment is hard. Some days you see genuine fear in someone's eyes, or fatigue that goes beyond physical tiredness. But you also witness incredible resilience - patients who crack jokes while getting positioned, families who create small celebrations around treatment milestones. The human spirit is remarkable.`,
+        options: [
+          {
+            id: 'ask_celebrating_progress',
+            text: 'How do you celebrate treatment milestones with patients?',
+            nextNodeId: 'treatment_milestones',
+            relationshipChange: 4
+          },
+          {
+            id: 'ask_coping_strategies',
+            text: 'How do you personally cope with the emotional weight?',
+            nextNodeId: 'personal_coping',
+            relationshipChange: 5,
+            insightChange: 5
+          }
+        ]
+      },
+      'clinical_intuition': {
+        id: 'clinical_intuition',
+        mentorId: 'garcia',
+        text: `Clinical intuition develops through mindful presence. When you truly focus on each patient - not just the technical task, but the whole person - you start noticing subtle patterns. How someone breathes when anxious, which patients need extra time, when a plan might need adjustment based on patient response. Trust develops between practitioner and patient, and somehow... treatments go more smoothly.`,
+        options: [
+          {
+            id: 'ask_mindful_practice',
+            text: 'How do you cultivate that mindful presence?',
+            nextNodeId: 'mindful_treatment',
+            insightChange: 10,
+            momentumChange: 2,
+            relationshipChange: 3
+          },
+          {
+            id: 'continue_workflow',
+            text: 'There\'s something profound about that connection.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'clinical_decision_making': {
+        id: 'clinical_decision_making',
+        mentorId: 'garcia',
+        text: `I consider the whole picture - treatment goals, patient tolerance, quality of life factors, family dynamics. Sometimes the "optimal" plan isn't what a patient needs. A 90-year-old might benefit more from a shorter, gentler treatment than the most aggressive approach. Clinical wisdom means knowing when to prioritize comfort over theoretical perfection.`,
+        options: [
+          {
+            id: 'ask_personalized_care',
+            text: 'How do you personalize treatments for individual patients?',
+            nextNodeId: 'individualized_approaches',
+            insightChange: 8,
+            relationshipChange: 3
+          },
+          {
+            id: 'continue_treatment',
+            text: 'Wisdom that comes from seeing patients as whole people.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 4
+          }
+        ]
+      },
+      'patient_adaptation': {
+        id: 'patient_adaptation',
+        mentorId: 'garcia',
+        text: `Some patients want detailed explanations - they feel more in control when they understand each step. Others prefer minimal information and just want reassurance that we know what we're doing. Anxious patients might need extra time and gentle guidance. Veterans often appreciate efficiency and directness. You learn to read the room quickly.`,
+        options: [
+          {
+            id: 'continue_workflow',
+            text: 'Adaptive communication as part of clinical skill.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'treatment_delivery_process': {
+        id: 'treatment_delivery_process',
+        mentorId: 'garcia',
+        text: `Once positioning is verified and safety checks complete, we begin treatment delivery. The room clears except for monitoring systems. I watch patient positioning via cameras, monitor vital signs when available, and stay alert for any signs of patient distress. Most treatments take 10-20 minutes, but I remain fully present throughout.`,
+        options: [
+          {
+            id: 'ask_monitoring_systems',
+            text: 'What monitoring systems do you use during treatment?',
+            nextNodeId: 'patient_monitoring',
+            insightChange: 6
+          },
+          {
+            id: 'ask_emergency_procedures',
+            text: 'What happens if something goes wrong during treatment?',
+            nextNodeId: 'emergency_protocols',
+            insightChange: 7
+          }
+        ]
+      },
+      'imaging_verification': {
+        id: 'imaging_verification',
+        mentorId: 'garcia',
+        text: `Before each treatment, we acquire verification images - either portal images or cone-beam CT scans. These get compared to the reference images from simulation. If the patient position differs by more than our tolerance limits, we make corrections. It's like GPS for radiation therapy - ensuring we're hitting the intended target.`,
+        options: [
+          {
+            id: 'ask_tolerance_limits',
+            text: 'What are typical tolerance limits for positioning?',
+            nextNodeId: 'positioning_tolerances',
+            insightChange: 7
+          },
+          {
+            id: 'continue_treatment',
+            text: 'Daily verification ensures treatment accuracy.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'maintaining_focus': {
+        id: 'maintaining_focus',
+        mentorId: 'garcia',
+        text: `Mindful breaks between patients. Even 30 seconds of conscious breathing helps reset your attention. I also remind myself why we're here - each patient represents someone's hope for tomorrow. That purpose keeps me centered. And honestly, patients give energy back - their courage and gratitude fuel my own resilience.`,
+        options: [
+          {
+            id: 'ask_purpose_connection',
+            text: 'How does connecting to purpose change your experience of the work?',
+            nextNodeId: 'purpose_driven_practice',
+            relationshipChange: 4,
+            momentumChange: 2
+          },
+          {
+            id: 'continue_workflow',
+            text: 'Mutual exchange of strength between practitioner and patient.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'comfort_precision_balance': {
+        id: 'comfort_precision_balance',
+        mentorId: 'garcia',
+        text: `A tense, uncomfortable patient will move more during treatment than a relaxed one. So comfort actually serves precision. We use soft padding, adjust room temperature, provide blankets when appropriate. Sometimes accepting a 1-2mm positioning variation is better than having a patient who can't hold still. Clinical judgment means knowing when to prioritize what.`,
+        options: [
+          {
+            id: 'continue_treatment',
+            text: 'Practical wisdom that serves both accuracy and humanity.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 3,
+            insightChange: 5
+          }
+        ]
+      },
+      'treatment_milestones': {
+        id: 'treatment_milestones',
+        mentorId: 'garcia',
+        text: `Small celebrations matter enormously. Halfway through treatment, we might share a high-five or take a progress photo. Last day of treatment often includes the whole team - therapists, nurses, sometimes even doctors. Patients ring our completion bell, and there's genuine joy in that moment. We've shared a journey toward healing.`,
+        options: [
+          {
+            id: 'ask_team_bonding',
+            text: 'How do these shared experiences affect the treatment team?',
+            nextNodeId: 'team_connection',
+            relationshipChange: 4
+          },
+          {
+            id: 'continue_treatment',
+            text: 'Creating meaning within the medical process.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'personal_coping': {
+        id: 'personal_coping',
+        mentorId: 'garcia',
+        text: `I practice what I call "purposeful witnessing" - staying present to each patient's experience without taking on their suffering as my own. I also maintain perspective by celebrating the healings we facilitate. Some days are heavy, but most patients get better. Focusing on successful outcomes helps balance the difficult moments.`,
+        options: [
+          {
+            id: 'ask_witnessing_practice',
+            text: 'Tell me more about purposeful witnessing.',
+            nextNodeId: 'witnessing_practice',
+            insightChange: 8,
+            momentumChange: 2,
+            relationshipChange: 4
+          },
+          {
+            id: 'continue_treatment',
+            text: 'Holding space without taking on emotional burden.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'mindful_treatment': {
+        id: 'mindful_treatment',
+        mentorId: 'garcia',
+        text: `It starts with intention - before each patient, I take a moment to set the purpose of creating healing space. During positioning, I stay aware of my own presence and how it affects the patient. Some patients are sensitive to energy and atmosphere. When you approach treatment with genuine care and focused attention, patients feel it.`,
+        options: [
+          {
+            id: 'ask_energy_awareness',
+            text: 'What do you mean by patients being sensitive to energy?',
+            nextNodeId: 'energy_sensitivity',
+            insightChange: 10,
+            relationshipChange: 4,
+            momentumChange: 2
+          },
+          {
+            id: 'continue_treatment',
+            text: 'Intentional presence as part of therapeutic care.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'individualized_approaches': {
+        id: 'individualized_approaches',
+        mentorId: 'garcia',
+        text: `Every patient teaches us something new. A musician might need special attention to preserve hand function. A teacher might prioritize vocal cord sparing. Parents often push through side effects differently than patients without children. The treatment plan provides the framework, but human factors guide the execution.`,
+        options: [
+          {
+            id: 'continue_treatment',
+            text: 'Technical excellence serving individual human needs.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 3,
+            insightChange: 5
+          }
+        ]
+      },
+      'patient_monitoring': {
+        id: 'patient_monitoring',
+        mentorId: 'garcia',
+        text: `Multiple video cameras provide real-time patient observation. Audio monitoring allows communication throughout treatment. Some patients have respiratory gating systems that sync beam delivery with breathing. For longer treatments, we might use pulse oximetry or other vital sign monitors. Technology serves the human connection.`,
+        options: [
+          {
+            id: 'ask_communication_during',
+            text: 'How do you communicate with patients during treatment?',
+            nextNodeId: 'treatment_communication',
+            relationshipChange: 3
+          },
+          {
+            id: 'continue_safety',
+            text: 'Comprehensive monitoring for patient safety.',
+            nextNodeId: 'emergency_protocols',
+            insightChange: 5
+          }
+        ]
+      },
+      'emergency_protocols': {
+        id: 'emergency_protocols',
+        mentorId: 'garcia',
+        text: `Multiple safety systems protect patients. If a patient moves unexpectedly, we can pause treatment instantly. Medical emergencies trigger immediate beam termination and rapid room entry. All staff are trained in emergency response. But prevention is key - good patient education and comfort measures minimize emergency situations.`,
+        options: [
+          {
+            id: 'ask_prevention_focus',
+            text: 'How does prevention-focused care improve outcomes?',
+            nextNodeId: 'prevention_philosophy',
+            insightChange: 7,
+            relationshipChange: 3
+          },
+          {
+            id: 'finish_comprehensive',
+            text: 'Safety through technology and human awareness.',
+            nextNodeId: 'treatment_conclusion',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'positioning_tolerances': {
+        id: 'positioning_tolerances',
+        mentorId: 'garcia',
+        text: `Typical tolerances are 2-3mm for most treatments, though some specialized procedures require sub-millimeter precision. The tolerance reflects the balance between achievable accuracy and clinical necessity. A brain metastasis might need 1mm precision, while a palliative bone treatment might accept 5mm. Clinical context guides technical requirements.`,
+        options: [
+          {
+            id: 'continue_treatment',
+            text: 'Precision requirements matched to clinical need.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 2,
+            insightChange: 5
+          }
+        ]
+      },
+      'purpose_driven_practice': {
+        id: 'purpose_driven_practice',
+        mentorId: 'garcia',
+        text: `When you remember that each calculation might extend someone's life, each positioning adjustment might prevent a complication, the work transforms from technical task to sacred service. That consciousness elevates performance - you notice details more clearly, anticipate problems better, and find energy even during difficult cases.`,
+        options: [
+          {
+            id: 'continue_treatment',
+            text: 'Sacred service through technical excellence.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 4,
+            momentumChange: 2
+          }
+        ]
+      },
+      'team_connection': {
+        id: 'team_connection',
+        mentorId: 'garcia',
+        text: `Shared purpose creates deep bonds. When you've worked together to help someone through treatment, celebrating their recovery becomes meaningful for the whole team. These experiences remind us why we chose this field and strengthen our commitment to excellence. Healing is collaborative work.`,
+        options: [
+          {
+            id: 'continue_treatment',
+            text: 'Collective commitment to healing excellence.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 4
+          }
+        ]
+      },
+      'witnessing_practice': {
+        id: 'witnessing_practice',
+        mentorId: 'garcia',
+        text: `Purposeful witnessing means staying fully present to someone's experience without trying to fix their emotions or absorb their pain. You offer compassionate attention while maintaining professional boundaries. It's deeply respectful - acknowledging their struggle without diminishing it or taking it on yourself.`,
+        options: [
+          {
+            id: 'continue_treatment',
+            text: 'Compassionate presence within professional boundaries.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 4,
+            insightChange: 6
+          }
+        ]
+      },
+      'energy_sensitivity': {
+        id: 'energy_sensitivity',
+        mentorId: 'garcia',
+        text: `Some patients are particularly sensitive to the emotional atmosphere around them. When staff are stressed or distracted, patients sense it and become more anxious. But when you approach with calm confidence and genuine care, that peaceful energy is palpable. It's not mystical - it's human responsiveness to emotional cues.`,
+        options: [
+          {
+            id: 'continue_treatment',
+            text: 'Human connection affecting treatment outcomes.',
+            nextNodeId: 'treatment_delivery_process',
+            relationshipChange: 4,
+            insightChange: 6
+          }
+        ]
+      },
+      'treatment_communication': {
+        id: 'treatment_communication',
+        mentorId: 'garcia',
+        text: `We maintain constant communication. "The machine is moving now - everything's normal." "Halfway through this field, you're doing great." For anxious patients, I might count down the remaining time. The goal is ensuring they never feel alone or uncertain about what's happening.`,
+        options: [
+          {
+            id: 'continue_safety',
+            text: 'Communication reducing anxiety and improving cooperation.',
+            nextNodeId: 'emergency_protocols',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'prevention_philosophy': {
+        id: 'prevention_philosophy',
+        mentorId: 'garcia',
+        text: `Prevention-focused care means anticipating needs before they become problems. Comfortable patients move less. Well-informed patients cooperate better. Emotionally supported patients tolerate side effects more effectively. When you address the whole person, technical outcomes improve organically.`,
+        options: [
+          {
+            id: 'finish_comprehensive',
+            text: 'Holistic care supporting technical excellence.',
+            nextNodeId: 'treatment_conclusion',
+            relationshipChange: 4,
+            insightChange: 7
+          }
+        ]
+      },
+      'treatment_conclusion': {
+        id: 'treatment_conclusion',
+        mentorId: 'garcia',
+        text: `This room represents the integration of everything we do - technical precision serving human healing. The physics, the planning, the quality assurance, all culminate here in these moments of therapeutic delivery. When you work in this room, you'll understand that medical physics is ultimately about hope made manifest through scientific precision.`,
+        options: [
+          {
+            id: 'treatment_finish',
+            text: 'Thank you, Dr. Garcia. I understand now why this room feels sacred.',
+            isEndNode: true,
+            relationshipChange: 5,
+            insightChange: 10,
+            momentumChange: 3
+          }
+        ]
+      }
+    }
+  },
+
   'treatment-room-activity_challenge': {
     id: 'treatment-room-activity_challenge',
     title: 'Treatment Room Challenge',
@@ -947,10 +1483,511 @@ export const day1Dialogues: Record<string, Dialogue> = {
     }
   },
 
+  'dosimetry-lab-intro': {
+    id: 'dosimetry-lab-intro',
+    title: 'Dosimetry Lab Quality Standards',
+    description: 'Introduction to precision measurement with Dr. Kapoor',
+    startNodeId: 'dosimetry_lab_start',
+    domain: 'dosimetry',
+    difficulty: 1,
+    mode: DialogueMode.NARRATIVE,
+    nodes: {
+      'dosimetry_lab_start': {
+        id: 'dosimetry_lab_start',
+        mentorId: 'kapoor',
+        text: `Welcome to the dosimetry laboratory. This is where measurement meets certainty, where every dose calculation is validated against absolute standards. In medical physics, precision is not optional - it is the foundation upon which patient safety rests.`,
+        options: [
+          {
+            id: 'ask_precision_standards',
+            text: 'What level of precision do you maintain here?',
+            nextNodeId: 'precision_standards'
+          },
+          {
+            id: 'ask_lab_equipment',
+            text: 'Tell me about the measurement equipment.',
+            nextNodeId: 'dosimetry_equipment'
+          }
+        ]
+      },
+      'precision_standards': {
+        id: 'precision_standards',
+        mentorId: 'kapoor',
+        text: `We follow TG-51 protocols religiously. Ion chamber calibrations traceable to national standards, with uncertainties below 1.5%. Temperature and pressure corrections applied systematically. Every measurement documented, verified, and cross-checked. There is no room for approximation when radiation dose directly affects patient outcomes.`,
+        options: [
+          {
+            id: 'ask_tg51_details',
+            text: 'Explain the TG-51 protocol to me.',
+            nextNodeId: 'tg51_protocol',
+            insightChange: 8
+          },
+          {
+            id: 'ask_calibration_chain',
+            text: 'How do you maintain traceability to national standards?',
+            nextNodeId: 'calibration_traceability',
+            insightChange: 6
+          }
+        ]
+      },
+      'dosimetry_equipment': {
+        id: 'dosimetry_equipment',
+        mentorId: 'kapoor',
+        text: `These ion chambers are calibrated annually at the National Institute of Standards and Technology. The electrometer measures charge to picoampere precision. Our reference-class dosimeters have stability better than 0.3% over time. Each instrument serves a specific purpose in our measurement protocols.`,
+        options: [
+          {
+            id: 'ask_ion_chambers',
+            text: 'What makes these ion chambers special?',
+            nextNodeId: 'ion_chamber_specifications',
+            insightChange: 7
+          },
+          {
+            id: 'ask_stability_maintenance',
+            text: 'How do you maintain such precise stability?',
+            nextNodeId: 'stability_protocols',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'tg51_protocol': {
+        id: 'tg51_protocol',
+        mentorId: 'kapoor',
+        text: `TG-51 establishes the foundation for all clinical dosimetry. We measure absorbed dose to water using cavity ionization theory. The calibration coefficient converts ion chamber readings to absorbed dose. Environmental corrections for temperature, pressure, and humidity ensure accuracy. This protocol has served medical physics for decades.`,
+        options: [
+          {
+            id: 'ask_cavity_theory',
+            text: 'Explain cavity ionization theory.',
+            nextNodeId: 'cavity_theory_explanation',
+            insightChange: 10,
+            discoversConceptId: 'cavity_theory'
+          },
+          {
+            id: 'ask_environmental_corrections',
+            text: 'Why are environmental corrections so critical?',
+            nextNodeId: 'environmental_corrections',
+            insightChange: 6
+          }
+        ]
+      },
+      'calibration_traceability': {
+        id: 'calibration_traceability',
+        mentorId: 'kapoor',
+        text: `Our primary standard ion chamber is calibrated directly at NIST using 60-Co gamma rays. Secondary standards are cross-calibrated against the primary. Field instruments are calibrated against secondaries. This creates an unbroken chain from national standard to clinical measurement. Documentation accompanies every step.`,
+        options: [
+          {
+            id: 'ask_cobalt_standard',
+            text: 'Why use 60-Co as the calibration standard?',
+            nextNodeId: 'cobalt_standard_explanation',
+            insightChange: 8
+          },
+          {
+            id: 'ask_documentation_requirements',
+            text: 'What documentation is required for traceability?',
+            nextNodeId: 'documentation_protocols',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'ion_chamber_specifications': {
+        id: 'ion_chamber_specifications',
+        mentorId: 'kapoor',
+        text: `These Farmer-type cylindrical chambers have graphite walls and aluminum electrodes. The sensitive volume is precisely 0.6 cubic centimeters. Response is linear over six orders of magnitude. Temperature coefficient is known to 0.1%/°C. Each chamber has individual calibration factors and correction coefficients.`,
+        options: [
+          {
+            id: 'ask_chamber_design',
+            text: 'Why this specific chamber design?',
+            nextNodeId: 'chamber_design_rationale',
+            insightChange: 7
+          },
+          {
+            id: 'ask_response_linearity',
+            text: 'How do you verify response linearity?',
+            nextNodeId: 'linearity_testing',
+            insightChange: 6
+          }
+        ]
+      },
+      'stability_protocols': {
+        id: 'stability_protocols',
+        mentorId: 'kapoor',
+        text: `Daily constancy checks using check sources. Monthly comprehensive testing including leakage, stability, and response verification. Annual calibrations at accredited laboratories. Environmental monitoring with temperature and humidity logging. Any deviation exceeding 1% triggers investigation and recalibration.`,
+        options: [
+          {
+            id: 'ask_constancy_testing',
+            text: 'Describe the daily constancy check procedure.',
+            nextNodeId: 'constancy_procedures',
+            insightChange: 6
+          },
+          {
+            id: 'ask_deviation_investigation',
+            text: 'What happens when you find a deviation?',
+            nextNodeId: 'deviation_protocols',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'cavity_theory_explanation': {
+        id: 'cavity_theory_explanation',
+        mentorId: 'kapoor',
+        text: `The ion chamber represents a small cavity in the medium. According to Bragg-Gray theory, the dose to the cavity equals the dose to the medium multiplied by the ratio of mass stopping powers. Spencer-Attix theory refines this for finite cavity sizes. The cavity must be small enough not to perturb the radiation field.`,
+        options: [
+          {
+            id: 'ask_bragg_gray_conditions',
+            text: 'What conditions must be met for Bragg-Gray theory?',
+            nextNodeId: 'bragg_gray_conditions',
+            insightChange: 10,
+            discoversConceptId: 'bragg_gray_theory'
+          },
+          {
+            id: 'continue_protocols',
+            text: 'The theoretical foundation is elegant.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'environmental_corrections': {
+        id: 'environmental_corrections',
+        mentorId: 'kapoor',
+        text: `Ion chamber response depends on air density in the sensitive volume. Temperature affects gas expansion, pressure affects gas density, humidity affects electron attachment. The kTP correction factor accounts for these variations. Standard conditions are 22°C and 101.3 kPa. Corrections can reach 5% under extreme conditions.`,
+        options: [
+          {
+            id: 'ask_ktp_calculation',
+            text: 'How is the kTP correction calculated?',
+            nextNodeId: 'ktp_calculation',
+            insightChange: 8
+          },
+          {
+            id: 'continue_protocols',
+            text: 'Environmental control is crucial for accuracy.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'cobalt_standard_explanation': {
+        id: 'cobalt_standard_explanation',
+        mentorId: 'kapoor',
+        text: `60-Co provides a stable, well-characterized gamma ray spectrum with 1.25 MeV average energy. The half-life of 5.27 years ensures long-term stability. The source geometry is well-defined for primary standardization. Most clinical beams can be referenced back to this 60-Co standard through beam quality conversion factors.`,
+        options: [
+          {
+            id: 'ask_beam_quality_factors',
+            text: 'Explain beam quality conversion factors.',
+            nextNodeId: 'beam_quality_conversion',
+            insightChange: 8
+          },
+          {
+            id: 'continue_protocols',
+            text: 'A stable reference point for all measurements.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'documentation_protocols': {
+        id: 'documentation_protocols',
+        mentorId: 'kapoor',
+        text: `Every calibration certificate, every measurement log, every correction factor is preserved. Chain of custody forms accompany instruments during calibration. Environmental conditions are recorded for each measurement. Uncertainty budgets are calculated and documented. Regulatory inspectors must be able to verify our processes years later.`,
+        options: [
+          {
+            id: 'ask_uncertainty_analysis',
+            text: 'How do you calculate measurement uncertainties?',
+            nextNodeId: 'uncertainty_budgets',
+            insightChange: 8
+          },
+          {
+            id: 'continue_protocols',
+            text: 'Meticulous documentation ensures scientific integrity.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'chamber_design_rationale': {
+        id: 'chamber_design_rationale',
+        mentorId: 'kapoor',
+        text: `Graphite walls are tissue-equivalent for megavoltage beams. Cylindrical geometry provides uniform response. The 0.6 cc volume is small enough to avoid significant beam attenuation yet large enough for stable readings. Aluminum central electrode minimizes perturbation. Every design element serves measurement accuracy.`,
+        options: [
+          {
+            id: 'ask_tissue_equivalence',
+            text: 'What makes graphite tissue-equivalent?',
+            nextNodeId: 'tissue_equivalence',
+            insightChange: 7
+          },
+          {
+            id: 'continue_testing',
+            text: 'Engineering optimized for measurement precision.',
+            nextNodeId: 'linearity_testing',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'linearity_testing': {
+        id: 'linearity_testing',
+        mentorId: 'kapoor',
+        text: `We test linearity using variable dose rate measurements and different source-to-detector distances. Response should be proportional to dose rate across six orders of magnitude. Any non-linearity exceeding 1% indicates chamber problems. Most modern chambers maintain linearity within 0.3% across their full range.`,
+        options: [
+          {
+            id: 'continue_protocols',
+            text: 'Comprehensive testing ensures measurement reliability.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'constancy_procedures': {
+        id: 'constancy_procedures',
+        mentorId: 'kapoor',
+        text: `Each morning, we measure a strontium-90 check source with our reference chamber. The reading should be within 1% of the established baseline. We record environmental conditions, calculate any corrections, and document the result. Any deviation triggers immediate investigation before clinical measurements begin.`,
+        options: [
+          {
+            id: 'ask_check_source_choice',
+            text: 'Why use strontium-90 for constancy checks?',
+            nextNodeId: 'check_source_rationale',
+            insightChange: 6
+          },
+          {
+            id: 'continue_protocols',
+            text: 'Daily vigilance maintains measurement integrity.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'deviation_protocols': {
+        id: 'deviation_protocols',
+        mentorId: 'kapoor',
+        text: `First, we verify environmental conditions and repeat the measurement. If deviation persists, we test with multiple chambers and check sources. Electrical leakage, temperature effects, and contamination are investigated. The chamber is removed from service until the problem is identified and corrected. Patient safety cannot be compromised.`,
+        options: [
+          {
+            id: 'continue_protocols',
+            text: 'Zero tolerance for measurement uncertainty.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'bragg_gray_conditions': {
+        id: 'bragg_gray_conditions',
+        mentorId: 'kapoor',
+        text: `The cavity must be small compared to the range of secondary electrons. Charged particle equilibrium must exist at the cavity location. The cavity should not significantly perturb the radiation field. When these conditions are met, the dose to the gas equals the dose to the surrounding medium times the stopping power ratio.`,
+        options: [
+          {
+            id: 'continue_protocols',
+            text: 'Fundamental physics underlying all dosimetry.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 3,
+            insightChange: 5
+          }
+        ]
+      },
+      'measurement_protocols': {
+        id: 'measurement_protocols',
+        mentorId: 'kapoor',
+        text: `Our clinical measurement protocol is systematic and thorough. Machine warm-up, environmental recording, chamber setup with precise positioning, multiple readings with statistical analysis, correction factor application, and final dose calculation. Each step is documented and verified. Reproducibility must be within 0.5%.`,
+        options: [
+          {
+            id: 'ask_statistical_analysis',
+            text: 'How do you handle statistical variations in readings?',
+            nextNodeId: 'statistical_protocols',
+            insightChange: 6
+          },
+          {
+            id: 'ask_clinical_implementation',
+            text: 'How do these measurements translate to clinical practice?',
+            nextNodeId: 'clinical_implementation',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'ktp_calculation': {
+        id: 'ktp_calculation',
+        mentorId: 'kapoor',
+        text: `kTP equals (273.2 + T)/(273.2 + 22) times 101.3/P, where T is temperature in Celsius and P is pressure in kilopascals. This corrects chamber response to standard conditions. We measure temperature and pressure at each calibration and apply this correction to all dose calculations.`,
+        options: [
+          {
+            id: 'continue_protocols',
+            text: 'Precise environmental corrections ensure accuracy.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'beam_quality_conversion': {
+        id: 'beam_quality_conversion',
+        mentorId: 'kapoor',
+        text: `The kQ factor converts from 60-Co calibration to clinical beam quality. It accounts for differences in photon energy spectra between the calibration beam and the clinical beam. Determined by calculating the ratio of chamber responses in the two beam qualities. Typically ranges from 0.99 to 1.04 for clinical beams.`,
+        options: [
+          {
+            id: 'continue_protocols',
+            text: 'Bridging calibration standards to clinical reality.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'uncertainty_budgets': {
+        id: 'uncertainty_budgets',
+        mentorId: 'kapoor',
+        text: `We calculate Type A uncertainties from statistical analysis and Type B uncertainties from systematic effects. Calibration uncertainty, positioning uncertainty, environmental corrections, ion recombination, polarity effects - each component is quantified. Combined standard uncertainty is typically 1.5% for clinical dosimetry.`,
+        options: [
+          {
+            id: 'continue_protocols',
+            text: 'Rigorous uncertainty analysis ensures scientific credibility.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'tissue_equivalence': {
+        id: 'tissue_equivalence',
+        mentorId: 'kapoor',
+        text: `Graphite has similar atomic composition to tissue for megavoltage photons. The effective atomic number and electron density closely match tissue values. This ensures that the chamber perturbs the radiation field minimally and that dose-to-gas measurements accurately reflect dose-to-tissue.`,
+        options: [
+          {
+            id: 'continue_testing',
+            text: 'Material science serving measurement accuracy.',
+            nextNodeId: 'linearity_testing',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'check_source_rationale': {
+        id: 'check_source_rationale',
+        mentorId: 'kapoor',
+        text: `Strontium-90 provides stable beta radiation with a 28-year half-life. The decay is predictable and well-characterized. Beta radiation tests chamber and electrometer response without requiring a radiation vault. Daily constancy checks with Sr-90 detect chamber drift or electronic problems immediately.`,
+        options: [
+          {
+            id: 'continue_protocols',
+            text: 'Practical solution for daily quality assurance.',
+            nextNodeId: 'measurement_protocols',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'statistical_protocols': {
+        id: 'statistical_protocols',
+        mentorId: 'kapoor',
+        text: `We take a minimum of ten readings and calculate mean, standard deviation, and standard error. Outliers exceeding two standard deviations are investigated and potentially excluded. The final result includes the mean value with its statistical uncertainty. Reproducibility better than 0.3% indicates proper measurement technique.`,
+        options: [
+          {
+            id: 'ask_qa_philosophy',
+            text: 'How do these protocols ensure patient safety?',
+            nextNodeId: 'safety_through_precision',
+            relationshipChange: 3
+          },
+          {
+            id: 'continue_clinical',
+            text: 'Statistical rigor supporting clinical confidence.',
+            nextNodeId: 'clinical_implementation',
+            insightChange: 5
+          }
+        ]
+      },
+      'clinical_implementation': {
+        id: 'clinical_implementation',
+        mentorId: 'kapoor',
+        text: `These measurements directly calibrate the treatment machines. Our dose calculations become the foundation for every treatment plan. When Dr. Garcia delivers 200 cGy to a patient, that dose is traceable through our protocols back to national standards. Measurement precision translates to treatment accuracy.`,
+        options: [
+          {
+            id: 'ask_machine_calibration',
+            text: 'How do you calibrate the clinical machines?',
+            nextNodeId: 'machine_calibration',
+            insightChange: 8
+          },
+          {
+            id: 'finish_comprehensive',
+            text: 'Measurement science serving patient care.',
+            nextNodeId: 'dosimetry_conclusion',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'safety_through_precision': {
+        id: 'safety_through_precision',
+        mentorId: 'kapoor',
+        text: `Patient safety depends on dose accuracy. A 5% overdose might cause unnecessary complications. A 5% underdose might compromise tumor control. Our measurement protocols eliminate systematic errors and minimize random uncertainties. When dose delivery matches dose prescription within 2%, we have done our job correctly.`,
+        options: [
+          {
+            id: 'ask_dose_tolerances',
+            text: 'What dose delivery tolerances do you maintain?',
+            nextNodeId: 'clinical_tolerances',
+            insightChange: 6
+          },
+          {
+            id: 'continue_clinical',
+            text: 'Precision as the foundation of patient safety.',
+            nextNodeId: 'clinical_implementation',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'machine_calibration': {
+        id: 'machine_calibration',
+        mentorId: 'kapoor',
+        text: `Monthly calibration measurements using our reference dosimetry setup. We measure dose rate, beam flatness, symmetry, and energy consistency. Output is adjusted to maintain 1 cGy per monitor unit at the calibration conditions. Any drift exceeding 2% triggers immediate recalibration before clinical use resumes.`,
+        options: [
+          {
+            id: 'ask_monitor_units',
+            text: 'Explain the monitor unit calibration process.',
+            nextNodeId: 'monitor_unit_calibration',
+            insightChange: 7
+          },
+          {
+            id: 'finish_comprehensive',
+            text: 'Regular calibration maintaining clinical accuracy.',
+            nextNodeId: 'dosimetry_conclusion',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'clinical_tolerances': {
+        id: 'clinical_tolerances',
+        mentorId: 'kapoor',
+        text: `We maintain dose delivery within ±2% of prescription for standard treatments. Stereotactic procedures require ±1% accuracy. Calibration uncertainties, daily variations, and patient setup all contribute to the overall uncertainty budget. Our measurement protocols ensure these tolerances are achievable and maintainable.`,
+        options: [
+          {
+            id: 'continue_calibration',
+            text: 'Tight tolerances require exceptional measurement control.',
+            nextNodeId: 'machine_calibration',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'monitor_unit_calibration': {
+        id: 'monitor_unit_calibration',
+        mentorId: 'kapoor',
+        text: `We position our calibrated ion chamber at the standard measurement depth in a water phantom. The machine delivers a preset number of monitor units while we measure the actual dose. The calibration factor adjusts monitor unit calculations so that 100 MU delivers exactly 100 cGy under reference conditions.`,
+        options: [
+          {
+            id: 'finish_comprehensive',
+            text: 'Direct calibration linking monitor units to delivered dose.',
+            nextNodeId: 'dosimetry_conclusion',
+            relationshipChange: 2,
+            insightChange: 5
+          }
+        ]
+      },
+      'dosimetry_conclusion': {
+        id: 'dosimetry_conclusion',
+        mentorId: 'kapoor',
+        text: `This laboratory represents the scientific foundation of medical physics. Every measurement we make, every protocol we follow, every calibration we perform serves one purpose: ensuring that prescribed dose equals delivered dose. Without measurement science, medical physics would be mere speculation. Here, certainty replaces guesswork.`,
+        options: [
+          {
+            id: 'dosimetry_finish',
+            text: 'Thank you, Dr. Kapoor. I appreciate the importance of measurement precision.',
+            isEndNode: true,
+            relationshipChange: 4,
+            insightChange: 10,
+            momentumChange: 2
+          }
+        ]
+      }
+    }
+  },
+
   'simulation-suite-intro': {
     id: 'simulation-suite-intro',
-    title: 'Simulation Suite Introduction',
-    description: 'Introduction to the simulation suite',
+    title: 'CT Simulation Suite Introduction',
+    description: 'Introduction to the CT simulation suite with Jesse',
     startNodeId: 'simulation_intro_start',
     domain: 'linac_anatomy',
     difficulty: 1,
@@ -959,26 +1996,517 @@ export const day1Dialogues: Record<string, Dialogue> = {
       'simulation_intro_start': {
         id: 'simulation_intro_start',
         mentorId: 'jesse',
-        text: `Welcome to the simulation suite! This is where we model and test treatment scenarios before they reach real patients.`,
+        text: `Welcome to our CT simulation suite! This is where every radiation therapy patient's journey begins. Think of it as the blueprint room - before we can deliver precise treatments, we need to understand exactly what we're working with.`,
         options: [
           {
-            id: 'explore_simulation',
-            text: 'What can you show me?',
-            nextNodeId: 'simulation_explanation'
+            id: 'explore_ct_scanner',
+            text: 'Tell me about the CT scanner setup.',
+            nextNodeId: 'ct_scanner_overview'
+          },
+          {
+            id: 'ask_patient_process',
+            text: 'What\'s the patient process like here?',
+            nextNodeId: 'patient_simulation_process'
           }
         ]
       },
-      'simulation_explanation': {
-        id: 'simulation_explanation',
+      'ct_scanner_overview': {
+        id: 'ct_scanner_overview',
         mentorId: 'jesse',
-        text: `Here we can simulate patient positioning, beam delivery, and equipment behavior. It's like a flight simulator for medical physics.`,
+        text: `This CT scanner is specifically designed for radiation therapy planning. See how the bore is extra wide? 85 cm diameter instead of the usual 70. Why? Because patients need to be positioned exactly as they'll be treated - arms up, immobilization devices, breathing apparatus if needed.`,
         options: [
           {
-            id: 'finish_simulation',
-            text: 'This is fascinating technology.',
-            isEndNode: true,
+            id: 'ask_positioning_importance',
+            text: 'Why is positioning so critical?',
+            nextNodeId: 'positioning_precision',
+            insightChange: 6
+          },
+          {
+            id: 'ask_immobilization',
+            text: 'What kinds of immobilization devices do you use?',
+            nextNodeId: 'immobilization_devices',
+            momentumChange: 1
+          }
+        ]
+      },
+      'patient_simulation_process': {
+        id: 'patient_simulation_process',
+        mentorId: 'jesse',
+        text: `Every patient follows the same workflow: consultation review, custom immobilization fabrication, contrast protocols if needed, then the actual CT acquisition. The whole process takes about 45 minutes to an hour, but it's the foundation for everything that follows.`,
+        options: [
+          {
+            id: 'ask_contrast_protocols',
+            text: 'When do you need contrast agents?',
+            nextNodeId: 'contrast_discussion',
+            insightChange: 5
+          },
+          {
+            id: 'ask_workflow_details',
+            text: 'Walk me through a typical simulation.',
+            nextNodeId: 'simulation_workflow',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'positioning_precision': {
+        id: 'positioning_precision',
+        mentorId: 'jesse',
+        text: `Think about it this way - if we scan a patient lying flat but treat them with arms raised, our dose calculations are worthless. The anatomy shifts, organs move, and suddenly that carefully planned 95% target coverage becomes 70%. Reproducible positioning isn't just nice to have, it's the difference between cure and complication.`,
+        options: [
+          {
+            id: 'ask_reproducibility',
+            text: 'How do you ensure the same position every treatment?',
+            nextNodeId: 'reproducibility_methods',
+            insightChange: 8,
+            momentumChange: 1
+          },
+          {
+            id: 'continue_equipment_tour',
+            text: 'The precision requirements here are incredible.',
+            nextNodeId: 'equipment_tour',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'immobilization_devices': {
+        id: 'immobilization_devices',
+        mentorId: 'jesse',
+        text: `We've got a whole arsenal: thermoplastic masks for head and neck cases - heated and molded directly to the patient's face and shoulders. Alpha cradles for body positioning - vacuum bags that conform to patient contours. Knee sponges, arm boards, bite blocks. Each device serves one purpose: make today's position tomorrow's position.`,
+        options: [
+          {
+            id: 'ask_mask_creation',
+            text: 'How do you create those thermoplastic masks?',
+            nextNodeId: 'mask_fabrication',
+            insightChange: 6
+          },
+          {
+            id: 'ask_comfort_vs_precision',
+            text: 'How do you balance patient comfort with precision?',
+            nextNodeId: 'comfort_precision_balance',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'contrast_discussion': {
+        id: 'contrast_discussion',
+        mentorId: 'jesse',
+        text: `Contrast helps us see what we're aiming at. IV contrast lights up blood vessels and enhances tumors. Oral contrast outlines the GI tract. Rectal contrast for prostate cases shows us exactly where the rectum is relative to the target. Without contrast, we're flying blind in some cases.`,
+        options: [
+          {
+            id: 'ask_contrast_timing',
+            text: 'How do you time the contrast injection with scanning?',
+            nextNodeId: 'contrast_timing',
+            insightChange: 7
+          },
+          {
+            id: 'continue_workflow',
+            text: 'Contrast really does make targets more visible.',
+            nextNodeId: 'simulation_workflow',
+            relationshipChange: 1
+          }
+        ]
+      },
+      'simulation_workflow': {
+        id: 'simulation_workflow',
+        mentorId: 'jesse',
+        text: `Here's a typical brain case: patient arrives, we review the prescription and setup instructions. Custom thermoplastic mask gets fabricated and fitted. Patient positioned supine, arms at sides, mask secured to the table. We do a quick topogram to verify positioning, then acquire the planning CT with 1.25mm slice thickness.`,
+        options: [
+          {
+            id: 'ask_slice_thickness',
+            text: 'Why such thin slices for planning?',
+            nextNodeId: 'slice_thickness_importance',
+            insightChange: 6
+          },
+          {
+            id: 'ask_next_steps',
+            text: 'What happens after the CT acquisition?',
+            nextNodeId: 'post_simulation_workflow',
+            momentumChange: 2
+          }
+        ]
+      },
+      'reproducibility_methods': {
+        id: 'reproducibility_methods',
+        mentorId: 'jesse',
+        text: `Everything gets documented and indexed. We take reference photos, record couch coordinates, note immobilization device settings. Each treatment table has indexing systems - grooves and bars that lock accessories into identical positions. It's like a recipe that must be followed exactly every time.`,
+        options: [
+          {
+            id: 'ask_setup_verification',
+            text: 'How do you verify setup accuracy during treatment?',
+            nextNodeId: 'daily_setup_verification',
+            insightChange: 8
+          },
+          {
+            id: 'continue_tour',
+            text: 'The attention to detail is impressive.',
+            nextNodeId: 'equipment_tour',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'equipment_tour': {
+        id: 'equipment_tour',
+        mentorId: 'jesse',
+        text: `Let me show you the planning workstations. These aren't just any computers - they're running treatment planning systems that can model radiation dose distribution down to individual voxels. Dr. Quinn spends hours here optimizing plans, but it all starts with the quality of the simulation data we provide.`,
+        options: [
+          {
+            id: 'ask_data_transfer',
+            text: 'How does the simulation data get to planning?',
+            nextNodeId: 'data_integration',
+            insightChange: 6
+          },
+          {
+            id: 'ask_planning_connection',
+            text: 'How does simulation connect to the overall treatment process?',
+            nextNodeId: 'treatment_chain',
+            momentumChange: 2,
+            relationshipChange: 1
+          }
+        ]
+      },
+      'mask_fabrication': {
+        id: 'mask_fabrication',
+        mentorId: 'jesse',
+        text: `The thermoplastic comes in perforated sheets. We heat it in a water bath to about 70°C until it becomes pliable, then drape it over the patient's face and gently press it into contours. Takes about 5 minutes to cool and harden. The result is a custom mask that fits only that patient, ensuring identical head position every treatment.`,
+        options: [
+          {
+            id: 'ask_patient_experience',
+            text: 'What\'s that like for the patient?',
+            nextNodeId: 'patient_experience_discussion',
+            relationshipChange: 3
+          },
+          {
+            id: 'continue_devices',
+            text: 'Custom fabrication for every patient - that must take significant time.',
+            nextNodeId: 'time_investment',
+            insightChange: 4
+          }
+        ]
+      },
+      'comfort_precision_balance': {
+        id: 'comfort_precision_balance',
+        mentorId: 'jesse',
+        text: `That's the art of this job. A patient who's uncomfortable will move during treatment, so comfort actually serves precision. We explain every step, use padding where possible, and sometimes compromise slightly on the ideal position for something the patient can maintain. A reproducible 99% position beats a perfect position the patient can't hold.`,
+        options: [
+          {
+            id: 'ask_patient_education',
+            text: 'How do you help patients understand why positioning matters?',
+            nextNodeId: 'patient_education',
+            relationshipChange: 4
+          },
+          {
+            id: 'continue_tour',
+            text: 'Practical wisdom - perfection that works beats ideal theory.',
+            nextNodeId: 'equipment_tour',
+            relationshipChange: 3,
+            momentumChange: 1
+          }
+        ]
+      },
+      'contrast_timing': {
+        id: 'contrast_timing',
+        mentorId: 'jesse',
+        text: `Timing is everything. For IV contrast, we want peak enhancement during scanning - usually 60-90 seconds post-injection for most body sites. We start the injection, count down, then begin the scan sequence. For oral contrast, patients drink it 45-60 minutes before scanning to allow GI tract opacification.`,
+        options: [
+          {
+            id: 'ask_protocol_variations',
+            text: 'Do protocols vary by cancer type?',
+            nextNodeId: 'protocol_customization',
+            insightChange: 7
+          },
+          {
+            id: 'continue_workflow',
+            text: 'Precise timing for optimal imaging - makes sense.',
+            nextNodeId: 'post_simulation_workflow',
+            relationshipChange: 1
+          }
+        ]
+      },
+      'slice_thickness_importance': {
+        id: 'slice_thickness_importance',
+        mentorId: 'jesse',
+        text: `Think of it like image resolution. Thicker slices might miss small structures or create stair-step artifacts in 3D reconstructions. With 1.25mm slices, we capture fine anatomical detail and smooth dose gradients. The trade-off is larger file sizes and longer reconstruction times, but when you're targeting a 2cm tumor next to critical structures, that detail matters.`,
+        options: [
+          {
+            id: 'ask_data_size',
+            text: 'How do you manage such large datasets?',
+            nextNodeId: 'data_management',
+            insightChange: 6
+          },
+          {
+            id: 'continue_next_steps',
+            text: 'Detail that could save lives - worth the extra processing time.',
+            nextNodeId: 'post_simulation_workflow',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'post_simulation_workflow': {
+        id: 'post_simulation_workflow',
+        mentorId: 'jesse',
+        text: `Once we have clean images, they get transferred to the treatment planning system where Dr. Quinn and the physicians contour target volumes and organs at risk. The simulation coordinates become the reference point for everything - plan optimization, dose calculations, and daily patient setup. We're essentially creating a 3D map of the patient.`,
+        options: [
+          {
+            id: 'ask_coordinate_systems',
+            text: 'How do coordinate systems work between simulation and treatment?',
+            nextNodeId: 'coordinate_systems',
+            insightChange: 8
+          },
+          {
+            id: 'finish_comprehensive',
+            text: 'This really is the foundation for the entire treatment process.',
+            nextNodeId: 'simulation_conclusion',
+            relationshipChange: 3,
+            momentumChange: 2
+          }
+        ]
+      },
+      'daily_setup_verification': {
+        id: 'daily_setup_verification',
+        mentorId: 'jesse',
+        text: `Every treatment starts with image guidance. We take kV or CBCT images right on the treatment table and compare them to the simulation reference images. Bony anatomy, soft tissue, even implanted fiducial markers can be matched. If setup differs by more than 2-3mm, we shift the patient to match the simulation position exactly.`,
+        options: [
+          {
+            id: 'ask_igrt_technology',
+            text: 'Tell me more about image-guided radiation therapy.',
+            nextNodeId: 'igrt_explanation',
+            insightChange: 10,
+            discoversConceptId: 'image_guidance'
+          },
+          {
+            id: 'continue_discussion',
+            text: 'Daily verification ensures the simulation accuracy translates to treatment.',
+            nextNodeId: 'treatment_chain',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'data_integration': {
+        id: 'data_integration',
+        mentorId: 'jesse',
+        text: `Everything flows through DICOM - Digital Imaging and Communications in Medicine. The CT images, patient position data, and reference coordinates all get packaged and sent to the treatment planning system. It's like a digital chain of custody, ensuring the plan is based on exactly what we acquired here.`,
+        options: [
+          {
+            id: 'ask_dicom_details',
+            text: 'How does DICOM ensure data integrity?',
+            nextNodeId: 'dicom_integrity',
+            insightChange: 7
+          },
+          {
+            id: 'continue_connection',
+            text: 'Seamless data flow from simulation to treatment.',
+            nextNodeId: 'treatment_chain',
+            relationshipChange: 1
+          }
+        ]
+      },
+      'treatment_chain': {
+        id: 'treatment_chain',
+        mentorId: 'jesse',
+        text: `It's all connected. Simulation provides the foundation, planning optimizes the approach, and treatment delivery executes the plan. But here's the thing - garbage in, garbage out. If our simulation isn't precise, if our images aren't clean, if our positioning isn't reproducible, everything downstream suffers. That's why this room is so critical.`,
+        options: [
+          {
+            id: 'ask_quality_control',
+            text: 'How do you maintain quality throughout the chain?',
+            nextNodeId: 'quality_assurance',
+            insightChange: 8
+          },
+          {
+            id: 'finish_comprehensive',
+            text: 'Every step builds on the foundation you create here.',
+            nextNodeId: 'simulation_conclusion',
+            relationshipChange: 3,
+            momentumChange: 2
+          }
+        ]
+      },
+      'patient_experience_discussion': {
+        id: 'patient_experience_discussion',
+        mentorId: 'jesse',
+        text: `Most patients are nervous about the mask. I explain it like a custom-fitted helmet - it might feel snug, but it's protecting them by ensuring accurate treatment. Some feel claustrophobic initially, but we work with them, maybe make practice masks, or adjust the fitting technique. Patient comfort directly impacts treatment success.`,
+        options: [
+          {
+            id: 'continue_empathy',
+            text: 'Your approach shows real understanding of the patient experience.',
+            nextNodeId: 'patient_care_philosophy',
+            relationshipChange: 4
+          }
+        ]
+      },
+      'time_investment': {
+        id: 'time_investment',
+        mentorId: 'jesse',
+        text: `About 15-20 minutes per mask, but it's time well spent. Compare that to the potential consequences of poor positioning - missed targets, overdosed normal tissue, treatment delays. The upfront time investment pays dividends throughout the entire treatment course.`,
+        options: [
+          {
+            id: 'continue_tour',
+            text: 'Prevention through preparation - smart approach.',
+            nextNodeId: 'equipment_tour',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'patient_education': {
+        id: 'patient_education',
+        mentorId: 'jesse',
+        text: `I use simple analogies. "We're creating a blueprint for your treatment. Just like building a house, if the foundation is off, everything else is crooked." Most patients understand that precision matters when targeting cancer cells while sparing healthy tissue. Knowledge reduces anxiety.`,
+        options: [
+          {
+            id: 'continue_philosophy',
+            text: 'Clear communication builds trust and cooperation.',
+            nextNodeId: 'patient_care_philosophy',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'protocol_customization': {
+        id: 'protocol_customization',
+        mentorId: 'jesse',
+        text: `Absolutely. Prostate protocols include rectal contrast and full bladder. Lung protocols might use 4D-CT to capture breathing motion. Head and neck cases often need dental work evaluation before contrast. Each cancer site has specific imaging requirements based on anatomy and treatment technique.`,
+        options: [
+          {
+            id: 'ask_4d_ct',
+            text: 'Tell me about 4D-CT for lung cases.',
+            nextNodeId: 'four_d_ct_explanation',
+            insightChange: 10,
+            discoversConceptId: 'motion_management'
+          },
+          {
+            id: 'continue_workflow',
+            text: 'Customized protocols for different treatment sites make sense.',
+            nextNodeId: 'post_simulation_workflow',
+            relationshipChange: 1
+          }
+        ]
+      },
+      'data_management': {
+        id: 'data_management',
+        mentorId: 'jesse',
+        text: `Modern planning CT datasets can be 300-500MB each. We have automated systems for data compression, archival, and backup. DICOM servers handle the traffic, and everything gets backed up to multiple locations. We also maintain audit trails - who accessed what data when. Medical data requires special handling.`,
+        options: [
+          {
+            id: 'continue_next_steps',
+            text: 'Robust data management for critical medical information.',
+            nextNodeId: 'post_simulation_workflow',
+            relationshipChange: 1
+          }
+        ]
+      },
+      'coordinate_systems': {
+        id: 'coordinate_systems',
+        mentorId: 'jesse',
+        text: `The simulation CT establishes patient zero - the reference coordinate system. Everything else references back to this: plan isocenter coordinates, beam angles, patient shifts. When we set up for treatment, we're essentially recreating the exact same coordinate space we established here. It's like GPS for radiation therapy.`,
+        options: [
+          {
+            id: 'ask_coordinate_accuracy',
+            text: 'What level of coordinate accuracy can you achieve?',
+            nextNodeId: 'coordinate_precision',
+            insightChange: 8
+          },
+          {
+            id: 'finish_comprehensive',
+            text: 'GPS for radiation therapy - perfect analogy.',
+            nextNodeId: 'simulation_conclusion',
+            relationshipChange: 3,
+            momentumChange: 1
+          }
+        ]
+      },
+      'igrt_explanation': {
+        id: 'igrt_explanation',
+        mentorId: 'jesse',
+        text: `IGRT lets us see anatomy in real-time on the treatment table. We can verify tumor position, check organ motion, even track breathing patterns. Some systems update the plan in real-time based on anatomy changes. It's the bridge between simulation and reality - ensuring what we planned is what we deliver.`,
+        options: [
+          {
+            id: 'finish_comprehensive',
+            text: 'Real-time verification brings simulation full circle.',
+            nextNodeId: 'simulation_conclusion',
+            relationshipChange: 3,
+            insightChange: 5
+          }
+        ]
+      },
+      'dicom_integrity': {
+        id: 'dicom_integrity',
+        mentorId: 'jesse',
+        text: `DICOM includes checksums and header verification to detect data corruption. Patient demographics are embedded in every image, preventing mixups. Study and series UIDs create unique identifiers for each dataset. It's like a digital fingerprint ensuring data authenticity throughout the treatment chain.`,
+        options: [
+          {
+            id: 'continue_connection',
+            text: 'Built-in safeguards for medical data integrity.',
+            nextNodeId: 'treatment_chain',
+            relationshipChange: 1
+          }
+        ]
+      },
+      'quality_assurance': {
+        id: 'quality_assurance',
+        mentorId: 'jesse',
+        text: `Weekly image quality checks, monthly geometric accuracy verification, daily laser alignment tests. Every component gets tested regularly. We audit simulation-to-treatment coordinate accuracy, verify immobilization device integrity, and track setup reproducibility statistics. Quality assurance isn't just recommended - it's what keeps patients safe.`,
+        options: [
+          {
+            id: 'finish_comprehensive',
+            text: 'Comprehensive QA ensures patient safety at every step.',
+            nextNodeId: 'simulation_conclusion',
+            relationshipChange: 3,
+            insightChange: 6
+          }
+        ]
+      },
+      'patient_care_philosophy': {
+        id: 'patient_care_philosophy',
+        mentorId: 'jesse',
+        text: `At the end of the day, every scan represents someone fighting for their life. The technical precision matters, but so does treating each patient with dignity and care. When someone trusts you to help save their life, you owe them your absolute best - technically and personally.`,
+        options: [
+          {
+            id: 'continue_tour',
+            text: 'Technical excellence and human compassion working together.',
+            nextNodeId: 'equipment_tour',
+            relationshipChange: 4,
+            momentumChange: 1
+          }
+        ]
+      },
+      'four_d_ct_explanation': {
+        id: 'four_d_ct_explanation',
+        mentorId: 'jesse',
+        text: `4D-CT captures breathing motion by sorting images based on respiratory phase. We get 10 different CT datasets showing tumor motion throughout the breathing cycle. This lets us create treatment volumes that account for motion, or set up gating systems that only deliver radiation when the tumor is in the right position.`,
+        options: [
+          {
+            id: 'continue_workflow',
+            text: 'Capturing motion to improve targeting precision.',
+            nextNodeId: 'post_simulation_workflow',
+            relationshipChange: 2,
+            insightChange: 3
+          }
+        ]
+      },
+      'coordinate_precision': {
+        id: 'coordinate_precision',
+        mentorId: 'jesse',
+        text: `Modern systems can achieve sub-millimeter accuracy. Laser alignment systems are calibrated to ±0.5mm, imaging registration typically ±1mm, and overall setup accuracy usually within 2-3mm. When you're targeting a 2cm tumor next to critical structures, every millimeter counts.`,
+        options: [
+          {
+            id: 'finish_comprehensive',
+            text: 'Sub-millimeter precision for life-saving treatments.',
+            nextNodeId: 'simulation_conclusion',
             relationshipChange: 2,
             insightChange: 5
+          }
+        ]
+      },
+      'simulation_conclusion': {
+        id: 'simulation_conclusion',
+        mentorId: 'jesse',
+        text: `You're starting to understand why this room is so critical. Every treatment that happens here starts with the work we do in this suite. Precise imaging, reproducible positioning, quality data - it's the foundation that everything else builds on. Get this right, and you set every patient up for success.`,
+        options: [
+          {
+            id: 'simulation_finish',
+            text: 'Thank you, Jesse. This gives me a deep appreciation for the simulation process.',
+            isEndNode: true,
+            relationshipChange: 4,
+            insightChange: 8,
+            momentumChange: 2
           }
         ]
       }

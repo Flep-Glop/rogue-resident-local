@@ -3,6 +3,8 @@ import { DialogueOption, DialogueMode } from '@/app/types';
 
 // Add Day 1 import
 import { day1Dialogues } from './day1Dialogues';
+// Add Tutorial dialogues import
+import { tutorialDialogues } from './tutorialDialogues';
 
 export interface DialogueNode {
   id: string;
@@ -21,6 +23,7 @@ export interface Dialogue {
   domain?: string;
   difficulty: 1 | 2 | 3; // 1-3 stars
   mode: DialogueMode; // Add dialogue mode
+  isTutorial?: boolean; // Tutorial-specific dialogues
 }
 
 export interface Mentor {
@@ -391,6 +394,11 @@ export const initializeDialogueStore = () => {
   
   // Add Day 1 dialogues
   Object.values(day1Dialogues).forEach(dialogue => {
+    dialogueStore.addDialogue(dialogue);
+  });
+  
+  // Add Tutorial dialogues
+  Object.values(tutorialDialogues).forEach(dialogue => {
     dialogueStore.addDialogue(dialogue);
   });
 }; 

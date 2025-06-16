@@ -11,7 +11,7 @@
 
 **Source Repository**: rogue-resident-docs  
 **Base Path**: /Users/lukelussier/Documents/GitHub/rogue-resident-docs  
-**Generated At**: 2025-06-14 15:51:46  
+**Generated At**: 2025-06-16 14:01:31  
 **Self-Contained**: True
 
 *This document contains all referenced content embedded inline - no external dependencies required.*

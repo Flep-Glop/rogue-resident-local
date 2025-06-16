@@ -2,7 +2,7 @@
 
 **System Type**: interface_system  
 **Development Focus**: Luke's current priority - hospital backdrop to dialogue systems  
-**Generated for**: Focused implementation of Hospital backdrop and transitions implemented, focusing on content and polish
+**Generated for**: Focused implementation of Single system architecture - HospitalBackdrop is primary system, legacy code removed
 
 
 ---
@@ -11,7 +11,7 @@
 
 **Source Repository**: rogue-resident-docs  
 **Base Path**: /Users/lukelussier/Documents/GitHub/rogue-resident-docs  
-**Generated At**: 2025-06-14 16:03:51  
+**Generated At**: 2025-06-16 14:01:35  
 **Self-Contained**: True
 
 *This document contains all referenced content embedded inline - no external dependencies required.*
@@ -24,8 +24,8 @@
 Multi-component interface system for hospital exploration and activity interactions
 
 **User Experience Philosophy**: Clear distinction between narrative vs challenge interactions  
-**Current Development Status**: Hospital backdrop and transitions implemented, focusing on content and polish  
-**Key Decision Points**: Enhancing asset pipeline and dialogue system refinements
+**Current Development Status**: Single system architecture - HospitalBackdrop is primary system, legacy code removed  
+**Key Decision Points**: Content expansion using working system foundation
 
 ---
 
@@ -101,8 +101,8 @@ Multi-component interface system for hospital exploration and activity interacti
 ### Narrative Dialogue System
 
 **Role in System**: Story and character development  
-**Implementation Priority**: high  
-**Current Status**: clear_requirements
+**Implementation Priority**: content_expansion  
+**Current Status**: implemented_and_working
 
 
 
@@ -117,6 +117,8 @@ Multi-component interface system for hospital exploration and activity interacti
 - **history_system**: Previous dialogue viewing (retroactive click)
 
 - **layering_effect**: Text boxes translate up and fade for history
+
+- **background_integration**: Room backgrounds display automatically based on roomId
 
 
 **Data Flow:**
@@ -143,11 +145,82 @@ Multi-component interface system for hospital exploration and activity interacti
 
 ---
 
+### Room Background Integration System
+
+**Role in System**: Immersive environmental context for dialogue  
+**Implementation Priority**: complete  
+**Current Status**: implemented_and_working
+
+
+
+**Technical Requirements:**
+
+- **rendering**: Layered background/foreground with z-index management
+
+- **fallback**: Room-specific gradient fallbacks for unreleased rooms
+
+- **integration**: Seamless dialogue scene background loading
+
+
+**Data Flow:**
+
+- **Input**: Receives room_id from dialogue systems
+
+
+- **Output**: Provides immersive visual context for conversations
+
+
+
+
+
+---
+
+### Complete Reaction Animation System
+
+**Role in System**: Dynamic mentor reactions and feedback  
+**Implementation Priority**: complete  
+**Current Status**: implemented_and_working
+
+
+
+**Technical Requirements:**
+
+- **animation**: CSS keyframe animation system with transform separation
+
+- **sprites**: Sprite sheet positioning for reaction symbols
+
+- **triggers**: Automatic reaction spawning based on dialogue effects
+
+- **cleanup**: Memory management for animation lifecycle
+
+
+**Data Flow:**
+
+- **Input**: Triggered by dialogue choice effects
+
+
+- **Output**: Visual feedback enhancing user experience
+
+
+
+
+**Special Implementation Notes:**
+
+- **auto_triggering**: Insight gains (+) → 💡 + bounce, losses (-) → ? + shake
+
+- **symbol_types**: !, ?, ..., 💡, ⭐ with unique animations
+
+- **animation_separation**: Positioning transforms separate from animation transforms
+
+
+
+---
+
 ### Challenge Dialogue System
 
 **Role in System**: Educational activities with social context  
-**Implementation Priority**: high  
-**Current Status**: clear_requirements
+**Implementation Priority**: content_expansion  
+**Current Status**: implemented_and_working
 
 
 
@@ -314,6 +387,40 @@ activity_framework -> game_state: rewards, relationship_changes, progress
 
 
 
+### Room Background Integration System Assets
+
+
+**Visual Assets Required:**
+
+- `physics-office.png (completed by Luke)`
+
+- `physics-office-foreground.png (completed by Luke)`
+
+- `treatment-room.png (ready for creation)`
+
+- `dosimetry-lab.png (ready for creation)`
+
+- `simulation-suite.png (ready for creation)`
+
+
+
+
+
+
+
+### Complete Reaction Animation System Assets
+
+
+**Visual Assets Required:**
+
+- `reaction-symbols.png (completed sprite sheet by Luke)`
+
+
+
+
+
+
+
 ### Challenge Dialogue System Assets
 
 
@@ -401,12 +508,12 @@ activity_framework -> game_state: rewards, relationship_changes, progress
 
 ### Recommended Implementation Order
 
-**1. Asset_integration**
-- Rationale: Dialogue systems exist but need portraits and backgrounds for full visual experience
+**1. Additional_room_backgrounds**
+- Rationale: Room background system proven with physics office, ready for expansion
 - Asset Dependency: 
 
-**2. Content_pipeline**
-- Rationale: Some dialogue IDs are placeholders, need actual dialogue content creation
+**2. Dialogue_content_expansion**
+- Rationale: Physics office has 15+ interactions, other rooms ready for similar content
 - Asset Dependency: 
 
 **3. Contextual_enhancements**

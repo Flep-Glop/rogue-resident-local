@@ -10,7 +10,7 @@
 ## 📍 SOURCE CONTEXT
 
 **Source Repository**: rogue-resident-docs  
-**Generated At**: 2025-06-14 16:03:51  
+**Generated At**: 2025-06-16 14:01:35  
 **Self-Contained**: Yes - all referenced content embedded below
 
 
@@ -49,8 +49,8 @@ The **Clear distinction between narrative vs challenge interactions** ensures pl
 
 ## 🎯 Design Goals & Current Status
 
-**Where we are**: Hospital backdrop and transitions implemented, focusing on content and polish  
-**What we're deciding**: Enhancing asset pipeline and dialogue system refinements  
+**Where we are**: Single system architecture - HospitalBackdrop is primary system, legacy code removed  
+**What we're deciding**: Content expansion using working system foundation  
 **Success looks like**: Professional simulation quality, seamless transitions, production-ready polish
 
 **Our constraint**: First-time game development, learning as we go - and that's exactly why this modular approach works!
@@ -88,7 +88,7 @@ The **Clear distinction between narrative vs challenge interactions** ensures pl
 *Story and character development*
 
 **The experience**: Story and character development  
-**Development status**: clear_requirements
+**Development status**: implemented_and_working
 
 
 **What makes it special**:
@@ -105,11 +105,44 @@ The **Clear distinction between narrative vs challenge interactions** ensures pl
 
 ---
 
+### Room Background Integration System
+*Immersive environmental context for dialogue*
+
+**The experience**: Immersive environmental context for dialogue  
+**Development status**: implemented_and_working
+
+
+
+
+
+---
+
+### Complete Reaction Animation System
+*Dynamic mentor reactions and feedback*
+
+**The experience**: Dynamic mentor reactions and feedback  
+**Development status**: implemented_and_working
+
+
+**What makes it special**:
+
+- **Auto_triggering**: Insight gains (+) → 💡 + bounce, losses (-) → ? + shake
+
+- **Symbol_types**: !, ?, ..., 💡, ⭐ with unique animations
+
+- **Animation_separation**: Positioning transforms separate from animation transforms
+
+
+
+
+
+---
+
 ### Challenge Dialogue System
 *Educational activities with social context*
 
 **The experience**: Educational activities with social context  
-**Development status**: clear_requirements
+**Development status**: implemented_and_working
 
 
 **What makes it special**:
@@ -196,9 +229,9 @@ The **Clear distinction between narrative vs challenge interactions** ensures pl
 
 **Ready to move forward on**:
 
-- **Asset_integration**: Dialogue systems exist but need portraits and backgrounds for full visual experience
+- **Additional_room_backgrounds**: Room background system proven with physics office, ready for expansion
 
-- **Content_pipeline**: Some dialogue IDs are placeholders, need actual dialogue content creation
+- **Dialogue_content_expansion**: Physics office has 15+ interactions, other rooms ready for similar content
 
 - **Contextual_enhancements**: Pokemon-style establishing animations framework ready for specific implementations
 

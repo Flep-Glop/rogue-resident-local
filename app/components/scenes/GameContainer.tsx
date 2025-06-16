@@ -7,6 +7,8 @@ import { SceneNarrativeDialogue, SceneChallengeDialogue } from '@/app/components
 import TransitionScreen from '@/app/components/ui/TransitionScreen';
 import ConstellationView from '@/app/components/knowledge/ConstellationView';
 import RoomUIOverlay from '../rooms/RoomUIOverlays';
+import TutorialOverlayManager from '@/app/components/tutorial/TutorialOverlay';
+import TutorialControls, { TutorialModeIndicator } from '@/app/components/tutorial/TutorialControls';
 
 // Main game container that handles scene switching
 export default function GameContainer() {
@@ -16,40 +18,61 @@ export default function GameContainer() {
   
   // Always render transition screen if transitioning
   if (isTransitioning || currentScene === 'transition') {
-    return <TransitionScreen />;
+    return (
+      <>
+        <TransitionScreen />
+        <TutorialOverlayManager />
+        <TutorialModeIndicator />
+        <TutorialControls />
+      </>
+    );
   }
   
-  // Render appropriate scene based on current state
-  switch (currentScene) {
-    case 'hospital':
-      return <HospitalBackdrop />;
+  // Render current scene content
+  const renderScene = () => {
+    switch (currentScene) {
+      case 'hospital':
+        return <HospitalBackdrop />;
+        
+      case 'narrative':
+        return (
+          <SceneNarrativeDialogue 
+            mentorId={context.mentorId}
+            dialogueId={context.dialogueId}
+            roomId={context.roomId}
+          />
+        );
+        
+      case 'challenge':
+        return (
+          <SceneChallengeDialogue 
+            activityId={context.activityId}
+            mentorId={context.mentorId}
+            roomId={context.roomId}
+          />
+        );
+        
+      case 'constellation':
+        return <ConstellationView />;
+        
+      default:
+        // Fallback to hospital if unknown scene
+        console.warn(`Unknown scene: ${currentScene}, falling back to hospital`);
+        return <HospitalBackdrop />;
+    }
+  };
+  
+  return (
+    <>
+      {/* Main scene content */}
+      {renderScene()}
       
-    case 'narrative':
-      return (
-        <SceneNarrativeDialogue 
-          mentorId={context.mentorId}
-          dialogueId={context.dialogueId}
-          roomId={context.roomId}
-        />
-      );
-      
-    case 'challenge':
-      return (
-        <SceneChallengeDialogue 
-          activityId={context.activityId}
-          mentorId={context.mentorId}
-          roomId={context.roomId}
-        />
-      );
-      
-    case 'constellation':
-      return <ConstellationView />;
-      
-    default:
-      // Fallback to hospital if unknown scene
-      console.warn(`Unknown scene: ${currentScene}, falling back to hospital`);
-      return <HospitalBackdrop />;
-  }
+      {/* Tutorial system overlays - always on top */}
+      <TutorialOverlayManager />
+      <TutorialModeIndicator />
+      <TutorialControls />
+    </>
+  );
 }
 
 // Navigation hook for other components to use

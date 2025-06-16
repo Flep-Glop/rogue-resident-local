@@ -20,7 +20,7 @@ export const ROOM_BACKGROUNDS: Record<string, RoomBackgroundConfig> = {
     }
   },
   
-  'linac-1': {
+  'treatment-room': {
     backgroundImage: '/images/hospital/backgrounds/linac-room.png',
     foregroundImage: '/images/hospital/backgrounds/linac-room-foreground.png', // Ready for future foreground layer!
     fallbackGradient: 'linear-gradient(135deg, #10B981 0%, #34D399 50%, #1e1b4b 100%)',
@@ -51,7 +51,7 @@ export const ROOM_BACKGROUNDS: Record<string, RoomBackgroundConfig> = {
   },
   
   'simulation-suite': {
-    backgroundImage: '/images/hospital/backgrounds/simulation-suite-background.png',
+    backgroundImage: '/images/hospital/backgrounds/ct sim.png',
     foregroundImage: '/images/hospital/backgrounds/simulation-suite-foreground.png', // Ready for when you create it!
     fallbackGradient: 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 50%, #1e1b4b 100%)',
     atmosphere: {

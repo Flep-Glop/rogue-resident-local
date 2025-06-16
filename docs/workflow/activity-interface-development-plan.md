@@ -2,7 +2,7 @@
 
 > **Focus**: Luke's current priority - hospital backdrop to dialogue systems  
 > **Philosophy**: Clear distinction between narrative vs challenge interactions  
-> **Status**: Hospital backdrop and transitions implemented, focusing on content and polish
+> **Status**: Single system architecture - HospitalBackdrop is primary system, legacy code removed
 
 
 ---
@@ -10,7 +10,7 @@
 ## 📍 SOURCE CONTEXT
 
 **Source Repository**: rogue-resident-docs  
-**Generated At**: 2025-06-14 16:03:51  
+**Generated At**: 2025-06-16 14:01:35  
 **Self-Contained**: Yes - all referenced files embedded below
 
 
@@ -30,10 +30,42 @@
 
 
 **Hospital backdrop**
-- **STATUS**: Implemented - interactive hospital map with clickable rooms
-- **ACHIEVEMENT**: Professional isometric hospital interface with contextual tooltips
+- **STATUS**: Implemented - enhanced interactive hospital map with pixel art integration
+- **ACHIEVEMENT**: Professional isometric hospital with 300% zoom and custom sprite integration
 
 - **KEY FILES**: app/components/scenes/HospitalBackdrop.tsx, app/components/ui/RoomUIOverlays.tsx
+
+
+
+**Room background system**
+- **STATUS**: Implemented - dynamic background/foreground layer system
+- **ACHIEVEMENT**: Immersive room environments with depth effects and physics office showcase
+
+- **KEY FILES**: app/utils/roomBackgrounds.ts, app/components/dialogue/NarrativeDialogue.tsx
+
+
+
+**Reaction animation system**
+- **STATUS**: Implemented - complete mentor reaction framework
+- **ACHIEVEMENT**: Auto-triggered portrait animations and floating symbol system
+
+- **KEY FILES**: app/components/ui/ReactionSystem.tsx
+
+
+
+**Dialogue systems**
+- **STATUS**: Implemented - both narrative and challenge dialogue working
+- **ACHIEVEMENT**: Physics office with 15+ interactions, room-specific routing operational
+
+- **KEY FILES**: app/components/dialogue/NarrativeDialogue.tsx, app/components/dialogue/ChallengeDialogue.tsx
+
+
+
+**Legacy system removal**
+- **STATUS**: Implemented - complete dual system migration
+- **ACHIEVEMENT**: 99% code reduction in DayPhase, single system architecture
+
+- **KEY FILES**: app/components/phase/DayPhase.tsx (simplified to 14 lines)
 
 
 
@@ -47,45 +79,45 @@
 
 ### ⚡ **READY TO IMPLEMENT** (High Impact)
 
-**Asset integration**
-- **WHY NOW**: Dialogue systems exist but need portraits and backgrounds for full visual experience
+**Additional room backgrounds**
+- **WHY NOW**: Room background system proven with physics office, ready for expansion
 
 - **PRIORITY**: HIGH
 
 
 - **SPECIFIC NEEDS**:
 
-  - Dr. Garcia, Dr. Quinn, Jesse, Dr. Kapoor high-def portraits (warm, analytical, practical, methodical expressions)
+  - Treatment room background (linear accelerator, patient couch, control monitors)
 
-  - Room backdrop images (physics office, treatment room, dosimetry lab, simulation suite)
+  - Dosimetry lab background (measurement equipment, detection devices)
 
-  - Text box frame designs and dialogue choice button designs
+  - Simulation suite background (CT scanner, planning workstations)
 
 
 
-- **TECHNICAL CONTEXT**: PortraitImage.tsx component ready for pixel-perfect rendering
+- **TECHNICAL CONTEXT**: app/utils/roomBackgrounds.ts ready for additional room definitions
 
 
 - **GO/NO-GO**: 🔥 HIGH PRIORITY - Ready to start
 
 
-**Content pipeline**
-- **WHY NOW**: Some dialogue IDs are placeholders, need actual dialogue content creation
+**Dialogue content expansion**
+- **WHY NOW**: Physics office has 15+ interactions, other rooms ready for similar content
 
 - **PRIORITY**: HIGH
 
 
 - **SPECIFIC NEEDS**:
 
-  - Replace ${mentorId}_intro placeholder dialogues with actual mentor introductions
+  - Treatment room mentor conversations (clinical procedures, safety protocols)
 
-  - Replace ${activityId}_challenge placeholders with domain-specific educational content
+  - Dosimetry lab technical discussions (measurement theory, quality assurance)
 
-  - Create mentor-specific reaction content for challenge dialogue system
+  - Simulation suite planning dialogues (imaging, treatment optimization)
 
 
 
-- **TECHNICAL CONTEXT**: Bridge adapters ready, just need content data files
+- **TECHNICAL CONTEXT**: Dialogue routing system operational, content framework established
 
 
 - **GO/NO-GO**: 🔥 HIGH PRIORITY - Ready to start
@@ -160,35 +192,33 @@
 
 **✅ Implemented & Ready:**
 
-- Hospital backdrop system with interactive areas
+- Hospital backdrop system with 300% zoom and pixel art integration
 
-- Character portrait rendering with 3x scaling
+- Room background system with physics office showcase complete
+
+- Complete reaction animation framework with auto-triggering
+
+- Character portrait rendering with layered depth effects
 
 - Scene transition system with contextual messaging
 
-- Dual dialogue modes (narrative and challenge)
+- Dual dialogue modes with 15+ interaction conversations
+
+- Legacy system removal with single architecture
 
 
 **🎨 Needs Assets:**
 
-- High-definition mentor portraits for enhanced dialogue
-
-- Room-specific background images for immersive context
-
-- UI design elements for professional polish
-
-- Animation assets for Pokemon-style transitions
-
 
 **📝 Content Pipeline:**
 
-- Placeholder dialogue IDs need replacement with actual content
+- Physics office content complete with 15+ meaningful interactions
 
-- Mentor-specific introduction dialogues needed
+- Room-specific dialogue routing operational
 
-- Challenge-specific educational content needed
+- Mentor reaction system functional with sprite-based symbols
 
-- Reaction content for mentor personality system
+- Background integration system ready for more environments
 
 
 
@@ -267,7 +297,15 @@ High-def mentor portraits and basic text box design
 
 - Room-specific hover effects and contextual tooltips
 
-- Time-based atmospheric lighting that changes throughout the day
+- Enhanced 300% zoom system for maximum detail visibility
+
+- Custom pixel art sprite integration (time-symbols.png)
+
+- Debug click-through system for testing all weather/time states
+
+- Clean gradient background replacing time-based color effects
+
+- Optimized positioning system with pixel-perfect control
 
 - Activity badges showing completion counts per room
 
@@ -393,8 +431,8 @@ High-def mentor portraits and basic text box design
 ### Narrative Dialogue System
 
 **UX Role**: Story and character development  
-**Status**: clear_requirements  
-**Priority**: high
+**Status**: implemented_and_working  
+**Priority**: content_expansion
 
 
 
@@ -413,6 +451,8 @@ High-def mentor portraits and basic text box design
 - **History_system**: Previous dialogue viewing (retroactive click)
 
 - **Layering_effect**: Text boxes translate up and fade for history
+
+- **Background_integration**: Room backgrounds display automatically based on roomId
 
 
 **Asset Dependencies:**
@@ -447,11 +487,142 @@ High-def mentor portraits and basic text box design
 
 ---
 
+### Room Background Integration System
+
+**UX Role**: Immersive environmental context for dialogue  
+**Status**: implemented_and_working  
+**Priority**: complete
+
+
+**✅ Implementation Details:**
+
+- Dynamic background/foreground layer system with depth effects
+
+- Room-specific atmosphere overlays and fallback gradients
+
+- Integration with dialogue scenes for immersive environments
+
+- Physics office showcase implementation with full layering
+
+- Z-index architecture supporting layered depth rendering
+
+
+
+
+**📁 Technical Files:**
+
+- `app/utils/roomBackgrounds.ts`
+
+- `app/components/dialogue/NarrativeDialogue.tsx (background integration)`
+
+- `app/components/dialogue/ChallengeDialogue.tsx (parallel integration)`
+
+
+
+
+
+**Implementation Requirements:**
+
+- **Rendering**: Layered background/foreground with z-index management
+
+- **Fallback**: Room-specific gradient fallbacks for unreleased rooms
+
+- **Integration**: Seamless dialogue scene background loading
+
+
+**Asset Dependencies:**
+
+*Visual:* physics-office.png (completed by Luke), physics-office-foreground.png (completed by Luke), treatment-room.png (ready for creation), dosimetry-lab.png (ready for creation), simulation-suite.png (ready for creation)
+
+
+
+**Integration Points:**
+
+- **Receives data from**: Receives room_id from dialogue systems
+
+
+- **Sends data to**: Provides immersive visual context for conversations
+
+
+
+
+
+---
+
+### Complete Reaction Animation System
+
+**UX Role**: Dynamic mentor reactions and feedback  
+**Status**: implemented_and_working  
+**Priority**: complete
+
+
+**✅ Implementation Details:**
+
+- Portrait animations with CSS keyframe definitions (shake, bounce, nod, pulse)
+
+- Floating reaction symbols with sprite-based rendering
+
+- Auto-triggering reactions based on dialogue choice effects
+
+- Conflict-free animation system preserving character positioning
+
+- Memory-efficient reaction symbol cleanup system
+
+
+
+
+**📁 Technical Files:**
+
+- `app/components/ui/ReactionSystem.tsx`
+
+
+
+
+
+**Implementation Requirements:**
+
+- **Animation**: CSS keyframe animation system with transform separation
+
+- **Sprites**: Sprite sheet positioning for reaction symbols
+
+- **Triggers**: Automatic reaction spawning based on dialogue effects
+
+- **Cleanup**: Memory management for animation lifecycle
+
+
+**Asset Dependencies:**
+
+*Visual:* reaction-symbols.png (completed sprite sheet by Luke)
+
+
+
+**Integration Points:**
+
+- **Receives data from**: Triggered by dialogue choice effects
+
+
+- **Sends data to**: Visual feedback enhancing user experience
+
+
+
+
+**🌟 Special Features:**
+
+- **Auto_triggering**: Insight gains (+) → 💡 + bounce, losses (-) → ? + shake
+
+- **Symbol_types**: !, ?, ..., 💡, ⭐ with unique animations
+
+- **Animation_separation**: Positioning transforms separate from animation transforms
+
+
+
+---
+
 ### Challenge Dialogue System
 
 **UX Role**: Educational activities with social context  
-**Status**: clear_requirements  
-**Priority**: high
+**Status**: implemented_and_working  
+**Priority**: content_expansion
 
 
 
@@ -587,15 +758,15 @@ activity_framework -> game_state: rewards, relationship_changes, progress
 
 ## 📊 DECISION CONTEXT
 
-**Current Status**: Hospital backdrop and transitions implemented, focusing on content and polish  
+**Current Status**: Single system architecture - HospitalBackdrop is primary system, legacy code removed  
 
 **Current Focus Areas**:
 
-- Asset integration - dialogue systems ready for portraits and backgrounds
+- Content expansion - physics office showcase complete, other rooms ready for backgrounds
 
-- Content pipeline - replacing placeholder dialogue IDs with actual content
+- Animation polish - reaction system operational, ready for additional effects
 
-- Professional simulation polish - enhancing existing systems
+- Educational content - dialogue framework ready for tutorial implementation
 
 
 
@@ -606,20 +777,26 @@ activity_framework -> game_state: rewards, relationship_changes, progress
 
 **Ready to Work On**:
 
-- High-def mentor portraits for enhanced dialogue experience
+- Additional room backgrounds (treatment room, dosimetry lab, simulation suite)
 
-- Room backdrop creation for immersive context
+- Extended dialogue content for existing rooms
 
-- Mentor introduction dialogue content creation
+- Tutorial system implementation using dialogue foundation
 
-- Challenge-specific educational content development
+- Additional reaction symbols and animation effects
 
 
 
 
 **Technical Achievements**:
 
-- Dual-system architecture allowing seamless mode switching
+- Complete legacy system removal with 99% code reduction in DayPhase
+
+- Room background integration system with layered depth effects
+
+- Complete reaction animation framework with auto-triggering
+
+- Custom pixel art integration pipeline operational
 
 - Scene-based navigation with state preservation and smooth transitions
 
@@ -631,7 +808,7 @@ activity_framework -> game_state: rewards, relationship_changes, progress
 
 
 
-**Decision Points**: Enhancing asset pipeline and dialogue system refinements  
+**Decision Points**: Content expansion using working system foundation  
 **Inspiration**: Professional medical simulation through authentic workplace interfaces  
 **Constraints**: First-time game development, learning as we go  
 **Success Metrics**: Professional simulation quality, seamless transitions, production-ready polish

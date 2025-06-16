@@ -4,6 +4,9 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useSceneNavigation } from '@/app/components/scenes/GameContainer';
 import HospitalRoomOverlay from './HospitalRoomOverlay';
+import { useTutorialNavigation, useTutorialStore } from '@/app/store/tutorialStore';
+import { getTutorialDialogueForRoom } from '@/app/data/tutorialDialogues';
+import { useDialogueStore } from '@/app/store/dialogueStore';
 
 const HospitalContainer = styled.div`
   width: 100vw;
@@ -43,18 +46,112 @@ const HospitalBuilding = styled.div`
   cursor: pointer;
 `;
 
-const RoomArea = styled.div<{ x: number; y: number; width: number; height: number }>`
+// Enhanced isometric room area with visual affordances
+const RoomArea = styled.div<{ 
+  x: number; 
+  y: number; 
+  width: number; 
+  height: number; 
+  $roomId: string;
+  $activityType: 'narrative' | 'challenge';
+}>`
   position: absolute;
   left: ${({ x }) => x}%;
   top: ${({ y }) => y}%;
   width: ${({ width }) => width}%;
   height: ${({ height }) => height}%;
+  
+  /* Isometric diamond shape using clip-path */
+  clip-path: polygon(
+    50% 0%,     /* top point */
+    100% 30%,   /* top-right */
+    100% 70%,   /* bottom-right */
+    50% 100%,   /* bottom point */
+    0% 70%,     /* bottom-left */
+    0% 30%      /* top-left */
+  );
+  
+  /* Subtle interactive glow */
+  background: ${({ $roomId }) => {
+    switch($roomId) {
+      case 'physics-office': return 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 60%, transparent 100%)';
+      case 'treatment-room': return 'radial-gradient(ellipse at center, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 60%, transparent 100%)';
+      case 'linac-2': return 'radial-gradient(ellipse at center, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 60%, transparent 100%)';
+      case 'dosimetry-lab': return 'radial-gradient(ellipse at center, rgba(236, 72, 153, 0.15) 0%, rgba(236, 72, 153, 0.05) 60%, transparent 100%)';
+      case 'simulation-suite': return 'radial-gradient(ellipse at center, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 60%, transparent 100%)';
+      default: return 'radial-gradient(ellipse at center, rgba(124, 58, 237, 0.15) 0%, rgba(124, 58, 237, 0.05) 60%, transparent 100%)';
+    }
+  }};
+  
   border: 2px solid transparent;
-  transition: all 0.6s ease;
-  border-radius: 4px;
+  
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  cursor: pointer;
+  
+  /* Subtle pulsing animation */
+  animation: roomPulse 3s ease-in-out infinite;
   
   &:hover {
-    cursor: pointer;
+    transform: scale(1.08);
+    background: ${({ $roomId }) => {
+      switch($roomId) {
+        case 'physics-office': return 'radial-gradient(ellipse at center, rgba(59, 130, 246, 0.25) 0%, rgba(59, 130, 246, 0.12) 60%, transparent 100%)';
+        case 'treatment-room': return 'radial-gradient(ellipse at center, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.12) 60%, transparent 100%)';
+        case 'linac-2': return 'radial-gradient(ellipse at center, rgba(245, 158, 11, 0.25) 0%, rgba(245, 158, 11, 0.12) 60%, transparent 100%)';
+        case 'dosimetry-lab': return 'radial-gradient(ellipse at center, rgba(236, 72, 153, 0.25) 0%, rgba(236, 72, 153, 0.12) 60%, transparent 100%)';
+        case 'simulation-suite': return 'radial-gradient(ellipse at center, rgba(245, 158, 11, 0.25) 0%, rgba(245, 158, 11, 0.12) 60%, transparent 100%)';
+        default: return 'radial-gradient(ellipse at center, rgba(124, 58, 237, 0.25) 0%, rgba(124, 58, 237, 0.12) 60%, transparent 100%)';
+      }
+    }};
+    border-color: transparent;
+    box-shadow: 0 0 20px ${({ $roomId }) => {
+      switch($roomId) {
+        case 'physics-office': return 'rgba(59, 130, 246, 0.3)';
+        case 'treatment-room': return 'rgba(16, 185, 129, 0.3)';
+        case 'linac-2': return 'rgba(245, 158, 11, 0.3)';
+        case 'dosimetry-lab': return 'rgba(236, 72, 153, 0.3)';
+        case 'simulation-suite': return 'rgba(245, 158, 11, 0.3)';
+        default: return 'rgba(124, 58, 237, 0.3)';
+      }
+    }};
+    animation: roomPulseHover 1.5s ease-in-out infinite;
+  }
+`;
+
+// Interactive indicator for each room
+const RoomIndicator = styled.div<{ $roomId: string }>`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  background: ${({ $roomId }) => {
+    switch($roomId) {
+      case 'physics-office': return 'rgba(59, 130, 246, 0.9)';
+      case 'treatment-room': return 'rgba(16, 185, 129, 0.9)';
+      case 'linac-2': return 'rgba(245, 158, 11, 0.9)';
+      case 'dosimetry-lab': return 'rgba(236, 72, 153, 0.9)';
+      case 'simulation-suite': return 'rgba(245, 158, 11, 0.9)';
+      default: return 'rgba(124, 58, 237, 0.9)';
+    }
+  }};
+  border: 2px solid white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: indicatorBob 2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 5;
+  
+  ${RoomArea}:hover & {
+    animation: indicatorBobHover 1s ease-in-out infinite;
+    transform: translate(-50%, -50%) scale(1.1);
   }
 `;
 
@@ -86,47 +183,52 @@ const BackButton = styled.button`
 
 
 
-// Room definitions with click areas
+// Room definitions with isometric click areas and thematic icons
 const ROOM_AREAS = [
   {
     id: 'physics-office',
     name: 'Physics Office',
-    x: 20, y: 30, width: 15, height: 12,
+    x: 25, y: 31, width: 10, height: 10,
     mentorId: 'garcia',
     mentorName: 'Dr. Garcia',
-    activityType: 'narrative' as const
+    activityType: 'narrative' as const,
+    icon: '📊' // Analysis and planning
   },
   {
-    id: 'linac-1',
-    name: 'LINAC Room 1', 
-    x: 45, y: 25, width: 18, height: 15,
-    mentorId: 'quinn',
-    mentorName: 'Dr. Quinn',
-    activityType: 'challenge' as const
+    id: 'treatment-room',
+    name: 'Treatment Room', 
+    x: 55, y: 28, width: 13, height: 15,
+    mentorId: 'garcia',
+    mentorName: 'Dr. Garcia',
+    activityType: 'narrative' as const,
+    icon: '⚕️' // Medical care
   },
   {
     id: 'linac-2',
     name: 'LINAC Room 2',
-    x: 65, y: 25, width: 16, height: 14,
+    x: 64, y: 35, width: 13, height: 15,
     mentorId: 'jesse',
     mentorName: 'Jesse',
-    activityType: 'narrative' as const
+    activityType: 'narrative' as const,
+    icon: '⚡' // High-energy equipment
   },
   {
     id: 'dosimetry-lab',
     name: 'Dosimetry Lab',
-    x: 70, y: 35, width: 12, height: 10,
+    x: 75.5, y: 53, width: 12, height: 10,
     mentorId: 'kapoor',
     mentorName: 'Dr. Kapoor',
-    activityType: 'challenge' as const
+    activityType: 'narrative' as const,
+    icon: '🔬' // Precision measurement
   },
   {
     id: 'simulation-suite',
     name: 'Simulation Suite',
-    x: 35, y: 55, width: 16, height: 12,
+    x: 41, y: 20, width: 19, height: 15,
     mentorId: 'jesse',
     mentorName: 'Jesse',
-    activityType: 'narrative' as const
+    activityType: 'narrative' as const,
+    icon: '🎯' // Targeting and simulation
   }
 ];
 
@@ -237,7 +339,34 @@ export default function HospitalBackdrop() {
     goToConstellation 
   } = useSceneNavigation();
   
+  const { startFirstDayTutorial } = useTutorialNavigation();
+  const tutorialStore = useTutorialStore();
+  const dialogueStore = useDialogueStore();
+  
   const handleRoomClick = (room: typeof ROOM_AREAS[0]) => {
+    // Check if tutorial mode is active
+    if (tutorialStore.isActive && tutorialStore.currentStep) {
+      // Try to get tutorial-specific dialogue for this room
+      const currentStep = tutorialStore.currentStep;
+      const tutorialDialogueId = getTutorialDialogueForRoom(room.id, currentStep);
+      
+      if (tutorialDialogueId) {
+        // Start tutorial dialogue
+        dialogueStore.startDialogue(tutorialDialogueId);
+        enterNarrative(room.mentorId, tutorialDialogueId, room.id);
+        return;
+      }
+      
+      // If no specific tutorial dialogue, check for special tutorial steps
+      if (currentStep === 'lunch_dialogue') {
+        // Any room can trigger lunch dialogue during this step
+        dialogueStore.startDialogue('tutorial_lunch_dialogue');
+        enterNarrative(room.mentorId, 'tutorial_lunch_dialogue', room.id);
+        return;
+      }
+    }
+    
+    // Default behavior for non-tutorial mode
     if (room.activityType === 'narrative') {
       enterNarrative(room.mentorId, `${room.id}-intro`, room.id);
     } else {
@@ -275,18 +404,22 @@ export default function HospitalBackdrop() {
       
       <HospitalBuilding>
         {ROOM_AREAS.map(room => (
-                      <RoomArea
-              key={room.id}
-              x={room.x}
-              y={room.y} 
-              width={room.width}
-              height={room.height}
-              onClick={() => handleRoomClick(room)}
-              onMouseEnter={(e: React.MouseEvent) => handleRoomHover(room, e)}
-              onMouseLeave={handleRoomLeave}
-            >
-              {/* Removed visual indicators to keep click boxes clean */}
-            </RoomArea>
+          <RoomArea
+            key={room.id}
+            x={room.x}
+            y={room.y} 
+            width={room.width}
+            height={room.height}
+            $roomId={room.id}
+            $activityType={room.activityType}
+            onClick={() => handleRoomClick(room)}
+            onMouseEnter={(e: React.MouseEvent) => handleRoomHover(room, e)}
+            onMouseLeave={handleRoomLeave}
+          >
+            <RoomIndicator $roomId={room.id}>
+              {room.icon}
+            </RoomIndicator>
+          </RoomArea>
         ))}
       </HospitalBuilding>
       
@@ -301,7 +434,7 @@ export default function HospitalBackdrop() {
         y={tooltipPosition.y}
       />
       
-      {/* Quick access to constellation */}
+      {/* Quick access buttons */}
       <button
         style={{
           position: 'absolute',
@@ -319,6 +452,56 @@ export default function HospitalBackdrop() {
       >
         ⭐ Knowledge Constellation
       </button>
+      
+      {/* Tutorial test button */}
+      <button
+        style={{
+          position: 'absolute',
+          bottom: '80px',
+          right: '20px',
+          background: 'rgba(16, 185, 129, 0.8)',
+          color: '#fff',
+          border: 'none',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontSize: '14px'
+        }}
+        onClick={startFirstDayTutorial}
+      >
+        🎓 Start Tutorial
+      </button>
+      
+      {/* CSS Animations for isometric interaction */}
+      <style jsx global>{`
+        @keyframes roomPulse {
+          0%, 100% { opacity: 0.8; }
+          50% { opacity: 1; }
+        }
+        
+        @keyframes roomPulseHover {
+          0%, 100% { opacity: 0.9; }
+          50% { opacity: 1; }
+        }
+        
+        @keyframes indicatorBob {
+          0%, 100% { 
+            transform: translate(-50%, -50%) translateY(0px);
+          }
+          50% { 
+            transform: translate(-50%, -50%) translateY(-3px);
+          }
+        }
+        
+        @keyframes indicatorBobHover {
+          0%, 100% { 
+            transform: translate(-50%, -50%) scale(1.1) translateY(0px);
+          }
+          50% { 
+            transform: translate(-50%, -50%) scale(1.1) translateY(-5px);
+          }
+        }
+      `}</style>
     </HospitalContainer>
   );
 } 

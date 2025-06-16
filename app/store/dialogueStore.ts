@@ -208,6 +208,21 @@ export const useDialogueStore = create<DialogueState>((set, get) => ({
       );
     }
     
+    // Handle tutorial step completion
+    if (selectedOption.tutorialStepCompletion) {
+      // Import tutorial store dynamically to avoid circular dependencies
+      import('../store/tutorialStore').then(({ useTutorialStore }) => {
+        const tutorialStore = useTutorialStore.getState();
+        tutorialStore.completeStep(selectedOption.tutorialStepCompletion!);
+      });
+    }
+    
+    // Handle ability receiving  
+    if (selectedOption.receivesAbility) {
+      // TODO: Implement ability system integration
+      console.log(`Received ability: ${selectedOption.receivesAbility}`);
+    }
+    
     // Update dialogue history
     const newHistory = [
       ...state.dialogueHistory,

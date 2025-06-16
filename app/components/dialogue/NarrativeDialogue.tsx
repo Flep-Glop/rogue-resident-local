@@ -163,7 +163,7 @@ const CharacterPortrait = styled.div<{ $roomId?: string }>`
       switch(props.$roomId) {
         case 'physics-office':
           return 'hue-rotate(-3deg) saturate(0.96)'; // Cooler, academic tone
-        case 'linac-1':
+        case 'treatment-room':
           return 'hue-rotate(2deg) saturate(1.02)'; // Slightly warmer, clinical
         case 'linac-2':
           return 'hue-rotate(2deg) saturate(1.04)'; // Warmer, technical precision
@@ -240,8 +240,8 @@ const DialogueBox = styled.div<{ $roomId?: string }>`
     border-left: 3px solid rgba(59, 130, 246, 0.3);
   `}
   
-  ${props => props.$roomId === 'linac-1' && `
-    /* Clinical style for LINAC Room 1 */
+  ${props => props.$roomId === 'treatment-room' && `
+    /* Clinical style for Treatment Room */
     background: linear-gradient(135deg, 
       ${colors.background} 0%, 
       rgba(16, 185, 129, 0.03) 100%
