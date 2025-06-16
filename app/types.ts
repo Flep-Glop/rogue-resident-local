@@ -18,6 +18,11 @@ export enum ActivityDifficulty {
   NONE = 'NONE', // For activities like self-study
 }
 
+export enum DialogueMode {
+  NARRATIVE = 'NARRATIVE',    // Visual novel style with large portraits
+  CHALLENGE = 'CHALLENGE',    // Multi-panel feed with compact portraits
+}
+
 export enum KnowledgeDomain {
   TREATMENT_PLANNING = 'TREATMENT_PLANNING',
   RADIATION_THERAPY = 'RADIATION_THERAPY',
@@ -105,11 +110,21 @@ export enum GameEventType {
   // Resource events
   MOMENTUM_GAINED = 'MOMENTUM_GAINED',
   MOMENTUM_RESET = 'MOMENTUM_RESET',
+  MOMENTUM_LEVEL_REACHED = 'MOMENTUM_LEVEL_REACHED',
+  MOMENTUM_CHANGED = 'MOMENTUM_CHANGED',
   INSIGHT_GAINED = 'INSIGHT_GAINED',
   INSIGHT_SPENT = 'INSIGHT_SPENT',
   INSIGHT_CONVERTED = 'INSIGHT_CONVERTED',
   STAR_POINTS_GAINED = 'STAR_POINTS_GAINED',
   STAR_POINTS_SPENT = 'STAR_POINTS_SPENT',
+  
+  // Boast events
+  BOAST_ACTIVATED = 'BOAST_ACTIVATED',
+  BOAST_SUCCEEDED = 'BOAST_SUCCEEDED',
+  BOAST_FAILED = 'BOAST_FAILED',
+  
+  // Tangent event
+  TANGENT_USED = 'TANGENT_USED',
   
   // Knowledge events
   CONCEPT_DISCOVERED = 'CONCEPT_DISCOVERED',
@@ -132,6 +147,12 @@ export enum GameEventType {
   // Relationship events
   RELATIONSHIP_IMPROVED = 'RELATIONSHIP_IMPROVED',
   RELATIONSHIP_LEVEL_UP = 'RELATIONSHIP_LEVEL_UP',
+  MENTOR_RELATIONSHIP_CHANGED = 'MENTOR_RELATIONSHIP_CHANGED',
+  
+  // Dialogue events
+  DIALOGUE_STARTED = 'DIALOGUE_STARTED',
+  DIALOGUE_ENDED = 'DIALOGUE_ENDED',
+  KNOWLEDGE_DISCOVERED = 'KNOWLEDGE_DISCOVERED',
   
   // Special events
   SPECIAL_EVENT_TRIGGERED = 'SPECIAL_EVENT_TRIGGERED',
@@ -181,11 +202,16 @@ export interface DialogueOption {
   momentumChange?: number;
   relationshipChange?: number;
   discoversConceptId?: string;
+  
+  // Day 1 specific properties
+  isNameInput?: boolean;
+  triggersActivity?: boolean;
 }
 
 // Relationship tracking for mentors
 export interface MentorRelationship {
   level: number;            // 0-5 scale (0=Unfamiliar, 5=Trusted Colleague)
+  points: number;           // Points accumulated in current level (5 points per level)
   interactions: number;     // Number of interactions with this mentor
 }
 

@@ -36,21 +36,19 @@ const Game: React.FC = () => {
         phaseChangeInProgressRef.current = true;
         
         // Start loading animation and wait for it to complete
-        console.log('Starting loading transition for phase change...');
+        console.log(`[Page.tsx] Phase transition: ${displayPhase} → ${currentPhase}`);
         await startLoading();
         
         // After loading animation finishes, update the displayed phase
-        console.log('Setting display phase to:', currentPhase);
         setDisplayPhase(currentPhase);
         
         // Small delay to ensure component rendering
         await new Promise(resolve => setTimeout(resolve, 100));
         
         // Stop loading animation
-        console.log('Stopping loading transition');
         stopLoading();
       } catch (error) {
-        console.error('Error during phase transition:', error);
+        console.error('[Page.tsx] Error during phase transition:', error);
         stopLoading();
       } finally {
         // Clear flag when done

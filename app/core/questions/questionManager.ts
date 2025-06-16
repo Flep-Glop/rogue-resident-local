@@ -59,6 +59,40 @@ export async function selectQuestions(
   questionTypes?: QuestionType[]
 ): Promise<Question[]> {
   try {
+    // Log the inputs to help debug
+    console.log(`[questionManager] selectQuestions called with: domain=${domain}, questionTypes=${JSON.stringify(questionTypes || [])}`);
+      // Special handling for boast questions - always get them from advanced difficulty
+  if (questionTypes && questionTypes.includes('boast' as QuestionType)) {
+    console.log(`[questionManager] Specifically looking for boast questions in ${domain} advanced.json`);
+    try {
+      // Directly load the advanced difficulty questions for boast type
+      const advancedCollection = await loadQuestions(domain, "advanced");
+      console.log(`[questionManager] Boast Path - advancedCollection for ${domain}:`, JSON.stringify(advancedCollection.questions.map(q => ({id: q.id, type: q.type, difficulty: q.tags?.difficulty}))));
+      
+      // Filter for boast-type questions only - check both structure formats
+      const boastQuestions = advancedCollection.questions.filter(q => {
+        // Log each question's type to debug
+        console.log(`Question ${q.id}: type=${q.type}, tags.difficulty=${q.tags?.difficulty}`);
+        
+        // Both conditions should match boast questions:
+        // 1. The question has type 'boast'
+        // 2. The question has difficulty 3 (advanced)
+        return q.type === 'boast' && q.tags?.difficulty === 3;
+      });
+      
+      console.log(`[questionManager] Found ${boastQuestions.length} boast questions in advanced difficulty`);
+      
+      if (boastQuestions.length > 0) {
+        // Return the boast questions directly - they're always advanced difficulty
+        return boastQuestions.slice(0, count);
+      }
+    } catch (error) {
+      console.error(`[questionManager] Error loading boast questions: ${error}`);
+      // Continue with normal question selection if this fails
+    }
+    }
+    
+    // Regular question selection logic (unchanged)
     // Get appropriate questions
     let availableQuestions: Question[];
     
@@ -191,18 +225,24 @@ export async function selectActivityQuestions(
     let selectedQuestions: Question[] = [];
     
     if (activityMentor) {
-      // First try to find questions specific to this mentor
-      const mentorQuestions = allQuestions.filter((q: any) => q.mentor === activityMentor);
+      // Debug: log available mentors in the questions
+      const availableMentors = [...new Set(allQuestions.map((q: any) => q.tags?.mentor).filter(Boolean))];
+      console.log(`[questionManager] Available mentors in questions:`, availableMentors, `Looking for: ${activityMentor}`);
+      
+      // First try to find questions specific to this mentor (mentor is in tags)
+      const mentorQuestions = allQuestions.filter((q: any) => q.tags?.mentor === activityMentor);
       
       // Then look for questions with no specific mentor (generic)
-      const genericQuestions = allQuestions.filter((q: any) => !q.mentor);
+      const genericQuestions = allQuestions.filter((q: any) => !q.tags?.mentor);
       
       // Finally, use questions with other mentors if needed - these will need mentor replacement
       const otherMentorQuestions = allQuestions.filter((q: any) => 
-        q.mentor && q.mentor !== activityMentor
+        q.tags?.mentor && q.tags.mentor !== activityMentor
       );
       
-      // Keep one strategic log to help diagnose mentor-specific question availability
+      // Debug logging for mentor filtering results
+      console.log(`[questionManager] Mentor filtering results - Specific: ${mentorQuestions.length}, Generic: ${genericQuestions.length}, Other: ${otherMentorQuestions.length}`);
+      
       if (mentorQuestions.length === 0) {
         console.log(`[questionManager] No questions found specific to mentor ${activityMentor}, using generic questions`);
       }

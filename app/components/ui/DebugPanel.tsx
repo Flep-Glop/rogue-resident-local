@@ -14,6 +14,7 @@ import pixelTheme, { colors, spacing, typography, borders, shadows } from '@/app
 import { initializeKnowledgeStore } from '@/app/data/conceptData';
 import shuffle from 'lodash/shuffle';
 import { useLoading } from '@/app/providers/LoadingProvider';
+import { useResourceStore } from '@/app/store/resourceStore';
 // Import question components and types
 import { 
   Question, MultipleChoiceQuestion as MultipleChoiceQuestionType,
@@ -28,6 +29,10 @@ import MatchingQuestion from '@/app/components/questions/MatchingQuestion';
 import CalculationQuestion from '@/app/components/questions/CalculationQuestion';
 import BoastQuestion from '@/app/components/questions/BoastQuestion';
 import QuestionFeedback from '@/app/components/questions/QuestionFeedback';
+
+// Add Day 1 imports
+import { Day1SceneId } from '@/app/types/day1';
+import { day1Scenes } from '@/app/data/day1Scenes';
 
 // Styled components
 const DebugButton = styled.button`
@@ -264,6 +269,9 @@ export default function DebugPanel() {
   const [selectedMentorId, setSelectedMentorId] = useState<MentorId>(MentorId.GARCIA);
   const [selectedDialogueId, setSelectedDialogueId] = useState<string>("");
   
+  // Add Day 1 state
+  const [selectedDay1Scene, setSelectedDay1Scene] = useState<Day1SceneId>(Day1SceneId.ARRIVAL);
+  
   // New state for question testing
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [activeQuestionType, setActiveQuestionType] = useState<QuestionTypeString>('multipleChoice');
@@ -279,12 +287,24 @@ export default function DebugPanel() {
     setPhase,
     setSeason,
     advanceTime,
-    addMomentum,
-    resetMomentum,
-    addInsight,
     addStarPoints,
-    resetDay
+    resetDay,
+    setDay1Scene
   } = useGameStore();
+  
+  // Import the ResourceStore hooks
+  const { 
+    momentum, 
+    momentumMax,
+    insight,
+    starPoints,
+    incrementMomentum, 
+    resetMomentum,
+    updateInsight,
+    updateStarPoints,
+    canBoast,
+    _getMomentumLevel
+  } = useResourceStore();
   
   const { generateAvailableActivities } = useActivityStore();
   
@@ -321,7 +341,7 @@ export default function DebugPanel() {
   }, [isExpanded]);
 
   // Loading transition test
-  const { startLoading, stopLoading } = useLoading();
+  const { startLoading, stopLoading, isLoading } = useLoading();
   const testLoading = useCallback(async () => {
     console.log('Testing loading transition...');
     await startLoading();
@@ -340,18 +360,25 @@ export default function DebugPanel() {
   const advanceBy120 = useCallback(() => advanceTime(120), [advanceTime]);
   const jumpToEndOfDay = useCallback(() => advanceTime((17 - currentTime.hour) * 60 - currentTime.minute), [advanceTime, currentTime]);
   
-  // Resource controls
-  const addMomentumPoint = useCallback(() => addMomentum(1), [addMomentum]);
-  const maxMomentum = useCallback(() => addMomentum(3), [addMomentum]);
-  const clearMomentum = useCallback(() => resetMomentum(), [resetMomentum]);
+  // Resource controls - use ResourceStore functions
+  const addMomentumPoint = useCallback(() => incrementMomentum('debug_panel'), [incrementMomentum]);
+  const maxMomentum = useCallback(() => {
+    // Add momentum until we reach max
+    const currentMomentum = useResourceStore.getState().momentum;
+    for (let i = currentMomentum; i < useResourceStore.getState().momentumMax; i++) {
+      incrementMomentum('debug_panel');
+    }
+  }, [incrementMomentum]);
+  const clearMomentum = useCallback(() => resetMomentum('debug_panel'), [resetMomentum]);
   
-  const add10Insight = useCallback(() => addInsight(10), [addInsight]);
-  const add25Insight = useCallback(() => addInsight(25), [addInsight]);
-  const add50Insight = useCallback(() => addInsight(50), [addInsight]);
+  // Use ResourceStore's updateInsight for insight management
+  const add10Insight = useCallback(() => updateInsight(10, 'debug_panel'), [updateInsight]);
+  const add25Insight = useCallback(() => updateInsight(25, 'debug_panel'), [updateInsight]);
+  const add50Insight = useCallback(() => updateInsight(50, 'debug_panel'), [updateInsight]);
   
-  const add1SP = useCallback(() => addStarPoints(1), [addStarPoints]);
-  const add5SP = useCallback(() => addStarPoints(5), [addStarPoints]);
-  const add10SP = useCallback(() => addStarPoints(10), [addStarPoints]);
+  const add1SP = useCallback(() => updateStarPoints(1, 'debug_panel'), [updateStarPoints]);
+  const add5SP = useCallback(() => updateStarPoints(5, 'debug_panel'), [updateStarPoints]);
+  const add10SP = useCallback(() => updateStarPoints(10, 'debug_panel'), [updateStarPoints]);
   
   // Knowledge controls
   const discoverSelectedConcept = useCallback(() => {
@@ -786,6 +813,61 @@ export default function DebugPanel() {
     }
   };
 
+  // Add Day 1 scene controls
+  const jumpToDay1Scene = useCallback(async (sceneId: Day1SceneId) => {
+    // Prevent rapid clicking
+    if (isLoading) {
+      console.log('[DebugPanel] Already loading, ignoring click');
+      return;
+    }
+    
+    console.log(`[DebugPanel] Jumping to Day 1 scene: ${sceneId}`);
+    
+    try {
+      // Start loading to prevent conflicts
+      await startLoading();
+      
+      // First ensure we're in day phase
+      switchToDay();
+      
+      // For Day 1, we need to reset time but keep daysPassed at 0
+      // Don't use resetDay() as it increments daysPassed
+      const { timeManager } = useGameStore.getState();
+      const newTime = timeManager.resetToStartOfDay();
+      
+      // Reset to Day 1 state manually
+      useGameStore.setState({ 
+        currentTime: newTime,
+        currentPhase: GamePhase.DAY,
+        daysPassed: 0  // Keep at 0 for Day 1
+      });
+      
+      // Reset momentum and insight for fresh start
+      const resourceStore = useResourceStore.getState();
+      resourceStore.resetMomentum('debug_panel_day1_reset');
+      resourceStore.updateInsight(0 - resourceStore.insight, 'debug_panel_day1_reset'); // Clear existing insight
+      
+      // Clear any active dialogues to prevent conflicts
+      const dialogueStore = useDialogueStore.getState();
+      if (dialogueStore.activeDialogueId) {
+        dialogueStore.endDialogue();
+      }
+      
+      // Use the Day 1 scene setter from the hook
+      setDay1Scene(sceneId);
+      
+      // Wait a moment for state to settle
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log(`[DebugPanel] Day 1 scene set to: ${sceneId}`);
+      
+      await stopLoading();
+    } catch (error) {
+      console.error('Error jumping to Day 1 scene:', error);
+      stopLoading();
+    }
+  }, [switchToDay, setDay1Scene, startLoading, stopLoading, isLoading]);
+
   // If panel is collapsed, just show the toggle button
   if (!isExpanded) {
     return (
@@ -812,6 +894,18 @@ export default function DebugPanel() {
             <ButtonRow>
               <PixelButton onClick={testLoading} $color={colors.primary}>
                 Test Loading
+              </PixelButton>
+              <PixelButton 
+                onClick={() => {
+                  console.log('[DebugPanel] Simple phase test - setting to DAY');
+                  const gameStore = useGameStore.getState();
+                  console.log('[DebugPanel] Current phase before:', gameStore.currentPhase);
+                  gameStore.setPhase(GamePhase.DAY);
+                  console.log('[DebugPanel] Current phase after:', useGameStore.getState().currentPhase);
+                }}
+                $color={colors.highlight}
+              >
+                Test Phase → DAY
               </PixelButton>
             </ButtonRow>
           </Section>
@@ -882,15 +976,23 @@ export default function DebugPanel() {
             <SectionTitle>Resources</SectionTitle>
             <StatusRow>
               <StatusLabel>Momentum:</StatusLabel>
-              <StatusValue $color={colors.momentum}>{resources.momentum}/3</StatusValue>
+              <StatusValue $color={colors.momentum}>{momentum}/{momentumMax}</StatusValue>
+            </StatusRow>
+            <StatusRow>
+              <StatusLabel>Momentum Level:</StatusLabel>
+              <StatusValue $color={colors.momentum}>{_getMomentumLevel()}</StatusValue>
             </StatusRow>
             <StatusRow>
               <StatusLabel>Insight:</StatusLabel>
-              <StatusValue $color={colors.insight}>{resources.insight}</StatusValue>
+              <StatusValue $color={colors.insight}>{insight}</StatusValue>
             </StatusRow>
             <StatusRow>
               <StatusLabel>Star Points:</StatusLabel>
-              <StatusValue $color={colors.starPoints}>{resources.starPoints}</StatusValue>
+              <StatusValue $color={colors.starPoints}>{starPoints}</StatusValue>
+            </StatusRow>
+            <StatusRow>
+              <StatusLabel>Can Boast:</StatusLabel>
+              <StatusValue $color={canBoast() ? colors.active : colors.error}>{canBoast() ? 'Yes' : 'No'}</StatusValue>
             </StatusRow>
           </Section>
           
@@ -1200,6 +1302,105 @@ export default function DebugPanel() {
                 </PixelButton>
               </ButtonRow>
             </SelectWrapper>
+          </Section>
+          
+          {/* Day 1 Controls Section */}
+          <Section>
+            <SectionTitle>Day 1 Controls</SectionTitle>
+            
+            <SelectWrapper>
+              <SelectLabel>Quick Navigation:</SelectLabel>
+              <ButtonGrid>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.PROLOGUE_INTRO)}
+                  $color={colors.highlight}
+                >
+                  Start Prologue
+                </PixelButton>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.ARRIVAL)}
+                  $color={colors.treatmentPlanning}
+                >
+                  Start Day 1
+                </PixelButton>
+              </ButtonGrid>
+            </SelectWrapper>
+            
+            <SelectWrapper>
+              <SelectLabel>Prologue Scene:</SelectLabel>
+              <ButtonGrid>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.PROLOGUE_INTRO)}
+                  $color={colors.radiationTherapy}
+                >
+                  Complete Prologue
+                </PixelButton>
+              </ButtonGrid>
+            </SelectWrapper>
+            
+            <SelectWrapper>
+              <SelectLabel>Hospital Scenes:</SelectLabel>
+              <ButtonGrid>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.ARRIVAL)}
+                  $color={colors.treatmentPlanning}
+                >
+                  Arrival
+                </PixelButton>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.BRIEF_TOUR)}
+                  $color={colors.treatmentPlanning}
+                >
+                  Tour
+                </PixelButton>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.FIRST_PATIENT)}
+                  $color={colors.treatmentPlanning}
+                >
+                  First Patient
+                </PixelButton>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.MEETING_JESSE)}
+                  $color={colors.linacAnatomy}
+                >
+                  Meet Jesse
+                </PixelButton>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.MEETING_KAPOOR)}
+                  $color={colors.dosimetry}
+                >
+                  Meet Kapoor
+                </PixelButton>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.QUINN_INTRODUCTION)}
+                  $color={colors.highlight}
+                >
+                  Meet Quinn
+                </PixelButton>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.AFTERNOON_WITH_QUINN)}
+                  $color={colors.highlight}
+                >
+                  Afternoon
+                </PixelButton>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.HILL_HOUSE_ARRIVAL)}
+                  $color={colors.starGlow}
+                >
+                  Hill House
+                </PixelButton>
+                <PixelButton 
+                  onClick={() => jumpToDay1Scene(Day1SceneId.FIRST_NIGHT)}
+                  $color={colors.starGlow}
+                >
+                  First Night
+                </PixelButton>
+              </ButtonGrid>
+            </SelectWrapper>
+            
+            <SmallText>
+              Click any scene to jump directly there. The prologue is now a single scene with natural dialogue flow including name input and difficulty selection.
+            </SmallText>
           </Section>
           
           {/* Miscellaneous Controls */}

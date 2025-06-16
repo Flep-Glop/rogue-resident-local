@@ -763,7 +763,7 @@ export const Prologue: React.FC = () => {
           overflow: 'hidden'
         }}>
           <Image 
-            src="/images/characters-portrait.png"
+            src="/images/characters/sprites/characters-portrait.png"
             alt="Dr. Garcia"
             width={210} // Full sprite sheet width
             height={42}  // Full sprite sheet height

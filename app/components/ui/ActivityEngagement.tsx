@@ -1,6 +1,17 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+// =============================================================================
+// 🎨 VISUAL ENHANCEMENT TARGET: ActivityEngagement System 🎨
+// =============================================================================
+// STATUS: Active system for educational content - READY FOR RESKIN
+// GOAL: Apply beautiful dialogue system visual style to this sophisticated engine
+// CONTAINS: Complex question types (matching, procedural, calculation, etc.)
+// FEATURES: Dynamic question loading, special abilities (tangent/boast), etc.
+// ENHANCEMENT: Keep all functionality, upgrade visual presentation
+// TARGET: Make this look as beautiful as the narrative/challenge dialogue modes
+// =============================================================================
+
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useGameStore } from '@/app/store/gameStore';
 import { useActivityStore } from '@/app/store/activityStore';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
@@ -17,10 +28,16 @@ import { TimeManager } from '@/app/core/time/TimeManager';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import pixelTheme, { colors, typography, animation, components, mixins, borders, shadows, spacing } from '@/app/styles/pixelTheme';
 import Image from 'next/image';
-import { MultipleChoiceQuestion, Question, Domain, Difficulty } from '@/app/types/questions';
+import { MultipleChoiceQuestion, Question, Domain, Difficulty, QuestionType } from '@/app/types/questions';
 import { selectActivityQuestions } from '@/app/core/questions/questionManager';
 import { getPortraitCoordinates, SPRITE_SHEETS } from '@/app/utils/spriteMap';
 import SpriteImage from '../ui/SpriteImage';
+import { useResourceStore } from '@/app/store/resourceStore';
+import { useRelationshipStore } from '@/app/store/relationshipStore';
+import MomentumIndicator from './MomentumIndicator';
+import BoastButton from './BoastButton';
+import InsightIndicator from '@/app/components/ui/InsightIndicator';
+import ResourceDisplay from '@/app/components/ui/ResourceDisplay';
 
 // Function to check if value is a valid MentorId
 const isValidMentor = (value: any): value is MentorId => {
@@ -688,38 +705,38 @@ const TEST_CALCULATION_QUESTIONS: Record<string, any[]> = {
 };
 
 export default function ActivityEngagement() {
-  const { currentTime, resources, advanceTime, addMomentum, resetMomentum, addInsight, addStarPoints, spendInsight } = useGameStore();
+  // Get needed state/functions from gameStore directly, avoiding the old `resources` object
+  const { currentTime, advanceTime } = useGameStore(); 
+  const { 
+    insight: currentInsight, // Renamed to currentInsight to avoid conflict if insight was a prop
+    starPoints: currentStarPoints, 
+    incrementMomentum, 
+    resetMomentum, 
+    updateInsight, 
+    updateStarPoints, 
+    canBoast, 
+    activateBoast 
+  } = useResourceStore();
+  
   const { currentActivity, completeActivity } = useActivityStore();
+  const { discoverConcept } = useKnowledgeStore.getState(); // Get discoverConcept directly
   
   const [challenge, setChallenge] = useState<any>(null);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [conceptsDiscovered, setConceptsDiscovered] = useState<string[]>([]);
-  
-  // Track if special abilities were used
   const [usedTangent, setUsedTangent] = useState(false);
   const [usedBoast, setUsedBoast] = useState(false);
-  
   const [showQuote, setShowQuote] = useState(false);
-  
-  // Add state for tracking multiple questions
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [allAnswers, setAllAnswers] = useState<boolean[]>([]);
-  
-  // Add state for matching questions
   const [matchingSelections, setMatchingSelections] = useState<number[]>([]);
   const [matchingComplete, setMatchingComplete] = useState(false);
-  
-  // Add state for test mode
   const [testModeEnabled, setTestModeEnabled] = useState(TEST_MODE_ENABLED);
   const [testQuestionSet, setTestQuestionSet] = useState(SELECTED_TEST_SET);
   const [testQuestionType, setTestQuestionType] = useState(TEST_QUESTION_TYPE);
-  
-  // Add state for procedural questions
   const [proceduralOrder, setProceduralOrder] = useState<number[]>([]);
   const [proceduralComplete, setProceduralComplete] = useState(false);
-  
-  // Add state for calculation questions
   const [calculationAnswer, setCalculationAnswer] = useState<string>('');
   const [calculationIsValid, setCalculationIsValid] = useState(false);
   
@@ -770,10 +787,10 @@ export default function ActivityEngagement() {
               console.log('Setting challenge with transformed questions:', transformedChallenge);
               
               // Log the question types for debugging
-              const questionTypes = transformedChallenge.questions
-                ? transformedChallenge.questions.map((q: any) => q.type).join(', ')
-                : 'No questions array found';
-              console.log('Question types in challenge:', questionTypes);
+              // const questionTypes = transformedChallenge.questions
+              //   ? transformedChallenge.questions.map((q: any) => q.type).join(', ')
+              //   : 'No questions array found';
+              // console.log('Question types in challenge:', questionTypes);
               
               setChallenge(transformedChallenge);
             } catch (transformError) {
@@ -795,10 +812,10 @@ export default function ActivityEngagement() {
           setChallenge(SAMPLE_CHALLENGES[currentActivity.id] || SAMPLE_CHALLENGES.default);
         });
     }
-  }, [currentActivity]);
+  }, [currentActivity, testModeEnabled, testQuestionSet, testQuestionType]); // Added test mode dependencies
   
   // Modify the fetchQuestionsForActivity function to handle test mode
-  const fetchQuestionsForActivity = async (activity: ActivityOption) => {
+  const fetchQuestionsForActivity = async (activity: ActivityOption, overrideBoastType?: 'boast' | 'normal') => {
     try {
       // Use test questions if test mode is enabled
       if (testModeEnabled) {
@@ -927,18 +944,109 @@ export default function ActivityEngagement() {
         const newDomain = convertToNewDomain(legacyDomain);
         
         // Determine question count based on activity difficulty
-        const questionCount = activity.difficulty === ActivityDifficulty.HARD ? 3 :
+        let questionCount = activity.difficulty === ActivityDifficulty.HARD ? 3 :
                             activity.difficulty === ActivityDifficulty.MEDIUM ? 2 : 1;
+        
+              // If boast is activated, we need to get boast-type questions from the advanced difficulty sets
+      // CRITICAL FIX: Use the forceBoast parameter instead of relying on usedBoast state
+      let actualQuestionTypeToFetchIsBoast: boolean;
+      if (overrideBoastType === 'boast') {
+        actualQuestionTypeToFetchIsBoast = true;
+      } else if (overrideBoastType === 'normal') {
+        actualQuestionTypeToFetchIsBoast = false;
+      } else { // undefined, so rely on component state usedBoast
+        actualQuestionTypeToFetchIsBoast = usedBoast;
+      }
+
+      const questionTypes: QuestionType[] = actualQuestionTypeToFetchIsBoast ? ['boast'] : ['multipleChoice'];
+      console.log(`[ActivityEngagement] fetchDecision: actualIsBoast=${actualQuestionTypeToFetchIsBoast}. Derived questionTypes=${JSON.stringify(questionTypes)}. Inputs: overrideBoastType='${overrideBoastType}', usedBoastState=${usedBoast}`);
+      const difficultyLevel = actualQuestionTypeToFetchIsBoast ? ActivityDifficulty.HARD : activity.difficulty;
+      
+      // Extra safeguard for boast questions - log detailed state
+      // REMOVE THIS BLOCK START
+      // if (actualQuestionTypeToFetchIsBoast) {
+      //   console.log(`[ActivityEngagement] 🔍 BOAST DEBUG - Requesting boast questions with:`);
+      //   console.log(`[ActivityEngagement]   - Domain: ${legacyDomain}`);
+      //   console.log(`[ActivityEngagement]   - Question types: ${questionTypes.join(', ')}`);
+      //   console.log(`[ActivityEngagement]   - Difficulty level: ${difficultyLevel}`);
+      //   console.log(`[ActivityEngagement]   - Question count: ${questionCount}`);
+      // }
+      // REMOVE THIS BLOCK END
+        
+        // Log boast status for debugging
+        if (actualQuestionTypeToFetchIsBoast) {
+          console.log(`[ActivityEngagement] Fetching BOAST questions for domain ${legacyDomain}, difficulty ${difficultyLevel}`);
+          // REMOVE: console.log(`[ActivityEngagement] Using questionTypes:`, questionTypes);
+          // REMOVE: console.log(`[ActivityEngagement] Domain mapping: ${legacyDomain} -> ${convertToNewDomain(legacyDomain)}`);
+        }
+        
+        // If using boast, we'll get only 1-2 questions to keep challenge reasonable
+        if (actualQuestionTypeToFetchIsBoast) {
+          questionCount = Math.min(questionCount, 2);
+          
+          // Look for boast questions in all domains if we're having trouble finding them
+          try {
+            // REMOVE: console.log('[ActivityEngagement] Attempting to directly load boast questions from advanced difficulty');
+            
+            // Try each domain to find boast questions
+            for (const domain of Object.values(KnowledgeDomain)) {
+              // Import the loadQuestions function directly to bypass questionManager
+              const { loadQuestions } = await import('@/app/core/questions/questionLoader');
+              
+              try {
+                // Try to load advanced questions for this domain
+                const advancedQuestions = await loadQuestions(domain, 'advanced');
+                
+                // Filter for boast questions
+                const boastQuestions = advancedQuestions.questions.filter((q: any) => q.type === 'boast');
+                
+                // REMOVE: console.log(`[ActivityEngagement] Domain ${domain}: found ${boastQuestions.length} boast questions`);
+                
+                // If we found boast questions, use them
+                if (boastQuestions.length > 0) {
+                  // REMOVE: console.log('[ActivityEngagement] Successfully found boast questions');
+                  
+                  // Return a reasonable number of boast questions
+                  const selectedBoastQuestions = boastQuestions.slice(0, questionCount);
+                  
+                  // If this domain matches the activity domain, prefer mentor-specific questions
+                  if (domain === legacyDomain && activity.mentor) {
+                    const mentorBoastQuestions = selectedBoastQuestions.filter(
+                      (q: any) => q.tags?.mentor === activity.mentor
+                    );
+                    
+                    if (mentorBoastQuestions.length > 0) {
+                      console.log(`[ActivityEngagement] Found ${mentorBoastQuestions.length} mentor-specific boast questions`);
+                      return mentorBoastQuestions;
+                    }
+                  }
+                  
+                  return selectedBoastQuestions;
+                }
+              } catch (err) {
+                console.log(`[ActivityEngagement] Error loading advanced questions for domain ${domain}:`, err);
+              }
+            }
+          } catch (err) {
+            console.error('[ActivityEngagement] Error directly loading boast questions:', err);
+          }
+        }
         
         // Use the selectActivityQuestions function to get appropriate questions
         // Cast legacy domain back for backward compatibility with the function
         const questions = await selectActivityQuestions(
           legacyDomain as any, // Use legacy domain and cast as any for compatibility
-          activity.difficulty,
+          difficultyLevel,
           questionCount,
-          ['multipleChoice'], // Use string literal 'multipleChoice' instead of enum
+          questionTypes, // Use boast type for boast questions
           activity.mentor // Pass the mentor to help with question selection
         );
+        
+        // Log the questions we received for debugging
+        if (actualQuestionTypeToFetchIsBoast) {
+          console.log(`[ActivityEngagement] Received ${questions.length} BOAST questions.`); // MADE CONCISE
+          // REMOVE: questions.map(q => ({ id: q.id, type: q.type, mentor: (q as any).tags?.mentor || 'none' })));
+        }
         
         return questions;
       }
@@ -975,8 +1083,7 @@ export default function ActivityEngagement() {
             // Use a regex that matches the mentor name as a whole word
             const regex = new RegExp(`\\b${mentorName}\\b`, 'g');
             if (regex.test(result)) {
-              // Keep this one log for diagnosing mentor replacement issues
-              console.log(`Replacing mentor reference from "${mentorName}" to "${activityMentor}" in text`);
+              // console.log(`Replacing mentor reference from "${mentorName}" to "${activityMentor}" in text`);
               result = result.replace(regex, activityMentor);
             }
           }
@@ -984,6 +1091,143 @@ export default function ActivityEngagement() {
         
         return result;
       };
+      
+      // Check for boast-type questions first (prioritize these for boast challenges)
+      const hasBoastQuestions = apiQuestions.some(q => q.type === 'boast');
+      
+      if (hasBoastQuestions) {
+        // console.log('Found boast-type questions in API response:', 
+        //   apiQuestions.filter(q => q.type === 'boast').length);
+        
+        // Handle boast questions
+        const boastQuestions = apiQuestions.filter((q: any) => q.type === 'boast');
+        
+        if (boastQuestions.length > 0) {
+          // try {
+          //   // console.log('Sample boast question raw structure:', boastQuestions[0]);
+          //   // console.log('Sample boast question type:', boastQuestions[0].type);
+          //   // console.log('Sample boast question options structure:', (boastQuestions[0] as any).options);
+          //   // 
+          //   // // Check specifically for question schema from advanced.json files
+          //   // if ((boastQuestions[0] as any).question && (boastQuestions[0] as any).options) {
+          //   //   console.log('Found boast question in advanced.json schema format');
+          //   // }
+          //   // 
+          //   // // Check if feedback exists
+          //   // if ((boastQuestions[0] as any).feedback) {
+          //   //   console.log('Feedback structure:', (boastQuestions[0] as any).feedback);
+          //   // }
+          // } catch (err) {
+          //   // console.error('Error inspecting boast question structure:', err);
+          // }
+          
+          // Transform the boast questions into the challenge format
+          const boastChallenge = {
+            questions: boastQuestions.map((q: any) => {
+              try {
+                // Get the question text from the appropriate field
+                let questionText = '';
+                if ((q as any).question) {
+                  questionText = (q as any).question;
+                } else if (q.text) {
+                  questionText = q.text;
+                }
+                
+                // Replace mentor references in the question text
+                questionText = replaceMentorReferences(questionText);
+                
+                // Get options with proper handling for different formats in advanced.json files
+                let options = [];
+                
+                // Add more detailed logging to debug options processing
+                // console.log(`Boast question option processing for question ID: ${(q as any).id}`);
+                // console.log(`Options:`, (q as any).options);
+                
+                // Handle the format found in the advanced.json files
+                if (Array.isArray((q as any).options)) {
+                  options = (q as any).options.map((opt: any, index: number) => {
+                    // console.log(`Processing option ${index}:`, opt);
+                    
+                    // Handle option structure from advanced.json
+                    if (typeof opt === 'object' && opt !== null) {
+                      // Check if the option has 'id' and 'text' properties (JSON file format)
+                      if (opt.id !== undefined && opt.text) {
+                        // console.log(`Option ${index} using JSON format with id=${opt.id}, isCorrect=${!!opt.isCorrect}`);
+                        
+                        // Get feedback from the question's feedback object
+                        let feedback = '';
+                        if ((q as any).feedback) {
+                          feedback = opt.isCorrect 
+                            ? ((q as any).feedback.correct || "Correct!")
+                            : ((q as any).feedback.incorrect || "Incorrect!");
+                          // console.log(`Using feedback: ${feedback.substring(0, 20)}...`);
+                        }
+                        
+                        return {
+                          text: replaceMentorReferences(opt.text),
+                          correct: !!opt.isCorrect,
+                          feedback: replaceMentorReferences(feedback)
+                        };
+                      }
+                      
+                      // Standard object format
+                      // console.log(`Option ${index} using standard object format`);
+                      return {
+                        text: replaceMentorReferences(opt.text || ''),
+                        correct: !!opt.isCorrect,
+                        feedback: opt.feedback ? replaceMentorReferences(opt.feedback) : ''
+                      };
+                    } else if (typeof opt === 'string') {
+                      // Simple string option (unlikely in boast questions, but handle just in case)
+                      // console.log(`Option ${index} is a simple string: ${opt}`);
+                      return {
+                        text: replaceMentorReferences(opt),
+                        correct: false, // Default to false unless we know otherwise
+                        feedback: ''
+                      };
+                    }
+                    
+                    // Fallback for unknown format
+                    return {
+                      text: 'Option text missing',
+                      correct: false,
+                      feedback: ''
+                    };
+                  });
+                }
+                
+                const result = {
+                  content: questionText,
+                  options: options
+                };
+                
+                // Log the transformed result for debugging
+                // console.log('Transformed boast question:', result);
+                
+                return result;
+              } catch (err) {
+                console.error('Error transforming individual boast question:', err);
+                // Return a placeholder question if transformation fails
+                return {
+                  content: "Error loading question",
+                  options: [
+                    { text: "Error", correct: true, feedback: "Please try again" }
+                  ]
+                };
+              }
+            }),
+            concepts: Array.from(new Set(
+              boastQuestions.flatMap((q: any) => 
+                q.metadata?.knowledgeStars || []
+              )
+            )) as string[],
+            difficulty: ActivityDifficulty.HARD // Always set HARD difficulty for boast questions
+          };
+          
+          // console.log("Created boast challenge with HARD difficulty:", boastChallenge.difficulty);
+          return boastChallenge;
+        }
+      }
       
       // Check for calculation questions
       const hasCalculationQuestions = apiQuestions.some(q => q.type === 'calculation');
@@ -1010,7 +1254,7 @@ export default function ActivityEngagement() {
               };
             }),
             concepts: Array.from(new Set(
-              calculationQuestions.flatMap(q => 
+              calculationQuestions.flatMap((q: any) => 
                 q.metadata?.knowledgeStars || []
               )
             )) as string[],
@@ -1029,7 +1273,7 @@ export default function ActivityEngagement() {
         if (proceduralQuestions.length > 0) {
           // Transform the procedural questions into the challenge format
           return {
-            questions: proceduralQuestions.map(q => {
+            questions: proceduralQuestions.map((q: any) => {
               const questionText = replaceMentorReferences(q.text || "");
               
               return {
@@ -1042,7 +1286,7 @@ export default function ActivityEngagement() {
               };
             }),
             concepts: Array.from(new Set(
-              proceduralQuestions.flatMap(q => 
+              proceduralQuestions.flatMap((q: any) => 
                 q.metadata?.knowledgeStars || []
               )
             )) as string[],
@@ -1074,7 +1318,7 @@ export default function ActivityEngagement() {
               };
             }),
             concepts: Array.from(new Set(
-              matchingQuestions.flatMap(q => 
+              matchingQuestions.flatMap((q: any) => 
                 q.metadata?.knowledgeStars || []
               )
             )) as string[],
@@ -1084,12 +1328,12 @@ export default function ActivityEngagement() {
       }
       
       // Filter to only use multiple choice questions with proper validation
-      const multipleChoiceQuestions = apiQuestions.filter(q => {
+      const multipleChoiceQuestions = apiQuestions.filter((q: Question) => { // Assuming Question type is appropriate here
         if (!q) return false;
         if (q.type !== 'multipleChoice') return false;
         
         // Ensure the question has the required properties
-        const mcq = q as any;
+        const mcq = q as any; // Still might need 'as any' for specific property access if not in Question
         
         // Check if the question has options
         if (!Array.isArray(mcq.options) || mcq.options.length === 0) {
@@ -1171,7 +1415,7 @@ export default function ActivityEngagement() {
       
       // Collect unique concepts across the selected questions
       const concepts = Array.from(new Set(
-        multipleChoiceQuestions.flatMap(q => 
+        multipleChoiceQuestions.flatMap((q: Question) =>  // Explicitly type q as Question
           q.metadata?.knowledgeStars || []
         )
       )) as string[];
@@ -1243,9 +1487,6 @@ export default function ActivityEngagement() {
   
   // Handle option selection
   const handleOptionSelect = (optionIndex: number) => {
-    // Reset momentum for all answers to fix momentum persistence issue
-    resetMomentum();
-    
     setSelectedOption(optionIndex);
     setShowFeedback(true);
     
@@ -1257,27 +1498,49 @@ export default function ActivityEngagement() {
       setAllAnswers([...allAnswers, success]);
     }
     
+    // Get current momentum level and insight multiplier
+    const momentumLevel = useResourceStore.getState()._getMomentumLevel();
+    const insightMultiplier = useResourceStore.getState().getInsightMultiplier();
+    
     // Update resources based on success
     if (success) {
       // Add momentum for correct answers
-      addMomentum(1);
+      incrementMomentum('correct_answer');
       
       // Add insight based on difficulty
-      let insightGain = 0;
-      if (challenge.difficulty === ActivityDifficulty.EASY) {
-        insightGain = 10;
-      } else if (challenge.difficulty === ActivityDifficulty.MEDIUM) {
-        insightGain = 20;
-      } else if (challenge.difficulty === ActivityDifficulty.HARD) {
-        insightGain = 30;
-      }
+      let baseInsightGain = getInsightRewardForActivity(challenge.difficulty || ActivityDifficulty.EASY);
       
-      // Boast gives 1.5x insight for success
+      // Apply momentum multiplier
+      let finalInsightGain = Math.round(baseInsightGain * insightMultiplier);
+      
+      // Apply boast multiplier (if active) on top of momentum multiplier
       if (usedBoast) {
-        insightGain = Math.floor(insightGain * 1.5);
+        finalInsightGain = Math.floor(finalInsightGain * 1.5);
+        
+        // Update mentor relationship points for successful boast
+        handleMentorInteraction(currentActivity.mentor, 'boast_success');
+        
+        // Dispatch boast success event
+        centralEventBus.dispatch(
+          GameEventType.BOAST_SUCCEEDED,
+          {
+            insightGained: finalInsightGain,
+            mentor: currentActivity.mentor,
+            source: 'activity_engagement'
+          },
+          'activity_engagement.handleOptionSelect'
+        );
       }
       
-      addInsight(insightGain);
+      // Generate reward message
+      let rewardMessage = `+${finalInsightGain} Insight`;
+      if (momentumLevel > 1) {
+        const momentumBonus = Math.round(baseInsightGain * (insightMultiplier - 1));
+        rewardMessage += ` (includes +${momentumBonus} from Level ${momentumLevel} Momentum)`;
+      }
+      
+      // Update insight with the total amount
+      updateInsight(baseInsightGain, 'activity_correct_answer');
       
       // For single question challenges or the last question of multi-question challenges
       if (!hasMultipleQuestions || isLastQuestion) {
@@ -1293,36 +1556,156 @@ export default function ActivityEngagement() {
           uniqueConcepts.forEach((conceptId) => {
             // Call the knowledge store method directly
             discoverConcept(conceptId, 'activity_engagement');
-            
-            // Event is now dispatched by the knowledge store itself
           });
         }
       }
-
-      // Random chance to earn Star Points directly (10%, or 20% with Boast)
-      const spChance = usedBoast ? 0.2 : 0.1;
+      
+      // Random chance to earn Star Points with momentum-enhanced probability
+      const spChance = usedBoast ? 0.2 : getStarPointChance(challenge.difficulty, momentumLevel);
       if (Math.random() < spChance) {
         const spGained = challenge.difficulty === ActivityDifficulty.HARD ? 2 : 1;
-        addStarPoints(spGained);
-        /*
-        // TODO: Consolidate GameEventType definition and uncomment when ready
+        // Use resourceStore for star points
+        updateStarPoints(spGained, 'activity_bonus');
+      }
+      
+      // For correct answers, there's a chance to improve mentor relationship
+      // This happens regardless of boast status but is handled separately from boast outcomes
+      if (!usedBoast) {
+        // For general (non-boast) correct answers, log a general mentor interaction
+        handleMentorInteraction(currentActivity.mentor, 'general');
+      }
+    } else {
+      // Reset momentum for incorrect answers
+      resetMomentum('incorrect_answer');
+      
+      if (usedBoast) {
+        // Update mentor relationship points for failed boast
+        handleMentorInteraction(currentActivity.mentor, 'boast_failure');
+        
+        // If boast was used but answer was wrong, emit failure event
         centralEventBus.dispatch(
-          GameEventType.sp_gained,
-          { amount: spGained, source: 'activity_bonus' },
-          'ActivityEngagement.handleOptionSelect'
+          GameEventType.BOAST_FAILED,
+          {
+            mentor: currentActivity.mentor,
+            source: 'activity_engagement'
+          },
+          'activity_engagement.handleOptionSelect'
         );
-        */
       }
     }
   };
+  
+  // Define helper function to get base insight reward based on activity difficulty
+  const getInsightRewardForActivity = (difficulty: ActivityDifficulty): number => {
+    switch (difficulty) {
+      case ActivityDifficulty.EASY:
+        return 10; // Base reward for easy questions
+      case ActivityDifficulty.MEDIUM:
+        return 20; // Medium difficulty gives more insight
+      case ActivityDifficulty.HARD:
+        return 30; // Hard questions give the most insight
+      default:
+        return 10; // Default to easy reward
+    }
+  };
 
+  // Helper function to determine star point chance based on difficulty and momentum level
+  const getStarPointChance = (difficulty: ActivityDifficulty, momentumLevel: number): number => {
+    let baseChance = 0;
+    
+    // Base chance by difficulty
+    switch (difficulty) {
+      case ActivityDifficulty.EASY:
+        baseChance = 0.05; // 5% chance
+        break;
+      case ActivityDifficulty.MEDIUM:
+        baseChance = 0.10; // 10% chance
+        break;
+      case ActivityDifficulty.HARD:
+        baseChance = 0.15; // 15% chance
+        break;
+      default:
+        baseChance = 0.05;
+    }
+    
+    // Momentum level bonus
+    if (momentumLevel === 2) {
+      baseChance += 0.05; // +5% at level 2
+    } else if (momentumLevel === 3) {
+      baseChance += 0.10; // +10% at level 3
+    }
+    
+    return baseChance;
+  };
+  
+  // Helper function to track mentor interactions and update relationships
+  const handleMentorInteraction = (
+    mentorId: MentorId | undefined, 
+    interactionType: 'general' | 'boast_success' | 'boast_failure',
+    source: string = 'activity_engagement'
+  ) => {
+    if (!mentorId) {
+      return; // No mentor associated with this activity
+    }
+    
+    // Get required methods from relationship store
+    const relationshipStore = useRelationshipStore.getState();
+    
+    // Log the interaction
+    relationshipStore.logMentorInteraction(mentorId, source);
+    
+    // Update relationship points based on interaction type
+    switch (interactionType) {
+      case 'boast_success':
+        relationshipStore.increaseRelationshipOnBoastSuccess(mentorId, source);
+        console.log(`[ActivityEngagement] Increased relationship with ${mentorId} for successful boast`);
+        break;
+      case 'boast_failure':
+        relationshipStore.decreaseRelationshipOnBoastFailure(mentorId, source);
+        console.log(`[ActivityEngagement] Decreased relationship with ${mentorId} for failed boast`);
+        break;
+      case 'general':
+        // For general interactions, very small chance to gain a point (5%)
+        if (Math.random() < 0.05) {
+          relationshipStore.updateRelationship(mentorId, 1, source);
+          console.log(`[ActivityEngagement] Small relationship gain with ${mentorId} from general interaction`);
+        }
+        break;
+    }
+  };
+  
   // Add a new handler for continuing after feedback
   const handleContinue = () => {
     setShowFeedback(false);
     
+    // If we're in boast mode, we want to reset after ONE question
+    const isBoastActive = usedBoast;
+    
     // For multi-question challenges that aren't on the last question
     if (hasMultipleQuestions && !isLastQuestion) {
-      // Move to next question
+      // If this was a boast question, reset boast mode and reload regular questions
+      if (isBoastActive) {
+        console.log("[ActivityEngagement] Resetting boast mode after completing one boast question");
+        setUsedBoast(false);
+        
+        // Reload normal questions for the activity
+        fetchQuestionsForActivity(currentActivity, 'normal')
+          .then(apiQuestions => {
+            if (apiQuestions && apiQuestions.length > 0) {
+              const transformedChallenge = transformQuestionsToChallenge(apiQuestions, currentActivity);
+              setChallenge(transformedChallenge);
+              // Reset to first question of the new normal challenge
+              setCurrentQuestionIndex(0);
+              setSelectedOption(null);
+            }
+          })
+          .catch(error => {
+            console.error("Error loading normal questions after boast:", error);
+          });
+        return;
+      }
+      
+      // Regular case - move to next question
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setSelectedOption(null);
       return;
@@ -1342,75 +1725,117 @@ export default function ActivityEngagement() {
       }
     }
     
+    // Always reset boast status when completing a question or activity
+    setUsedBoast(false);
+    
     // Complete the activity
     completeActivity(success);
     
+    // Log a mentor interaction for successfully completing an activity 
+    if (success && currentActivity.mentor) {
+      handleMentorInteraction(currentActivity.mentor, 'general', 'activity_completion');
+    }
+    
     centralEventBus.dispatch(
       success ? GameEventType.ACTIVITY_COMPLETED : GameEventType.ACTIVITY_COMPLETED, // Temporarily using ACTIVITY_COMPLETED for failed case
-      { activityId: currentActivity.id },
+      { 
+        activityId: currentActivity.id,
+        mentor: currentActivity.mentor,
+        success: success 
+      },
       'ActivityEngagement.handleContinue'
     );
   };
   
   // Handle Tangent ability usage
   const handleTangent = () => {
-    if (resources.insight >= 25) {
-      // Spend insight
-      if (spendInsight(25)) {
-        // Find the tangent version of the current challenge
-        const tangentChallengeId = `${currentActivity.id}_tangent`;
-        const tangentChallenge = SAMPLE_CHALLENGES[tangentChallengeId] || 
-                                SAMPLE_CHALLENGES.default;
-        
-        // Set the new challenge
-        setChallenge(tangentChallenge);
-        setSelectedOption(null);
-        setShowFeedback(false);
-        setConceptsDiscovered([]);
-        setUsedTangent(true);
-        
-        // Dispatch event
-        /*
-        // TODO: Consolidate GameEventType definition and uncomment
-        centralEventBus.dispatch(
-          GameEventType.tangent_used,
-          { activityId: currentActivity.id },
-          'ActivityEngagement.handleTangent'
-        );
-        */
-      }
+    if (currentInsight >= 25) { // Check insight from resourceStore
+      updateInsight(-25, 'tangent_cost'); // Use resourceStore to spend insight
+      
+      const tangentChallengeId = `${currentActivity.id}_tangent`;
+      const tangentChallenge = SAMPLE_CHALLENGES[tangentChallengeId] || SAMPLE_CHALLENGES.default; // Fallback
+      
+      setChallenge(tangentChallenge);
+      setSelectedOption(null);
+      setShowFeedback(false);
+      setConceptsDiscovered([]); // Reset concepts for the new tangent challenge
+      setUsedTangent(true);
+      centralEventBus.dispatch(GameEventType.TANGENT_USED, { activityId: currentActivity.id, newChallengeId: tangentChallengeId, source: 'activity_engagement'}, 'ActivityEngagement.handleTangent');
     }
   };
   
   // Handle Boast ability usage
   const handleBoast = () => {
-    if (resources.momentum >= 3) {
-      // Reset momentum (used up by the Boast)
-      resetMomentum();
+    if (canBoast()) { // canBoast from resourceStore checks momentum and insight
+      console.log("[ActivityEngagement] handleBoast triggered, activating boast");
       
-      // Find the boast version of the current challenge
-      const boastChallengeId = `${currentActivity.id}_boast`;
-      const boastChallenge = SAMPLE_CHALLENGES[boastChallengeId] || challenge;
-      
-      // Ensure the boast challenge is hard difficulty
-      boastChallenge.difficulty = ActivityDifficulty.HARD;
-      
-      // Set the new challenge
-      setChallenge(boastChallenge);
-      setSelectedOption(null);
-      setShowFeedback(false);
-      setConceptsDiscovered([]);
-      setUsedBoast(true);
-      
-      // Dispatch event
-      /*
-      // TODO: Consolidate GameEventType definition and uncomment
-      centralEventBus.dispatch(
-        GameEventType.boast_used,
-        { activityId: currentActivity.id },
-        'ActivityEngagement.handleBoast'
-      );
-      */
+      // IMPORTANT: Don't call activateBoast here - it's already called by BoastButton
+      // This prevents double-deduction of insight points
+      const boastActivated = true; // Skip calling activateBoast again
+      if (boastActivated) {
+        console.log("[ActivityEngagement] Boast activation successful, fetching boast questions");
+        
+        // Set state first
+        setUsedBoast(true);
+        setSelectedOption(null);
+        setShowFeedback(false);
+        setConceptsDiscovered([]);
+        setCurrentQuestionIndex(0); // Reset to first question
+        setAllAnswers([]);
+        
+        // CRITICAL FIX: Don't rely on usedBoast state - use forceBoast=true parameter
+        console.log("[ActivityEngagement] Calling fetchQuestionsForActivity with overrideBoastType='boast'");
+        
+        // Call fetchQuestionsForActivity with overrideBoastType='boast' to ensure we get boast questions
+        fetchQuestionsForActivity(currentActivity, 'boast')
+          .then(apiQuestions => {
+            console.log("[ActivityEngagement] Boast questions received:", 
+              apiQuestions.map((q: any) => ({ id: q.id, type: q.type })));
+            
+            if (apiQuestions && apiQuestions.length > 0) {
+              try {
+                const transformedChallenge = transformQuestionsToChallenge(apiQuestions, currentActivity);
+                // console.log("[ActivityEngagement] Transformed boast challenge:", transformedChallenge);
+                
+                // Force HARD difficulty for boast challenges, regardless of original activity difficulty
+                transformedChallenge.difficulty = ActivityDifficulty.HARD;
+                // console.log("[ActivityEngagement] Setting final boast challenge difficulty to HARD");
+                
+                setChallenge(transformedChallenge);
+              } catch (error) {
+                console.error('Error transforming boast questions:', error);
+                // Fall back to sample boast if available
+                const boastChallengeId = `${currentActivity.id}_boast`;
+                const boastChallenge = SAMPLE_CHALLENGES[boastChallengeId] || 
+                                     (challenge ? { ...challenge, difficulty: ActivityDifficulty.HARD } : SAMPLE_CHALLENGES.default);
+                setChallenge(boastChallenge);
+              }
+            } else {
+              // console.log("[ActivityEngagement] No boast questions received, falling back to sample challenges");
+              // Fall back to sample boast
+              const boastChallengeId = `${currentActivity.id}_boast`;
+              const boastChallenge = SAMPLE_CHALLENGES[boastChallengeId] || 
+                                   (challenge ? { ...challenge, difficulty: ActivityDifficulty.HARD } : SAMPLE_CHALLENGES.default);
+              setChallenge(boastChallenge);
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching boast questions:', error);
+            // Fall back to sample boast
+            const boastChallengeId = `${currentActivity.id}_boast`;
+            const boastChallenge = SAMPLE_CHALLENGES[boastChallengeId] || 
+                                 (challenge ? { ...challenge, difficulty: ActivityDifficulty.HARD } : SAMPLE_CHALLENGES.default);
+            setChallenge(boastChallenge);
+          });
+        
+        centralEventBus.dispatch(GameEventType.BOAST_ACTIVATED, { activityId: currentActivity.id, source: 'activity_engagement' }, 'ActivityEngagement.handleBoast');
+      } else {
+        console.log("[ActivityEngagement] Boast activation failed");
+      }
+    } else {
+      // Use resourceStore's values directly for logging
+      const { momentum, insight } = useResourceStore.getState();
+      console.log("[ActivityEngagement] Cannot boast: momentum=" + momentum + ", insight=" + insight);
     }
   };
   
@@ -1433,8 +1858,9 @@ export default function ActivityEngagement() {
   const formattedTime = TimeManager.formatTime(currentTime);
   
   // Special abilities availability
-  const canUseTangent = resources.insight >= 25 && !usedTangent && !usedBoast && !showFeedback;
-  const canUseBoast = resources.momentum >= 3 && !usedBoast && !usedTangent && !showFeedback;
+  const canUseTangent = currentInsight >= 25 && !usedTangent && !usedBoast && !showFeedback; // Use currentInsight
+  // Updated to use ResourceStore's canBoast for both momentum level and insight requirements
+  const canUseBoastAbility = canBoast() && !usedBoast && !usedTangent && !showFeedback; // Renamed to avoid conflict with `usedBoast` state
   
   // Render matching question UI
   const renderMatchingQuestion = (question: any) => {
@@ -1476,62 +1902,38 @@ export default function ActivityEngagement() {
     
     // Submit the matching answers
     const handleSubmitMatching = () => {
-      if (!matchingComplete) return;
+      if (!matchingComplete) return; // Ensure all items are matched
+
+      const currentQ = getCurrentQuestion();
+      if (currentQ.type !== 'matching') return;
+
+      // Check correctness (example: all selections match correctMatchIndices)
+      const isCorrect = matchingSelections.every((matchIndex, i) => matchIndex === currentQ.correctMatchIndices[i]);
       
-      const isCorrect = checkCorrectSelections();
       setShowFeedback(true);
-      
-      // Track answers for multi-question challenges
       if (hasMultipleQuestions) {
         setAllAnswers([...allAnswers, isCorrect]);
       }
-      
-      // Update resources based on success
+
       if (isCorrect) {
-        // Add momentum for correct answers
-        addMomentum(1);
-        
-        // Add insight based on difficulty
-        let insightGain = 0;
-        if (challenge.difficulty === ActivityDifficulty.EASY) {
-          insightGain = 10;
-        } else if (challenge.difficulty === ActivityDifficulty.MEDIUM) {
-          insightGain = 20;
-        } else if (challenge.difficulty === ActivityDifficulty.HARD) {
-          insightGain = 30;
+        incrementMomentum('correct_answer');
+        let insightGain = challenge.difficulty === ActivityDifficulty.EASY ? 10 :
+                          challenge.difficulty === ActivityDifficulty.MEDIUM ? 20 : 30;
+        if (usedBoast) insightGain = Math.floor(insightGain * 1.5);
+        updateInsight(insightGain, 'activity_correct_answer');
+
+        if ((!hasMultipleQuestions || isLastQuestion) && (currentQ.metadata?.knowledgeStars || challenge.concepts)?.length > 0) {
+          const conceptsToDiscover = currentQ.metadata?.knowledgeStars || challenge.concepts || [];
+          const uniqueConcepts = Array.from(new Set(conceptsToDiscover)) as string[];
+          setConceptsDiscovered(uniqueConcepts);
+          uniqueConcepts.forEach(conceptId => discoverConcept(conceptId, 'activity_engagement'));
         }
-        
-        // Boast gives 1.5x insight for success
-        if (usedBoast) {
-          insightGain = Math.floor(insightGain * 1.5);
+        if (Math.random() < (usedBoast ? 0.2 : 0.1)) {
+          updateStarPoints(challenge.difficulty === ActivityDifficulty.HARD ? 2 : 1, 'activity_bonus');
         }
-        
-        addInsight(insightGain);
-        
-        // For single question challenges or the last question of multi-question challenges
-        if (!hasMultipleQuestions || isLastQuestion) {
-          if (challenge.concepts && challenge.concepts.length > 0) {
-            // Deduplicate concepts to avoid duplicate React keys and repeated badges
-            const uniqueConcepts = Array.from(new Set(challenge.concepts)) as string[];
-            setConceptsDiscovered(uniqueConcepts);
-            
-            // Use the knowledge store to discover concepts
-            const { discoverConcept } = useKnowledgeStore.getState();
-            
-            // Use the knowledge store to discover concepts
-            uniqueConcepts.forEach((conceptId) => {
-              // Call the knowledge store method directly
-              discoverConcept(conceptId, 'activity_engagement');
-            });
-          }
-        }
-        
-        // Random chance to earn Star Points directly
-        const spChance = usedBoast ? 0.2 : 0.1;
-        if (Math.random() < spChance) {
-          const spGained = challenge.difficulty === ActivityDifficulty.HARD ? 2 : 1;
-          addStarPoints(spGained);
-        }
+      } else {
+        resetMomentum('incorrect_answer');
+        if (usedBoast) centralEventBus.dispatch(GameEventType.BOAST_FAILED, { source: 'activity_engagement' }, 'activity_engagement.handleSubmitMatching');
       }
     };
     
@@ -1768,7 +2170,9 @@ export default function ActivityEngagement() {
                 transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
               }}
             >
-              {hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →"}
+              {usedBoast 
+                ? "Complete Boast & Return →" 
+                : (hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →")}
             </button>
           </div>
         )}
@@ -1807,62 +2211,38 @@ export default function ActivityEngagement() {
     
     // Submit the procedural order
     const handleSubmitProcedural = () => {
-      if (!proceduralComplete) return;
+      if (!proceduralComplete) return; // Ensure all steps are ordered
+
+      const currentQ = getCurrentQuestion();
+      if (currentQ.type !== 'procedural') return;
+
+      // Check correctness (example: proceduralOrder matches correctOrder)
+      const isCorrect = JSON.stringify(proceduralOrder) === JSON.stringify(currentQ.correctOrder);
       
-      const isCorrect = checkCorrectOrder();
       setShowFeedback(true);
-      
-      // Track answers for multi-question challenges
       if (hasMultipleQuestions) {
         setAllAnswers([...allAnswers, isCorrect]);
       }
-      
-      // Update resources based on success
+
       if (isCorrect) {
-        // Add momentum for correct answers
-        addMomentum(1);
+        incrementMomentum('correct_answer');
+        let insightGain = challenge.difficulty === ActivityDifficulty.EASY ? 10 :
+                          challenge.difficulty === ActivityDifficulty.MEDIUM ? 20 : 30;
+        if (usedBoast) insightGain = Math.floor(insightGain * 1.5);
+        updateInsight(insightGain, 'activity_correct_answer');
         
-        // Add insight based on difficulty
-        let insightGain = 0;
-        if (challenge.difficulty === ActivityDifficulty.EASY) {
-          insightGain = 10;
-        } else if (challenge.difficulty === ActivityDifficulty.MEDIUM) {
-          insightGain = 20;
-        } else if (challenge.difficulty === ActivityDifficulty.HARD) {
-          insightGain = 30;
+        if ((!hasMultipleQuestions || isLastQuestion) && (currentQ.metadata?.knowledgeStars || challenge.concepts)?.length > 0) {
+          const conceptsToDiscover = currentQ.metadata?.knowledgeStars || challenge.concepts || [];
+          const uniqueConcepts = Array.from(new Set(conceptsToDiscover)) as string[];
+          setConceptsDiscovered(uniqueConcepts);
+          uniqueConcepts.forEach(conceptId => discoverConcept(conceptId, 'activity_engagement'));
         }
-        
-        // Boast gives 1.5x insight for success
-        if (usedBoast) {
-          insightGain = Math.floor(insightGain * 1.5);
+        if (Math.random() < (usedBoast ? 0.2 : 0.1)) {
+          updateStarPoints(challenge.difficulty === ActivityDifficulty.HARD ? 2 : 1, 'activity_bonus');
         }
-        
-        addInsight(insightGain);
-        
-        // For single question challenges or the last question of multi-question challenges
-        if (!hasMultipleQuestions || isLastQuestion) {
-          if (challenge.concepts && challenge.concepts.length > 0) {
-            // Deduplicate concepts to avoid duplicate React keys and repeated badges
-            const uniqueConcepts = Array.from(new Set(challenge.concepts)) as string[];
-            setConceptsDiscovered(uniqueConcepts);
-            
-            // Use the knowledge store to discover concepts
-            const { discoverConcept } = useKnowledgeStore.getState();
-            
-            // Use the knowledge store to discover concepts
-            uniqueConcepts.forEach((conceptId) => {
-              // Call the knowledge store method directly
-              discoverConcept(conceptId, 'activity_engagement');
-            });
-          }
-        }
-        
-        // Random chance to earn Star Points directly
-        const spChance = usedBoast ? 0.2 : 0.1;
-        if (Math.random() < spChance) {
-          const spGained = challenge.difficulty === ActivityDifficulty.HARD ? 2 : 1;
-          addStarPoints(spGained);
-        }
+      } else {
+        resetMomentum('incorrect_answer');
+        if (usedBoast) centralEventBus.dispatch(GameEventType.BOAST_FAILED, { source: 'activity_engagement' }, 'activity_engagement.handleSubmitProcedural');
       }
     };
     
@@ -2113,7 +2493,9 @@ export default function ActivityEngagement() {
                 transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
               }}
             >
-              {hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →"}
+              {usedBoast 
+                ? "Complete Boast & Return →" 
+                : (hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →")}
             </button>
           </div>
         )}
@@ -2149,62 +2531,39 @@ export default function ActivityEngagement() {
     
     // Submit the calculation answer
     const handleSubmitCalculation = () => {
-      if (!calculationIsValid) return;
+      if (!calculationIsValid) return; // Ensure answer is valid format
+
+      const currentQ = getCurrentQuestion();
+      if (currentQ.type !== 'calculation') return;
+
+      const numericAnswer = parseFloat(calculationAnswer);
+      const isCorrect = Math.abs(numericAnswer - currentQ.correctAnswer) <= (currentQ.tolerance || 0.01); // Use specified tolerance or a small default
       
-      const isCorrect = isAnswerCorrect();
       setShowFeedback(true);
-      
-      // Track answers for multi-question challenges
       if (hasMultipleQuestions) {
         setAllAnswers([...allAnswers, isCorrect]);
       }
-      
-      // Update resources based on success
+
       if (isCorrect) {
-        // Add momentum for correct answers
-        addMomentum(1);
-        
-        // Add insight based on difficulty
-        let insightGain = 0;
-        if (challenge.difficulty === ActivityDifficulty.EASY) {
-          insightGain = 10;
-        } else if (challenge.difficulty === ActivityDifficulty.MEDIUM) {
-          insightGain = 20;
-        } else if (challenge.difficulty === ActivityDifficulty.HARD) {
-          insightGain = 30;
+        incrementMomentum('correct_answer');
+        let insightGain = challenge.difficulty === ActivityDifficulty.EASY ? 10 :
+                          challenge.difficulty === ActivityDifficulty.MEDIUM ? 20 : 30;
+        if (usedBoast) insightGain = Math.floor(insightGain * 1.5);
+        updateInsight(insightGain, 'activity_correct_answer');
+
+        // For calculation questions, concepts might be in q.metadata.knowledgeStars
+        const conceptsToDiscover = currentQ.metadata?.knowledgeStars || challenge.concepts || [];
+        if ((!hasMultipleQuestions || isLastQuestion) && conceptsToDiscover.length > 0) {
+          const uniqueConcepts = Array.from(new Set(conceptsToDiscover)) as string[];
+          setConceptsDiscovered(uniqueConcepts);
+          uniqueConcepts.forEach(conceptId => discoverConcept(conceptId, 'activity_engagement'));
         }
-        
-        // Boast gives 1.5x insight for success
-        if (usedBoast) {
-          insightGain = Math.floor(insightGain * 1.5);
+        if (Math.random() < (usedBoast ? 0.2 : 0.1)) {
+          updateStarPoints(challenge.difficulty === ActivityDifficulty.HARD ? 2 : 1, 'activity_bonus');
         }
-        
-        addInsight(insightGain);
-        
-        // For single question challenges or the last question of multi-question challenges
-        if (!hasMultipleQuestions || isLastQuestion) {
-          if (challenge.concepts && challenge.concepts.length > 0) {
-            // Deduplicate concepts to avoid duplicate React keys and repeated badges
-            const uniqueConcepts = Array.from(new Set(challenge.concepts)) as string[];
-            setConceptsDiscovered(uniqueConcepts);
-            
-            // Use the knowledge store to discover concepts
-            const { discoverConcept } = useKnowledgeStore.getState();
-            
-            // Use the knowledge store to discover concepts
-            uniqueConcepts.forEach((conceptId) => {
-              // Call the knowledge store method directly
-              discoverConcept(conceptId, 'activity_engagement');
-            });
-          }
-        }
-        
-        // Random chance to earn Star Points directly
-        const spChance = usedBoast ? 0.2 : 0.1;
-        if (Math.random() < spChance) {
-          const spGained = challenge.difficulty === ActivityDifficulty.HARD ? 2 : 1;
-          addStarPoints(spGained);
-        }
+      } else {
+        resetMomentum('incorrect_answer');
+        if (usedBoast) centralEventBus.dispatch(GameEventType.BOAST_FAILED, { source: 'activity_engagement' }, 'activity_engagement.handleSubmitCalculation');
       }
     };
     
@@ -2446,7 +2805,9 @@ export default function ActivityEngagement() {
                 transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
               }}
             >
-              {hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →"}
+              {usedBoast 
+                ? "Complete Boast & Return →" 
+                : (hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →")}
             </button>
           </div>
         )}
@@ -2454,18 +2815,19 @@ export default function ActivityEngagement() {
     );
   };
   
+  // Twitter-like messaging interface for educational content
   return (
     <div style={{
+      width: '100vw',
+      height: '100vh',
+      background: '#000',
       display: 'flex',
       flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '100vh',
-      padding: `${spacing.md} 0`,
-      background: 'linear-gradient(to bottom, #121620, #090b12)',
-      position: 'relative'
+      fontFamily: typography.fontFamily.pixel,
+      color: colors.text,
+      overflow: 'hidden'
     }}>
-      {/* Add a background gradient effect similar to TitleScreen */}
+      {/* Background gradient effect */}
       <div style={{
         position: 'absolute',
         top: 0,
@@ -2604,172 +2966,414 @@ export default function ActivityEngagement() {
         </div>
       )}
       
-      {/* Time header remains at the top */}
+      {/* Header with time and activity info */}
       <div style={{
         backgroundColor: colors.background,
-        color: colors.text,
-        padding: `${spacing.sm} ${spacing.md}`,
-        borderRadius: spacing.sm,
-        width: '95%',
-        maxWidth: '1200px',
-        fontFamily: typography.fontFamily.pixel,
-        boxShadow: `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`,
-        imageRendering: 'pixelated',
-        border: `2px solid ${colors.border}`,
-        position: 'relative',
-        zIndex: 1,
-        marginBottom: spacing.md,
+        borderBottom: `2px solid ${colors.border}`,
+        padding: spacing.md,
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div>
-          <h2 style={{ 
-            fontSize: typography.fontSize.xl, 
-            fontWeight: 'bold',
-            textShadow: `${typography.textShadow.pixel}, 0 0 10px rgba(255, 255, 255, 0.1)`,
-            margin: 0,
-            letterSpacing: '1px'
-          }}>{formattedTime}</h2>
-          <p style={{ 
-            color: 'rgba(255, 255, 255, 0.75)',
-            margin: `${spacing.xxs} 0 0 0`,
-            fontSize: typography.fontSize.sm
-          }}>Activity in progress</p>
-        </div>
-      </div>
-      
-      {/* Three-panel layout container */}
-      <div style={{
-        display: 'flex',
-        width: '95%',
-        maxWidth: '1200px',
-        gap: spacing.md,
+        alignItems: 'center',
         position: 'relative',
-        zIndex: 1
+        zIndex: 2
       }}>
-        {/* Left panel - Activity info and mentor */}
-        <div style={{
-          backgroundColor: colors.background,
-          color: colors.text,
-          padding: spacing.md,
-          borderRadius: spacing.sm,
-          width: '25%',
-          fontFamily: typography.fontFamily.pixel,
-          boxShadow: `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`,
-          imageRendering: 'pixelated',
-          border: `2px solid ${colors.border}`,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: spacing.md,
-          alignSelf: 'flex-start'
-        }}>
-          {/* Activity Title */}
-          <div style={{
-            borderBottom: `1px dotted ${colors.border}`,
-            paddingBottom: spacing.sm
-          }}>
-            <h3 style={{ 
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
+          {/* Activity title and mentor */}
+          <div>
+            <h2 style={{ 
               fontSize: typography.fontSize.lg, 
               fontWeight: 'bold',
-              textShadow: `${typography.textShadow.pixel}, 0 0 8px rgba(255, 255, 255, 0.15)`,
+              textShadow: typography.textShadow.pixel,
+              margin: 0
+            }}>{currentActivity.title}</h2>
+            <p style={{ 
+              color: colors.textDim,
               margin: 0,
-              letterSpacing: '1px'
-            }}>{currentActivity.title}</h3>
-            
-            {/* Domain tags */}
-            <div style={{ 
-              display: 'flex', 
-              gap: spacing.xs,
-              flexWrap: 'wrap',
-              marginTop: spacing.xs
-            }}>
-              {currentActivity.domains.map((domain) => (
-                <DomainBadge key={domain} domain={domain} />
-              ))}
-            </div>
+              fontSize: typography.fontSize.sm
+            }}>with {currentActivity.mentor} • {formattedTime}</p>
           </div>
           
-          {/* Mentor Section */}
-          {currentActivity.mentor && (
+          {/* Progress indicator for multi-question challenges */}
+          {hasMultipleQuestions && (
             <div style={{
-              marginTop: 'auto',
-              borderTop: `1px dotted ${colors.border}`,
-              paddingTop: spacing.md
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.xs,
+              backgroundColor: colors.backgroundAlt,
+              padding: `${spacing.xs} ${spacing.sm}`,
+              borderRadius: spacing.xs,
+              border: `1px solid ${colors.border}`
             }}>
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center'
-              }}>
-                {/* Mentor image */}
-                <div style={{
-                  width: '160px',
-                  height: '160px',
-                  borderRadius: '50%',
-                  backgroundColor: colors.highlight,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: spacing.sm,
-                  border: `2px solid ${colors.border}`,
-                  boxShadow: shadows.md,
-                  overflow: 'hidden'
-                }}>
-                  {currentActivity.mentor && isValidMentor(currentActivity.mentor) && (
-                    <SpriteImage
-                      src={SPRITE_SHEETS.chibiPortraits}
-                      coordinates={getPortraitCoordinates(mentorToCharacterId[currentActivity.mentor] as any, 'chibi')}
-                      alt={currentActivity.mentor}
-                      scale={4.5}
-                      pixelated={true}
-                    />
-                  )}
-                </div>
-                
-                {/* Mentor name */}
-                <h4 style={{ 
-                  fontSize: typography.fontSize.md, 
-                  fontWeight: 'semibold',
-                  margin: 0,
-                  textShadow: typography.textShadow.pixel
-                }}>
-                  {currentActivity.mentor}
-                </h4>
+              <span style={{ fontSize: typography.fontSize.sm }}>
+                Question {currentQuestionIndex + 1} of {challenge.questions.length}
+              </span>
+              <div style={{ display: 'flex', gap: spacing.xxs }}>
+                {Array.from({length: challenge.questions.length}, (_, i) => (
+                  <div key={i} style={{
+                    width: '8px',
+                    height: '8px',
+                    backgroundColor: i === currentQuestionIndex ? colors.highlight : colors.inactive,
+                    borderRadius: '50%'
+                  }} />
+                ))}
               </div>
             </div>
           )}
         </div>
         
-        {/* Center panel - Main content (questions and options) */}
-        <div style={{
-          backgroundColor: colors.background,
-          color: colors.text,
-          padding: spacing.lg,
-          borderRadius: spacing.sm,
-          flex: 1,
-          fontFamily: typography.fontFamily.pixel,
-          boxShadow: `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`,
-          imageRendering: 'pixelated',
-          border: `2px solid ${colors.border}`,
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          {/* Main Activity Container - Enhanced card-like appearance */}
+        {/* Player stats in header */}
+        <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'center' }}>
           <div style={{
-            backgroundColor: colors.backgroundAlt,
-            padding: spacing.lg,
-            borderRadius: spacing.sm,
-            border: borders.medium,
-            boxShadow: `${shadows.md}, 0 0 15px rgba(0, 0, 0, 0.2)`,
             display: 'flex',
-            flexDirection: 'column',
-            flex: 1
+            alignItems: 'center',
+            gap: spacing.xs,
+            backgroundColor: 'rgba(67, 215, 230, 0.15)',
+            padding: `${spacing.xs} ${spacing.sm}`,
+            borderRadius: spacing.xs,
+            border: `1px solid ${colors.insight}`
           }}>
-            {/* Display lunch quote if it's a lunch activity */}
-            {showQuote ? (
+            <span style={{ color: colors.insight }}>◆</span>
+            <span>{currentInsight}</span>
+          </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.xs,
+            backgroundColor: 'rgba(255, 215, 0, 0.15)',
+            padding: `${spacing.xs} ${spacing.sm}`,
+            borderRadius: spacing.xs,
+            border: `1px solid ${colors.highlight}`
+          }}>
+            <span style={{ color: colors.highlight }}>★</span>
+            <span>{currentStarPoints}</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Main content area with message feed layout */}
+      <div style={{
+        display: 'flex',
+        flex: 1,
+        position: 'relative',
+        zIndex: 1,
+        overflow: 'hidden'
+      }}>
+        {/* Message feed area */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+                      {/* Question as mentor message */}
+            <div style={{
+              backgroundColor: '#3a3a4e',
+              border: `2px solid ${colors.border}`,
+              borderRadius: spacing.sm,
+              padding: spacing.lg,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: spacing.md,
+              maxWidth: '80%',
+              margin: `${spacing.md} 0`,
+              boxShadow: `0 4px 0 ${colors.border}`,
+              animation: 'slideInUp 0.3s ease-out'
+            }}>
+              {/* Message content */}
+              <div style={{ flex: 1 }}>
+                <div style={{
+                  fontSize: typography.fontSize.md,
+                  lineHeight: '1.4',
+                  color: colors.text,
+                  marginBottom: spacing.xs
+                }}>
+                  {getCurrentQuestion()?.content || getCurrentQuestion()?.text || challenge?.quote}
+                </div>
+                <div style={{
+                  fontSize: typography.fontSize.xs,
+                  color: colors.textDim,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.xs
+                }}>
+                  <span>{currentActivity.mentor}</span>
+                  <span>•</span>
+                  <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              </div>
+              
+              {/* Mentor portrait */}
               <div style={{
-                backgroundColor: 'rgba(20, 25, 35, 0.7)',
+                width: '64px',
+                height: '64px',
+                borderRadius: spacing.xs,
+                overflow: 'hidden',
+                background: colors.backgroundAlt,
+                border: `1px solid ${colors.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {currentActivity.mentor && isValidMentor(currentActivity.mentor) && (
+                  <SpriteImage
+                    src={SPRITE_SHEETS.chibiPortraits}
+                    coordinates={getPortraitCoordinates(mentorToCharacterId[currentActivity.mentor] as any, 'chibi')}
+                    alt={currentActivity.mentor}
+                    scale={2}
+                    pixelated={true}
+                  />
+                )}
+              </div>
+            </div>
+            
+            {/* Show feedback message if available */}
+            {showFeedback && selectedOption !== null && getCurrentQuestion()?.options && (
+              <div style={{
+                backgroundColor: '#2a2a3e',
+                border: `2px solid ${colors.border}`,
+                borderRadius: spacing.sm,
+                padding: spacing.lg,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: spacing.md,
+                maxWidth: '80%',
+                margin: `${spacing.md} 0`,
+                marginLeft: 'auto',
+                boxShadow: `0 4px 0 ${colors.border}`
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontSize: typography.fontSize.md,
+                    lineHeight: '1.4',
+                    color: getCurrentQuestion().options[selectedOption].correct ? colors.active : colors.error,
+                    marginBottom: spacing.xs
+                  }}>
+                    {getCurrentQuestion().options[selectedOption].feedback}
+                  </div>
+                  <div style={{
+                    fontSize: typography.fontSize.xs,
+                    color: colors.textDim
+                  }}>
+                    {getCurrentQuestion().options[selectedOption].correct ? '✓ Correct' : '✗ Incorrect'}
+                  </div>
+                  
+                  {/* Concepts discovered */}
+                  {(!hasMultipleQuestions || isLastQuestion) && conceptsDiscovered.length > 0 && (
+                    <div style={{
+                      marginTop: spacing.md,
+                      padding: spacing.sm,
+                      backgroundColor: 'rgba(20, 30, 40, 0.3)',
+                      borderRadius: spacing.xs,
+                      border: `1px dotted ${colors.border}`
+                    }}>
+                      <div style={{
+                        color: colors.starGlow,
+                        fontSize: typography.fontSize.sm,
+                        marginBottom: spacing.xs,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: spacing.xs
+                      }}>
+                        <span>✨</span> New concepts discovered:
+                      </div>
+                      <div style={{ display: 'flex', gap: spacing.xs, flexWrap: 'wrap' }}>
+                        {conceptsDiscovered.map((concept) => (
+                          <span key={concept} style={{
+                            backgroundColor: 'rgba(40, 50, 70, 0.6)',
+                            padding: `${spacing.xs} ${spacing.sm}`,
+                            borderRadius: spacing.sm,
+                            fontSize: typography.fontSize.xs,
+                            border: `1px solid ${colors.border}`
+                          }}>
+                            {concept.replace(/_/g, ' ')}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Player avatar */}
+                <div style={{
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: spacing.xs,
+                  background: colors.highlight,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: typography.fontSize.sm,
+                  color: colors.background,
+                  fontWeight: 'bold'
+                }}>
+                  YOU
+                                 </div>
+               </div>
+             )}
+           </div>
+           
+           {/* Options section at bottom (Twitter-like response area) */}
+           {!showQuote && getCurrentQuestion()?.options && !showFeedback && (
+             <div style={{
+               backgroundColor: colors.background,
+               borderTop: `2px solid ${colors.border}`,
+               padding: spacing.lg,
+               minHeight: '120px'
+             }}>
+               <div style={{
+                 display: 'flex',
+                 flexDirection: 'column',
+                 gap: spacing.sm,
+                                  maxWidth: '600px',
+                 margin: '0 auto'
+               }}>
+                 {/* Question options as response buttons */}
+                 {getCurrentQuestion().options.map((option: any, index: number) => (
+                   <button
+                     key={index}
+                     onClick={() => handleOptionSelect(index)}
+                     disabled={selectedOption !== null}
+                     style={{
+                       backgroundColor: colors.backgroundAlt,
+                       border: `2px solid ${colors.border}`,
+                       borderRadius: spacing.xs,
+                       padding: `${spacing.md} ${spacing.lg}`,
+                       color: colors.text,
+                       fontFamily: typography.fontFamily.pixel,
+                       fontSize: typography.fontSize.sm,
+                       textAlign: 'left',
+                       cursor: selectedOption !== null ? 'not-allowed' : 'pointer',
+                       transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
+                       opacity: selectedOption !== null ? 0.6 : 1
+                     }}
+                   >
+                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                       <span>{option.text}</span>
+                       <div style={{ display: 'flex', alignItems: 'center' }}>
+                         {/* Resource indicators */}
+                         {option.insightChange !== undefined && option.insightChange !== 0 && (
+                           <span style={{
+                             fontSize: typography.fontSize.xs,
+                             padding: '2px 6px',
+                             borderRadius: '3px',
+                             marginLeft: spacing.xs,
+                             background: 'rgba(0, 0, 0, 0.3)',
+                             color: colors.insight
+                           }}>
+                             ◆ {option.insightChange > 0 ? '+' : ''}{option.insightChange}
+                           </span>
+                         )}
+                       </div>
+                     </div>
+                   </button>
+                 ))}
+               </div>
+             </div>
+           )}
+           
+           {/* Continue button for feedback state */}
+           {showFeedback && (
+             <div style={{
+               backgroundColor: colors.background,
+               borderTop: `2px solid ${colors.border}`,
+               padding: spacing.lg,
+               display: 'flex',
+               justifyContent: 'center'
+             }}>
+               <button 
+                 onClick={handleContinue}
+                 style={{
+                   padding: `${spacing.sm} ${spacing.lg}`,
+                   backgroundColor: colors.highlight,
+                   color: colors.text,
+                   border: `2px solid ${colors.border}`,
+                   borderRadius: spacing.xs,
+                   cursor: 'pointer',
+                   fontFamily: typography.fontFamily.pixel,
+                   textShadow: typography.textShadow.pixel,
+                   boxShadow: `0 4px 0 ${colors.border}`,
+                   letterSpacing: '0.5px',
+                   fontWeight: 'bold',
+                   fontSize: typography.fontSize.md
+                 }}
+               >
+                 {usedBoast 
+                   ? "Complete Boast & Return →" 
+                   : (hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →")}
+               </button>
+             </div>
+           )}
+           
+                   </div>
+        
+        {/* Sidebar with abilities */}
+        <div style={{
+          width: '300px',
+          backgroundColor: colors.background,
+          borderLeft: `2px solid ${colors.border}`,
+          padding: spacing.md,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: spacing.md
+        }}>
+          <h3 style={{
+            fontSize: typography.fontSize.md,
+            fontWeight: 'bold',
+            margin: 0,
+            borderBottom: `1px dotted ${colors.border}`,
+            paddingBottom: spacing.xs
+          }}>
+            Abilities
+          </h3>
+          
+          {/* Special abilities */}
+          {!showQuote && (
+            <>
+              {canUseBoastAbility && (
+                <BoastButton onActivate={handleBoast} />
+              )}
+              
+              <button
+                onClick={handleTangent}
+                disabled={!canUseTangent}
+                style={{
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  borderRadius: spacing.xs,
+                  fontSize: typography.fontSize.xs,
+                  backgroundColor: canUseTangent ? 'rgba(45, 156, 219, 0.3)' : 'rgba(50, 50, 60, 0.3)',
+                  color: canUseTangent ? colors.text : colors.inactive,
+                  opacity: canUseTangent ? 1 : 0.5,
+                  cursor: canUseTangent ? 'pointer' : 'not-allowed',
+                  border: `1px solid ${colors.border}`,
+                  fontFamily: typography.fontFamily.pixel,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.xs
+                }}
+              >
+                <span style={{ color: colors.insight }}>⟲</span> Tangent (25 ◆)
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      
+      {/* Animations */}
+      <style jsx global>{`
+        @keyframes slideInUp {
+          from { 
+            transform: translateY(20px); 
+            opacity: 0; 
+          }
+          to { 
+            transform: translateY(0); 
+            opacity: 1; 
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
                 padding: spacing.md,
                 borderRadius: spacing.sm,
                 marginBottom: spacing.md,
@@ -3111,7 +3715,9 @@ export default function ActivityEngagement() {
                         transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
                       }}
                     >
-                      {hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →"}
+                      {usedBoast 
+                        ? "Complete Boast & Return →" 
+                        : (hasMultipleQuestions && !isLastQuestion ? "Next Question →" : "Continue →")}
                     </button>
                   </div>
                 )}
@@ -3145,47 +3751,12 @@ export default function ActivityEngagement() {
             borderBottom: `1px dotted ${colors.border}`,
             paddingBottom: spacing.xs
           }}>Player Stats</h3>
-            
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            fontSize: typography.fontSize.sm,
-            padding: `${spacing.xxs} 0`
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: spacing.xxs }}>
-              <span style={{ color: colors.momentum }}>⚡</span> Momentum
-            </span>
-            <span>{resources.momentum}/3</span>
-          </div>
           
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between',
-            fontSize: typography.fontSize.sm,
-            padding: `${spacing.xxs} 0`
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: spacing.xxs }}>
-              <span style={{ color: colors.insight }}>◆</span> Insight
-            </span>
-            <span>{resources.insight}</span>
-          </div>
-          
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between',
-            fontSize: typography.fontSize.sm,
-            padding: `${spacing.xxs} 0`,
-            borderBottom: `1px dotted ${colors.border}`,
-            paddingBottom: spacing.xs
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: spacing.xxs }}>
-              <span style={{ color: colors.highlight }}>★</span> Star Points
-            </span>
-            <span>{resources.starPoints}</span>
-          </div>
-          
+          {/* Use ResourceDisplay for a consistent look */}
+          <ResourceDisplay /> 
+
           {/* Special Abilities */}
-          {!showQuote && (
+          {!showQuote && ( // Don\'t show abilities during quotes
             <>
               <div style={{ 
                 display: 'flex', 
@@ -3193,6 +3764,9 @@ export default function ActivityEngagement() {
                 gap: spacing.xs,
                 paddingTop: spacing.xxs
               }}>
+                {/* Add BoastButton when appropriate */}
+                {canUseBoastAbility && <BoastButton onActivate={handleBoast} />}
+                
                 <button
                   style={{
                     padding: `${spacing.xs} ${spacing.sm}`,
@@ -3212,33 +3786,9 @@ export default function ActivityEngagement() {
                   }}
                   disabled={!canUseTangent}
                   onClick={handleTangent}
-                  title={canUseTangent ? "Change the current question (25 Insight)" : "Not enough Insight or already used"}
+                  title={canUseTangent ? "Use Tangent: Switch to a related, potentially easier question (Costs 25 Insight)." : "Tangent unavailable (Need 25 Insight, or already used an ability)."}
                 >
                   <span style={{ color: colors.insight }}>⟲</span> Tangent (25 ◆)
-                </button>
-                
-                <button
-                  style={{
-                    padding: `${spacing.xs} ${spacing.sm}`,
-                    borderRadius: spacing.xs,
-                    fontSize: typography.fontSize.xs,
-                    backgroundColor: canUseBoast ? 'rgba(231, 126, 35, 0.3)' : 'rgba(50, 50, 60, 0.3)',
-                    color: canUseBoast ? colors.text : colors.inactive,
-                    opacity: canUseBoast ? 1 : 0.5,
-                    cursor: canUseBoast ? 'pointer' : 'not-allowed',
-                    border: borders.thin,
-                    fontFamily: typography.fontFamily.pixel,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: spacing.xs,
-                    boxShadow: canUseBoast ? `${shadows.md}, 0 0 8px rgba(231, 126, 35, 0.3)` : 'none',
-                    transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
-                  }}
-                  disabled={!canUseBoast}
-                  onClick={handleBoast}
-                  title={canUseBoast ? "Attempt a harder question for more rewards" : "Not enough Momentum or already used"}
-                >
-                  <span style={{ color: colors.momentum }}>⤴</span> Boast (⚡⚡⚡)
                 </button>
               </div>
               

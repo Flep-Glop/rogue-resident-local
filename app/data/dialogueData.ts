@@ -1,5 +1,8 @@
 import { useDialogueStore } from '../store/dialogueStore';
-import { DialogueOption } from '@/app/types';
+import { DialogueOption, DialogueMode } from '@/app/types';
+
+// Add Day 1 import
+import { day1Dialogues } from './day1Dialogues';
 
 export interface DialogueNode {
   id: string;
@@ -17,6 +20,7 @@ export interface Dialogue {
   nodes: Record<string, DialogueNode>;
   domain?: string;
   difficulty: 1 | 2 | 3; // 1-3 stars
+  mode: DialogueMode; // Add dialogue mode
 }
 
 export interface Mentor {
@@ -36,7 +40,7 @@ export const mentors: Record<string, Mentor> = {
     name: 'Dr. Garcia',
     title: 'Senior Medical Physicist',
     specialty: 'Treatment Planning',
-    portrait: '/mentors/garcia.png',
+    portrait: '/images/characters/portraits/garcia-detailed.png',
     relationship: 50,
     domains: ['treatment_planning', 'dosimetry']
   },
@@ -45,9 +49,27 @@ export const mentors: Record<string, Mentor> = {
     name: 'Dr. Kapoor',
     title: 'Chief Medical Physicist',
     specialty: 'Radiation Therapy',
-    portrait: '/mentors/kapoor.png',
+    portrait: '/images/characters/portraits/kapoor-detailed.png',
     relationship: 50,
     domains: ['radiation_therapy', 'linac_anatomy']
+  },
+  'quinn': {
+    id: 'quinn',
+    name: 'Dr. Quinn',
+    title: 'Research Director',
+    specialty: 'Advanced Techniques',
+    portrait: '/images/characters/portraits/quinn-detailed.png',
+    relationship: 50,
+    domains: ['treatment_planning', 'research']
+  },
+  'jesse': {
+    id: 'jesse',
+    name: 'Jesse',
+    title: 'Senior Technician',
+    specialty: 'Equipment Maintenance',
+    portrait: '/images/characters/portraits/jesse-detailed.png',
+    relationship: 50,
+    domains: ['linac_anatomy', 'maintenance']
   }
 };
 
@@ -58,8 +80,9 @@ export const dialogues: Record<string, Dialogue> = {
     title: 'Introduction to Treatment Planning',
     description: 'Learn the basics of treatment planning with Dr. Garcia',
     startNodeId: 'tp_intro_1',
-    domain: 'treatment_planning',
-    difficulty: 1,
+          domain: 'treatment_planning',
+      difficulty: 1,
+      mode: DialogueMode.NARRATIVE,
     nodes: {
       'tp_intro_1': {
         id: 'tp_intro_1',
@@ -206,8 +229,9 @@ export const dialogues: Record<string, Dialogue> = {
     title: 'Linear Accelerator Components',
     description: 'Learn about the key components of a linear accelerator with Dr. Kapoor',
     startNodeId: 'linac_intro_1',
-    domain: 'linac_anatomy',
-    difficulty: 1,
+          domain: 'linac_anatomy',
+      difficulty: 1,
+      mode: DialogueMode.CHALLENGE,
     nodes: {
       'linac_intro_1': {
         id: 'linac_intro_1',
@@ -360,8 +384,13 @@ export const initializeDialogueStore = () => {
     dialogueStore.addMentor(mentor);
   });
   
-  // Add dialogues
+  // Add existing dialogues
   Object.values(dialogues).forEach(dialogue => {
+    dialogueStore.addDialogue(dialogue);
+  });
+  
+  // Add Day 1 dialogues
+  Object.values(day1Dialogues).forEach(dialogue => {
     dialogueStore.addDialogue(dialogue);
   });
 }; 

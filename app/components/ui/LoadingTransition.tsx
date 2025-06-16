@@ -32,7 +32,7 @@ const SpriteContainer = styled.div`
 const SpriteImage = styled.div`
   width: 1408px; /* Total width = frame width * total frames */
   height: 64px;  /* Height of a single frame */
-  background-image: url('/images/loading-Sheet.png');
+  background-image: url('/images/ui/loading-Sheet.png');
   background-repeat: no-repeat;
   background-size: cover;
   position: absolute;

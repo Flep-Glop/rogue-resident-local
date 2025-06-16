@@ -68,8 +68,8 @@ export const getHandGestureCoordinates = (index: number): SpriteCoordinates => {
 
 // Sprite sheet URLs
 export const SPRITE_SHEETS = {
-  detailedPortraits: '/images/characters-portrait.png',
-  simplePortraits: '/images/characters-simple.png',
-  handGestures: '/images/characters-hands.png',
-  chibiPortraits: '/images/characters-chibi.png'
+  detailedPortraits: '/images/characters/sprites/characters-portrait.png',
+  simplePortraits: '/images/characters/sprites/characters-portrait.png', // Fallback to existing portrait sheet
+  handGestures: '/images/characters/sprites/characters-hands.png',
+  chibiPortraits: '/images/characters/sprites/characters-chibi.png'
 }; 

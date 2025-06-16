@@ -429,13 +429,24 @@ export const components = {
 // Helper mixins
 export const mixins = {
   pixelPerfect: `
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
     image-rendering: pixelated;
     image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
   `,
   
   noSelect: `
     user-select: none;
     -webkit-user-select: none;
+  `,
+  
+  noScrollbar: `
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   `,
   
   scrollable: `

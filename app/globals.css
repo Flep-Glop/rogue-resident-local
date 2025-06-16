@@ -41,8 +41,65 @@ html.loading::before {
   visibility: visible !important;
 }
 
-.pixelated {
-  image-rendering: pixelated;
+.pixelated, 
+img.pixelated {
+  image-rendering: -moz-crisp-edges !important;
+  image-rendering: -webkit-crisp-edges !important;
+  image-rendering: pixelated !important;
+  image-rendering: crisp-edges !important;
+  -ms-interpolation-mode: nearest-neighbor !important;
+  filter: none !important;
+  transform: translateZ(0) !important;
+  backface-visibility: hidden !important;
+  -webkit-backface-visibility: hidden !important;
+  /* Prevent any scaling artifacts */
+  -webkit-transform: translateZ(0) !important;
+  -webkit-font-smoothing: none !important;
+  -moz-osx-font-smoothing: unset !important;
+}
+
+/* Comprehensive pixel art rendering for all images by default */
+img {
   image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
   image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  /* Force no smoothing */
+  filter: none !important;
+  /* Prevent sub-pixel rendering */
+  transform: translateZ(0);
+  /* Disable any browser-applied effects */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Allow smooth rendering when explicitly requested */
+img.smooth {
+  image-rendering: auto;
+  -ms-interpolation-mode: auto;
+}
+
+/* Global scrollbar hiding */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbars on dialogue components specifically */
+[class*="NarrativeDialogue"], 
+[class*="ChallengeDialogue"],
+[class*="DialogueContainer"] {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+[class*="NarrativeDialogue"]::-webkit-scrollbar,
+[class*="ChallengeDialogue"]::-webkit-scrollbar,
+[class*="DialogueContainer"]::-webkit-scrollbar {
+  display: none;
 }
