@@ -6,6 +6,8 @@ import { useGameStore } from '@/app/store/gameStore';
 import { GamePhase, Difficulty } from '@/app/types';
 import { Day1SceneId } from '@/app/types/day1';
 import { colors, typography, shadows } from '@/app/styles/pixelTheme';
+import { ChangelogPopup } from '@/app/components/ui/ChangelogPopup';
+import { getCurrentVersionString, hasRecentUpdates } from '@/app/utils/versionManager';
 
 interface Star {
   id: number;
@@ -433,6 +435,53 @@ const GameVersion = styled.div`
   opacity: 0.7;
 `;
 
+const UpdatesButton = styled.button`
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  background: rgba(132, 90, 245, 0.2);
+  border: 2px solid ${colors.active};
+  border-radius: 6px;
+  color: ${colors.text};
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: ${typography.fontSize.sm};
+  font-weight: bold;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(4px);
+  z-index: 15;
+  
+  &:hover {
+    background: rgba(132, 90, 245, 0.3);
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(132, 90, 245, 0.5);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  &::before {
+    content: '📋';
+    font-size: 1.1em;
+  }
+`;
+
+const NewBadge = styled.span`
+  background: ${colors.highlight};
+  color: ${colors.text};
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: ${typography.fontSize.xs};
+  font-weight: bold;
+  text-transform: uppercase;
+  animation: ${pulseButton} 2s infinite;
+  box-shadow: 0 0 8px rgba(255, 105, 180, 0.6);
+`;
+
 // New components for enhanced effects
 const ParticlesContainer = styled.div`
   position: absolute;
@@ -585,6 +634,7 @@ export const TitleScreen: React.FC = () => {
   const [titleAnimation, setTitleAnimation] = useState(false);
   const [glitchActive, setGlitchActive] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [shootingStars, setShootingStars] = useState<Array<{
     id: number;
     top: string;
@@ -796,6 +846,12 @@ export const TitleScreen: React.FC = () => {
       <LoadingOverlay className={isLoaded ? 'loaded' : ''} />
       
       <FullScreenContainer>
+        {/* Updates button */}
+        <UpdatesButton onClick={() => setShowChangelog(true)}>
+          What's New
+          {hasRecentUpdates() && <NewBadge>New</NewBadge>}
+        </UpdatesButton>
+        
         {/* Large glowing star behind everything */}
         <LargeStar />
         
@@ -889,8 +945,14 @@ export const TitleScreen: React.FC = () => {
         
         {/* Game version */}
         <GameVersion>
-          Rogue Resident v0.1.0 - Educational Medical Physics Game
+          {getCurrentVersionString()}
         </GameVersion>
+        
+        {/* Changelog popup */}
+        <ChangelogPopup 
+          isOpen={showChangelog} 
+          onClose={() => setShowChangelog(false)} 
+        />
       </FullScreenContainer>
     </>
   );

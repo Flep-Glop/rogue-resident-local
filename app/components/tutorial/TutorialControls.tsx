@@ -203,10 +203,9 @@ const TutorialControls: React.FC = () => {
   const [selectedStep, setSelectedStep] = useState<TutorialStep>('morning_arrival');
 
   const {
-    isActive,
+    mode,
     currentStep,
     currentSequence,
-    tutorialMode,
     startTutorial,
     completeStep,
     skipToStep,
@@ -220,9 +219,8 @@ const TutorialControls: React.FC = () => {
     skipCurrentSequence
   } = useTutorialNavigation();
 
-  const totalProgress = useTutorialStore(tutorialSelectors.getTotalProgress);
+  const totalProgress = useTutorialStore(state => state.getTutorialProgress());
   const debugMode = useTutorialStore(tutorialSelectors.getDebugMode);
-  const canSkipSteps = useTutorialStore(tutorialSelectors.canSkipSteps);
   const activeOverlays = useTutorialStore(tutorialSelectors.getActiveOverlays);
   
   const { resetTutorialProgress, enableDebugMode, disableDebugMode } = useTutorialStore();
@@ -319,7 +317,7 @@ const TutorialControls: React.FC = () => {
   };
 
   // Only render in development mode unless tutorial is active
-  if (!debugMode && !isActive && !tutorialMode) {
+  if (!debugMode && mode === 'disabled') {
     return null;
   }
 
@@ -331,7 +329,7 @@ const TutorialControls: React.FC = () => {
       <ControlsHeader onClick={() => setIsExpanded(!isExpanded)}>
         <ControlsTitle>
           Tutorial Controls
-          {isActive && (
+          {mode === 'active_sequence' && (
             <StatusText $status="active" style={{ marginLeft: '8px' }}>
               • {currentSequence} / {currentStep}
             </StatusText>
@@ -345,9 +343,9 @@ const TutorialControls: React.FC = () => {
         <ControlSection>
           <SectionTitle>Tutorial Mode</SectionTitle>
           <div>
-            <StatusIndicator $status={tutorialMode ? 'active' : 'inactive'} />
-            <StatusText $status={tutorialMode ? 'active' : 'inactive'}>
-              Mode: {tutorialMode ? 'Enabled' : 'Disabled'}
+            <StatusIndicator $status={mode !== 'disabled' ? 'active' : 'inactive'} />
+            <StatusText $status={mode !== 'disabled' ? 'active' : 'inactive'}>
+              Mode: {mode}
             </StatusText>
           </div>
           <ControlButton 
@@ -355,7 +353,7 @@ const TutorialControls: React.FC = () => {
             onClick={toggleTutorialMode}
             data-testid="toggle-tutorial-mode"
           >
-            {tutorialMode ? 'Disable Tutorial' : 'Enable Tutorial'}
+            {mode !== 'disabled' ? 'Disable Tutorial' : 'Enable Tutorial'}
           </ControlButton>
         </ControlSection>
 
@@ -363,9 +361,9 @@ const TutorialControls: React.FC = () => {
         <ControlSection>
           <SectionTitle>Current Status</SectionTitle>
           <div>
-            <StatusIndicator $status={isActive ? 'active' : 'inactive'} />
-            <StatusText $status={isActive ? 'active' : 'inactive'}>
-              Tutorial: {isActive ? 'Active' : 'Inactive'}
+            <StatusIndicator $status={mode === 'active_sequence' ? 'active' : 'inactive'} />
+            <StatusText $status={mode === 'active_sequence' ? 'active' : 'inactive'}>
+              Tutorial: {mode === 'active_sequence' ? 'Active' : 'Inactive'}
             </StatusText>
           </div>
           {currentSequence && (
@@ -396,7 +394,7 @@ const TutorialControls: React.FC = () => {
         </ControlSection>
 
         {/* Current Tutorial Controls */}
-        {isActive && (
+        {mode === 'active_sequence' && (
           <ControlSection>
             <SectionTitle>Current Tutorial</SectionTitle>
             <ControlButton 
@@ -443,7 +441,7 @@ const TutorialControls: React.FC = () => {
                 </ControlButton>
               </div>
               
-              {canSkipSteps && (
+              {debugMode && (
                 <div style={{ marginBottom: '8px' }}>
                   <StepSelector 
                     value={selectedStep} 
@@ -519,11 +517,10 @@ const TutorialControls: React.FC = () => {
 
 // Simple tutorial mode indicator for the main UI
 export const TutorialModeIndicator: React.FC = () => {
-  const tutorialMode = useTutorialStore(tutorialSelectors.getTutorialMode);
-  const isActive = useTutorialStore(tutorialSelectors.getIsActive);
+  const mode = useTutorialStore(tutorialSelectors.getMode);
   const currentStep = useTutorialStore(tutorialSelectors.getCurrentStep);
   
-  if (!tutorialMode && !isActive) return null;
+  if (mode === 'disabled') return null;
 
   return (
     <div
@@ -543,7 +540,7 @@ export const TutorialModeIndicator: React.FC = () => {
         backdropFilter: 'blur(5px)'
       }}
     >
-      {isActive ? `Tutorial Active: ${currentStep?.replace(/_/g, ' ')}` : 'Tutorial Mode Enabled'}
+      {mode === 'active_sequence' ? `Tutorial Active: ${currentStep?.replace(/_/g, ' ')}` : `Tutorial Mode: ${mode}`}
     </div>
   );
 };

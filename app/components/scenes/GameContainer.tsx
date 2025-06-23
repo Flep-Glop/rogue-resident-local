@@ -9,6 +9,7 @@ import ConstellationView from '@/app/components/knowledge/ConstellationView';
 import RoomUIOverlay from '../rooms/RoomUIOverlays';
 import TutorialOverlayManager from '@/app/components/tutorial/TutorialOverlay';
 import TutorialControls, { TutorialModeIndicator } from '@/app/components/tutorial/TutorialControls';
+import GameDevConsole from '@/app/components/debug/GameDevConsole';
 
 // Main game container that handles scene switching
 export default function GameContainer() {
@@ -24,6 +25,7 @@ export default function GameContainer() {
         <TutorialOverlayManager />
         <TutorialModeIndicator />
         <TutorialControls />
+        <GameDevConsole />
       </>
     );
   }
@@ -71,6 +73,9 @@ export default function GameContainer() {
       <TutorialOverlayManager />
       <TutorialModeIndicator />
       <TutorialControls />
+      
+      {/* Game Development Console - F2 to toggle */}
+      <GameDevConsole />
     </>
   );
 }

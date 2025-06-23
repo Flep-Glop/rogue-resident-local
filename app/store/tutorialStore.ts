@@ -70,30 +70,31 @@ export interface TutorialOverlay {
   };
 }
 
-// Tutorial state interface
+// Tutorial state should be a single enum, not multiple overlapping booleans
+export type TutorialMode = 
+  | 'disabled'           // Tutorial completely off
+  | 'background_hints'   // Subtle hints only, no active tutorial
+  | 'active_sequence'    // Currently in guided tutorial sequence
+  | 'debug_mode';        // Development testing mode
+
+// Simplified tutorial state interface
 interface TutorialState {
-  // Core tutorial state
-  isActive: boolean;
-  currentSequence: TutorialSequence | null;
+  // SINGLE SOURCE OF TRUTH
+  mode: TutorialMode;
+  
+  // Only relevant when mode === 'active_sequence'
+  activeSequence: TutorialSequence | null;
   currentStep: TutorialStep | null;
+  
+  // Progress tracking (always maintained)
   completedSteps: Set<TutorialStep>;
   completedSequences: Set<TutorialSequence>;
   
   // Overlay management
   activeOverlays: TutorialOverlay[];
-  overlayHistory: TutorialOverlay[];
-  
-  // Progress tracking
-  sequenceProgress: Record<TutorialSequence, number>; // 0-1 completion percentage
-  totalProgress: number; // Overall tutorial completion percentage
   
   // Settings
-  tutorialMode: boolean; // Toggle tutorial hints on/off
-  skipRemaining: boolean; // Skip all remaining tutorials
-  autoAdvance: boolean; // Auto-advance through steps
-  
-  // Debug and testing
-  debugMode: boolean;
+  autoAdvance: boolean;
   allowStepSkipping: boolean;
 }
 
@@ -132,35 +133,24 @@ interface TutorialActions {
 
 type TutorialStore = TutorialState & TutorialActions;
 
-// Default/initial state
-const initialState: TutorialState = {
-  isActive: false,
-  currentSequence: null,
-  currentStep: null,
-  completedSteps: new Set(),
-  completedSequences: new Set(),
-  activeOverlays: [],
-  overlayHistory: [],
-  sequenceProgress: {
-    first_day: 0,
-    night_phase: 0,
-    mentor_relationships: 0,
-    advanced_systems: 0
-  },
-  totalProgress: 0,
-  tutorialMode: true, // Default to enabled for new players
-  skipRemaining: false,
-  autoAdvance: true,
-  debugMode: process.env.NODE_ENV === 'development',
-  allowStepSkipping: process.env.NODE_ENV === 'development'
-};
+  // Default/initial state
+  const initialState: TutorialState = {
+    mode: 'disabled',
+    activeSequence: null,
+    currentStep: null,
+    completedSteps: new Set(),
+    completedSequences: new Set(),
+    activeOverlays: [],
+    autoAdvance: true,
+    allowStepSkipping: process.env.NODE_ENV === 'development',
+  };
 
 // Tutorial step sequences for progress calculation
 const TUTORIAL_SEQUENCES: Record<TutorialSequence, TutorialStep[]> = {
   first_day: [
     'morning_arrival',
-    'first_mentor_intro',
     'hospital_tour',
+    'first_mentor_intro',
     'first_educational_activity',
     'insight_mechanic_intro',
     'lunch_dialogue',
@@ -215,10 +205,9 @@ function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
       id: 'guide_hospital_tour',
       type: 'tooltip',
       title: 'Hospital Navigation',
-      content: 'Click on the glowing room indicators to explore different areas. Each room has unique equipment and learning opportunities.',
+      content: 'Welcome to Memorial General! Click on the glowing room indicators to explore different areas. Each room has unique equipment and learning opportunities. Take your time getting familiar with the layout.',
       position: { x: 300, y: 200 },
-      dismissable: true,
-      autoAdvance: 6
+      dismissable: true
     },
     'first_educational_activity': {
       id: 'guide_first_activity',
@@ -365,11 +354,14 @@ export const useTutorialStore = create<TutorialStore>()(
 
     // Start a tutorial sequence
     startTutorial: (sequence: TutorialSequence, step?: TutorialStep) => {
+      console.log(`🎓 [TUTORIAL] Starting tutorial sequence: ${sequence}`);
+      
       set(state => {
-        state.isActive = true;
-        state.currentSequence = sequence;
+        state.mode = 'active_sequence';
+        state.activeSequence = sequence;
         state.currentStep = step || TUTORIAL_SEQUENCES[sequence][0];
-        state.skipRemaining = false;
+        
+        console.log(`📍 [TUTORIAL] Current step set to: ${state.currentStep}`);
         
         // Clear any existing overlays
         state.activeOverlays = [];
@@ -391,22 +383,30 @@ export const useTutorialStore = create<TutorialStore>()(
           dismissable: true
         };
         state.activeOverlays.push(welcomeOverlay);
+        
+        console.log(`🎉 [TUTORIAL POPUP] Welcome overlay shown: "${welcomeOverlay.title}" (${welcomeOverlay.type})`);
       });
     },
 
     // Complete a tutorial step and advance
     completeStep: (step: TutorialStep) => {
+      console.log(`✅ [TUTORIAL] Completing step: ${step}`);
+      
       set(state => {
-        const currentSequence = state.currentSequence;
-        if (!currentSequence) return;
+        const currentSequence = state.activeSequence;
+        if (!currentSequence) {
+          console.log(`⚠️ [TUTORIAL] No active sequence, cannot complete step ${step}`);
+          return;
+        }
         
         // Mark step as completed
         state.completedSteps.add(step);
+        console.log(`📋 [TUTORIAL] Step marked complete: ${step}`);
         
         // Calculate sequence progress
         const sequenceSteps = TUTORIAL_SEQUENCES[currentSequence];
         const completedInSequence = sequenceSteps.filter(s => state.completedSteps.has(s)).length;
-        state.sequenceProgress[currentSequence] = completedInSequence / sequenceSteps.length;
+        console.log(`📊 [TUTORIAL] Progress: ${completedInSequence}/${sequenceSteps.length} steps in ${currentSequence}`);
         
         // Find next step in sequence
         const currentIndex = sequenceSteps.indexOf(step);
@@ -414,18 +414,28 @@ export const useTutorialStore = create<TutorialStore>()(
         
         if (nextStep) {
           state.currentStep = nextStep;
+          console.log(`➡️ [TUTORIAL] Advancing to next step: ${nextStep}`);
           
           // Show step-specific guidance overlay
           const stepGuidance = getStepGuidanceOverlay(nextStep);
           if (stepGuidance) {
             state.activeOverlays.push(stepGuidance);
+            console.log(`💡 [TUTORIAL POPUP] Step guidance shown: "${stepGuidance.title}" (${stepGuidance.type}) for step ${nextStep}`);
+            
+            if (stepGuidance.autoAdvance) {
+              console.log(`⏰ [TUTORIAL] Auto-advance in ${stepGuidance.autoAdvance} seconds`);
+            }
+          } else {
+            console.log(`ℹ️ [TUTORIAL] No guidance overlay configured for step: ${nextStep}`);
           }
         } else {
           // Sequence completed
           state.completedSequences.add(currentSequence);
-          state.currentSequence = null;
+          state.activeSequence = null;
           state.currentStep = null;
-          state.isActive = false;
+          state.mode = 'disabled';
+          
+          console.log(`🏆 [TUTORIAL] Sequence completed: ${currentSequence}`);
           
           // Show completion overlay
           const completionOverlay = {
@@ -436,25 +446,29 @@ export const useTutorialStore = create<TutorialStore>()(
             dismissable: true
           };
           state.activeOverlays.push(completionOverlay);
+          
+          console.log(`🎊 [TUTORIAL POPUP] Completion overlay shown: "${completionOverlay.title}" (${completionOverlay.type})`);
         }
-        
-        // Update total progress
-        const totalSteps = Object.values(TUTORIAL_SEQUENCES).flat().length;
-        state.totalProgress = state.completedSteps.size / totalSteps;
       });
     },
 
     // Skip directly to a specific step (debug utility)
     skipToStep: (step: TutorialStep) => {
-      if (!get().allowStepSkipping) return;
+      if (!get().allowStepSkipping) {
+        console.log(`🚫 [TUTORIAL] Step skipping not allowed`);
+        return;
+      }
+      
+      console.log(`⏭️ [TUTORIAL] Skipping to step: ${step}`);
       
       set(state => {
         // Find which sequence this step belongs to
         for (const [sequence, steps] of Object.entries(TUTORIAL_SEQUENCES)) {
           if (steps.includes(step)) {
-            state.currentSequence = sequence as TutorialSequence;
+            state.activeSequence = sequence as TutorialSequence;
             state.currentStep = step;
-            state.isActive = true;
+            state.mode = 'active_sequence';
+            console.log(`🎯 [TUTORIAL] Jumped to sequence: ${sequence}, step: ${step}`);
             break;
           }
         }
@@ -463,89 +477,116 @@ export const useTutorialStore = create<TutorialStore>()(
 
     // Complete entire tutorial sequence
     completeTutorialSequence: (sequence: TutorialSequence) => {
+      console.log(`🏁 [TUTORIAL] Force completing entire sequence: ${sequence}`);
+      
       set(state => {
         const steps = TUTORIAL_SEQUENCES[sequence];
         steps.forEach(step => state.completedSteps.add(step));
         state.completedSequences.add(sequence);
-        state.sequenceProgress[sequence] = 1;
         
-        // Update total progress
-        const totalSteps = Object.values(TUTORIAL_SEQUENCES).flat().length;
-        state.totalProgress = state.completedSteps.size / totalSteps;
+        console.log(`📋 [TUTORIAL] Marked ${steps.length} steps as completed for ${sequence}`);
         
         // If this was the current sequence, end tutorial
-        if (state.currentSequence === sequence) {
-          state.currentSequence = null;
+        if (state.activeSequence === sequence) {
+          state.activeSequence = null;
           state.currentStep = null;
-          state.isActive = false;
+          state.mode = 'disabled';
+          console.log(`🔚 [TUTORIAL] Ended active tutorial sequence`);
         }
       });
     },
 
     // Skip tutorial sequence without marking as completed
     skipTutorialSequence: (sequence: TutorialSequence) => {
+      console.log(`⏭️ [TUTORIAL] Skipping sequence: ${sequence}`);
+      
       set(state => {
-        if (state.currentSequence === sequence) {
-          state.currentSequence = null;
+        if (state.activeSequence === sequence) {
+          state.activeSequence = null;
           state.currentStep = null;
-          state.isActive = false;
+          state.mode = 'disabled';
+          console.log(`🔚 [TUTORIAL] Tutorial sequence skipped and ended`);
         }
       });
     },
 
     // Overlay management
     showOverlay: (overlay: TutorialOverlay) => {
+      console.log(`🎪 [TUTORIAL POPUP] Showing overlay: "${overlay.title}" (${overlay.type}) - ID: ${overlay.id}`);
+      
+      if (overlay.position) {
+        console.log(`📍 [TUTORIAL POPUP] Overlay position: x=${overlay.position.x}, y=${overlay.position.y}`);
+      }
+      
+      if (overlay.targetElement) {
+        console.log(`🎯 [TUTORIAL POPUP] Overlay targets element: ${overlay.targetElement}`);
+      }
+      
+      if (overlay.autoAdvance) {
+        console.log(`⏰ [TUTORIAL POPUP] Auto-advance in ${overlay.autoAdvance} seconds`);
+      }
+      
       set(state => {
         // Remove any existing overlay with same id
+        const existingCount = state.activeOverlays.length;
         state.activeOverlays = state.activeOverlays.filter(o => o.id !== overlay.id);
+        
+        if (existingCount !== state.activeOverlays.length) {
+          console.log(`🔄 [TUTORIAL POPUP] Replaced existing overlay with ID: ${overlay.id}`);
+        }
+        
         // Add new overlay
         state.activeOverlays.push(overlay);
-        // Add to history
-        state.overlayHistory.push(overlay);
+        console.log(`➕ [TUTORIAL POPUP] Active overlays count: ${state.activeOverlays.length}`);
       });
     },
 
     dismissOverlay: (overlayId: string) => {
+      console.log(`❌ [TUTORIAL POPUP] Dismissing overlay: ${overlayId}`);
+      
       set(state => {
+        const beforeCount = state.activeOverlays.length;
         state.activeOverlays = state.activeOverlays.filter(o => o.id !== overlayId);
+        const afterCount = state.activeOverlays.length;
+        
+        if (beforeCount !== afterCount) {
+          console.log(`✅ [TUTORIAL POPUP] Overlay dismissed. Active overlays: ${afterCount}`);
+        } else {
+          console.log(`⚠️ [TUTORIAL POPUP] Overlay not found: ${overlayId}`);
+        }
       });
     },
 
     dismissAllOverlays: () => {
+      const currentCount = get().activeOverlays.length;
+      console.log(`🧹 [TUTORIAL POPUP] Dismissing all overlays (${currentCount} active)`);
+      
       set(state => {
         state.activeOverlays = [];
       });
+      
+      console.log(`✅ [TUTORIAL POPUP] All overlays dismissed`);
     },
 
     // Tutorial mode control
     enableTutorialMode: () => {
       set(state => {
-        state.tutorialMode = true;
-        state.skipRemaining = false;
-        
-        // Show tutorial mode enabled overlay
-        const welcomeOverlay = {
-          id: 'tutorial_mode_enabled',
-          type: 'modal' as const,
-          title: 'Tutorial Mode Enabled!',
-          content: 'Tutorial mode is now active. You\'ll see helpful hints and guidance as you explore the game. Click the "🎓 Start Tutorial" button to begin the guided first day experience, or use the tutorial controls (bottom left) to test different features.',
-          dismissable: true
-        };
-        state.activeOverlays.push(welcomeOverlay);
+        state.mode = 'active_sequence';
       });
     },
 
     disableTutorialMode: () => {
       set(state => {
-        state.tutorialMode = false;
+        state.mode = 'disabled';
         state.activeOverlays = [];
-        state.isActive = false;
+        state.activeSequence = null;
+        state.currentStep = null;
       });
     },
 
     toggleTutorialMode: () => {
-      const current = get().tutorialMode;
-      if (current) {
+      const current = get().mode;
+      if (current === 'active_sequence') {
         get().disableTutorialMode();
       } else {
         get().enableTutorialMode();
@@ -563,32 +604,22 @@ export const useTutorialStore = create<TutorialStore>()(
       set(state => {
         state.completedSteps = new Set();
         state.completedSequences = new Set();
-        state.sequenceProgress = {
-          first_day: 0,
-          night_phase: 0,
-          mentor_relationships: 0,
-          advanced_systems: 0
-        };
-        state.totalProgress = 0;
-        state.currentSequence = null;
+        state.activeSequence = null;
         state.currentStep = null;
-        state.isActive = false;
+        state.mode = 'disabled';
         state.activeOverlays = [];
-        state.overlayHistory = [];
       });
     },
 
     skipAllRemaining: () => {
       set(state => {
-        state.skipRemaining = true;
-        state.tutorialMode = false;
-        state.isActive = false;
+        state.mode = 'disabled';
         state.activeOverlays = [];
       });
     },
 
     getTutorialProgress: () => {
-      return get().totalProgress;
+      return get().completedSteps.size / Object.values(TUTORIAL_SEQUENCES).flat().length;
     },
 
     isStepCompleted: (step: TutorialStep) => {
@@ -602,14 +633,14 @@ export const useTutorialStore = create<TutorialStore>()(
     // Debug utilities
     enableDebugMode: () => {
       set(state => {
-        state.debugMode = true;
+        state.mode = 'debug_mode';
         state.allowStepSkipping = true;
       });
     },
 
     disableDebugMode: () => {
       set(state => {
-        state.debugMode = false;
+        state.mode = 'disabled';
         state.allowStepSkipping = false;
       });
     },
@@ -622,19 +653,19 @@ export const useTutorialStore = create<TutorialStore>()(
   }))
 );
 
-// Selectors for components
-export const tutorialSelectors = {
-  getIsActive: (state: TutorialStore) => state.isActive,
-  getCurrentSequence: (state: TutorialStore) => state.currentSequence,
-  getCurrentStep: (state: TutorialStore) => state.currentStep,
-  getActiveOverlays: (state: TutorialStore) => state.activeOverlays,
-  getTutorialMode: (state: TutorialStore) => state.tutorialMode,
-  getTotalProgress: (state: TutorialStore) => state.totalProgress,
-  getSequenceProgress: (state: TutorialStore, sequence: TutorialSequence) => 
-    state.sequenceProgress[sequence],
-  getDebugMode: (state: TutorialStore) => state.debugMode,
-  canSkipSteps: (state: TutorialStore) => state.allowStepSkipping
-};
+  // Selectors for components
+  export const tutorialSelectors = {
+    getMode: (state: TutorialStore) => state.mode,
+    getCurrentSequence: (state: TutorialStore) => state.activeSequence,
+    getCurrentStep: (state: TutorialStore) => state.currentStep,
+    getActiveOverlays: (state: TutorialStore) => state.activeOverlays,
+    getAutoAdvance: (state: TutorialStore) => state.autoAdvance,
+    getDebugMode: (state: TutorialStore) => state.mode === 'debug_mode',
+    getAllowStepSkipping: (state: TutorialStore) => state.allowStepSkipping,
+    // Compatibility selectors for components that haven't been updated yet
+    getTutorialMode: (state: TutorialStore) => state.mode !== 'disabled',
+    getIsActive: (state: TutorialStore) => state.mode === 'active_sequence'
+  };
 
 // Tutorial navigation hook for components
 export function useTutorialNavigation() {
@@ -648,17 +679,15 @@ export function useTutorialNavigation() {
     toggleTutorialMode
   } = useTutorialStore();
 
-  const isActive = useTutorialStore(tutorialSelectors.getIsActive);
+  const mode = useTutorialStore(tutorialSelectors.getMode);
   const currentStep = useTutorialStore(tutorialSelectors.getCurrentStep);
   const currentSequence = useTutorialStore(tutorialSelectors.getCurrentSequence);
-  const tutorialMode = useTutorialStore(tutorialSelectors.getTutorialMode);
 
   return {
     // State
-    isActive,
+    mode,
     currentStep,
     currentSequence,
-    tutorialMode,
 
     // Actions
     startTutorial,
@@ -689,11 +718,10 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     toggleMode: () => useTutorialStore.getState().toggleTutorialMode(),
     showOverlay: (overlay: TutorialOverlay) => useTutorialStore.getState().showOverlay(overlay),
     getCurrentState: () => ({
-      active: useTutorialStore.getState().isActive,
-      sequence: useTutorialStore.getState().currentSequence,
+      mode: useTutorialStore.getState().mode,
+      sequence: useTutorialStore.getState().activeSequence,
       step: useTutorialStore.getState().currentStep,
-      mode: useTutorialStore.getState().tutorialMode,
-      progress: useTutorialStore.getState().totalProgress
+      progress: useTutorialStore.getState().getTutorialProgress()
     })
   };
 } 

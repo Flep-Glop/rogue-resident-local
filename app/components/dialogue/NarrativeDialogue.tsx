@@ -35,6 +35,33 @@ interface NarrativeDialogueProps {
   roomId?: string; // Room context for background selection
 }
 
+// Add stage direction parsing utility
+interface ParsedDialogue {
+  stageDirections: string[];
+  cleanText: string;
+}
+
+const parseDialogueText = (text: string): ParsedDialogue => {
+  const stageDirections: string[] = [];
+  
+  // Extract all text in square brackets
+  const stageDirectionRegex = /\[([^\]]+)\]/g;
+  let match;
+  
+  while ((match = stageDirectionRegex.exec(text)) !== null) {
+    stageDirections.push(match[1]);
+  }
+  
+  // Remove stage directions from the main text and clean up extra whitespace
+  const cleanText = text
+    .replace(stageDirectionRegex, '')
+    .replace(/\n\s*\n\s*\n/g, '\n\n') // Remove triple+ line breaks
+    .replace(/^\s+|\s+$/g, '') // Trim start and end
+    .replace(/\n\s*\n/g, '\n\n'); // Normalize double line breaks
+  
+  return { stageDirections, cleanText };
+};
+
 const Container = styled.div<{ $roomId?: string }>`
   width: 100vw;
   height: 100vh;
@@ -352,12 +379,36 @@ const SpeakerName = styled.div`
   text-shadow: ${typography.textShadow.pixel};
 `;
 
+// Add stage direction styling
+const StageDirectionContainer = styled.div`
+  margin-bottom: ${spacing.md};
+  opacity: 0.8;
+`;
+
+const StageDirection = styled.div`
+  font-style: italic;
+  font-size: ${typography.fontSize.sm};
+  color: ${colors.textDim};
+  line-height: 1.4;
+  margin-bottom: ${spacing.xs};
+  padding: ${spacing.xs} ${spacing.sm};
+  background: rgba(0, 0, 0, 0.2);
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: ${spacing.xs};
+  
+  &::before {
+    content: '※ ';
+    opacity: 0.6;
+    font-style: normal;
+  }
+`;
+
 const DialogueText = styled.div<{ $isTyping: boolean }>`
   font-size: ${typography.fontSize.md};
   line-height: 1.6;
   color: ${colors.text};
   cursor: pointer;
-  min-height: 80px;
+  min-height: 60px; // Reduced since stage directions take some space
   
   &::after {
     content: '▋';
@@ -441,6 +492,7 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   const [typedText, setTypedText] = useState('');
   const [currentCharIndex, setCurrentCharIndex] = useState(0);
   const [currentPortraitAnimation, setCurrentPortraitAnimation] = useState<PortraitAnimationType>('none');
+  const [parsedDialogue, setParsedDialogue] = useState<ParsedDialogue>({ stageDirections: [], cleanText: '' });
   const typingSpeed = 30; // ms per character
   
   // Reaction system
@@ -474,15 +526,19 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
     }
   }, [dialogueId, initialized, startDialogue]);
   
-  // Type out text effect - FIXED: Removed currentCharIndex from dependencies
+  // Parse dialogue text and type out effect - FIXED: Removed currentCharIndex from dependencies
   useEffect(() => {
     if (!currentNode) return;
+    
+    // Parse the dialogue text to separate stage directions
+    const parsed = parseDialogueText(currentNode.text);
+    setParsedDialogue(parsed);
     
     setIsTyping(true);
     setTypedText('');
     setCurrentCharIndex(0);
     
-    const text = currentNode.text;
+    const text = parsed.cleanText;
     let charIndex = 0;
     
     const intervalId = setInterval(() => {
@@ -511,9 +567,9 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   
   // Skip typing animation
   const handleSkipTyping = () => {
-    if (isTyping && currentNode) {
-      setTypedText(currentNode.text);
-      setCurrentCharIndex(currentNode.text.length);
+    if (isTyping && parsedDialogue.cleanText) {
+      setTypedText(parsedDialogue.cleanText);
+      setCurrentCharIndex(parsedDialogue.cleanText.length);
       setIsTyping(false);
     }
   };
@@ -608,6 +664,18 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
           {mentor && (
             <SpeakerName>{mentor.name}</SpeakerName>
           )}
+          
+          {/* Stage Directions */}
+          {parsedDialogue.stageDirections.length > 0 && (
+            <StageDirectionContainer>
+              {parsedDialogue.stageDirections.map((direction, index) => (
+                <StageDirection key={index}>
+                  {direction}
+                </StageDirection>
+              ))}
+            </StageDirectionContainer>
+          )}
+          
           <DialogueText $isTyping={isTyping}>
             {typedText}
           </DialogueText>
@@ -672,5 +740,4 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   );
 }
 
-// Export the existing component for the scene system to use
-export { default as NarrativeDialogue } from './NarrativeDialogue'; 
+// Component exported as default above 

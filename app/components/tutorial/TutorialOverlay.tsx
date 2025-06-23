@@ -264,32 +264,56 @@ const TutorialOverlayComponent: React.FC<TutorialOverlayProps> = ({ overlay, onD
   const [autoAdvanceTimer, setAutoAdvanceTimer] = useState<NodeJS.Timeout | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
+  // Log when overlay component mounts
+  useEffect(() => {
+    console.log(`🚀 [TUTORIAL RENDER] Overlay component mounted: "${overlay.title}" (${overlay.type}) - ID: ${overlay.id}`);
+    
+    if (overlay.position) {
+      console.log(`📍 [TUTORIAL RENDER] Overlay positioned at: x=${overlay.position.x}, y=${overlay.position.y}`);
+    }
+    
+    if (overlay.targetElement) {
+      console.log(`🎯 [TUTORIAL RENDER] Overlay targets: ${overlay.targetElement}`);
+    }
+    
+    return () => {
+      console.log(`🔚 [TUTORIAL RENDER] Overlay component unmounted: "${overlay.title}" (${overlay.type})`);
+    };
+  }, [overlay.id, overlay.title, overlay.type, overlay.position, overlay.targetElement]);
+
   // Handle auto-advance timer
   useEffect(() => {
     if (overlay.autoAdvance && overlay.autoAdvance > 0) {
+      console.log(`⏰ [TUTORIAL RENDER] Starting auto-advance timer: ${overlay.autoAdvance}s for overlay "${overlay.title}"`);
+      
       const timer = setTimeout(() => {
+        console.log(`⏰ [TUTORIAL RENDER] Auto-advance timer fired for overlay "${overlay.title}"`);
         onDismiss(overlay.id);
       }, overlay.autoAdvance * 1000);
       
       setAutoAdvanceTimer(timer);
       
       return () => {
+        console.log(`⏰ [TUTORIAL RENDER] Auto-advance timer cleared for overlay "${overlay.title}"`);
         clearTimeout(timer);
       };
     }
-  }, [overlay.autoAdvance, overlay.id, onDismiss]);
+  }, [overlay.autoAdvance, overlay.id, overlay.title, onDismiss]);
 
   // Handle action required
   useEffect(() => {
     if (overlay.actionRequired) {
       const { type, target } = overlay.actionRequired;
+      console.log(`🎮 [TUTORIAL RENDER] Setting up action listener: ${type} on ${target} for overlay "${overlay.title}"`);
       
       const handleAction = () => {
+        console.log(`🎮 [TUTORIAL RENDER] Required action completed: ${type} on ${target} for overlay "${overlay.title}"`);
         onDismiss(overlay.id);
       };
       
       const targetElement = document.querySelector(target);
       if (targetElement) {
+        console.log(`✅ [TUTORIAL RENDER] Target element found: ${target}`);
         switch (type) {
           case 'click':
             targetElement.addEventListener('click', handleAction);
@@ -301,16 +325,22 @@ const TutorialOverlayComponent: React.FC<TutorialOverlayProps> = ({ overlay, onD
         }
         
         return () => {
+          console.log(`🧹 [TUTORIAL RENDER] Removing action listener: ${type} on ${target}`);
           targetElement.removeEventListener('click', handleAction);
           targetElement.removeEventListener('mouseenter', handleAction);
         };
+      } else {
+        console.log(`❌ [TUTORIAL RENDER] Target element not found: ${target}`);
       }
     }
-  }, [overlay.actionRequired, overlay.id, onDismiss]);
+  }, [overlay.actionRequired, overlay.id, overlay.title, onDismiss]);
 
   const handleDismiss = () => {
     if (overlay.dismissable) {
+      console.log(`👆 [TUTORIAL RENDER] User dismissed overlay: "${overlay.title}" (${overlay.type})`);
       onDismiss(overlay.id);
+    } else {
+      console.log(`🚫 [TUTORIAL RENDER] User tried to dismiss non-dismissable overlay: "${overlay.title}"`);
     }
   };
 
@@ -363,10 +393,16 @@ const SpotlightTarget: React.FC<{ targetSelector: string }> = ({ targetSelector 
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
+    console.log(`🔍 [TUTORIAL RENDER] Setting up spotlight target: ${targetSelector}`);
+    
     const updatePosition = () => {
       const element = document.querySelector(targetSelector);
       if (element) {
-        setTargetRect(element.getBoundingClientRect());
+        const rect = element.getBoundingClientRect();
+        setTargetRect(rect);
+        console.log(`🎯 [TUTORIAL RENDER] Spotlight target positioned: ${targetSelector} at (${rect.x}, ${rect.y})`);
+      } else {
+        console.log(`❌ [TUTORIAL RENDER] Spotlight target not found: ${targetSelector}`);
       }
     };
 
@@ -377,6 +413,7 @@ const SpotlightTarget: React.FC<{ targetSelector: string }> = ({ targetSelector 
     window.addEventListener('scroll', updatePosition);
     
     return () => {
+      console.log(`🧹 [TUTORIAL RENDER] Cleaning up spotlight target: ${targetSelector}`);
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition);
     };
@@ -403,12 +440,33 @@ const TutorialOverlayManager: React.FC = () => {
   const tutorialMode = useTutorialStore(tutorialSelectors.getTutorialMode);
   const { dismissOverlay } = useTutorialStore();
 
+  // Log overlay manager state changes
+  useEffect(() => {
+    if (activeOverlays.length > 0) {
+      console.log(`📊 [TUTORIAL RENDER] Overlay manager rendering ${activeOverlays.length} overlay(s):`);
+      activeOverlays.forEach((overlay, index) => {
+        console.log(`  ${index + 1}. "${overlay.title}" (${overlay.type}) - ID: ${overlay.id}`);
+      });
+    } else {
+      console.log(`📊 [TUTORIAL RENDER] Overlay manager: no active overlays to render`);
+    }
+  }, [activeOverlays]);
+
+  // Log tutorial mode changes
+  useEffect(() => {
+    console.log(`🎭 [TUTORIAL RENDER] Tutorial mode changed: ${tutorialMode ? 'ENABLED' : 'DISABLED'}`);
+  }, [tutorialMode]);
+
   // Don't render if tutorial mode is disabled
   if (!tutorialMode || activeOverlays.length === 0) {
     return null;
   }
 
   const hasModal = activeOverlays.some(overlay => overlay.type === 'modal');
+  
+  if (hasModal) {
+    console.log(`🎭 [TUTORIAL RENDER] Modal detected - activating backdrop`);
+  }
 
   return (
     <OverlayContainer className={hasModal ? 'modal-active' : ''}>
