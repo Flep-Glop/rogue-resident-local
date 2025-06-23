@@ -8,12 +8,13 @@ This guide outlines the complete development workflow for Rogue Resident, focusi
 
 1. [Overview](#overview)
 2. [Development Workflow](#development-workflow)
-3. [Version Management](#version-management)
-4. [Commit Guidelines](#commit-guidelines)
-5. [Feature Development Process](#feature-development-process)
-6. [Playtester Communication](#playtester-communication)
-7. [Release Process](#release-process)
-8. [Troubleshooting](#troubleshooting)
+3. [Git Remote Configuration](#git-remote-configuration)
+4. [Version Management](#version-management)
+5. [Commit Guidelines](#commit-guidelines)
+6. [Feature Development Process](#feature-development-process)
+7. [Playtester Communication](#playtester-communication)
+8. [Release Process](#release-process)
+9. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
@@ -50,7 +51,13 @@ graph LR
 
 1. **Start Development Session**
    ```bash
+   # Verify git remote is correct
+   git remote -v
+   
+   # Pull latest changes
    git pull origin main
+   
+   # Start development server
    npm run dev
    ```
 
@@ -73,6 +80,123 @@ graph LR
    - Follow commit message guidelines
    - Include relevant issue references
    - Push to appropriate branch
+
+## Git Remote Configuration
+
+### Initial Setup & Verification
+
+**CRITICAL**: Always verify your git remote is pointing to the correct repository before committing and pushing. This prevents accidentally pushing game code to documentation repositories or vice versa.
+
+#### Verify Current Remote
+```bash
+# Check current remote configuration
+git remote -v
+
+# Expected output for game development:
+# origin  https://github.com/Flep-Glop/rogue-resident-local (fetch)
+# origin  https://github.com/Flep-Glop/rogue-resident-local (push)
+```
+
+#### Common Remote Issues
+
+| Issue | Symptoms | Solution |
+|-------|----------|----------|
+| **Wrong Repository** | Remote points to `-docs` instead of `-local` | Update remote URL |
+| **Branch Divergence** | "Your branch and 'origin/main' have diverged" | Fetch and check alignment |
+| **Access Denied** | Authentication errors during push | Check GitHub permissions |
+
+#### Fix Wrong Remote Repository
+```bash
+# If remote points to wrong repo (e.g., rogue-resident-docs)
+git remote set-url origin https://github.com/Flep-Glop/rogue-resident-local
+
+# Verify the change
+git remote -v
+
+# Fetch to update remote tracking
+git fetch origin
+
+# Check status alignment
+git status
+```
+
+#### Repository Structure
+
+**Rogue Resident** uses separate repositories for different purposes:
+
+- **`rogue-resident-local`**: Main game codebase with Next.js app
+- **`rogue-resident-docs`**: Documentation-only repository
+- **Other branches**: Feature branches, experimental versions
+
+### Pre-Development Remote Check
+
+Add this to your development startup routine:
+
+```bash
+# Development Session Startup Checklist
+echo "🔍 Verifying git remote configuration..."
+git remote -v
+
+echo "📊 Checking git status..."
+git status
+
+echo "🔄 Fetching latest changes..."
+git fetch origin
+
+echo "✅ Ready for development!"
+npm run dev
+```
+
+### Remote Troubleshooting
+
+#### Branch Divergence Resolution
+```bash
+# If branches have diverged unexpectedly
+git status
+# Check: "Your branch and 'origin/main' have diverged"
+
+# Fetch latest remote information
+git fetch origin
+
+# Check what's different
+git log --oneline --graph --all -10
+
+# If remote is behind your work (safe to push)
+git push origin main
+
+# If remote has changes you don't have (need to pull)
+git pull origin main
+
+# If histories are completely different (check repository!)
+git log origin/main --oneline -5
+# Compare with your local commits
+git log --oneline -5
+```
+
+#### Authentication Issues
+```bash
+# If push fails with authentication error
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+
+# For GitHub, ensure you're using the correct authentication method
+# (personal access token, SSH key, etc.)
+```
+
+#### Emergency Remote Reset
+```bash
+# ONLY if you're certain the remote is wrong and you need to reset
+# This will lose any work that hasn't been pushed to the correct remote
+
+# Backup current work first
+git branch backup-$(date +%Y%m%d)
+
+# Set correct remote
+git remote set-url origin https://github.com/Flep-Glop/rogue-resident-local
+
+# Force push if needed (use with extreme caution)
+git push --force-with-lease origin main
+```
 
 ## Version Management
 
@@ -369,6 +493,27 @@ When adding features, update relevant documentation:
 ## Troubleshooting
 
 ### Common Issues
+
+#### Git Remote Repository Errors
+```bash
+# Error: "Updates were rejected because the tip of your current branch is behind"
+# Solution: Check if you're pushing to the wrong repository
+
+# Check current remote
+git remote -v
+
+# If wrong repository (e.g., pointing to -docs instead of -local)
+git remote set-url origin https://github.com/Flep-Glop/rogue-resident-local
+git fetch origin
+git status
+
+# Error: "Your branch and 'origin/main' have diverged"
+# Solution: Verify remote repository and fetch latest
+git fetch origin
+git log --oneline origin/main -5
+git log --oneline -5
+# Compare commit histories to identify the issue
+```
 
 #### Version Script Errors
 ```bash
