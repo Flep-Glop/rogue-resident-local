@@ -28,7 +28,7 @@ const initialMentorEntries = [
     title: 'Equipment Training with Jesse',
     content: 
       `Jesse is the lead radiation therapist and has been incredibly helpful on my first day. He's been at the hospital for over a decade and knows every piece of equipment inside and out.\n\n` +
-      `He gave me a tour of the treatment rooms and showed me the daily startup procedures for the linear accelerators. Jesse has a very hands-on teaching style, which I appreciate.\n\n` +
+      `He gave me a tour of the LINAC rooms and showed me the daily startup procedures for the linear accelerators. Jesse has a very hands-on teaching style, which I appreciate.\n\n` +
       `He mentioned that he's always available for questions about equipment operation and patient positioning.`
   },
   {

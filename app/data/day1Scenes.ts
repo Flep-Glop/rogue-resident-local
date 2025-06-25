@@ -56,8 +56,8 @@ export const day1Scenes: Record<Day1SceneId, Day1Scene> = {
   
   [Day1SceneId.FIRST_PATIENT]: {
     id: Day1SceneId.FIRST_PATIENT,
-    title: "Treatment Room 1",
-    location: "Treatment Room 1", 
+    title: "LINAC Room 1",
+    location: "LINAC Room 1", 
     timeAdvance: 15, // 15 minutes
     background: "linear-gradient(135deg, #10B981 0%, #34D399 100%)", // Clinical green
     dialogueId: 'day1_first_patient',

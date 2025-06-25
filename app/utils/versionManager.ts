@@ -18,14 +18,22 @@ export interface ChangelogEntry {
 
 // Current version info - update this when releasing new versions
 export const CURRENT_VERSION: VersionInfo = {
-  version: "0.3.0-dev",
+  version: "0.4.0-dev",
   buildDate: "2025-06-25",
   environment: "development",
-  commitHash: "4bf5d94" // Latest commit from git log
+  commitHash: "c074077" // Latest commit from git log
 };
 
 // Changelog entries - add new entries at the top
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: "v0.4.0-dev",
+    date: "2025-06-25",
+    type: "minor",
+    changes: [
+      "Enhanced hospital environment with interactive ambient creatures and tutorial integration"
+    ]
+  },
   {
     version: "v0.3.0-dev",
     date: "2025-06-25",

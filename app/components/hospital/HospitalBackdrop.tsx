@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { useSceneNavigation } from '@/app/components/scenes/GameContainer';
 import HospitalRoomOverlay from './HospitalRoomOverlay';
 import { useTutorialStore } from '@/app/store/tutorialStore';
@@ -13,6 +13,76 @@ import {
   TUTORIAL_STEP_ROOM_AVAILABILITY
 } from '@/app/data/tutorialDialogues';
 import { useDialogueStore } from '@/app/store/dialogueStore';
+import { ReactionSymbolType } from '@/app/components/ui/ReactionSystem';
+
+// Sprite sheet mapping (5 symbols at 35x35 each)
+const SYMBOL_SPRITE_MAP: Record<ReactionSymbolType, number> = {
+  '!': 0,      // First symbol (0-34px)
+  '?': 1,      // Second symbol (35-69px)  
+  '...': 2,    // Third symbol (70-104px)
+  '💡': 3,     // Fourth symbol (105-139px)
+  '⭐': 4      // Fifth symbol (140-174px)
+};
+
+// Sprite symbol component for displaying symbols from sprite sheet
+const SpriteSymbol = styled.div<{ $symbolIndex: number }>`
+  width: 35px;
+  height: 35px;
+  background-image: url('/images/ui/reaction-symbols.png');
+  background-size: 175px 35px; /* 5 symbols * 35px each */
+  background-position: ${props => -props.$symbolIndex * 35}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+`;
+
+// Floating reaction animations - ultra snappy!
+const symbolBounceIn = keyframes`
+  0% { 
+    transform: scale(0.1) translateY(10px); 
+    opacity: 0; 
+  }
+  80% { 
+    transform: scale(1.1) translateY(-5px); 
+    opacity: 1; 
+  }
+  100% { 
+    transform: scale(1) translateY(0); 
+    opacity: 1; 
+  }
+`;
+
+const symbolFloatUp = keyframes`
+  0% { 
+    transform: translateY(0) scale(1);
+    opacity: 1; 
+  }
+  100% { 
+    transform: translateY(-20px) scale(0.7);
+    opacity: 0; 
+  }
+`;
+
+// Floating reaction component
+const FloatingReaction = styled.div<{ $stage: 'appearing' | 'floating' }>`
+  position: absolute;
+  width: 35px;
+  height: 35px;
+  pointer-events: none;
+  z-index: 1000;
+  
+  ${props => props.$stage === 'appearing' && css`
+    animation: ${symbolBounceIn} 0.15s ease-out forwards;
+  `}
+  
+  ${props => props.$stage === 'floating' && css`
+    animation: ${symbolFloatUp} 0.8s ease-out forwards;
+    animation-delay: 0.15s;
+  `}
+`;
 
 const HospitalContainer = styled.div`
   width: 100vw;
@@ -92,10 +162,18 @@ const AmbientSprite = styled.div<{
   background-size: ${({ $spriteWidth, $frameCount }) => $spriteWidth * $frameCount}px ${({ $spriteHeight }) => $spriteHeight}px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
-  pointer-events: none;
+  pointer-events: auto; /* Make clickable */
+  cursor: pointer;
   z-index: 0; /* Behind everything else */
   transform: scale(${({ $scale }) => $scale});
   transform-origin: center;
+  
+  /* Hover effect for interactive feedback */
+  &:hover {
+    filter: brightness(1.2);
+    transform: scale(${({ $scale }) => $scale * 1.1});
+    transition: all 0.2s ease;
+  }
   
   /* Sprite frame animation with unique keyframe names */
   animation: 
@@ -146,10 +224,18 @@ const FlyingSprite = styled.div<{
   background-size: ${({ $spriteWidth, $frameCount }) => $spriteWidth * $frameCount}px ${({ $spriteHeight }) => $spriteHeight}px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
-  pointer-events: none;
+  pointer-events: auto; /* Make clickable */
+  cursor: pointer;
   z-index: 0;
   transform: scale(${({ $scale }) => $scale});
   transform-origin: center;
+  
+  /* Hover effect for interactive feedback */
+  &:hover {
+    filter: brightness(1.2);
+    transform: scale(${({ $scale }) => $scale * 1.1});
+    transition: all 0.2s ease;
+  }
   
   /* Override movement animation to use flight paths instead of linear movement */
   animation: 
@@ -225,7 +311,7 @@ const RoomArea = styled.div<{
   background: ${({ $roomId, $tutorialState }) => {
     const baseColors = {
       'physics-office': 'rgba(59, 130, 246, 0.15)',
-      'treatment-room': 'rgba(16, 185, 129, 0.15)', 
+      'linac-1': 'rgba(16, 185, 129, 0.15)', 
       'linac-2': 'rgba(245, 158, 11, 0.15)',
       'dosimetry-lab': 'rgba(236, 72, 153, 0.15)',
       'simulation-suite': 'rgba(245, 158, 11, 0.15)',
@@ -271,7 +357,7 @@ const RoomArea = styled.div<{
       
       const hoverColors = {
         'physics-office': 'rgba(59, 130, 246, 0.25)',
-        'treatment-room': 'rgba(16, 185, 129, 0.25)',
+        'linac-1': 'rgba(16, 185, 129, 0.25)',
         'linac-2': 'rgba(245, 158, 11, 0.25)',
         'dosimetry-lab': 'rgba(236, 72, 153, 0.25)',
         'simulation-suite': 'rgba(245, 158, 11, 0.25)',
@@ -287,7 +373,7 @@ const RoomArea = styled.div<{
       
       const shadowColors = {
         'physics-office': 'rgba(59, 130, 246, 0.3)',
-        'treatment-room': 'rgba(16, 185, 129, 0.3)',
+        'linac-1': 'rgba(16, 185, 129, 0.3)',
         'linac-2': 'rgba(245, 158, 11, 0.3)',
         'dosimetry-lab': 'rgba(236, 72, 153, 0.3)',
         'simulation-suite': 'rgba(245, 158, 11, 0.3)',
@@ -319,7 +405,7 @@ const RoomIndicator = styled.div<{
     
     const baseColors = {
       'physics-office': 'rgba(59, 130, 246, 0.9)',
-      'treatment-room': 'rgba(16, 185, 129, 0.9)',
+      'linac-1': 'rgba(16, 185, 129, 0.9)',
       'linac-2': 'rgba(245, 158, 11, 0.9)',
       'dosimetry-lab': 'rgba(236, 72, 153, 0.9)',
       'simulation-suite': 'rgba(245, 158, 11, 0.9)',
@@ -376,8 +462,16 @@ const PlaceholderSprite = styled.div<{
   height: ${({ $height, $scale }) => $height * $scale}px;
   background: ${({ $color }) => $color};
   border-radius: 50%;
-  pointer-events: none;
+  pointer-events: auto; /* Make clickable */
+  cursor: pointer;
   z-index: 0;
+  
+  /* Hover effect for interactive feedback */
+  &:hover {
+    filter: brightness(1.2);
+    transform: scale(1.1);
+    transition: all 0.2s ease;
+  }
   
   /* Simple pulsing animation to show life */
   animation: 
@@ -436,7 +530,7 @@ const FlyingPlaceholder = styled(PlaceholderSprite)<{ $flightPath: string }>`
 
 // Temporary placeholder configurations (easier to test)
 const PLACEHOLDER_CREATURES = [
-  // Birds (blue circles)
+  // Birds (blue circles) - reduced from 3 to 2
   {
     id: 'bird-1',
     type: 'bird',
@@ -467,23 +561,8 @@ const PLACEHOLDER_CREATURES = [
     scale: 1.5,
     flightPath: 'birdFlight2'
   },
-  {
-    id: 'bird-3',
-    type: 'bird',
-    color: '#1D4ED8',
-    width: 16,
-    height: 16,
-    pathDuration: '20s',
-    startX: 0,
-    startY: 0,
-    endX: 0,
-    endY: 0,
-    delay: '15s',
-    scale: 1.8,
-    flightPath: 'birdFlight3'
-  },
 
-  // People (green circles)
+  // People (green circles) - reduced from 2 to 1, avoiding lake region
   {
     id: 'person-1',
     type: 'person',
@@ -492,28 +571,14 @@ const PLACEHOLDER_CREATURES = [
     height: 24,
     pathDuration: '45s',
     startX: 5,
-    startY: 85,
-    endX: 95,
-    endY: 75,
+    startY: 75,
+    endX: 60,
+    endY: 65,
     delay: '0s',
     scale: 2
   },
-  {
-    id: 'person-2',
-    type: 'person',
-    color: '#34D399',
-    width: 16,
-    height: 24,
-    pathDuration: '50s',
-    startX: 90,
-    startY: 70,
-    endX: 10,
-    endY: 80,
-    delay: '12s',
-    scale: 1.8
-  },
 
-  // Deer (brown circles)
+  // Deer (brown circles) - reduced from 2 to 1
   {
     id: 'deer-1',
     type: 'deer',
@@ -528,22 +593,8 @@ const PLACEHOLDER_CREATURES = [
     delay: '5s',
     scale: 1.5
   },
-  {
-    id: 'deer-2',
-    type: 'deer',
-    color: '#B45309',
-    width: 24,
-    height: 24,
-    pathDuration: '70s',
-    startX: 85,
-    startY: 10,
-    endX: 75,
-    endY: 25,
-    delay: '20s',
-    scale: 1.3
-  },
 
-  // Small animals (orange circles)
+  // Small animals (orange circles) - reduced from 2 to 1, moved higher up
   {
     id: 'small-1',
     type: 'small-animal',
@@ -552,25 +603,11 @@ const PLACEHOLDER_CREATURES = [
     height: 12,
     pathDuration: '35s',
     startX: 70,
-    startY: 40,
+    startY: 15,
     endX: 80,
-    endY: 45,
+    endY: 20,
     delay: '10s',
     scale: 1.5
-  },
-  {
-    id: 'small-2',
-    type: 'small-animal',
-    color: '#FBBF24',
-    width: 12,
-    height: 12,
-    pathDuration: '40s',
-    startX: 30,
-    startY: 30,
-    endX: 40,
-    endY: 35,
-    delay: '25s',
-    scale: 1.2
   }
 ];
 
@@ -626,25 +663,25 @@ const ROOM_AREAS = [
   {
     id: 'cafeteria',
     name: 'Hospital Cafeteria',
-    x: 18, y: 42, width: 12, height: 8,
+    x: 14, y: 41, width: 12, height: 10,
     mentorId: 'quinn', // Quinn organizes the lunch scene
     mentorName: 'Team Lunch',
     activityType: 'narrative' as const,
     icon: '🍽️' // Dining and team gathering
   },
   {
-    id: 'treatment-room',
-    name: 'Treatment Room', 
-    x: 55, y: 28, width: 13, height: 15,
+    id: 'linac-1',
+    name: 'LINAC Room 1', 
+    x: 56, y: 24, width: 16, height: 18,
     mentorId: 'garcia',
     mentorName: 'Dr. Garcia',
     activityType: 'narrative' as const,
-    icon: '⚕️' // Medical care
+    icon: '⚡' // High-energy equipment
   },
   {
     id: 'linac-2',
     name: 'LINAC Room 2',
-    x: 64, y: 35, width: 13, height: 15,
+    x: 65, y: 32, width: 16, height: 18,
     mentorId: 'jesse',
     mentorName: 'Jesse',
     activityType: 'narrative' as const,
@@ -690,7 +727,7 @@ interface AmbientCreature {
 }
 
 const AMBIENT_CREATURES: AmbientCreature[] = [
-  // Flying Birds
+  // Flying Birds (reduced from 3 to 2)
   {
     id: 'bird-1',
     type: 'bird',
@@ -725,59 +762,82 @@ const AMBIENT_CREATURES: AmbientCreature[] = [
     scale: 1.5,
     flightPath: 'birdFlight2'
   },
-  {
-    id: 'bird-3',
-    type: 'bird',
-    spriteSheet: '/images/ambient/birds.png',
-    spriteWidth: 16,
-    spriteHeight: 16,
-    frameCount: 4,
-    animationDuration: '0.7s',
-    pathDuration: '20s',
-    startX: 0,
-    startY: 0,
-    endX: 0,
-    endY: 0,
-    delay: '15s',
-    scale: 1.8,
-    flightPath: 'birdFlight3'
-  },
 
-  // Walking People
+  // Mentor-Specific Walking Sprites - Each mentor in their area of expertise
+  
+  // Dr. Garcia - Walking around LINAC Room 1 and Physics Office (clinical areas)
   {
-    id: 'person-1',
+    id: 'garcia-walking',
     type: 'person',
-    spriteSheet: '/images/ambient/people-walking.png',
+    spriteSheet: '/images/ambient/garcia-walking.png',
     spriteWidth: 16,
     spriteHeight: 24,
     frameCount: 6,
-    animationDuration: '1.2s',
-    pathDuration: '45s',
-    startX: 5,
-    startY: 85,
-    endX: 95,
-    endY: 75,
-    delay: '0s',
-    scale: 2
+    animationDuration: '1.1s',
+    pathDuration: '50s',
+    startX: 50,
+    startY: 22,
+    endX: 30,
+    endY: 35,
+    delay: '5s',
+    scale: 1.8
   },
+
+  // Jesse - Walking around LINAC Room 2 and Simulation Suite (equipment areas)
   {
-    id: 'person-2',
+    id: 'jesse-walking',
     type: 'person',
-    spriteSheet: '/images/ambient/people-walking.png',
+    spriteSheet: '/images/ambient/jesse-walking.png',
+    spriteWidth: 16,
+    spriteHeight: 24,
+    frameCount: 6,
+    animationDuration: '1.3s',
+    pathDuration: '55s',
+    startX: 38,
+    startY: 18,
+    endX: 68,
+    endY: 38,
+    delay: '12s',
+    scale: 1.9
+  },
+
+  // Dr. Kapoor - Walking around Dosimetry Lab (precision measurement area)
+  {
+    id: 'kapoor-walking',
+    type: 'person',
+    spriteSheet: '/images/ambient/kapoor-walking.png',
     spriteWidth: 16,
     spriteHeight: 24,
     frameCount: 6,
     animationDuration: '1.0s',
-    pathDuration: '50s',
-    startX: 90,
-    startY: 70,
-    endX: 10,
-    endY: 80,
-    delay: '12s',
-    scale: 1.8
+    pathDuration: '40s',
+    startX: 72,
+    startY: 50,
+    endX: 80,
+    endY: 58,
+    delay: '8s',
+    scale: 1.7
   },
 
-  // Deer in forested areas
+  // Dr. Quinn - Walking around Physics Office and hospital corridors (administrative/planning)
+  {
+    id: 'quinn-walking',
+    type: 'person',
+    spriteSheet: '/images/ambient/quinn-walking.png',
+    spriteWidth: 16,
+    spriteHeight: 24,
+    frameCount: 6,
+    animationDuration: '1.15s',
+    pathDuration: '48s',
+    startX: 20,
+    startY: 28,
+    endX: 35,
+    endY: 45,
+    delay: '15s',
+    scale: 1.85
+  },
+
+  // Deer in forested areas (reduced from 2 to 1)
   {
     id: 'deer-1',
     type: 'deer',
@@ -794,24 +854,8 @@ const AMBIENT_CREATURES: AmbientCreature[] = [
     delay: '5s',
     scale: 1.5
   },
-  {
-    id: 'deer-2',
-    type: 'deer',
-    spriteSheet: '/images/ambient/deer.png',
-    spriteWidth: 24,
-    spriteHeight: 24,
-    frameCount: 4,
-    animationDuration: '2.2s',
-    pathDuration: '70s',
-    startX: 85,
-    startY: 10,
-    endX: 75,
-    endY: 25,
-    delay: '20s',
-    scale: 1.3
-  },
 
-  // Small animals (rabbits, squirrels)
+  // Small animals (reduced from 2 to 1, moved higher up)
   {
     id: 'small-animal-1',
     type: 'small-animal',
@@ -822,32 +866,16 @@ const AMBIENT_CREATURES: AmbientCreature[] = [
     animationDuration: '0.8s',
     pathDuration: '35s',
     startX: 70,
-    startY: 40,
+    startY: 15,
     endX: 80,
-    endY: 45,
+    endY: 20,
     delay: '10s',
     scale: 1.5
-  },
-  {
-    id: 'small-animal-2',
-    type: 'small-animal',
-    spriteSheet: '/images/ambient/small-animals.png',
-    spriteWidth: 12,
-    spriteHeight: 12,
-    frameCount: 3,
-    animationDuration: '0.9s',
-    pathDuration: '40s',
-    startX: 30,
-    startY: 30,
-    endX: 40,
-    endY: 35,
-    delay: '25s',
-    scale: 1.2
   }
 ];
 
-// Utility function to render ambient creatures
-const renderAmbientCreature = (creature: AmbientCreature) => {
+// Utility function to render ambient creatures with click handlers
+const renderAmbientCreature = (creature: AmbientCreature, handleClick: (creature: AmbientCreature, event: React.MouseEvent) => void) => {
   if (creature.type === 'bird' && creature.flightPath) {
     return (
       <FlyingSprite
@@ -865,6 +893,14 @@ const renderAmbientCreature = (creature: AmbientCreature) => {
         $delay={creature.delay}
         $scale={creature.scale}
         $flightPath={creature.flightPath}
+        onClick={(event) => handleClick(creature, event)}
+        title={
+          creature.id === 'garcia-walking' ? 'Click Dr. Garcia!' :
+          creature.id === 'jesse-walking' ? 'Click Jesse!' :
+          creature.id === 'kapoor-walking' ? 'Click Dr. Kapoor!' :
+          creature.id === 'quinn-walking' ? 'Click Dr. Quinn!' :
+          `Click the ${creature.type}!`
+        }
       />
     );
   } else {
@@ -884,6 +920,14 @@ const renderAmbientCreature = (creature: AmbientCreature) => {
         $delay={creature.delay}
         $scale={creature.scale}
         $creatureId={creature.id}
+        onClick={(event) => handleClick(creature, event)}
+        title={
+          creature.id === 'garcia-walking' ? 'Click Dr. Garcia!' :
+          creature.id === 'jesse-walking' ? 'Click Jesse!' :
+          creature.id === 'kapoor-walking' ? 'Click Dr. Kapoor!' :
+          creature.id === 'quinn-walking' ? 'Click Dr. Quinn!' :
+          `Click the ${creature.type}!`
+        }
       />
     );
   }
@@ -1015,6 +1059,54 @@ export default function HospitalBackdrop() {
   const [debugFrameIndex, setDebugFrameIndex] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isHospitalHovered, setIsHospitalHovered] = useState(false);
+  
+  // Container ref for reaction system
+  const hospitalContainerRef = React.useRef<HTMLDivElement>(null);
+  
+  // Direct reaction state management (bypass the hook issue)
+  const [directReactions, setDirectReactions] = React.useState<Array<{
+    id: string;
+    type: ReactionSymbolType;
+    x: number;
+    y: number;
+    stage: 'appearing' | 'floating';
+    timestamp: number;
+  }>>([]);
+  
+  // Direct trigger function 
+  const triggerDirectReaction = (type: ReactionSymbolType, x?: number, y?: number) => {
+    const newReaction = {
+      id: `direct-${Date.now()}-${Math.random()}`,
+      type,
+      x: x ?? 300,
+      y: y ?? 200,
+      stage: 'appearing' as const,
+      timestamp: Date.now()
+    };
+    
+    setDirectReactions(prev => [...prev, newReaction]);
+    
+    // Transition to floating stage after bounce-in animation
+    setTimeout(() => {
+      setDirectReactions(prev => 
+        prev.map(reaction => 
+          reaction.id === newReaction.id 
+            ? { ...reaction, stage: 'floating' }
+            : reaction
+        )
+      );
+    }, 150);
+    
+    // Remove after total animation time (150ms bounce + 800ms float)
+    setTimeout(() => {
+      setDirectReactions(prev => prev.filter(r => r.id !== newReaction.id));
+    }, 950);
+  };
+  
+  // Test reaction function for debugging
+  const testReaction = () => {
+    triggerDirectReaction('!', 400, 300); // Fixed position for testing
+  };
   
   // Update time every minute for weather icon only
   React.useEffect(() => {
@@ -1182,8 +1274,56 @@ export default function HospitalBackdrop() {
     setIsHospitalHovered(false);
   };
   
+  // Handle creature clicks and spawn reactions
+  const handleCreatureClick = (creature: AmbientCreature, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent triggering hospital click
+    
+    // Get creature's current position for reaction placement
+    const rect = event.currentTarget.getBoundingClientRect();
+    const containerRect = hospitalContainerRef.current?.getBoundingClientRect();
+    
+    if (!containerRect) return;
+    
+    // Calculate position relative to container
+    const relativeX = rect.left + rect.width / 2 - containerRect.left;
+    const relativeY = rect.top + rect.height / 2 - containerRect.top - 20; // Offset above creature
+    
+    // Choose reaction based on creature type and specific mentor personalities
+    let reactionType: ReactionSymbolType;
+    switch (creature.type) {
+      case 'bird':
+        reactionType = Math.random() > 0.5 ? '!' : '⭐'; // Surprise or delight
+        break;
+      case 'person':
+        // Check if it's a specific mentor
+        if (creature.id === 'garcia-walking') {
+          reactionType = Math.random() > 0.5 ? '💡' : '...'; // Thoughtful insight or caring contemplation
+        } else if (creature.id === 'jesse-walking') {
+          reactionType = Math.random() > 0.5 ? '!' : '?'; // Direct surprise or practical questioning
+        } else if (creature.id === 'kapoor-walking') {
+          reactionType = Math.random() > 0.5 ? '...' : '💡'; // Systematic thinking or precise insight
+        } else if (creature.id === 'quinn-walking') {
+          reactionType = Math.random() > 0.5 ? '⭐' : '💡'; // Pattern recognition or scientific excitement
+        } else {
+          reactionType = Math.random() > 0.5 ? '?' : '...'; // Generic confusion or thinking
+        }
+        break;
+      case 'deer':
+        reactionType = Math.random() > 0.5 ? '!' : '?'; // Alert or curious
+        break;
+      case 'small-animal':
+        reactionType = Math.random() > 0.5 ? '!' : '💡'; // Startled or clever
+        break;
+      default:
+        reactionType = '!';
+    }
+    
+    // Trigger reaction using the direct reaction system
+    triggerDirectReaction(reactionType, relativeX, relativeY);
+  };
+  
   return (
-    <HospitalContainer>
+    <HospitalContainer ref={hospitalContainerRef}>
       {/* Weather/Time Circular UI Window */}
       <WeatherTimeWindow onClick={handleTimeDisplayClick}>
         <WeatherIcon style={{ backgroundPosition: getWeatherIconPosition() }} />
@@ -1248,16 +1388,40 @@ export default function HospitalBackdrop() {
       */}
       
       {/* Real Bird Sprites (fixed scaling conflicts) */}
-      {AMBIENT_CREATURES.filter(creature => creature.type === 'bird').map(renderAmbientCreature)}
+      {AMBIENT_CREATURES.filter(creature => creature.type === 'bird').map(creature => renderAmbientCreature(creature, handleCreatureClick))}
       
-      {/* People sprites (confirmed working) */}
-      {AMBIENT_CREATURES.filter(creature => creature.type === 'person').map(renderAmbientCreature)}
+      {/* People sprites (including mentor-specific walking sprites) */}
+      {AMBIENT_CREATURES.filter(creature => creature.type === 'person').map(creature => renderAmbientCreature(creature, handleCreatureClick))}
       
       {/* Deer sprites (testing) */}
-      {AMBIENT_CREATURES.filter(creature => creature.type === 'deer').map(renderAmbientCreature)}
+      {AMBIENT_CREATURES.filter(creature => creature.type === 'deer').map(creature => renderAmbientCreature(creature, handleCreatureClick))}
       
       {/* Small animal sprites (testing) */}
-      {AMBIENT_CREATURES.filter(creature => creature.type === 'small-animal').map(renderAmbientCreature)}
+      {AMBIENT_CREATURES.filter(creature => creature.type === 'small-animal').map(creature => renderAmbientCreature(creature, handleCreatureClick))}
+
+      {/* Reaction System for creature interactions */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        pointerEvents: 'none',
+        zIndex: 1000
+      }}>
+        {directReactions.map((reaction) => (
+          <FloatingReaction
+            key={reaction.id}
+            $stage={reaction.stage}
+            style={{
+              left: `${reaction.x - 17.5}px`, // Center the 35px sprite
+              top: `${reaction.y - 17.5}px`
+            }}
+          >
+            <SpriteSymbol $symbolIndex={SYMBOL_SPRITE_MAP[reaction.type]} />
+          </FloatingReaction>
+        ))}
+      </div>
 
       {/* Always render overlay to prevent strobing - control visibility with opacity */}
       <HospitalRoomOverlay
@@ -1271,6 +1435,24 @@ export default function HospitalBackdrop() {
       />
       
       {/* Quick access buttons */}
+      <button
+        style={{
+          position: 'absolute',
+          bottom: '70px',
+          right: '20px',
+          background: 'rgba(220, 38, 38, 0.8)',
+          color: '#fff',
+          border: 'none',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontSize: '12px'
+        }}
+        onClick={testReaction}
+      >
+        🧪 Test Reaction
+      </button>
+      
       <button
         style={{
           position: 'absolute',

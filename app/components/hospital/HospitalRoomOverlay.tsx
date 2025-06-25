@@ -14,7 +14,7 @@ const RoomOverlay = styled.div<{ $visible: boolean; $roomType: string; $x?: numb
         return 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 50%, #1e1b4b 100%)';
       case 'dosimetry-lab':
         return 'linear-gradient(135deg, #EC4899 0%, #F472B6 50%, #1e1b4b 100%)';
-      case 'treatment-room':
+      case 'linac-1':
         return 'linear-gradient(135deg, #10B981 0%, #34D399 50%, #1e1b4b 100%)';
       case 'linac-2':
         return 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 50%, #1e1b4b 100%)';
@@ -118,7 +118,7 @@ interface HospitalRoomOverlayProps {
 const roomSpecialties: Record<string, string> = {
   'simulation-suite': 'Equipment modeling & troubleshooting',
   'dosimetry-lab': 'Precision measurement & calibration',
-  'treatment-room': 'Clinical workflow & patient safety',
+  'linac-1': 'Clinical workflow & patient safety',
   'linac-2': 'Linear accelerator technology & beam physics',
   'physics-office': 'Treatment planning & optimization'
 };

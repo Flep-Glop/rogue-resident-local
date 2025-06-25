@@ -206,7 +206,7 @@ function getCompetencyColor(level: string): string {
 // Room icons mapping
 const roomIcons: Record<string, string> = {
   'dosimetry-lab': '🔬',
-  'treatment-room': '⚡',
+  'linac-1': '⚡',
   'physics-office': '📊',
   'simulation-suite': '🎮'
 };

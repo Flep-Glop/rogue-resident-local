@@ -908,9 +908,9 @@ export const day1Dialogues: Record<string, Dialogue> = {
     }
   },
 
-  'treatment-room-intro': {
-    id: 'treatment-room-intro',
-    title: 'Treatment Room Clinical Experience',
+  'linac-1-intro': {
+    id: 'linac-1-intro',
+    title: 'LINAC Room 1 Clinical Experience',
     description: 'Introduction to clinical treatment delivery with Dr. Garcia',
     startNodeId: 'treatment_room_start',
     domain: 'radiation_therapy',
@@ -920,7 +920,7 @@ export const day1Dialogues: Record<string, Dialogue> = {
       'treatment_room_start': {
         id: 'treatment_room_start',
         mentorId: 'garcia',
-        text: `Welcome to where everything we plan becomes reality - the treatment room. This is sacred space where hope meets precision, where the physics equations you'll master serve their ultimate purpose: healing human beings.`,
+        text: `Welcome to where everything we plan becomes reality - LINAC Room 1. This is sacred space where hope meets precision, where the physics equations you'll master serve their ultimate purpose: healing human beings.`,
         options: [
           {
             id: 'ask_about_atmosphere',
@@ -1444,10 +1444,10 @@ export const day1Dialogues: Record<string, Dialogue> = {
     }
   },
 
-  'treatment-room-activity_challenge': {
-    id: 'treatment-room-activity_challenge',
-    title: 'Treatment Room Challenge',
-    description: 'Clinical challenge in the treatment room',
+  'linac-1-activity_challenge': {
+    id: 'linac-1-activity_challenge',
+    title: 'LINAC Room 1 Challenge',
+    description: 'Clinical challenge in LINAC Room 1',
     startNodeId: 'treatment_challenge_start',
     domain: 'radiation_therapy',
     difficulty: 2,
@@ -1456,7 +1456,7 @@ export const day1Dialogues: Record<string, Dialogue> = {
       'treatment_challenge_start': {
         id: 'treatment_challenge_start',
         mentorId: 'quinn',
-        text: `The treatment room is where theory meets practice. Let's see how well you can apply your knowledge to real clinical scenarios.`,
+        text: `LINAC Room 1 is where theory meets practice. Let's see how well you can apply your knowledge to real clinical scenarios.`,
         options: [
           {
             id: 'begin_treatment_challenge',

@@ -1097,9 +1097,9 @@ export const TUTORIAL_STEP_ROOM_AVAILABILITY: Record<string, {
   },
   
   'hospital_tour': {
-    availableRooms: ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     recommendedRoom: 'physics-office',
-    allowedRooms: ['treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    allowedRooms: ['linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Explore the hospital rooms or return to Physics Office to continue with Dr. Garcia'
   },
   
@@ -1128,27 +1128,27 @@ export const TUTORIAL_STEP_ROOM_AVAILABILITY: Record<string, {
   },
   
   'second_mentor_intro': {
-    availableRooms: ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Continue lunch conversation with Dr. Quinn'
   },
   
   'constellation_preview': {
-    availableRooms: ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Learn about the Knowledge Constellation from Dr. Quinn'
   },
   
   'first_ability_intro': {
-    availableRooms: ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Receive your first ability card from Dr. Quinn'
   },
   
   'journal_card_explanation': {
-    availableRooms: ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Learn about the journal system from Dr. Quinn'
   },
   
   'night_phase_transition': {
-    availableRooms: ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Prepare to end your first day'
   },
   
@@ -1196,22 +1196,22 @@ export const TUTORIAL_STEP_ROOM_AVAILABILITY: Record<string, {
   
   // Advanced Tutorial Steps - Allow normal gameplay
   'mentor_relationship_tracking': {
-    availableRooms: ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Practice building relationships with mentors'
   },
   
   'advanced_dialogue_options': {
-    availableRooms: ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Explore advanced conversation options'
   },
   
   'special_abilities_unlock': {
-    availableRooms: ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Discover special abilities through gameplay'
   },
   
   'boss_encounter_prep': {
-    availableRooms: ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Prepare for challenging scenarios'
   }
 };
@@ -1252,7 +1252,7 @@ export function getTutorialStepGuidance(tutorialStep: string | null): string {
  * Get all available rooms for the current tutorial step
  */
 export function getAvailableRoomsForStep(tutorialStep: string | null): string[] {
-  if (!tutorialStep) return ['physics-office', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'];
+  if (!tutorialStep) return ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'];
   
   const stepConfig = TUTORIAL_STEP_ROOM_AVAILABILITY[tutorialStep];
   return stepConfig?.availableRooms || [];

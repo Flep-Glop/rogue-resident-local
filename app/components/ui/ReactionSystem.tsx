@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { colors, spacing, typography } from '@/app/styles/pixelTheme';
 
@@ -100,11 +100,11 @@ export const getPortraitAnimation = (type: PortraitAnimationType) => {
 
 // Sprite symbol component for displaying symbols from sprite sheet
 const SpriteSymbol = styled.div<{ $symbolIndex: number }>`
-  width: 50px;  /* Scale up for better visibility */
-  height: 50px;
+  width: 60px;  /* Matching the FloatingSymbol size */
+  height: 60px;
   background-image: url('/images/ui/reaction-symbols.png');
-  background-size: 250px 50px; /* Scaled sprite sheet */
-  background-position: ${props => -props.$symbolIndex * 50}px 0px;
+  background-size: 300px 60px; /* Scaled sprite sheet to match new size */
+  background-position: ${props => -props.$symbolIndex * 60}px 0px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
@@ -123,13 +123,13 @@ const FloatingSymbol = styled.div<{
   position: absolute;
   left: ${props => props.$x}px;
   top: ${props => props.$y}px;
-  width: 50px;
-  height: 50px;
+  width: 60px;  /* Slightly larger for better visibility */
+  height: 60px;
   pointer-events: none;
-  z-index: 10;
+  z-index: 1000; /* Much higher z-index to ensure visibility */
   
-  /* Add a subtle glow effect for visibility */
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.6));
+  /* Enhanced glow effect for better visibility */
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.5));
   
   ${props => props.$stage === 'appearing' && css`
     animation: ${symbolBounceIn} 0.4s ease-out forwards;
@@ -159,7 +159,7 @@ export default function ReactionSystem({ containerRef, onAnimationComplete }: Re
   const [activeReactions, setActiveReactions] = useState<FloatingReaction[]>([]);
   
   // Spawn a floating reaction symbol
-  const spawnReaction = (type: ReactionSymbolType, x?: number, y?: number) => {
+  const spawnReaction = useCallback((type: ReactionSymbolType, x?: number, y?: number) => {
     const container = containerRef?.current;
     const containerRect = container?.getBoundingClientRect();
     
@@ -176,7 +176,13 @@ export default function ReactionSystem({ containerRef, onAnimationComplete }: Re
       timestamp: Date.now()
     };
     
-    setActiveReactions(prev => [...prev, newReaction]);
+    console.log('Creating reaction:', newReaction); // Debug log
+    
+    setActiveReactions(prev => {
+      const updated = [...prev, newReaction];
+      console.log('Active reactions:', updated); // Debug log
+      return updated;
+    });
     
     // Transition to floating stage
     setTimeout(() => {
@@ -196,8 +202,23 @@ export default function ReactionSystem({ containerRef, onAnimationComplete }: Re
       );
       onAnimationComplete?.();
     }, 2800);
-  };
+  }, [containerRef, onAnimationComplete]);
   
+  // Listen for custom events to spawn reactions
+  useEffect(() => {
+    const handleSpawnReaction = (event: CustomEvent) => {
+      const { type, x, y } = event.detail;
+      console.log('Spawning reaction:', { type, x, y }); // Debug log
+      spawnReaction(type, x, y);
+    };
+
+    window.addEventListener('spawnReaction', handleSpawnReaction as EventListener);
+    
+    return () => {
+      window.removeEventListener('spawnReaction', handleSpawnReaction as EventListener);
+    };
+  }, [spawnReaction]);
+
   // Clean up old reactions
   useEffect(() => {
     const cleanup = setInterval(() => {
@@ -211,20 +232,62 @@ export default function ReactionSystem({ containerRef, onAnimationComplete }: Re
   }, []);
   
   // Return the spawn function and rendered symbols
+  console.log('ReactionSystem rendering with reactions:', activeReactions.length);
+  
   return (
-    <>
-      {activeReactions.map(reaction => (
-        <FloatingSymbol
-          key={reaction.id}
-          $type={reaction.type}
-          $x={reaction.x}
-          $y={reaction.y}
-          $stage={reaction.stage}
-        >
-          <SpriteSymbol $symbolIndex={SYMBOL_SPRITE_MAP[reaction.type]} />
-        </FloatingSymbol>
-      ))}
-    </>
+    <div style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      pointerEvents: 'none',
+      zIndex: 2000, // Even higher
+      background: 'rgba(0,255,0,0.1)', // Temporary green tint to see the container
+    }}>
+      {activeReactions.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          left: '10px',
+          background: 'rgba(255,0,0,0.9)',
+          color: 'white',
+          padding: '5px',
+          fontSize: '12px',
+          zIndex: 3000
+        }}>
+          Active Reactions: {activeReactions.length}
+        </div>
+      )}
+             {activeReactions.map((reaction, index) => {
+         console.log(`Rendering reaction ${index}:`, reaction);
+         return (
+           <div
+             key={reaction.id}
+             style={{
+               position: 'absolute',
+               left: `${reaction.x}px`,
+               top: `${reaction.y}px`,
+               width: '80px',
+               height: '80px',
+               background: 'red',
+               border: '5px solid yellow',
+               borderRadius: '50%',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               fontSize: '24px',
+               color: 'white',
+               fontWeight: 'bold',
+               zIndex: 4000,
+               pointerEvents: 'none'
+             }}
+           >
+             {reaction.type} [{index}]
+           </div>
+         );
+       })}
+    </div>
   );
 }
 

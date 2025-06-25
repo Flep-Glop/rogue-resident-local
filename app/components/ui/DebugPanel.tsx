@@ -513,7 +513,7 @@ export default function DebugPanel() {
 
   const sampleProceduralSteps: ProceduralStep[] = [
     { stepId: 1, stepText: "Position the patient on the treatment table", explanation: "Proper positioning is essential for treatment accuracy" },
-    { stepId: 2, stepText: "Align the treatment room lasers with the patient's tattoos or marks", explanation: "Laser alignment ensures the treatment is delivered to the planned location" },
+    { stepId: 2, stepText: "Align the LINAC room lasers with the patient's tattoos or marks", explanation: "Laser alignment ensures the treatment is delivered to the planned location" },
     { stepId: 3, stepText: "Capture verification images", explanation: "Images verify the patient position matches the treatment plan" },
     { stepId: 4, stepText: "Review and approve the position", explanation: "Final check before treatment delivery" },
     { stepId: 5, stepText: "Deliver the prescribed radiation dose", explanation: "Actual treatment delivery" }

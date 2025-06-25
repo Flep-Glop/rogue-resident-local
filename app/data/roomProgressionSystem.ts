@@ -66,8 +66,8 @@ export const roomProgressions: Record<string, RoomProgression> = {
     ]
   },
 
-  'treatment-room': {
-    roomId: 'treatment-room',
+  'linac-1': {
+    roomId: 'linac-1',
     visitCount: 0,
     competencyLevel: 'beginner',
     unlockedFeatures: ['patient-setup'],

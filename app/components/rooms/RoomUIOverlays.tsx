@@ -52,8 +52,8 @@ const roomConfigs = {
     soundProfile: 'laboratory' // Just a string flag for future audio
   },
   
-  'treatment-room': {
-    title: 'TREATMENT ROOM',
+  'linac-1': {
+    title: 'LINAC ROOM 1',
     primaryMetric: 'Safety',
     secondaryMetric: 'Positioning',
     statusItems: [
@@ -166,7 +166,7 @@ export const QuestionOverlay = styled.div<{ $roomType: string }>`
           background: linear-gradient(135deg, #EC4899 0%, #F472B6 50%, #1e1b4b 100%);
           border: 2px solid #EC4899;
         `;
-      case 'treatment-room':
+      case 'linac-1':
         return `
           background: linear-gradient(135deg, #10B981 0%, #34D399 50%, #1e1b4b 100%);
           border: 2px solid #10B981;

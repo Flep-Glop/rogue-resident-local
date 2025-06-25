@@ -220,7 +220,7 @@ export const roomMentorSpecialties = {
     secondaryMentors: ['garcia', 'quinn'],
     specialNote: 'Kapoor insists on following TG-51 protocols exactly.'
   },
-  'treatment-room': {
+  'linac-1': {
     primaryMentor: 'garcia',
     expertise: 'Clinical workflow and patient safety',
     secondaryMentors: ['quinn', 'jesse'],

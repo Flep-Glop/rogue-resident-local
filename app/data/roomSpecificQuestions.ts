@@ -15,8 +15,8 @@ export const roomQuestionConfigs: Record<string, RoomQuestionConfig> = {
     feedbackStyle: 'precision',
     successParticleType: 'precision'
   },
-  'treatment-room': {
-    roomId: 'treatment-room', 
+  'linac-1': {
+    roomId: 'linac-1', 
     questionStyle: 'clinical',
     contextPrefix: '⚡ PATIENT SAFETY CHECK',
     feedbackStyle: 'safety',
@@ -136,7 +136,7 @@ export const roomQuestionBank = {
     }
   ],
   
-  'treatment-room': [
+  'linac-1': [
     {
       question: "A patient setup shows 3mm posterior shift on CBCT. What is your immediate action?",
       options: ["Proceed with treatment", "Correct the position", "Contact physician", "Re-scan patient"],
