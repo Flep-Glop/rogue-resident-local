@@ -176,13 +176,7 @@ export default function ReactionSystem({ containerRef, onAnimationComplete }: Re
       timestamp: Date.now()
     };
     
-    console.log('Creating reaction:', newReaction); // Debug log
-    
-    setActiveReactions(prev => {
-      const updated = [...prev, newReaction];
-      console.log('Active reactions:', updated); // Debug log
-      return updated;
-    });
+    setActiveReactions(prev => [...prev, newReaction]);
     
     // Transition to floating stage
     setTimeout(() => {
@@ -208,7 +202,6 @@ export default function ReactionSystem({ containerRef, onAnimationComplete }: Re
   useEffect(() => {
     const handleSpawnReaction = (event: CustomEvent) => {
       const { type, x, y } = event.detail;
-      console.log('Spawning reaction:', { type, x, y }); // Debug log
       spawnReaction(type, x, y);
     };
 
@@ -231,9 +224,6 @@ export default function ReactionSystem({ containerRef, onAnimationComplete }: Re
     return () => clearInterval(cleanup);
   }, []);
   
-  // Return the spawn function and rendered symbols
-  console.log('ReactionSystem rendering with reactions:', activeReactions.length);
-  
   return (
     <div style={{
       position: 'absolute',
@@ -242,51 +232,19 @@ export default function ReactionSystem({ containerRef, onAnimationComplete }: Re
       width: '100%',
       height: '100%',
       pointerEvents: 'none',
-      zIndex: 2000, // Even higher
-      background: 'rgba(0,255,0,0.1)', // Temporary green tint to see the container
+      zIndex: 2000,
     }}>
-      {activeReactions.length > 0 && (
-        <div style={{
-          position: 'absolute',
-          top: '10px',
-          left: '10px',
-          background: 'rgba(255,0,0,0.9)',
-          color: 'white',
-          padding: '5px',
-          fontSize: '12px',
-          zIndex: 3000
-        }}>
-          Active Reactions: {activeReactions.length}
-        </div>
-      )}
-             {activeReactions.map((reaction, index) => {
-         console.log(`Rendering reaction ${index}:`, reaction);
-         return (
-           <div
-             key={reaction.id}
-             style={{
-               position: 'absolute',
-               left: `${reaction.x}px`,
-               top: `${reaction.y}px`,
-               width: '80px',
-               height: '80px',
-               background: 'red',
-               border: '5px solid yellow',
-               borderRadius: '50%',
-               display: 'flex',
-               alignItems: 'center',
-               justifyContent: 'center',
-               fontSize: '24px',
-               color: 'white',
-               fontWeight: 'bold',
-               zIndex: 4000,
-               pointerEvents: 'none'
-             }}
-           >
-             {reaction.type} [{index}]
-           </div>
-         );
-       })}
+      {activeReactions.map((reaction) => (
+        <FloatingSymbol
+          key={reaction.id}
+          $type={reaction.type}
+          $x={reaction.x}
+          $y={reaction.y}
+          $stage={reaction.stage}
+        >
+          <SpriteSymbol $symbolIndex={SYMBOL_SPRITE_MAP[reaction.type]} />
+        </FloatingSymbol>
+      ))}
     </div>
   );
 }
