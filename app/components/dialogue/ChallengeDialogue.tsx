@@ -359,12 +359,20 @@ const OptionsContainer = styled.div`
   margin: 0 auto;
 `;
 
-const OptionButton = styled.button<{ $disabled?: boolean }>`
-  background: ${props => props.$disabled ? colors.backgroundAlt : colors.backgroundAlt};
-  ${borders.pixelBorder.outer}
+const OptionButton = styled.button<{ $disabled?: boolean; $selected?: boolean }>`
+  background: ${props => {
+    if (props.$disabled) return colors.backgroundAlt;
+    if (props.$selected) return colors.highlight;
+    return colors.backgroundAlt;
+  }};
+  ${props => props.$selected ? borders.pixelBorder.active(colors.highlight) : borders.pixelBorder.outer}
   border-radius: ${spacing.xs};
   padding: ${spacing.md} ${spacing.lg};
-  color: ${props => props.$disabled ? colors.textDim : colors.text};
+  color: ${props => {
+    if (props.$disabled) return colors.textDim;
+    if (props.$selected) return colors.background;
+    return colors.text;
+  }};
   font-family: ${typography.fontFamily.pixel};
   font-size: ${typography.fontSize.sm};
   text-align: left;
@@ -372,8 +380,11 @@ const OptionButton = styled.button<{ $disabled?: boolean }>`
   transition: all ${animation.duration.fast} ${animation.easing.pixel};
   opacity: ${props => props.$disabled ? 0.6 : 1};
   
+  /* Add subtle glow for selected option */
+  box-shadow: ${props => props.$selected && !props.$disabled ? `0 0 8px rgba(132, 90, 245, 0.4)` : 'none'};
+  
   &:hover {
-    ${props => !props.$disabled && `
+    ${props => !props.$disabled && !props.$selected && `
       ${borders.pixelBorder.active(colors.highlight)}
       background: ${colors.highlight};
       color: ${colors.background};
@@ -464,6 +475,7 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
   const [dialogueHistory, setDialogueHistory] = useState<DialogueHistoryItem[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [showReaction, setShowReaction] = useState<'positive' | 'negative' | 'neutral' | null>(null);
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState(0); // For arrow key navigation
   
   // Reaction system
   const containerRef = useRef<HTMLDivElement>(null);
@@ -525,6 +537,51 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
       });
     }
   }, [currentNode, dialogueId, initialized, onComplete]);
+
+  // Reset selected option when options change
+  useEffect(() => {
+    setSelectedOptionIndex(0);
+  }, [availableOptions.length]);
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        
+        // If there are no options and not typing, complete dialogue
+        if (!isTyping && availableOptions.length === 0) {
+          if (onComplete) {
+            onComplete({
+              dialogueId,
+              completed: true
+            });
+          }
+        }
+        // If there are options, select the highlighted one
+        else if (!isTyping && availableOptions.length > 0) {
+          const selectedOption = availableOptions[selectedOptionIndex];
+          if (selectedOption && !isOptionDisabled(selectedOption)) {
+            handleSelectOption(selectedOption);
+          }
+        }
+      } else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+        e.preventDefault();
+        if (availableOptions.length > 0 && !isTyping) {
+          setSelectedOptionIndex(prevIndex => {
+            if (e.code === 'ArrowUp') {
+              return prevIndex > 0 ? prevIndex - 1 : availableOptions.length - 1;
+            } else {
+              return prevIndex < availableOptions.length - 1 ? prevIndex + 1 : 0;
+            }
+          });
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [isTyping, availableOptions, selectedOptionIndex, onComplete, dialogueId]);
   
   // Handle selecting an option
   const handleSelectOption = (option: DialogueOption) => {
@@ -662,12 +719,13 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
       {!isTyping && availableOptions.length > 0 && (
         <OptionsSection>
           <OptionsContainer>
-            {availableOptions.map((option) => (
+            {availableOptions.map((option, index) => (
               <OptionButton
                 key={option.id}
                 onClick={() => handleSelectOption(option)}
                 disabled={isOptionDisabled(option)}
                 $disabled={isOptionDisabled(option)}
+                $selected={index === selectedOptionIndex}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>{option.text}</span>

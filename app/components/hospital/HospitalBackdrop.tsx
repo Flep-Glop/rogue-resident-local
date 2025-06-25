@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useSceneNavigation } from '@/app/components/scenes/GameContainer';
 import HospitalRoomOverlay from './HospitalRoomOverlay';
-import { useTutorialNavigation, useTutorialStore } from '@/app/store/tutorialStore';
+import { useTutorialStore } from '@/app/store/tutorialStore';
 import { 
   getTutorialDialogueForRoom, 
   isRoomAvailableInTutorial,
@@ -52,6 +52,142 @@ const HospitalBuilding = styled.div`
   cursor: pointer;
 `;
 
+// Hospital floor overlay that fades on hover
+const HospitalFloorOverlay = styled.div<{ $isHovered: boolean }>`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('/images/hospital/hospital-floor-closed.png');
+  background-size: 300%;
+  background-repeat: no-repeat;
+  background-position: -1900px -600px;
+  opacity: ${({ $isHovered }) => $isHovered ? 0 : 1};
+  transition: opacity 0.5s ease-in-out;
+  pointer-events: none;
+  z-index: 1;
+`;
+
+// Animated ambient sprites (animals, people, etc.)
+const AmbientSprite = styled.div<{ 
+  $spriteSheet: string;
+  $spriteWidth: number;
+  $spriteHeight: number;
+  $frameCount: number;
+  $animationDuration: string;
+  $pathDuration: string;
+  $startX: number;
+  $startY: number;
+  $endX: number;
+  $endY: number;
+  $delay: string;
+  $scale: number;
+  $creatureId: string; // Add unique ID for keyframe names
+}>`
+  position: absolute;
+  width: ${({ $spriteWidth }) => $spriteWidth}px;
+  height: ${({ $spriteHeight }) => $spriteHeight}px;
+  background-image: url('${({ $spriteSheet }) => $spriteSheet}');
+  background-size: ${({ $spriteWidth, $frameCount }) => $spriteWidth * $frameCount}px ${({ $spriteHeight }) => $spriteHeight}px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 0; /* Behind everything else */
+  transform: scale(${({ $scale }) => $scale});
+  transform-origin: center;
+  
+  /* Sprite frame animation with unique keyframe names */
+  animation: 
+    spriteAnimation-${({ $creatureId }) => $creatureId} ${({ $animationDuration }) => $animationDuration} steps(${({ $frameCount }) => $frameCount}) infinite,
+    movePath-${({ $creatureId }) => $creatureId} ${({ $pathDuration }) => $pathDuration} linear infinite ${({ $delay }) => $delay};
+  
+  /* Movement path */
+  left: ${({ $startX }) => $startX}%;
+  top: ${({ $startY }) => $startY}%;
+  
+  @keyframes movePath-${({ $creatureId }) => $creatureId} {
+    0% {
+      left: ${({ $startX }) => $startX}%;
+      top: ${({ $startY }) => $startY}%;
+    }
+    100% {
+      left: ${({ $endX }) => $endX}%;
+      top: ${({ $endY }) => $endY}%;
+    }
+  }
+  
+  @keyframes spriteAnimation-${({ $creatureId }) => $creatureId} {
+    0% { background-position-x: 0; }
+    100% { background-position-x: -${({ $spriteWidth, $frameCount }) => $spriteWidth * $frameCount}px; }
+  }
+`;
+
+// Flying bird sprite (different animation pattern)
+const FlyingSprite = styled.div<{ 
+  $spriteSheet: string;
+  $spriteWidth: number;
+  $spriteHeight: number;
+  $frameCount: number;
+  $animationDuration: string;
+  $pathDuration: string;
+  $startX: number;
+  $startY: number;
+  $endX: number;
+  $endY: number;
+  $delay: string;
+  $scale: number;
+  $flightPath: string;
+}>`
+  position: absolute;
+  width: ${({ $spriteWidth }) => $spriteWidth}px;
+  height: ${({ $spriteHeight }) => $spriteHeight}px;
+  background-image: url('${({ $spriteSheet }) => $spriteSheet}');
+  background-size: ${({ $spriteWidth, $frameCount }) => $spriteWidth * $frameCount}px ${({ $spriteHeight }) => $spriteHeight}px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 0;
+  transform: scale(${({ $scale }) => $scale});
+  transform-origin: center;
+  
+  /* Override movement animation to use flight paths instead of linear movement */
+  animation: 
+    birdSpriteAnimation ${({ $animationDuration }) => $animationDuration} steps(${({ $frameCount }) => $frameCount}) infinite,
+    ${({ $flightPath }) => $flightPath} ${({ $pathDuration }) => $pathDuration} ease-in-out infinite ${({ $delay }) => $delay};
+  
+  /* Initial position (will be overridden by flight path) */
+  left: ${({ $startX }) => $startX}%;
+  top: ${({ $startY }) => $startY}%;
+  
+  @keyframes birdSpriteAnimation {
+    0% { background-position-x: 0; }
+    100% { background-position-x: -${({ $spriteWidth, $frameCount }) => $spriteWidth * $frameCount}px; }
+  }
+  
+  @keyframes birdFlight1 {
+    0% { left: -10%; top: 15%; }
+    25% { left: 20%; top: 10%; }
+    50% { left: 50%; top: 8%; }
+    75% { left: 80%; top: 12%; }
+    100% { left: 110%; top: 18%; }
+  }
+  
+  @keyframes birdFlight2 {
+    0% { left: 110%; top: 20%; }
+    25% { left: 75%; top: 15%; }
+    50% { left: 40%; top: 12%; }
+    75% { left: 15%; top: 18%; }
+    100% { left: -10%; top: 25%; }
+  }
+  
+  @keyframes birdFlight3 {
+    0% { left: -10%; top: 8%; }
+    50% { left: 60%; top: 5%; }
+    100% { left: 110%; top: 12%; }
+  }
+`;
+
 // Enhanced isometric room area with tutorial-aware visual states
 const RoomArea = styled.div<{ 
   x: number; 
@@ -61,12 +197,19 @@ const RoomArea = styled.div<{
   $roomId: string;
   $activityType: 'narrative' | 'challenge';
   $tutorialState?: 'available' | 'recommended' | 'disabled';
+  $hospitalHovered: boolean;
 }>`
   position: absolute;
   left: ${({ x }) => x}%;
   top: ${({ y }) => y}%;
   width: ${({ width }) => width}%;
   height: ${({ height }) => height}%;
+  z-index: 2;
+  
+  /* Hide room areas when hospital roof is closed */
+  opacity: ${({ $hospitalHovered }) => $hospitalHovered ? 1 : 0};
+  visibility: ${({ $hospitalHovered }) => $hospitalHovered ? 'visible' : 'hidden'};
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
   
   /* Isometric diamond shape using clip-path */
   clip-path: polygon(
@@ -119,10 +262,12 @@ const RoomArea = styled.div<{
   /* Tutorial-aware opacity */
   opacity: ${({ $tutorialState }) => $tutorialState === 'disabled' ? 0.3 : 1};
   
+  /* Hover effects - completely disabled for disabled rooms */
   &:hover {
+    /* Only apply hover effects if not disabled */
     transform: ${({ $tutorialState }) => $tutorialState === 'disabled' ? 'none' : 'scale(1.08)'};
     background: ${({ $roomId, $tutorialState }) => {
-      if ($tutorialState === 'disabled') return 'inherit';
+      if ($tutorialState === 'disabled') return undefined; // Keep original background
       
       const hoverColors = {
         'physics-office': 'rgba(59, 130, 246, 0.25)',
@@ -136,9 +281,9 @@ const RoomArea = styled.div<{
       const roomColor = hoverColors[$roomId as keyof typeof hoverColors] || hoverColors.default;
       return `radial-gradient(ellipse at center, ${roomColor} 0%, ${roomColor.replace('0.25', '0.12')} 60%, transparent 100%)`;
     }};
-    border-color: transparent;
+    border-color: ${({ $tutorialState }) => $tutorialState === 'disabled' ? 'transparent' : 'transparent'};
     box-shadow: ${({ $tutorialState, $roomId }) => {
-      if ($tutorialState === 'disabled') return 'none';
+      if ($tutorialState === 'disabled') return undefined; // Keep original shadow
       
       const shadowColors = {
         'physics-office': 'rgba(59, 130, 246, 0.3)',
@@ -152,7 +297,7 @@ const RoomArea = styled.div<{
       const shadowColor = shadowColors[$roomId as keyof typeof shadowColors] || shadowColors.default;
       return `0 0 20px ${shadowColor}`;
     }};
-    animation: ${({ $tutorialState }) => $tutorialState === 'disabled' ? 'none' : 'roomPulseHover 1.5s ease-in-out infinite'};
+    animation: ${({ $tutorialState }) => $tutorialState === 'disabled' ? undefined : 'roomPulseHover 1.5s ease-in-out infinite'};
   }
 `;
 
@@ -213,33 +358,259 @@ const RoomIndicator = styled.div<{
   }
 `;
 
-// Removed unused styled components for cleaner code
-
-// Simplified - no longer need separate component
-
-const BackButton = styled.button`
+// Temporary placeholder sprite for testing (replace with real sprites later)
+const PlaceholderSprite = styled.div<{
+  $color: string;
+  $pathDuration: string;
+  $startX: number;
+  $startY: number;
+  $endX: number;
+  $endY: number;
+  $delay: string;
+  $scale: number;
+  $width: number;
+  $height: number;
+}>`
   position: absolute;
-  top: 20px;
-  left: 20px;
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 14px;
+  width: ${({ $width, $scale }) => $width * $scale}px;
+  height: ${({ $height, $scale }) => $height * $scale}px;
+  background: ${({ $color }) => $color};
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
   
-  &:hover {
-    background: rgba(0, 0, 0, 0.9);
+  /* Simple pulsing animation to show life */
+  animation: 
+    placeholderPulse 2s ease-in-out infinite,
+    movePath ${({ $pathDuration }) => $pathDuration} linear infinite ${({ $delay }) => $delay};
+  
+  left: ${({ $startX }) => $startX}%;
+  top: ${({ $startY }) => $startY}%;
+  
+  @keyframes movePath {
+    0% {
+      left: ${({ $startX }) => $startX}%;
+      top: ${({ $startY }) => $startY}%;
+    }
+    100% {
+      left: ${({ $endX }) => $endX}%;
+      top: ${({ $endY }) => $endY}%;
+    }
   }
   
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  @keyframes placeholderPulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
   }
 `;
 
+// Flying placeholder with different movement
+const FlyingPlaceholder = styled(PlaceholderSprite)<{ $flightPath: string }>`
+  border-radius: 20% 80%;
+  animation: 
+    placeholderPulse 1s ease-in-out infinite,
+    ${({ $flightPath }) => $flightPath} ${({ $pathDuration }) => $pathDuration} ease-in-out infinite ${({ $delay }) => $delay};
+  
+  @keyframes birdFlight1 {
+    0% { left: -10%; top: 15%; }
+    25% { left: 20%; top: 10%; }
+    50% { left: 50%; top: 8%; }
+    75% { left: 80%; top: 12%; }
+    100% { left: 110%; top: 18%; }
+  }
+  
+  @keyframes birdFlight2 {
+    0% { left: 110%; top: 20%; }
+    25% { left: 75%; top: 15%; }
+    50% { left: 40%; top: 12%; }
+    75% { left: 15%; top: 18%; }
+    100% { left: -10%; top: 25%; }
+  }
+  
+  @keyframes birdFlight3 {
+    0% { left: -10%; top: 8%; }
+    50% { left: 60%; top: 5%; }
+    100% { left: 110%; top: 12%; }
+  }
+`;
 
+// Temporary placeholder configurations (easier to test)
+const PLACEHOLDER_CREATURES = [
+  // Birds (blue circles)
+  {
+    id: 'bird-1',
+    type: 'bird',
+    color: '#3B82F6',
+    width: 16,
+    height: 16,
+    pathDuration: '25s',
+    startX: 0,
+    startY: 0,
+    endX: 0,
+    endY: 0,
+    delay: '0s',
+    scale: 2,
+    flightPath: 'birdFlight1'
+  },
+  {
+    id: 'bird-2', 
+    type: 'bird',
+    color: '#60A5FA',
+    width: 16,
+    height: 16,
+    pathDuration: '30s',
+    startX: 0,
+    startY: 0,
+    endX: 0,
+    endY: 0,
+    delay: '8s',
+    scale: 1.5,
+    flightPath: 'birdFlight2'
+  },
+  {
+    id: 'bird-3',
+    type: 'bird',
+    color: '#1D4ED8',
+    width: 16,
+    height: 16,
+    pathDuration: '20s',
+    startX: 0,
+    startY: 0,
+    endX: 0,
+    endY: 0,
+    delay: '15s',
+    scale: 1.8,
+    flightPath: 'birdFlight3'
+  },
+
+  // People (green circles)
+  {
+    id: 'person-1',
+    type: 'person',
+    color: '#10B981',
+    width: 16,
+    height: 24,
+    pathDuration: '45s',
+    startX: 5,
+    startY: 85,
+    endX: 95,
+    endY: 75,
+    delay: '0s',
+    scale: 2
+  },
+  {
+    id: 'person-2',
+    type: 'person',
+    color: '#34D399',
+    width: 16,
+    height: 24,
+    pathDuration: '50s',
+    startX: 90,
+    startY: 70,
+    endX: 10,
+    endY: 80,
+    delay: '12s',
+    scale: 1.8
+  },
+
+  // Deer (brown circles)
+  {
+    id: 'deer-1',
+    type: 'deer',
+    color: '#92400E',
+    width: 24,
+    height: 24,
+    pathDuration: '60s',
+    startX: 15,
+    startY: 15,
+    endX: 25,
+    endY: 20,
+    delay: '5s',
+    scale: 1.5
+  },
+  {
+    id: 'deer-2',
+    type: 'deer',
+    color: '#B45309',
+    width: 24,
+    height: 24,
+    pathDuration: '70s',
+    startX: 85,
+    startY: 10,
+    endX: 75,
+    endY: 25,
+    delay: '20s',
+    scale: 1.3
+  },
+
+  // Small animals (orange circles)
+  {
+    id: 'small-1',
+    type: 'small-animal',
+    color: '#F59E0B',
+    width: 12,
+    height: 12,
+    pathDuration: '35s',
+    startX: 70,
+    startY: 40,
+    endX: 80,
+    endY: 45,
+    delay: '10s',
+    scale: 1.5
+  },
+  {
+    id: 'small-2',
+    type: 'small-animal',
+    color: '#FBBF24',
+    width: 12,
+    height: 12,
+    pathDuration: '40s',
+    startX: 30,
+    startY: 30,
+    endX: 40,
+    endY: 35,
+    delay: '25s',
+    scale: 1.2
+  }
+];
+
+// Render function for placeholder creatures
+const renderPlaceholderCreature = (creature: any) => {
+  if (creature.type === 'bird' && creature.flightPath) {
+    return (
+      <FlyingPlaceholder
+        key={creature.id}
+        $color={creature.color}
+        $pathDuration={creature.pathDuration}
+        $startX={creature.startX}
+        $startY={creature.startY}
+        $endX={creature.endX}
+        $endY={creature.endY}
+        $delay={creature.delay}
+        $scale={creature.scale}
+        $width={creature.width}
+        $height={creature.height}
+        $flightPath={creature.flightPath}
+      />
+    );
+  } else {
+    return (
+      <PlaceholderSprite
+        key={creature.id}
+        $color={creature.color}
+        $pathDuration={creature.pathDuration}
+        $startX={creature.startX}
+        $startY={creature.startY}
+        $endX={creature.endX}
+        $endY={creature.endY}
+        $delay={creature.delay}
+        $scale={creature.scale}
+        $width={creature.width}
+        $height={creature.height}
+      />
+    );
+  }
+};
 
 // Room definitions with isometric click areas and thematic icons
 const ROOM_AREAS = [
@@ -299,7 +670,224 @@ const ROOM_AREAS = [
   }
 ];
 
+// Ambient creature configurations
+interface AmbientCreature {
+  id: string;
+  type: 'bird' | 'person' | 'deer' | 'small-animal';
+  spriteSheet: string;
+  spriteWidth: number;
+  spriteHeight: number;
+  frameCount: number;
+  animationDuration: string;
+  pathDuration: string;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  delay: string;
+  scale: number;
+  flightPath?: string; // For birds
+}
 
+const AMBIENT_CREATURES: AmbientCreature[] = [
+  // Flying Birds
+  {
+    id: 'bird-1',
+    type: 'bird',
+    spriteSheet: '/images/ambient/birds.png',
+    spriteWidth: 16,
+    spriteHeight: 16,
+    frameCount: 4,
+    animationDuration: '0.8s',
+    pathDuration: '25s',
+    startX: 0,
+    startY: 0,
+    endX: 0,
+    endY: 0,
+    delay: '0s',
+    scale: 2,
+    flightPath: 'birdFlight1'
+  },
+  {
+    id: 'bird-2',
+    type: 'bird',
+    spriteSheet: '/images/ambient/birds.png',
+    spriteWidth: 16,
+    spriteHeight: 16,
+    frameCount: 4,
+    animationDuration: '0.6s',
+    pathDuration: '30s',
+    startX: 0,
+    startY: 0,
+    endX: 0,
+    endY: 0,
+    delay: '8s',
+    scale: 1.5,
+    flightPath: 'birdFlight2'
+  },
+  {
+    id: 'bird-3',
+    type: 'bird',
+    spriteSheet: '/images/ambient/birds.png',
+    spriteWidth: 16,
+    spriteHeight: 16,
+    frameCount: 4,
+    animationDuration: '0.7s',
+    pathDuration: '20s',
+    startX: 0,
+    startY: 0,
+    endX: 0,
+    endY: 0,
+    delay: '15s',
+    scale: 1.8,
+    flightPath: 'birdFlight3'
+  },
+
+  // Walking People
+  {
+    id: 'person-1',
+    type: 'person',
+    spriteSheet: '/images/ambient/people-walking.png',
+    spriteWidth: 16,
+    spriteHeight: 24,
+    frameCount: 6,
+    animationDuration: '1.2s',
+    pathDuration: '45s',
+    startX: 5,
+    startY: 85,
+    endX: 95,
+    endY: 75,
+    delay: '0s',
+    scale: 2
+  },
+  {
+    id: 'person-2',
+    type: 'person',
+    spriteSheet: '/images/ambient/people-walking.png',
+    spriteWidth: 16,
+    spriteHeight: 24,
+    frameCount: 6,
+    animationDuration: '1.0s',
+    pathDuration: '50s',
+    startX: 90,
+    startY: 70,
+    endX: 10,
+    endY: 80,
+    delay: '12s',
+    scale: 1.8
+  },
+
+  // Deer in forested areas
+  {
+    id: 'deer-1',
+    type: 'deer',
+    spriteSheet: '/images/ambient/deer.png',
+    spriteWidth: 24,
+    spriteHeight: 24,
+    frameCount: 4,
+    animationDuration: '2.0s',
+    pathDuration: '60s',
+    startX: 15,
+    startY: 15,
+    endX: 25,
+    endY: 20,
+    delay: '5s',
+    scale: 1.5
+  },
+  {
+    id: 'deer-2',
+    type: 'deer',
+    spriteSheet: '/images/ambient/deer.png',
+    spriteWidth: 24,
+    spriteHeight: 24,
+    frameCount: 4,
+    animationDuration: '2.2s',
+    pathDuration: '70s',
+    startX: 85,
+    startY: 10,
+    endX: 75,
+    endY: 25,
+    delay: '20s',
+    scale: 1.3
+  },
+
+  // Small animals (rabbits, squirrels)
+  {
+    id: 'small-animal-1',
+    type: 'small-animal',
+    spriteSheet: '/images/ambient/small-animals.png',
+    spriteWidth: 12,
+    spriteHeight: 12,
+    frameCount: 3,
+    animationDuration: '0.8s',
+    pathDuration: '35s',
+    startX: 70,
+    startY: 40,
+    endX: 80,
+    endY: 45,
+    delay: '10s',
+    scale: 1.5
+  },
+  {
+    id: 'small-animal-2',
+    type: 'small-animal',
+    spriteSheet: '/images/ambient/small-animals.png',
+    spriteWidth: 12,
+    spriteHeight: 12,
+    frameCount: 3,
+    animationDuration: '0.9s',
+    pathDuration: '40s',
+    startX: 30,
+    startY: 30,
+    endX: 40,
+    endY: 35,
+    delay: '25s',
+    scale: 1.2
+  }
+];
+
+// Utility function to render ambient creatures
+const renderAmbientCreature = (creature: AmbientCreature) => {
+  if (creature.type === 'bird' && creature.flightPath) {
+    return (
+      <FlyingSprite
+        key={creature.id}
+        $spriteSheet={creature.spriteSheet}
+        $spriteWidth={creature.spriteWidth}
+        $spriteHeight={creature.spriteHeight}
+        $frameCount={creature.frameCount}
+        $animationDuration={creature.animationDuration}
+        $pathDuration={creature.pathDuration}
+        $startX={creature.startX}
+        $startY={creature.startY}
+        $endX={creature.endX}
+        $endY={creature.endY}
+        $delay={creature.delay}
+        $scale={creature.scale}
+        $flightPath={creature.flightPath}
+      />
+    );
+  } else {
+    return (
+      <AmbientSprite
+        key={creature.id}
+        $spriteSheet={creature.spriteSheet}
+        $spriteWidth={creature.spriteWidth}
+        $spriteHeight={creature.spriteHeight}
+        $frameCount={creature.frameCount}
+        $animationDuration={creature.animationDuration}
+        $pathDuration={creature.pathDuration}
+        $startX={creature.startX}
+        $startY={creature.startY}
+        $endX={creature.endX}
+        $endY={creature.endY}
+        $delay={creature.delay}
+        $scale={creature.scale}
+        $creatureId={creature.id}
+      />
+    );
+  }
+};
 
 // Weather/Time Circular UI Window
 const WeatherTimeWindow = styled.div`
@@ -398,12 +986,35 @@ const ToastNotification = styled.div<{ $visible: boolean }>`
   }
 `;
 
+const BackButton = styled.button`
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  
+  &:hover {
+    background: rgba(0, 0, 0, 0.9);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
 export default function HospitalBackdrop() {
   const [hoveredRoom, setHoveredRoom] = useState<typeof ROOM_AREAS[0] | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [currentTime, setCurrentTime] = useState(new Date());
   const [debugFrameIndex, setDebugFrameIndex] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isHospitalHovered, setIsHospitalHovered] = useState(false);
   
   // Update time every minute for weather icon only
   React.useEffect(() => {
@@ -463,7 +1074,7 @@ export default function HospitalBackdrop() {
     goToConstellation 
   } = useSceneNavigation();
   
-  const { startFirstDayTutorial } = useTutorialNavigation();
+
   const tutorialStore = useTutorialStore();
   const dialogueStore = useDialogueStore();
   
@@ -539,7 +1150,15 @@ export default function HospitalBackdrop() {
     }
   };
   
-  const handleRoomHover = (room: typeof ROOM_AREAS[0], event: React.MouseEvent) => {
+    const handleRoomHover = (room: typeof ROOM_AREAS[0], event: React.MouseEvent) => {
+    // Check if room is disabled in tutorial - don't show tooltip for disabled rooms
+    const tutorialState = getRoomTutorialState(room.id);
+    if (tutorialState === 'disabled') {
+      // Explicitly clear hovered room for disabled rooms to prevent glitches
+      setHoveredRoom(null);
+      return;
+    }
+    
     setHoveredRoom(room);
     
     // Calculate position relative to the room area center
@@ -549,9 +1168,18 @@ export default function HospitalBackdrop() {
     
     setTooltipPosition({ x: centerX, y: centerY });
   };
-  
+
   const handleRoomLeave = () => {
+    // Clear hovered room when leaving any room
     setHoveredRoom(null);
+  };
+
+  const handleHospitalHover = () => {
+    setIsHospitalHovered(true);
+  };
+
+  const handleHospitalLeave = () => {
+    setIsHospitalHovered(false);
   };
   
   return (
@@ -577,7 +1205,13 @@ export default function HospitalBackdrop() {
         </BackButton>
       )}
       
-      <HospitalBuilding>
+      <HospitalBuilding
+        onMouseEnter={handleHospitalHover}
+        onMouseLeave={handleHospitalLeave}
+      >
+        {/* Hospital floor overlay that fades on hover */}
+        <HospitalFloorOverlay $isHovered={isHospitalHovered} />
+        
         {ROOM_AREAS.map(room => {
           const tutorialState = getRoomTutorialState(room.id);
           
@@ -591,6 +1225,7 @@ export default function HospitalBackdrop() {
               $roomId={room.id}
               $activityType={room.activityType}
               $tutorialState={tutorialState}
+              $hospitalHovered={isHospitalHovered}
               onClick={() => handleRoomClick(room)}
               onMouseEnter={(e: React.MouseEvent) => handleRoomHover(room, e)}
               onMouseLeave={handleRoomLeave}
@@ -603,6 +1238,27 @@ export default function HospitalBackdrop() {
         })}
       </HospitalBuilding>
       
+      {/* Ambient Creatures - Behind everything but add life to the scene */}
+      {/* 
+        TESTING: All creature types with proper scaling approach
+        - Container: Original sprite dimensions
+        - Background-size: Original sprite sheet dimensions  
+        - Background-position: Original calculations
+        - Visual scaling: CSS transform: scale() applied to whole element
+      */}
+      
+      {/* Real Bird Sprites (fixed scaling conflicts) */}
+      {AMBIENT_CREATURES.filter(creature => creature.type === 'bird').map(renderAmbientCreature)}
+      
+      {/* People sprites (confirmed working) */}
+      {AMBIENT_CREATURES.filter(creature => creature.type === 'person').map(renderAmbientCreature)}
+      
+      {/* Deer sprites (testing) */}
+      {AMBIENT_CREATURES.filter(creature => creature.type === 'deer').map(renderAmbientCreature)}
+      
+      {/* Small animal sprites (testing) */}
+      {AMBIENT_CREATURES.filter(creature => creature.type === 'small-animal').map(renderAmbientCreature)}
+
       {/* Always render overlay to prevent strobing - control visibility with opacity */}
       <HospitalRoomOverlay
         visible={!!hoveredRoom}
@@ -631,25 +1287,6 @@ export default function HospitalBackdrop() {
         onClick={goToConstellation}
       >
         ⭐ Knowledge Constellation
-      </button>
-      
-      {/* Tutorial test button */}
-      <button
-        style={{
-          position: 'absolute',
-          bottom: '80px',
-          right: '20px',
-          background: 'rgba(16, 185, 129, 0.8)',
-          color: '#fff',
-          border: 'none',
-          padding: '12px 20px',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          fontSize: '14px'
-        }}
-        onClick={startFirstDayTutorial}
-      >
-        🎓 Start Tutorial
       </button>
       
       {/* Enhanced CSS Animations with tutorial states */}

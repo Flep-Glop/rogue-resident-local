@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled, { keyframes, css, createGlobalStyle } from 'styled-components';
 import { useGameStore } from '@/app/store/gameStore';
+import { useTutorialStore } from '@/app/store/tutorialStore';
 import { GamePhase, Difficulty } from '@/app/types';
 import { Day1SceneId } from '@/app/types/day1';
 import { colors, typography, shadows } from '@/app/styles/pixelTheme';
@@ -785,26 +786,24 @@ export const TitleScreen: React.FC = () => {
     
     // Short delay to show button press effect before transitioning
     setTimeout(() => {
-      // Use the new consolidated Day 1 scene system instead of old Prologue
+      // Initialize fresh game state
       const gameStore = useGameStore.getState();
-      
-      // Initialize fresh game state (similar to debug panel)
       const newTime = gameStore.timeManager.resetToStartOfDay();
       useGameStore.setState({ 
         currentTime: newTime,
-        daysPassed: 0  // Keep at 0 for Day 1/Prologue
+        daysPassed: 0
       });
       
-      gameStore.setDay1Scene(Day1SceneId.PROLOGUE_INTRO); // Start with prologue intro
-      setPhase(GamePhase.DAY); // Go to DAY phase which will render Day1Controller
+      // Start tutorial immediately instead of going to Day1/Prologue system
+      const tutorialStore = useTutorialStore.getState();
+      tutorialStore.startTutorial('first_day');
+      
+      setPhase(GamePhase.DAY); // Go to DAY phase which will render tutorial
     }, 800);
   };
 
   const handleLoadDev = () => {
     setLoadingDev(true);
-    // Set player name to DEVELOPER and skip to DAY phase
-    setPlayerName("DEVELOPER");
-    setDifficulty(Difficulty.STANDARD);
     
     if (menuRef.current) {
       menuRef.current.style.opacity = '0.5';
@@ -813,7 +812,23 @@ export const TitleScreen: React.FC = () => {
     
     // Short delay to show button press effect before transitioning
     setTimeout(() => {
-      setPhase(GamePhase.DAY);
+      // Initialize game state for dev mode
+      const gameStore = useGameStore.getState();
+      const newTime = gameStore.timeManager.resetToStartOfDay();
+      useGameStore.setState({ 
+        currentTime: newTime,
+        daysPassed: 0
+      });
+      
+      // Set player name to DEVELOPER and skip to open hospital state
+      setPlayerName("DEVELOPER");
+      setDifficulty(Difficulty.STANDARD);
+      
+      // Ensure tutorial is disabled for dev mode
+      const tutorialStore = useTutorialStore.getState();
+      tutorialStore.disableTutorialMode();
+      
+      setPhase(GamePhase.DAY); // Go to DAY phase without tutorial
     }, 500);
   };
 

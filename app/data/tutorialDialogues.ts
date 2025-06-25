@@ -1122,7 +1122,7 @@ export const TUTORIAL_STEP_ROOM_AVAILABILITY: Record<string, {
   },
   
   'lunch_dialogue': {
-    availableRooms: ['physics-office', 'cafeteria', 'treatment-room', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
+    availableRooms: ['cafeteria'],
     recommendedRoom: 'cafeteria',
     description: 'Head to the cafeteria for lunch with the team'
   },

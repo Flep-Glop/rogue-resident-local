@@ -18,14 +18,37 @@ export interface ChangelogEntry {
 
 // Current version info - update this when releasing new versions
 export const CURRENT_VERSION: VersionInfo = {
-  version: "0.2.0-dev",
-  buildDate: "2025-06-23",
+  version: "0.3.0-dev",
+  buildDate: "2025-06-25",
   environment: "development",
-  commitHash: "a31db4e" // Latest commit from git log
+  commitHash: "4bf5d94" // Latest commit from git log
 };
 
 // Changelog entries - add new entries at the top
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: "v0.3.0-dev",
+    date: "2025-06-25",
+    type: "minor",
+    highlights: [
+      "Authentic character dialogue system",
+      "Interactive hospital exploration",
+      "Living environment with creature animations",
+      "Full keyboard navigation support"
+    ],
+    changes: [
+      "Implemented sophisticated character voice framework with authentic workplace dialogue",
+      "Added multi-character lunch scene with branching narrative paths and colleague dynamics",
+      "Created stage direction parsing system for enhanced dialogue presentation",
+      "Added interactive hospital overlay that fades on hover to reveal interior rooms",
+      "Implemented comprehensive ambient creature animation system (birds, people, deer, small animals)",
+      "Added full keyboard navigation for dialogue with arrow keys and spacebar controls",
+      "Enhanced tutorial flow with streamlined 'Begin Residency' entry and dev mode access",
+      "Created cafeteria room for team gathering scenes with proper tutorial integration",
+      "Fixed room tooltip behavior and hover state issues for improved user experience",
+      "Established scalable sprite animation framework with proper scaling architecture"
+    ]
+  },
   {
     version: "v0.2.0-dev",
     date: "2025-06-23",
