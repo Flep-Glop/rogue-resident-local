@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { colors, spacing, typography, borders, animation } from '@/app/styles/pixelTheme';
 import SpriteImage from './SpriteImage';
-import { getPortraitCoordinates, SPRITE_SHEETS } from '@/app/utils/spriteMap';
+import { getPortraitCoordinates, getMediumPortraitSrc, getExpressionCoordinates, SPRITE_SHEETS, ExpressionType } from '@/app/utils/spriteMap';
 import { ActivityOption, MentorId, ActivityDifficulty } from '@/app/types';
 import { useResourceStore } from '@/app/store/resourceStore';
 import { useActivityStore } from '@/app/store/activityStore';
 import BoastButton from './BoastButton';
 import { selectActivityQuestions } from '@/app/core/questions/questionManager';
-import { Question, MultipleChoiceQuestion } from '@/app/types/questions';
+import { Question, MultipleChoiceQuestion, KnowledgeDomain } from '@/app/types/questions';
+import { QUESTION_BANK } from '@/app/data/questionBank';
+import TypewriterText from './TypewriterText';
 
 interface TwitterStyleActivityProps {
   currentActivity: ActivityOption;
@@ -78,29 +80,228 @@ const SAMPLE_PATIENTS: Record<string, any> = {
   }
 };
 
+// Spinning Patient Icon Component
+const SpinningPatientIcon: React.FC<{ size?: number }> = ({ size = 64 }) => {
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const frameCount = 16;
+  const frameSize = 16; // Each frame is 16x16 pixels
+  const scaleFactor = size / frameSize;
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentFrame(prev => (prev + 1) % frameCount);
+    }, 150); // Slower animation - 150ms per frame for smoother rotation
+    
+    return () => clearInterval(interval);
+  }, [frameCount]);
+  
+  return (
+    <div style={{
+      width: `${size}px`,
+      height: `${size}px`,
+      background: `url('/images/ui/patient-rotation.png') no-repeat`,
+      backgroundPosition: `-${currentFrame * frameSize * scaleFactor}px 0px`,
+      backgroundSize: `${frameCount * frameSize * scaleFactor}px ${size}px`,
+      imageRendering: 'pixelated',
+      border: `2px solid ${colors.border}`,
+      borderRadius: spacing.xs,
+      backgroundColor: colors.backgroundAlt
+    }} />
+  );
+};
+
+// Mentor Portrait Component with Expressions
+const MentorPortrait: React.FC<{ 
+  mentorId: MentorId, 
+  expression?: ExpressionType,
+  size?: number,
+  useExpressions?: boolean,
+  isAnimating?: boolean
+}> = ({ mentorId, expression = 'neutral', size = 80, useExpressions = false, isAnimating = false }) => {
+  const [currentExpression, setCurrentExpression] = React.useState<ExpressionType>(expression);
+  const [bobOffset, setBobOffset] = React.useState(0);
+
+  // Expression cycling during question presentation
+  React.useEffect(() => {
+    if (!isAnimating || !useExpressions) return;
+    
+    const expressions: ExpressionType[] = ['thinking', 'focused', 'curious', 'encouraging'];
+    let currentIndex = 0;
+    
+    const cycleInterval = setInterval(() => {
+      setCurrentExpression(expressions[currentIndex]);
+      currentIndex = (currentIndex + 1) % expressions.length;
+    }, 1500); // Change expression every 1.5 seconds
+    
+    return () => clearInterval(cycleInterval);
+  }, [isAnimating, useExpressions]);
+
+  // Bobbing animation
+  React.useEffect(() => {
+    let animationFrame: number;
+    let startTime = Date.now();
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const bobAmount = Math.sin(elapsed * 0.003) * 3; // Gentle 3px bob
+      setBobOffset(bobAmount);
+      animationFrame = requestAnimationFrame(animate);
+    };
+    
+    animate();
+    return () => cancelAnimationFrame(animationFrame);
+  }, []);
+
+  // Update expression when not animating
+  React.useEffect(() => {
+    if (!isAnimating) {
+      setCurrentExpression(expression);
+    }
+  }, [expression, isAnimating]);
+
+  const mentorCharacterId = (() => {
+    switch (mentorId) {
+      case MentorId.GARCIA: return 'garcia';
+      case MentorId.KAPOOR: return 'kapoor';
+      case MentorId.QUINN: return 'quinn';
+      case MentorId.JESSE: return 'jesse';
+      default: return 'garcia';
+    }
+  })();
+
+  // Use expression spritesheet for Garcia if available and requested
+  const hasExpressionSheet = mentorCharacterId === 'garcia' && useExpressions;
+  
+  if (hasExpressionSheet) {
+    const expressionCoords = getExpressionCoordinates(currentExpression);
+    const scale = size / 42; // Scale from 42px base size
+    
+    return (
+      <div style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        border: `3px solid ${colors.border}`,
+        borderRadius: spacing.sm,
+        background: colors.backgroundAlt,
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: `0 4px 0 ${colors.border}, 0 6px 12px rgba(0,0,0,0.3)`,
+        position: 'relative',
+        transform: `translateY(${bobOffset}px)`,
+        transition: isAnimating ? 'none' : 'transform 0.3s ease'
+      }}>
+        <div style={{
+          width: '100%',
+          height: '100%',
+          backgroundImage: `url('/images/characters/portraits/garcia-animation.png')`,
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: `-${expressionCoords.x * scale}px 0px`,
+          backgroundSize: `${15 * 42 * scale}px ${42 * scale}px`,
+          imageRendering: 'pixelated'
+        }} />
+        {/* Expression indicator - more subtle for spritesheet version */}
+        <div style={{
+          position: 'absolute',
+          top: '-2px',
+          right: '-2px',
+          width: '12px',
+          height: '12px',
+          backgroundColor: colors.highlight,
+          borderRadius: '50%',
+          border: `1px solid ${colors.border}`,
+          opacity: 0.8
+        }} />
+        {/* Debug overlay */}
+        <div style={{
+          position: 'absolute',
+          bottom: '2px',
+          left: '2px',
+          fontSize: '10px',
+          color: colors.text,
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          padding: '2px 4px',
+          borderRadius: '2px'
+        }}>
+          {currentExpression}
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback to static portrait for other mentors
+  const portraitSrc = getMediumPortraitSrc(mentorCharacterId);
+  
+  return (
+    <div style={{
+      width: `${size}px`,
+      height: `${size}px`,
+      border: `3px solid ${colors.border}`,
+      borderRadius: spacing.sm,
+      background: colors.backgroundAlt,
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: `0 4px 0 ${colors.border}, 0 6px 12px rgba(0,0,0,0.3)`,
+      position: 'relative',
+      transform: `translateY(${bobOffset}px)`
+    }}>
+      <img 
+        src={portraitSrc}
+        alt={`${mentorCharacterId} portrait`}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          imageRendering: 'pixelated'
+        }}
+      />
+      {/* Expression indicator */}
+      <div style={{
+        position: 'absolute',
+        bottom: '-2px',
+        right: '-2px',
+        width: '12px',
+        height: '12px',
+        backgroundColor: expression === 'happy' ? '#22c55e' : 
+                        expression === 'concerned' ? '#ef4444' :
+                        expression === 'thinking' ? '#3b82f6' :
+                        expression === 'encouraging' ? '#f59e0b' : colors.textDim,
+        borderRadius: '50%',
+        border: `1px solid ${colors.border}`
+      }} />
+    </div>
+  );
+};
+
 export default function TwitterStyleActivity({ currentActivity, onComplete }: TwitterStyleActivityProps) {
-  // Patient animation states
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [questionsCompleted, setQuestionsCompleted] = useState(0);
+  const [insight, setInsight] = useState(50);
+  const [starPoints, setStarPoints] = useState(10);
+  const [momentum, setMomentum] = useState(0);
+  const [showTypingIndicator, setShowTypingIndicator] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  
+  // Patient transition states
+  const [showPatientTransition, setShowPatientTransition] = useState(false);
   const [animationPhase, setAnimationPhase] = useState<'intro' | 'patient-reveal' | 'slide-to-panel' | 'challenge-ready'>('intro');
   const [showPatientCard, setShowPatientCard] = useState(false);
   const [showBriefContext, setShowBriefContext] = useState(false);
   
-  // Regular activity states
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [momentum, setMomentum] = useState(0);
-  const [questionsCompleted, setQuestionsCompleted] = useState(0);
-  const [showTypingIndicator, setShowTypingIndicator] = useState(false);
-  const [hasLoadedQuestions, setHasLoadedQuestions] = useState(false);
+  // Mentor expression state
+  const [mentorExpression, setMentorExpression] = useState<ExpressionType>('neutral');
   
   // Use ref to prevent race conditions
   const loadingRef = React.useRef(false);
   
   // Store hooks
-  const { insight, starPoints, canBoast, updateInsight, updateStarPoints } = useResourceStore();
+  const { insight: resourceInsight, starPoints: resourceStarPoints, canBoast, updateInsight, updateStarPoints } = useResourceStore();
   const { completeActivity } = useActivityStore();
 
   // Check if this activity should have patient transition
@@ -120,7 +321,7 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
 
   // Get patient data
   const patientData = SAMPLE_PATIENTS[currentActivity.id] || SAMPLE_PATIENTS['patient_case_review'];
-  const showPatientTransition = shouldShowPatientTransition(currentActivity.id);
+  const hasPatientTransition = shouldShowPatientTransition(currentActivity.id);
 
   // Mentor mapping
   const mentorToCharacterId: Record<MentorId, string> = {
@@ -132,12 +333,15 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
 
   // Animation sequence for patient activities
   useEffect(() => {
-    if (!showPatientTransition) {
+    if (!hasPatientTransition) {
       setAnimationPhase('challenge-ready');
       return;
     }
 
     const sequence = async () => {
+      // Initialize patient transition state
+      setShowPatientTransition(true);
+      
       // 1. Brief intro pause
       await new Promise(resolve => setTimeout(resolve, 800));
       
@@ -159,7 +363,7 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
     };
     
     sequence();
-  }, [showPatientTransition]);
+  }, [hasPatientTransition]);
 
   // Load questions when animation is ready
   useEffect(() => {
@@ -167,19 +371,14 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
     
     const loadQuestions = async () => {
       // Prevent duplicate loading with multiple checks
-      if (loadingRef.current || hasLoadedQuestions || questions.length > 0) {
-        console.log('[TwitterStyleActivity] Skipping load - already loaded or loading');
+      if (loadingRef.current || questions.length > 0) {
+        console.log('[TwitterStyleActivity] Skipping load - already loaded');
         return;
       }
       
       try {
         loadingRef.current = true;
         setIsLoading(true);
-        setHasLoadedQuestions(true);
-        setMessages([]); // Clear any existing messages
-        setCurrentQuestionIndex(0); // Reset to first question
-        setSelectedOption(null); // Reset selection
-        setShowFeedback(false); // Reset feedback
         console.log(`[TwitterStyleActivity] Loading questions for activity: ${currentActivity.id}`);
         
         const activityQuestions = await selectActivityQuestions(
@@ -353,50 +552,38 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
   };
 
   const handleOptionSelect = (index: number) => {
-    // Prevent multiple clicks - immediate protection
-    if (selectedOption !== null || showFeedback) {
-      console.log('[TwitterStyleActivity] Click blocked - already processing');
-      return;
-    }
+    if (!mcQuestion) return;
     
-    const currentQuestion = getCurrentQuestion();
-    if (!currentQuestion || currentQuestion.type !== 'multipleChoice') {
-      console.log('[TwitterStyleActivity] Click blocked - no valid question');
-      return;
-    }
-
-    const mcQuestion = currentQuestion as MultipleChoiceQuestion;
-    const selectedOptionData = mcQuestion.options[index];
-    const isCorrect = selectedOptionData.isCorrect;
+    const selectedOption = mcQuestion.options[index];
+    const isCorrect = selectedOption.isCorrect || false;
     
-    // Immediately set selected option to prevent further clicks
-    setSelectedOption(index);
-    console.log(`[TwitterStyleActivity] Option ${index} selected:`, selectedOptionData.text);
+    // Update mentor expression based on answer
+    setMentorExpression(isCorrect ? 'proud' : 'disappointed');
+    
+    setShowFeedback(true);
     
     // Add player message
-    addPlayerMessage(selectedOptionData.text, isCorrect, selectedOptionData.feedback);
+    addPlayerMessage(selectedOption.text, isCorrect, selectedOption.feedback);
     
-    // Handle momentum and scoring
+    // Update game state
     if (isCorrect) {
-      setMomentum(prev => Math.min(prev + 1, 3));
-      const insightReward = getInsightReward();
-      updateInsight(insightReward);
+      const insightGain = getInsightReward();
+      setInsight(prev => prev + insightGain);
+      setMomentum(prev => Math.min(prev + 1, 5));
       
-      // Chance for star points
+      // Star point chance
       if (Math.random() < getStarPointChance()) {
-        updateStarPoints(1);
+        setStarPoints(prev => prev + 1);
       }
     } else {
-      setMomentum(0); // Reset momentum on wrong answer
+      setMomentum(prev => Math.max(prev - 1, 0));
     }
     
-    // Show typing indicator, then add mentor feedback
-    setShowTypingIndicator(true);
+    // Show feedback after brief delay
     setTimeout(() => {
-      setShowTypingIndicator(false);
-      addMentorFeedback(isCorrect, selectedOptionData.feedback);
-      setShowFeedback(true);
-    }, 1500);
+      addMentorFeedback(isCorrect, selectedOption.feedback);
+      setMentorExpression('curious'); // Mentor is curious about next response
+    }, 1000);
   };
 
   const addMentorFeedback = (isCorrect: boolean, feedback?: string) => {
@@ -418,7 +605,6 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
     if (nextQuestionIndex < questions.length) {
       // Move to next question
       setCurrentQuestionIndex(nextQuestionIndex);
-      setSelectedOption(null);
       setShowFeedback(false);
       
       // Add next question after a brief delay
@@ -539,20 +725,8 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
             alignItems: 'center',
             gap: spacing.md
           }}>
-            <div style={{
-              width: '80px',
-              height: '80px',
-              backgroundColor: colors.backgroundAlt,
-              border: `2px solid ${colors.border}`,
-              borderRadius: spacing.xs,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: typography.fontSize.xl,
-              color: colors.textDim
-            }}>
-              👤
-            </div>
+            {/* Spinning Patient Icon */}
+            <SpinningPatientIcon size={64} />
             
             <div style={{ flex: 1 }}>
               <h2 style={{
@@ -577,7 +751,7 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
             </div>
           </div>
 
-          {/* Diagnosis Section */}
+          {/* Primary Case Info - Condensed */}
           <div style={{ marginBottom: spacing.lg }}>
             <h3 style={{
               fontSize: typography.fontSize.lg,
@@ -589,7 +763,7 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
               alignItems: 'center',
               gap: spacing.xs
             }}>
-              📋 Primary Diagnosis
+              📋 Case Overview
             </h3>
             <div style={{
               backgroundColor: colors.backgroundAlt,
@@ -600,38 +774,15 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
               color: colors.text,
               lineHeight: '1.4'
             }}>
-              {patientData.diagnosis}
+              <strong>{patientData.diagnosis}</strong>
+              <br />
+              <span style={{ color: colors.textDim, fontSize: typography.fontSize.sm }}>
+                {patientData.lesionDetails}
+              </span>
             </div>
           </div>
 
-          {/* Lesion Details */}
-          <div style={{ marginBottom: spacing.lg }}>
-            <h3 style={{
-              fontSize: typography.fontSize.lg,
-              fontWeight: 'bold',
-              color: colors.insight,
-              margin: 0,
-              marginBottom: spacing.sm,
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing.xs
-            }}>
-              🔬 Lesion Details
-            </h3>
-            <div style={{
-              backgroundColor: 'rgba(67, 215, 230, 0.1)',
-              border: `1px solid ${colors.insight}`,
-              borderRadius: spacing.xs,
-              padding: spacing.md,
-              fontSize: typography.fontSize.md,
-              color: colors.text,
-              lineHeight: '1.4'
-            }}>
-              {patientData.lesionDetails}
-            </div>
-          </div>
-
-          {/* Additional Information */}
+          {/* Key Notes - Simplified */}
           <div>
             <h3 style={{
               fontSize: typography.fontSize.lg,
@@ -643,21 +794,26 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
               alignItems: 'center',
               gap: spacing.xs
             }}>
-              📝 Clinical Notes
+              💡 Key Notes
             </h3>
-            <ul style={{
-              margin: 0,
-              paddingLeft: spacing.lg,
+            <div style={{
               fontSize: typography.fontSize.sm,
               color: colors.textDim,
-              lineHeight: '1.6'
+              lineHeight: '1.5'
             }}>
-              {patientData.additionalInfo.map((info, index) => (
-                <li key={index} style={{ marginBottom: spacing.xs }}>
-                  {info}
-                </li>
+              {patientData.additionalInfo.slice(0, 2).map((info, index) => (
+                <div key={index} style={{ 
+                  marginBottom: spacing.xs,
+                  padding: `${spacing.xs} ${spacing.sm}`,
+                  backgroundColor: 'rgba(67, 215, 230, 0.1)',
+                  border: `1px solid ${colors.insight}`,
+                  borderRadius: spacing.xs,
+                  fontSize: typography.fontSize.xs
+                }}>
+                  • {info}
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         </div>
       )}
@@ -728,8 +884,50 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
         </div>
       </div>
 
+      {/* Mentor Portrait Above Content - Only show when challenge is ready */}
+      {animationPhase === 'challenge-ready' && currentActivity.mentor && (
+        <div style={{
+          position: 'absolute',
+          top: '120px', // Move down more to avoid header
+          left: '35%', // Shift left from center (50%)
+          transform: 'translateX(-50%)',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: spacing.md
+        }}>
+          <MentorPortrait 
+            mentorId={currentActivity.mentor} 
+            expression={mentorExpression}
+            size={180} // Much larger
+            useExpressions={true}
+            isAnimating={true} // Add expression cycling and bobbing
+          />
+          <div style={{
+            backgroundColor: 'rgba(0,0,0,0.9)',
+            border: `3px solid ${colors.border}`,
+            borderRadius: spacing.md,
+            padding: `${spacing.md} ${spacing.lg}`,
+            fontSize: typography.fontSize.lg,
+            color: colors.text,
+            fontWeight: 'bold',
+            textAlign: 'center',
+            boxShadow: `0 4px 0 ${colors.border}, 0 6px 12px rgba(0,0,0,0.3)`
+          }}>
+            {getMentorName(currentActivity.mentor)}
+          </div>
+        </div>
+      )}
+
       {/* Main content area */}
-      <div style={{ display: 'flex', flex: 1, position: 'relative', zIndex: 5 }}>
+      <div style={{ 
+        display: 'flex', 
+        flex: 1, 
+        position: 'relative', 
+        zIndex: 5,
+        marginTop: animationPhase === 'challenge-ready' ? '280px' : '0' // Add more space for larger mentor portrait
+      }}>
         {/* Message feed */}
         <div style={{ 
           flex: 1, 
@@ -819,7 +1017,22 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
                         message.isCorrect === true ? colors.active : colors.text,
                   marginBottom: spacing.xs
                 }}>
-                  {message.content}
+                  {message.type === 'mentor' && !message.feedback ? (
+                    <TypewriterText
+                      key={`twitter-message-${message.id}`}
+                      text={message.content}
+                      speed={30}
+                      clickToSkip={true}
+                      style={{
+                        fontSize: typography.fontSize.md,
+                        lineHeight: '1.4',
+                        color: message.isCorrect === false ? colors.error : 
+                              message.isCorrect === true ? colors.active : colors.text
+                      }}
+                    />
+                  ) : (
+                    message.content
+                  )}
                 </div>
                 <div style={{
                   fontSize: typography.fontSize.xs,
@@ -987,25 +1200,25 @@ export default function TwitterStyleActivity({ currentActivity, onComplete }: Tw
               <button
                 key={index}
                 onClick={() => handleOptionSelect(index)}
-                disabled={selectedOption !== null}
+                disabled={showFeedback}
                 style={{
-                  backgroundColor: selectedOption === index ? colors.highlight : colors.backgroundAlt,
-                  border: `2px solid ${selectedOption === index ? colors.active : colors.border}`,
+                  backgroundColor: showFeedback && selectedOption === index ? colors.highlight : colors.backgroundAlt,
+                  border: `2px solid ${showFeedback && selectedOption === index ? colors.active : colors.border}`,
                   borderRadius: spacing.xs,
                   padding: `${spacing.md} ${spacing.lg}`,
-                  color: selectedOption === index ? colors.background : colors.text,
+                  color: showFeedback && selectedOption === index ? colors.background : colors.text,
                   fontFamily: typography.fontFamily.pixel,
                   fontSize: typography.fontSize.sm,
                   textAlign: 'left',
-                  cursor: selectedOption !== null ? 'not-allowed' : 'pointer',
+                  cursor: showFeedback ? 'not-allowed' : 'pointer',
                   transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
-                  opacity: selectedOption !== null && selectedOption !== index ? 0.4 : 1,
+                  opacity: showFeedback && selectedOption !== index ? 0.4 : 1,
                   minHeight: '50px', // Ensure buttons are visible
-                  transform: selectedOption === index ? 'scale(0.98)' : 'scale(1)',
-                  fontWeight: selectedOption === index ? 'bold' : 'normal'
+                  transform: showFeedback && selectedOption === index ? 'scale(0.98)' : 'scale(1)',
+                  fontWeight: showFeedback && selectedOption === index ? 'bold' : 'normal'
                 }}
               >
-                {selectedOption === index && '✓ '}{option.text}
+                {showFeedback && selectedOption === index && '✓ '}{option.text}
               </button>
             ))}
           </div>
