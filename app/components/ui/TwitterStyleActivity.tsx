@@ -9,7 +9,8 @@ import { useResourceStore } from '@/app/store/resourceStore';
 import { useActivityStore } from '@/app/store/activityStore';
 import BoastButton from './BoastButton';
 import { selectActivityQuestions } from '@/app/core/questions/questionManager';
-import { Question, MultipleChoiceQuestion, KnowledgeDomain } from '@/app/types/questions';
+import { Question, MultipleChoiceQuestion } from '@/app/types/questions';
+import { KnowledgeDomain } from '@/app/types';
 import { QUESTION_BANK } from '@/app/data/questionBank';
 import TypewriterText from './TypewriterText';
 
