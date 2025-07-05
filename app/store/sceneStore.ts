@@ -6,6 +6,7 @@ export type GameScene =
   | 'hospital'           // Main hospital exploration
   | 'narrative'          // Narrative dialogue with mentors
   | 'challenge'          // Challenge dialogue/activities
+  | 'tutorial_activity'  // Tutorial-specific activities (simplified)
   | 'constellation'      // Knowledge constellation view
   | 'transition';        // Loading/transition state
 
@@ -15,6 +16,7 @@ export interface SceneContext {
   mentorId?: string;
   roomId?: string;
   dialogueId?: string;
+  patientName?: string;  // For tutorial activities
   previousScene?: GameScene;
   transitionData?: any;
 }
@@ -39,6 +41,7 @@ interface SceneActions {
   enterActivity: (activityId: string, mentorId?: string, roomId?: string) => Promise<void>;
   enterNarrative: (mentorId: string, dialogueId?: string, roomId?: string) => Promise<void>;
   enterChallenge: (activityId: string, mentorId?: string, roomId?: string) => Promise<void>;
+  enterTutorialActivity: (patientName: string, mentorId: string, roomId: string) => Promise<void>;
   returnToHospital: () => Promise<void>;
   
   // Transition management
@@ -65,8 +68,14 @@ export const useSceneStore = create<SceneStore>()(
     transitionToScene: async (scene: GameScene, context: SceneContext = {}) => {
       const currentState = get();
       
+      console.log('[SceneStore] transitionToScene() called');
+      console.log('[SceneStore] Current scene:', currentState.currentScene, '→', scene);
+      console.log('[SceneStore] Transition context:', context);
+      console.log('[SceneStore] Is transitioning:', currentState.isTransitioning);
+      
       // Don't transition if already transitioning or same scene
       if (currentState.isTransitioning || currentState.currentScene === scene) {
+        console.log('[SceneStore] Transition blocked - already transitioning or same scene');
         return;
       }
 
@@ -102,6 +111,11 @@ export const useSceneStore = create<SceneStore>()(
           previousScene: currentState.currentScene
         };
       });
+      
+      console.log('[SceneStore] Scene updated to:', scene, 'with context:', {
+        ...context,
+        previousScene: currentState.currentScene
+      });
 
       // Simulate fade in
       await animateTransition(50, 100, (progress) => {
@@ -119,9 +133,15 @@ export const useSceneStore = create<SceneStore>()(
 
     // Return to previous scene in stack
     returnToPrevious: async () => {
-      const { sceneStack } = get();
+      const { sceneStack, currentScene } = get();
+      
+      console.log('[SceneStore] returnToPrevious() called');
+      console.log('[SceneStore] Current scene:', currentScene);
+      console.log('[SceneStore] Scene stack length:', sceneStack.length);
+      console.log('[SceneStore] Scene stack:', sceneStack);
       
       if (sceneStack.length === 0) {
+        console.log('[SceneStore] No previous scene, going to hospital');
         // No previous scene, go to hospital
         await get().returnToHospital();
         return;
@@ -129,12 +149,14 @@ export const useSceneStore = create<SceneStore>()(
 
       // Pop from stack
       const previous = sceneStack[sceneStack.length - 1];
+      console.log('[SceneStore] Returning to previous scene:', previous);
       
       set(state => {
         state.sceneStack.pop();
       });
 
       // Transition without adding to stack again
+      console.log('[SceneStore] Transitioning to previous scene:', previous.scene);
       await get().transitionToScene(previous.scene, previous.context);
     },
 
@@ -174,11 +196,25 @@ export const useSceneStore = create<SceneStore>()(
       });
     },
 
+    enterTutorialActivity: async (patientName: string, mentorId: string, roomId: string) => {
+      const currentContext = get().context;
+      await get().transitionToScene('tutorial_activity', {
+        patientName,
+        mentorId,
+        roomId,
+        // Preserve the current dialogue context for when we return
+        dialogueId: currentContext.dialogueId
+      });
+    },
+
     returnToHospital: async () => {
+      console.log('[SceneStore] returnToHospital() called');
+      
       set(state => {
         state.sceneStack = []; // Clear stack when returning to home
       });
       
+      console.log('[SceneStore] Scene stack cleared, transitioning to hospital');
       await get().transitionToScene('hospital', {});
     },
 

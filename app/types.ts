@@ -144,6 +144,9 @@ export enum GameEventType {
   // Season events
   SEASON_CHANGED = 'SEASON_CHANGED',
   
+  // Weather events
+  WEATHER_CHANGED = 'WEATHER_CHANGED',
+  
   // Relationship events
   RELATIONSHIP_IMPROVED = 'RELATIONSHIP_IMPROVED',
   RELATIONSHIP_LEVEL_UP = 'RELATIONSHIP_LEVEL_UP',

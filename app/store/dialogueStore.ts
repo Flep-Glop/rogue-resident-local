@@ -23,6 +23,7 @@ interface DialogueState {
   // Active dialogue
   activeDialogueId: string | null;
   currentNodeId: string | null;
+  postActivityNodeId: string | null; // Node to continue to after activity completion
   dialogueHistory: Array<{
     nodeId: string;
     selectedOptionId: string | null;
@@ -42,6 +43,8 @@ interface DialogueState {
   getActiveDialogue: () => Dialogue | undefined;
   getAvailableOptions: () => DialogueOption[];
   endDialogue: () => void;
+  setPostActivityNode: (nodeId: string) => void;
+  continueToPostActivityNode: () => void;
 }
 
 export const useDialogueStore = create<DialogueState>((set, get) => ({
@@ -50,6 +53,7 @@ export const useDialogueStore = create<DialogueState>((set, get) => ({
   dialogues: {},
   activeDialogueId: null,
   currentNodeId: null,
+  postActivityNodeId: null,
   dialogueHistory: [],
   
   // Mentor Actions
@@ -256,12 +260,24 @@ export const useDialogueStore = create<DialogueState>((set, get) => ({
       return;
     }
     
-    // Otherwise, move to the next node
-    if (selectedOption.nextNodeId) {
-      set({
-        currentNodeId: selectedOption.nextNodeId,
-        dialogueHistory: newHistory
-      });
+    // Check if this option triggers an activity
+    if ((selectedOption as any).triggersActivity) {
+      console.log(`🎮 [DIALOGUE] Option triggers activity, storing next node for later: ${selectedOption.nextNodeId}`);
+      // Store the next node but don't advance yet - let the activity complete first
+      if (selectedOption.nextNodeId) {
+        get().setPostActivityNode(selectedOption.nextNodeId);
+      }
+      
+      // Update history but don't change current node
+      set({ dialogueHistory: newHistory });
+    } else {
+      // Otherwise, move to the next node normally
+      if (selectedOption.nextNodeId) {
+        set({
+          currentNodeId: selectedOption.nextNodeId,
+          dialogueHistory: newHistory
+        });
+      }
     }
   },
   
@@ -309,7 +325,71 @@ export const useDialogueStore = create<DialogueState>((set, get) => ({
     
     set({
       activeDialogueId: null,
-      currentNodeId: null
+      currentNodeId: null,
+      postActivityNodeId: null
+    });
+  },
+
+  setPostActivityNode: (nodeId: string) => {
+    console.log(`📍 [DIALOGUE] Setting post-activity node: ${nodeId}`);
+    
+    // Verify the node exists in the current dialogue
+    const state = get();
+    if (state.activeDialogueId) {
+      const currentDialogue = state.dialogues[state.activeDialogueId];
+      if (currentDialogue) {
+        const node = currentDialogue.nodes[nodeId];
+        if (node) {
+          console.log(`📍 [DIALOGUE] Post-activity node verified:`, {
+            nodeId: nodeId,
+            mentorId: node.mentorId,
+            hasOptions: node.options?.length > 0,
+            optionsCount: node.options?.length || 0
+          });
+        } else {
+          console.error(`📍 [DIALOGUE] ERROR: Post-activity node "${nodeId}" not found in dialogue "${state.activeDialogueId}"`);
+        }
+      } else {
+        console.error(`📍 [DIALOGUE] ERROR: Active dialogue "${state.activeDialogueId}" not found in store`);
+      }
+    } else {
+      console.error(`📍 [DIALOGUE] ERROR: No active dialogue when setting post-activity node`);
+    }
+    
+    set({ postActivityNodeId: nodeId });
+  },
+
+  continueToPostActivityNode: () => {
+    const state = get();
+    if (!state.postActivityNodeId) {
+      console.warn('No post-activity node set');
+      return;
+    }
+    
+    console.log(`📍 [DIALOGUE] Continuing to post-activity node: ${state.postActivityNodeId}`);
+    console.log(`📍 [DIALOGUE] Current dialogue state before navigation:`, {
+      activeDialogueId: state.activeDialogueId,
+      currentNodeId: state.currentNodeId,
+      postActivityNodeId: state.postActivityNodeId
+    });
+    
+    set({
+      currentNodeId: state.postActivityNodeId,
+      postActivityNodeId: null
+    });
+    
+    // Verify the transition worked
+    const newState = get();
+    const currentDialogue = newState.dialogues[newState.activeDialogueId!];
+    const newCurrentNode = currentDialogue?.nodes[newState.currentNodeId!];
+    
+    console.log(`📍 [DIALOGUE] Post-activity navigation complete:`, {
+      activeDialogueId: newState.activeDialogueId,
+      currentNodeId: newState.currentNodeId,
+      nodeExists: !!newCurrentNode,
+      nodeMentorId: newCurrentNode?.mentorId,
+      nodeText: newCurrentNode?.text?.slice(0, 50) + '...',
+      optionsCount: newCurrentNode?.options?.length || 0
     });
   }
 })); 

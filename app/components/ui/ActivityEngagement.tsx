@@ -38,6 +38,7 @@ import MomentumIndicator from './MomentumIndicator';
 import BoastButton from './BoastButton';
 import InsightIndicator from '@/app/components/ui/InsightIndicator';
 import ResourceDisplay from '@/app/components/ui/ResourceDisplay';
+import TypewriterText from './TypewriterText';
 
 // Function to check if value is a valid MentorId
 const isValidMentor = (value: any): value is MentorId => {
@@ -1981,7 +1982,7 @@ export default function ActivityEngagement() {
         )}
         
         {/* Question text */}
-        <p style={{ 
+        <div style={{ 
           color: 'rgba(255, 255, 255, 0.85)',
           marginBottom: spacing.lg,
           fontSize: typography.fontSize.sm,
@@ -1989,7 +1990,19 @@ export default function ActivityEngagement() {
           padding: `${spacing.xs} ${spacing.sm}`,
           backgroundColor: 'rgba(30, 40, 60, 0.3)',
           borderRadius: spacing.xs
-        }}>{question.content}</p>
+        }}>
+          <TypewriterText
+            key={`matching-question-${currentQuestionIndex}-${challenge?.id || 'default'}`}
+            text={question.content || ''}
+            speed={30}
+            clickToSkip={true}
+            style={{
+              fontSize: typography.fontSize.sm,
+              lineHeight: '1.5',
+              color: 'rgba(255, 255, 255, 0.85)'
+            }}
+          />
+        </div>
         
         {/* Matching interface */}
         <div style={{
@@ -2290,7 +2303,7 @@ export default function ActivityEngagement() {
         )}
         
         {/* Question text */}
-        <p style={{ 
+        <div style={{ 
           color: 'rgba(255, 255, 255, 0.85)',
           marginBottom: spacing.lg,
           fontSize: typography.fontSize.sm,
@@ -2298,7 +2311,19 @@ export default function ActivityEngagement() {
           padding: `${spacing.xs} ${spacing.sm}`,
           backgroundColor: 'rgba(30, 40, 60, 0.3)',
           borderRadius: spacing.xs
-        }}>{question.content || question.text}</p>
+        }}>
+          <TypewriterText
+            key={`procedural-question-${currentQuestionIndex}-${challenge?.id || 'default'}`}
+            text={question.content || question.text || ''}
+            speed={30}
+            clickToSkip={true}
+            style={{
+              fontSize: typography.fontSize.sm,
+              lineHeight: '1.5',
+              color: 'rgba(255, 255, 255, 0.85)'
+            }}
+          />
+        </div>
         
         {/* Procedural steps interface */}
         <div style={{
@@ -2611,7 +2636,7 @@ export default function ActivityEngagement() {
         )}
         
         {/* Question text */}
-        <p style={{ 
+        <div style={{ 
           color: 'rgba(255, 255, 255, 0.85)',
           marginBottom: spacing.md,
           fontSize: typography.fontSize.sm,
@@ -2619,7 +2644,19 @@ export default function ActivityEngagement() {
           padding: `${spacing.xs} ${spacing.sm}`,
           backgroundColor: 'rgba(30, 40, 60, 0.3)',
           borderRadius: spacing.xs
-        }}>{question.content || question.text}</p>
+        }}>
+          <TypewriterText
+            key={`calculation-question-${currentQuestionIndex}-${challenge?.id || 'default'}`}
+            text={question.content || question.text || ''}
+            speed={30}
+            clickToSkip={true}
+            style={{
+              fontSize: typography.fontSize.sm,
+              lineHeight: '1.5',
+              color: 'rgba(255, 255, 255, 0.85)'
+            }}
+          />
+        </div>
         
         {/* Formula hint (if available) */}
         {question.formula && (
@@ -3067,38 +3104,70 @@ export default function ActivityEngagement() {
         }}>
                       {/* Question as mentor message */}
             <div style={{
-              backgroundColor: '#3a3a4e',
-              border: `2px solid ${colors.border}`,
+              background: colors.background,
               borderRadius: spacing.sm,
-              padding: spacing.lg,
+              padding: spacing.xl,
               display: 'flex',
               alignItems: 'flex-start',
               gap: spacing.md,
               maxWidth: '80%',
               margin: `${spacing.md} 0`,
-              boxShadow: `0 4px 0 ${colors.border}`,
+              minHeight: '150px',
+              position: 'relative',
+              boxShadow: `0 8px 0 ${colors.border}, 0 0 0 4px ${colors.border}`,
               animation: 'slideInUp 0.3s ease-out'
             }}>
               {/* Message content */}
               <div style={{ flex: 1 }}>
+                {/* Speaker Name - matching NarrativeDialogue style */}
+                <div style={{
+                  color: colors.highlight,
+                  fontWeight: 'bold',
+                  fontSize: typography.fontSize.lg,
+                  marginBottom: spacing.sm,
+                  textShadow: typography.textShadow.pixel
+                }}>
+                  {currentActivity.mentor === 'garcia' ? 'Dr. Garcia' : 
+                   currentActivity.mentor === 'kapoor' ? 'Dr. Kapoor' : 
+                   currentActivity.mentor === 'quinn' ? 'Dr. Quinn' : 
+                   currentActivity.mentor === 'jesse' ? 'Jesse' : 
+                   currentActivity.mentor || 'Mentor'}
+                </div>
+                
+                {/* Dialogue Text - matching NarrativeDialogue style */}
                 <div style={{
                   fontSize: typography.fontSize.md,
-                  lineHeight: '1.4',
+                  lineHeight: '1.6',
                   color: colors.text,
-                  marginBottom: spacing.xs
+                  cursor: 'pointer',
+                  minHeight: '60px',
+                  position: 'relative'
                 }}>
-                  {getCurrentQuestion()?.content || getCurrentQuestion()?.text || challenge?.quote}
-                </div>
-                <div style={{
-                  fontSize: typography.fontSize.xs,
-                  color: colors.textDim,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: spacing.xs
-                }}>
-                  <span>{currentActivity.mentor}</span>
-                  <span>•</span>
-                  <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <TypewriterText
+                    key={`mentor-message-${currentQuestionIndex}-${challenge?.id || 'default'}`}
+                    text={getCurrentQuestion()?.content || getCurrentQuestion()?.text || challenge?.quote || ''}
+                    speed={30}
+                    clickToSkip={true}
+                    style={{
+                      fontSize: typography.fontSize.md,
+                      lineHeight: '1.6',
+                      color: colors.text
+                    }}
+                  />
+                  
+                  {/* Continue prompt - matching NarrativeDialogue style */}
+                  {!showFeedback && getCurrentQuestion()?.options && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: spacing.sm,
+                      right: spacing.md,
+                      color: colors.textDim,
+                      fontSize: typography.fontSize.xs,
+                      animation: 'pulse 2s infinite'
+                    }}>
+                      Choose your response...
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -3129,17 +3198,18 @@ export default function ActivityEngagement() {
             {/* Show feedback message if available */}
             {showFeedback && selectedOption !== null && getCurrentQuestion()?.options && (
               <div style={{
-                backgroundColor: '#2a2a3e',
-                border: `2px solid ${colors.border}`,
+                background: colors.backgroundAlt,
                 borderRadius: spacing.sm,
-                padding: spacing.lg,
+                padding: spacing.xl,
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: spacing.md,
                 maxWidth: '80%',
                 margin: `${spacing.md} 0`,
                 marginLeft: 'auto',
-                boxShadow: `0 4px 0 ${colors.border}`
+                minHeight: '120px',
+                position: 'relative',
+                boxShadow: `0 8px 0 ${colors.border}, 0 0 0 4px ${colors.border}`
               }}>
                 <div style={{ flex: 1 }}>
                   <div style={{
@@ -3234,8 +3304,7 @@ export default function ActivityEngagement() {
                      onClick={() => handleOptionSelect(index)}
                      disabled={selectedOption !== null}
                      style={{
-                       backgroundColor: colors.backgroundAlt,
-                       border: `2px solid ${colors.border}`,
+                       background: colors.backgroundAlt,
                        borderRadius: spacing.xs,
                        padding: `${spacing.md} ${spacing.lg}`,
                        color: colors.text,
@@ -3244,7 +3313,23 @@ export default function ActivityEngagement() {
                        textAlign: 'left',
                        cursor: selectedOption !== null ? 'not-allowed' : 'pointer',
                        transition: `all ${animation.duration.fast} ${animation.easing.pixel}`,
-                       opacity: selectedOption !== null ? 0.6 : 1
+                       opacity: selectedOption !== null ? 0.6 : 1,
+                       boxShadow: `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`,
+                       border: 'none'
+                     }}
+                     onMouseEnter={(e) => {
+                       if (selectedOption === null) {
+                         e.currentTarget.style.boxShadow = `0 4px 0 ${colors.highlight}, 0 0 0 4px ${colors.highlight}, 0 0 0 4px ${colors.highlight}, 4px 0 0 ${colors.highlight}`;
+                         e.currentTarget.style.background = colors.highlight;
+                         e.currentTarget.style.color = colors.background;
+                       }
+                     }}
+                     onMouseLeave={(e) => {
+                       if (selectedOption === null) {
+                         e.currentTarget.style.boxShadow = `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`;
+                         e.currentTarget.style.background = colors.backgroundAlt;
+                         e.currentTarget.style.color = colors.text;
+                       }
                      }}
                    >
                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -3284,17 +3369,26 @@ export default function ActivityEngagement() {
                  onClick={handleContinue}
                  style={{
                    padding: `${spacing.sm} ${spacing.lg}`,
-                   backgroundColor: colors.highlight,
+                   background: colors.highlight,
                    color: colors.text,
-                   border: `2px solid ${colors.border}`,
+                   border: 'none',
                    borderRadius: spacing.xs,
                    cursor: 'pointer',
                    fontFamily: typography.fontFamily.pixel,
                    textShadow: typography.textShadow.pixel,
-                   boxShadow: `0 4px 0 ${colors.border}`,
+                   boxShadow: `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`,
                    letterSpacing: '0.5px',
                    fontWeight: 'bold',
-                   fontSize: typography.fontSize.md
+                   fontSize: typography.fontSize.md,
+                   transition: `all ${animation.duration.fast} ${animation.easing.pixel}`
+                 }}
+                 onMouseEnter={(e) => {
+                   e.currentTarget.style.transform = 'translateY(-2px)';
+                   e.currentTarget.style.boxShadow = `0 6px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`;
+                 }}
+                 onMouseLeave={(e) => {
+                   e.currentTarget.style.transform = 'translateY(0)';
+                   e.currentTarget.style.boxShadow = `0 4px 0 ${colors.border}, 0 0 0 4px ${colors.border}, 0 0 0 4px ${colors.border}, 4px 0 0 ${colors.border}`;
                  }}
                >
                  {usedBoast 
@@ -3369,6 +3463,11 @@ export default function ActivityEngagement() {
             transform: translateY(0); 
             opacity: 1; 
           }
+        }
+        @keyframes pulse {
+          0% { opacity: 0.7; }
+          50% { opacity: 1; }
+          100% { opacity: 0.7; }
         }
       `}</style>
     </div>
@@ -3477,14 +3576,15 @@ export default function ActivityEngagement() {
             ) : (
               // Original Multiple Choice rendering
               <div style={{
-                backgroundColor: 'rgba(20, 25, 35, 0.7)',
-                padding: spacing.lg,
+                background: colors.background,
+                padding: spacing.xl,
                 borderRadius: spacing.sm,
-                border: borders.thin,
-                boxShadow: shadows.sm,
                 height: '100%',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                position: 'relative',
+                minHeight: '150px',
+                boxShadow: `0 8px 0 ${colors.border}, 0 0 0 4px ${colors.border}`
               }}>
                 {/* Question Progress Indicator - Enhanced visual cue */}
                 {hasMultipleQuestions && (
@@ -3544,15 +3644,26 @@ export default function ActivityEngagement() {
                     </span>
                   )}
                 </div>
-                <p style={{ 
-                  color: 'rgba(255, 255, 255, 0.85)',
+                <div style={{ 
+                  color: colors.text,
                   marginBottom: spacing.lg,
-                  fontSize: typography.fontSize.sm,
-                  lineHeight: '1.5',
-                  padding: `${spacing.xs} ${spacing.sm}`,
-                  backgroundColor: 'rgba(30, 40, 60, 0.3)',
-                  borderRadius: spacing.xs
-                }}>{currentQuestion.content}</p>
+                  fontSize: typography.fontSize.md,
+                  lineHeight: '1.6',
+                  cursor: 'pointer',
+                  minHeight: '60px'
+                }}>
+                  <TypewriterText
+                    key={`multiple-choice-question-${currentQuestionIndex}-${challenge?.id || 'default'}`}
+                    text={currentQuestion.content || ''}
+                    speed={30}
+                    clickToSkip={true}
+                    style={{
+                      fontSize: typography.fontSize.md,
+                      lineHeight: '1.6',
+                      color: colors.text
+                    }}
+                  />
+                </div>
                 
                 {/* Question Options - Enhanced visual distinction */}
                 <div style={{ 

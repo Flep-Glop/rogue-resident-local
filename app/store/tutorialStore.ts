@@ -26,6 +26,9 @@ export type TutorialStep =
   | 'first_ability_intro'
   | 'journal_card_explanation'
   | 'night_phase_transition'
+  | 'quinn_office_meeting'
+  | 'ability_card_introduction'
+  | 'journal_system_explanation'
   | 'third_mentor_intro'
   
   // Night Phase Tutorial Steps
@@ -68,6 +71,7 @@ export interface TutorialOverlay {
     type: 'click' | 'hover' | 'input';
     target: string;
   };
+  preventSpaceActivation?: boolean; // Prevent space bar from activating this overlay
 }
 
 // Tutorial state should be a single enum, not multiple overlapping booleans
@@ -102,6 +106,7 @@ interface TutorialState {
 interface TutorialActions {
   // Core tutorial flow
   startTutorial: (sequence: TutorialSequence, step?: TutorialStep) => void;
+  startTutorialSilently: (sequence: TutorialSequence, step?: TutorialStep) => void;
   completeStep: (step: TutorialStep) => void;
   skipToStep: (step: TutorialStep) => void;
   completeTutorialSequence: (sequence: TutorialSequence) => void;
@@ -152,13 +157,16 @@ const TUTORIAL_SEQUENCES: Record<TutorialSequence, TutorialStep[]> = {
     'hospital_tour',
     'first_mentor_intro',
     'first_educational_activity',
-    'insight_mechanic_intro',
     'lunch_dialogue',
     'second_mentor_intro',
     'constellation_preview',
     'first_ability_intro',
+    'insight_mechanic_intro',
     'journal_card_explanation',
     'night_phase_transition',
+    'quinn_office_meeting',
+    'ability_card_introduction',
+    'journal_system_explanation',
     'third_mentor_intro'
   ],
   night_phase: [
@@ -187,95 +195,54 @@ function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
     'morning_arrival': {
       id: 'guide_morning_arrival',
       type: 'tooltip',
-      title: 'Welcome to Your First Day!',
-      content: 'Look around the hospital entrance. You\'ll meet Dr. Garcia, your first mentor, who will introduce you to the department.',
+      title: 'First Day!',
+      content: 'Meet Dr. Garcia, your first mentor.',
       position: { x: 200, y: 100 },
       dismissable: true,
-      autoAdvance: 8
+      autoAdvance: 5
     },
     'first_mentor_intro': {
       id: 'guide_first_mentor',
       type: 'spotlight',
-      title: 'Meeting Dr. Garcia',
-      content: 'Dr. Garcia is the lead radiation oncologist. Pay attention to their teaching style - they focus on patient-centered care and clinical insight.',
+      title: 'Dr. Garcia',
+      content: 'Lead oncologist. Focus on patient-centered care.',
       targetElement: '.mentor-portrait, .dialogue-view',
       dismissable: true
     },
     'hospital_tour': {
       id: 'guide_hospital_tour',
       type: 'tooltip',
-      title: 'Hospital Navigation',
-      content: 'Welcome to Memorial General! Click on the glowing room indicators to explore different areas. Each room has unique equipment and learning opportunities. Take your time getting familiar with the layout.',
+      title: 'Navigation',
+      content: 'Click glowing rooms to explore. Each offers unique learning.',
       position: { x: 300, y: 200 },
       dismissable: true
     },
-    'first_educational_activity': {
-      id: 'guide_first_activity',
-      type: 'modal',
-      title: 'Your First Learning Activity',
-      content: 'You\'re about to engage in your first educational activity! Answer questions thoughtfully to gain Insight points, which unlock new knowledge in your constellation.',
-      dismissable: true
-    },
+    'first_educational_activity': null, // Shown manually in NarrativeDialogue when activity triggers
     'insight_mechanic_intro': {
-      id: 'guide_insight_mechanic',
-      type: 'tooltip',
-      title: 'Insight Points System',
-      content: 'Insight points (IP) are your learning currency. Earn them by engaging with activities and use them to unlock new knowledge stars.',
-      position: { x: 150, y: 50 },
-      dismissable: true,
-      autoAdvance: 5
-    },
-    'lunch_dialogue': {
-      id: 'guide_lunch_dialogue',
-      type: 'tooltip',
-      title: 'Cafeteria Interactions',
-      content: 'Informal conversations with mentors are just as valuable as formal activities. They build relationships and provide career insights.',
-      position: { x: 250, y: 150 },
+      id: 'guide_insight_intro',
+      type: 'modal',
+      title: 'Insight Points',
+      content: 'IP is your learning currency. Earn from activities, unlock stars.',
       dismissable: true
-    },
+    }, // Introduced after first activity for better pacing
+    'lunch_dialogue': null, // Will be shown when returning to hospital map
     'second_mentor_intro': {
       id: 'guide_second_mentor',
       type: 'spotlight',
-      title: 'Meeting Dr. Quinn',
-      content: 'Dr. Quinn heads Treatment Planning and loves the physics behind radiation therapy. They\'ll introduce you to advanced concepts.',
+      title: 'Dr. Quinn',
+      content: 'Treatment Planning head. Physics expert.',
       targetElement: '.mentor-portrait, .dialogue-view',
       dismissable: true
     },
-    'constellation_preview': {
-      id: 'guide_constellation_preview',
-      type: 'modal',
-      title: 'Knowledge Constellation Preview',
-      content: 'Dr. Quinn just mentioned the Knowledge Constellation - this is where you\'ll visualize and connect the concepts you learn. You\'ll explore it tonight!',
-      dismissable: true
-    },
-    'first_ability_intro': {
-      id: 'guide_first_ability',
-      type: 'modal',
-      title: 'Journal Cards & Abilities',
-      content: 'You\'ve received your first ability card! These represent techniques and insights you can apply in future activities. Check your journal tonight to organize them.',
-      dismissable: true
-    },
-    'journal_card_explanation': {
-      id: 'guide_journal_explanation',
-      type: 'tooltip',
-      title: 'Journal System',
-      content: 'Your journal is where abilities and insights are stored. During night phases, you can review and organize your learning for maximum effectiveness.',
-      position: { x: 200, y: 100 },
-      dismissable: true,
-      autoAdvance: 7
-    },
-    'night_phase_transition': {
-      id: 'guide_night_transition',
-      type: 'modal',
-      title: 'Transitioning to Night Phase',
-      content: 'Your first day is ending! Tonight you\'ll explore your knowledge constellation, organize your journal, and reflect on what you\'ve learned.',
-      dismissable: true
-    },
+    'constellation_preview': null, // Moved to Quinn's office meeting at end of day
+    'first_ability_intro': null, // Moved to Quinn's office meeting at end of day
+    'journal_card_explanation': null, // Moved to Quinn's office meeting at end of day
+    'night_phase_transition': null, // Moved to Quinn's office meeting at end of day
     'third_mentor_intro': {
       id: 'guide_third_mentor',
       type: 'spotlight',
-      title: 'Meeting Dr. Kapoor',
-      content: 'Dr. Kapoor is your dosimetry and measurement science expert. They emphasize precision and scientific rigor in everything they do.',
+      title: 'Dr. Kapoor',
+      content: 'Dosimetry expert. Precision-focused.',
       targetElement: '.mentor-portrait, .dialogue-view',
       dismissable: true
     },
@@ -284,15 +251,15 @@ function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
     'observatory_introduction': {
       id: 'guide_observatory',
       type: 'modal',
-      title: 'Your Personal Observatory',
-      content: 'Welcome to your hillside observatory! This is where you\'ll explore your knowledge constellation and organize your learning each night.',
+      title: 'Your Observatory',
+      content: 'Explore your constellation and organize learning each night.',
       dismissable: true
     },
     'constellation_interface': {
       id: 'guide_constellation_interface',
       type: 'tooltip',
-      title: 'Constellation Interface',
-      content: 'Each glowing star represents a concept you\'ve discovered. Click stars to unlock them using Star Points, or explore connections between related concepts.',
+      title: 'Constellation',
+      content: 'Each star is a concept. Click to unlock with SP.',
       position: { x: 400, y: 200 },
       dismissable: true
     },
@@ -300,7 +267,7 @@ function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
       id: 'guide_star_selection',
       type: 'guided_interaction',
       title: 'Select a Star',
-      content: 'Try clicking on one of the glowing stars to unlock it. You\'ll need Star Points (SP) which you earn through daily activities.',
+      content: 'Click any glowing star. Costs SP from activities.',
       targetElement: '.knowledge-star, .constellation-star',
       dismissable: false,
       actionRequired: { type: 'click', target: '.knowledge-star, .constellation-star' }
@@ -308,15 +275,15 @@ function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
     'journal_system_intro': {
       id: 'guide_journal_system',
       type: 'modal',
-      title: 'Journal Organization',
-      content: 'Your journal contains ability cards and insights from your daily experiences. Organize them strategically to enhance your learning efficiency.',
+      title: 'Journal',
+      content: 'Store ability cards and insights. Organize strategically.',
       dismissable: true
     },
     'card_placement_tutorial': {
       id: 'guide_card_placement',
       type: 'guided_interaction',
-      title: 'Organize Your Cards',
-      content: 'Try placing an ability card in your journal. You can categorize them by domain or priority to optimize your learning strategy.',
+      title: 'Organize Cards',
+      content: 'Place an ability card. Categorize by priority.',
       targetElement: '.journal-card, .ability-card',
       dismissable: false,
       actionRequired: { type: 'click', target: '.journal-card, .ability-card' }
@@ -324,17 +291,17 @@ function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
     'phone_call_system': {
       id: 'guide_phone_system',
       type: 'tooltip',
-      title: 'Mentor Guidance Calls',
-      content: 'Your mentors may call during night phases to provide guidance, encouragement, or additional insights about your learning progress.',
+      title: 'Mentor Calls',
+      content: 'Mentors call with guidance and insights.',
       position: { x: 300, y: 100 },
       dismissable: true,
-      autoAdvance: 6
+      autoAdvance: 4
     },
     'mentor_night_guidance': {
       id: 'guide_mentor_guidance',
       type: 'modal',
-      title: 'Mentor Support System',
-      content: 'Your mentors are here to support your learning journey. Their guidance helps you make connections between concepts and apply knowledge effectively.',
+      title: 'Mentor Support',
+      content: 'Mentors help connect concepts and apply knowledge.',
       dismissable: true
     },
 
@@ -342,7 +309,40 @@ function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
     'mentor_relationship_tracking': null,
     'advanced_dialogue_options': null,
     'special_abilities_unlock': null,
-    'boss_encounter_prep': null
+    'boss_encounter_prep': null,
+
+    // Quinn's Office Meeting Tutorial Steps
+    'quinn_office_meeting': {
+      id: 'guide_quinn_office',
+      type: 'tooltip',
+      title: 'Day Wrap-up',
+      content: 'Dr. Quinn has something important to share.',
+      position: { x: 300, y: 150 },
+      dismissable: true
+    },
+    'ability_card_introduction': {
+      id: 'guide_constellation_preview',
+      type: 'modal',
+      title: 'Constellation Preview',
+      content: 'Tonight you\'ll visualize and connect concepts.',
+      dismissable: true
+    },
+    'journal_system_explanation': {
+      id: 'guide_first_ability',
+      type: 'modal',
+      title: 'Your First Card',
+      content: 'Apply this ability in future activities. Organize tonight.',
+      dismissable: true
+    },
+
+    // Night phase transition overlay that will appear after Quinn's office meeting
+    'night_phase_transition': {
+      id: 'guide_night_transition',
+      type: 'modal',
+      title: 'Night Phase',
+      content: 'Day ending. Explore constellation and organize journal.',
+      dismissable: true
+    }
   };
 
   return stepGuidance[step] || null;
@@ -370,21 +370,37 @@ export const useTutorialStore = create<TutorialStore>()(
         const welcomeOverlay = {
           id: `welcome_${sequence}`,
           type: 'modal' as const,
-          title: `${sequence === 'first_day' ? 'First Day Tutorial' : 
-                   sequence === 'night_phase' ? 'Night Phase Tutorial' :
-                   sequence === 'mentor_relationships' ? 'Mentor Relationships Tutorial' :
-                   'Advanced Systems Tutorial'}`,
-          content: `Welcome to the ${sequence.replace(/_/g, ' ')} tutorial sequence! This will guide you through ${
-            sequence === 'first_day' ? 'your first day at the hospital, meeting mentors and learning the basics' :
-            sequence === 'night_phase' ? 'the knowledge constellation system and journal mechanics' :
-            sequence === 'mentor_relationships' ? 'building deeper relationships with your mentors' :
-            'advanced gameplay systems and special abilities'
-          }. Click Continue to begin!`,
+          title: `${sequence === 'first_day' ? 'First Day' : 
+                   sequence === 'night_phase' ? 'Night Phase' :
+                   sequence === 'mentor_relationships' ? 'Mentor Relations' :
+                   'Advanced Systems'}`,
+          content: `${
+            sequence === 'first_day' ? 'Meet mentors and learn basics.' :
+            sequence === 'night_phase' ? 'Master constellation and journal.' :
+            sequence === 'mentor_relationships' ? 'Deepen mentor bonds.' :
+            'Unlock advanced abilities.'
+          }`,
           dismissable: true
         };
         state.activeOverlays.push(welcomeOverlay);
         
         console.log(`🎉 [TUTORIAL POPUP] Welcome overlay shown: "${welcomeOverlay.title}" (${welcomeOverlay.type})`);
+      });
+    },
+
+    // Start tutorial silently without welcome overlay (for debug)
+    startTutorialSilently: (sequence: TutorialSequence, step?: TutorialStep) => {
+      console.log(`🤫 [TUTORIAL] Starting tutorial sequence silently: ${sequence}`);
+      
+      set(state => {
+        state.mode = 'active_sequence';
+        state.activeSequence = sequence;
+        state.currentStep = step || TUTORIAL_SEQUENCES[sequence][0];
+        
+        console.log(`📍 [TUTORIAL] Current step set to: ${state.currentStep}`);
+        
+        // Clear any existing overlays but don't add welcome overlay
+        state.activeOverlays = [];
       });
     },
 
@@ -441,8 +457,8 @@ export const useTutorialStore = create<TutorialStore>()(
           const completionOverlay = {
             id: `completion_${currentSequence}`,
             type: 'modal' as const,
-            title: 'Tutorial Sequence Complete!',
-            content: `Congratulations! You've completed the ${currentSequence.replace(/_/g, ' ')} tutorial sequence. You've gained valuable knowledge and can now apply these skills in the game.`,
+            title: 'Complete!',
+            content: `${currentSequence.replace(/_/g, ' ')} mastered. Apply these skills now.`,
             dismissable: true
           };
           state.activeOverlays.push(completionOverlay);
