@@ -174,6 +174,150 @@ If automated updates fail, manually update:
 2. `CURRENT_VERSION` in `versionManager.ts`
 3. Add new entry to `CHANGELOG_ENTRIES` array
 
+## Deployment Troubleshooting
+
+### When Deployed Version Differs from Local Development
+
+**Symptom**: Changelog shows correct version but deployed features don't match local development.
+
+**Root Cause**: Critical files modified locally but never committed to git.
+
+### Systematic Debugging Process
+
+1. **Check Git Status First**
+   ```bash
+   git status
+   ```
+   Look for:
+   - **Modified files**: Core system files that aren't committed
+   - **Untracked files**: New assets, components, or features
+   - **Deleted files**: Components that need to be removed from git
+
+2. **Identify Critical Missing Files**
+   Common categories that cause deployment issues:
+   - **Core Components**: Main game containers, scene management
+   - **Environmental Assets**: Images, sprites, audio files
+   - **Store Updates**: State management changes
+   - **Type Definitions**: TypeScript interfaces and enums
+   - **Dependencies**: Updated package-lock.json
+
+3. **Check for Import Errors**
+   Build logs may show warnings like:
+   ```
+   Attempted import error: 'ComponentName' is not exported from 'path'
+   ```
+   These can cause runtime failures even if the build succeeds.
+
+### Real-World Example (v0.5.0 Deployment Issue)
+
+**Problem**: 
+- Local dev showed complete v0.5.0 hospital environment features
+- Deployment showed old version despite correct changelog
+
+**Investigation**:
+```bash
+git status
+# Revealed 50+ untracked files and 20+ modified files
+```
+
+**Solution Required 2 Commits**:
+
+**First Commit** - Core environmental system:
+```bash
+git add app/components/hospital/HospitalBackdrop.tsx
+git add public/images/ambient/ public/images/weather/ public/images/pond/
+git add app/store/ app/utils/spriteMap.ts
+git commit -m "Add missing v0.5.0 hospital environment files and assets"
+```
+
+**Second Commit** - Supporting systems:
+```bash
+git add app/components/scenes/ app/components/dialogue/
+git add app/components/tutorial/ app/page.tsx
+git add public/images/characters/portraits/ package-lock.json
+git commit -m "Fix deployment inconsistencies - Add remaining core system files"
+```
+
+### Prevention Strategies
+
+1. **Regular Git Status Checks**
+   - Check `git status` before pushing version updates
+   - Verify all modified files are intentionally excluded
+   - Use descriptive commit messages for easier tracking
+
+2. **Pre-Deployment Checklist**
+   ```bash
+   # 1. Check for untracked files
+   git status
+   
+   # 2. Verify core systems are committed
+   git log --oneline -5
+   
+   # 3. Test build locally
+   npm run build
+   
+   # 4. Push to trigger deployment
+   git push origin main
+   ```
+
+3. **Asset Management Best Practices**
+   - Commit environmental assets (images, sprites) with feature code
+   - Don't assume new files are automatically tracked
+   - Include asset requirements in changelog entries
+
+4. **Import Debugging**
+   ```bash
+   # Check for import issues in build logs
+   npm run build 2>&1 | grep "import error"
+   
+   # Verify exports exist in target files
+   grep -r "export.*ComponentName" app/
+   ```
+
+### Debugging Commands
+
+```bash
+# Check what files are different between local and last commit
+git diff --name-only
+
+# See all untracked files
+git ls-files --others --exclude-standard
+
+# Check if specific file is tracked
+git ls-files app/components/hospital/HospitalBackdrop.tsx
+
+# Verify what's been committed in recent commits
+git log --stat -3
+```
+
+### Recovery from Deployment Issues
+
+If deployment doesn't match local development:
+
+1. **Immediate Assessment**
+   ```bash
+   git status > deployment-debug.txt
+   git diff --name-only >> deployment-debug.txt
+   ```
+
+2. **Systematic File Addition**
+   - Add core system files first
+   - Add assets and dependencies second  
+   - Test deployment after each major commit
+
+3. **Verification**
+   - Wait 2-3 minutes for deployment
+   - Test specific features that were missing
+   - Check browser console for runtime errors
+
+### Lessons Learned
+
+- **Never assume files are tracked**: Always verify with `git status`
+- **Assets matter**: Untracked images/sprites break features silently
+- **Import paths are critical**: Wrong paths cause runtime failures
+- **Multiple commits are okay**: Better to deploy incrementally than miss files
+- **Build warnings != runtime success**: Pay attention to import warnings
+
 ## Examples
 
 ### Quick Bug Fix
