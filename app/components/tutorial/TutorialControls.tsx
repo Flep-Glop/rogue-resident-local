@@ -515,34 +515,10 @@ const TutorialControls: React.FC = () => {
   );
 };
 
-// Simple tutorial mode indicator for the main UI
+// Simple tutorial mode indicator for the main UI (disabled)
 export const TutorialModeIndicator: React.FC = () => {
-  const mode = useTutorialStore(tutorialSelectors.getMode);
-  const currentStep = useTutorialStore(tutorialSelectors.getCurrentStep);
-  
-  if (mode === 'disabled') return null;
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        top: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        background: 'rgba(16, 185, 129, 0.9)',
-        color: 'white',
-        padding: '8px 16px',
-        borderRadius: '20px',
-        fontSize: '12px',
-        fontWeight: 'bold',
-        zIndex: 998,
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-        backdropFilter: 'blur(5px)'
-      }}
-    >
-      {mode === 'active_sequence' ? `Tutorial Active: ${currentStep?.replace(/_/g, ' ')}` : `Tutorial Mode: ${mode}`}
-    </div>
-  );
+  // Removed the tutorial mode indicator button
+  return null;
 };
 
 export default TutorialControls; 

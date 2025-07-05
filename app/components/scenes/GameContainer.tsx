@@ -1,21 +1,56 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useSceneStore, sceneSelectors, GameScene } from '@/app/store/sceneStore';
+import { useDialogueStore } from '@/app/store/dialogueStore';
 import HospitalBackdrop from '@/app/components/hospital/HospitalBackdrop';
 import { SceneNarrativeDialogue, SceneChallengeDialogue } from '@/app/components/scenes/SceneDialogueAdapters';
 import TransitionScreen from '@/app/components/ui/TransitionScreen';
 import ConstellationView from '@/app/components/knowledge/ConstellationView';
 import RoomUIOverlay from '../rooms/RoomUIOverlays';
 import TutorialOverlayManager from '@/app/components/tutorial/TutorialOverlay';
-import TutorialControls, { TutorialModeIndicator } from '@/app/components/tutorial/TutorialControls';
+import { TutorialModeIndicator } from '@/app/components/tutorial/TutorialControls';
+import TutorialActivity from '@/app/components/tutorial/TutorialActivity';
 import GameDevConsole from '@/app/components/debug/GameDevConsole';
+import { DayNightTransition } from '@/app/components/phase/DayNightTransition';
 
 // Main game container that handles scene switching
 export default function GameContainer() {
   const currentScene = useSceneStore(sceneSelectors.getCurrentScene);
   const isTransitioning = useSceneStore(sceneSelectors.getIsTransitioning);
   const context = useSceneStore(sceneSelectors.getContext);
+  
+  // Stabilize the tutorial activity completion callback - MUST be before any conditional returns
+  const handleTutorialActivityComplete = useCallback(() => {
+    console.log('[GameContainer] Tutorial activity completed, returning to narrative');
+    
+    // Get the dialogue store state
+    const { continueToPostActivityNode, getActiveDialogue, getCurrentNode } = useDialogueStore.getState();
+    
+    // Continue to the post-activity dialogue node
+    continueToPostActivityNode();
+    
+    // Check dialogue state immediately and return to the previous scene
+    const currentDialogue = getActiveDialogue();
+    const currentNode = getCurrentNode();
+    
+    console.log('[GameContainer] Checking dialogue state before returning to narrative:', {
+      hasDialogue: !!currentDialogue,
+      hasNode: !!currentNode,
+    });
+    
+    if (currentDialogue && currentNode) {
+      // We have a valid dialogue state, so just return to the previous scene (narrative)
+      console.log('[GameContainer] Valid dialogue state found, calling returnToPrevious()');
+      const { returnToPrevious } = useSceneStore.getState();
+      returnToPrevious();
+    } else {
+      // Something is wrong with the dialogue state, return to hospital as a fallback
+      console.warn('[GameContainer] No valid dialogue state after activity, returning to hospital');
+      const { returnToHospital } = useSceneStore.getState();
+      returnToHospital();
+    }
+  }, []);
   
   // Always render transition screen if transitioning
   if (isTransitioning || currentScene === 'transition') {
@@ -24,7 +59,6 @@ export default function GameContainer() {
         <TransitionScreen />
         <TutorialOverlayManager />
         <TutorialModeIndicator />
-        <TutorialControls />
         <GameDevConsole />
       </>
     );
@@ -54,6 +88,16 @@ export default function GameContainer() {
           />
         );
         
+      case 'tutorial_activity':
+        return (
+          <TutorialActivity
+            patientName={context.patientName || 'Mrs. Patterson'}
+            mentorId={context.mentorId || 'garcia'}
+            roomId={context.roomId || 'physics-office'}
+            onComplete={handleTutorialActivityComplete}
+          />
+        );
+        
       case 'constellation':
         return <ConstellationView />;
         
@@ -69,10 +113,10 @@ export default function GameContainer() {
       {/* Main scene content */}
       {renderScene()}
       
-      {/* Tutorial system overlays - always on top */}
+      {/* Global UI Overlays */}
+      <DayNightTransition />
       <TutorialOverlayManager />
       <TutorialModeIndicator />
-      <TutorialControls />
       
       {/* Game Development Console - F2 to toggle */}
       <GameDevConsole />
@@ -86,6 +130,7 @@ export function useSceneNavigation() {
     enterActivity, 
     enterNarrative, 
     enterChallenge, 
+    enterTutorialActivity,
     returnToHospital, 
     returnToPrevious 
   } = useSceneStore();
@@ -98,6 +143,7 @@ export function useSceneNavigation() {
     enterActivity,
     enterNarrative, 
     enterChallenge,
+    enterTutorialActivity,
     returnToHospital,
     returnToPrevious,
     

@@ -1,4 +1,5 @@
-import { Dialogue, DialogueMode } from '@/app/types';
+import { Dialogue } from '@/app/data/dialogueData';
+import { DialogueMode } from '@/app/types';
 
 /**
  * Tutorial-specific dialogues that advance tutorial progression
@@ -103,8 +104,7 @@ export const tutorialDialogues: Record<string, Dialogue> = {
             id: 'begin_working_together',
             text: 'I\'m ready. Let\'s help Mrs. Patterson.',
             nextNodeId: 'garcia_activity_reflection',
-            triggersActivity: true,
-            tutorialStepCompletion: 'insight_mechanic_intro'
+            triggersActivity: true
           }
         ]
       },
@@ -161,13 +161,13 @@ export const tutorialDialogues: Record<string, Dialogue> = {
   },
 
   /**
-   * Multi-Character Lunch Scene - Authentic Colleague Dynamics
-   * All mentors present with established humor and relationship dynamics
+   * Multi-Character Lunch Scene - Condensed Team Dynamics
+   * Streamlined lunch scene preserving character personalities and key story beats
    */
   'tutorial_lunch_dialogue': {
     id: 'tutorial_lunch_dialogue',
     title: 'Cafeteria - Team Dynamics',
-    description: 'Multi-character lunch scene with authentic colleague relationships',
+    description: 'Condensed lunch scene with authentic colleague relationships',
     startNodeId: 'cafeteria_scene_opening',
     domain: 'general',
     difficulty: 1,
@@ -177,372 +177,144 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'cafeteria_scene_opening': {
         id: 'cafeteria_scene_opening',
         mentorId: 'jesse',
-        text: `[Player enters cafeteria after Garcia activity]\n\n"...so I told maintenance it's not broken, it just has opinions." [Jesse says mid-bite of sandwich, talking to Kapoor]`,
-        options: [
-          {
-            id: 'listen_to_conversation',
-            text: '[Listen to the ongoing conversation]',
-            nextNodeId: 'colleague_banter_begins'
-          }
-        ]
-      },
-      'colleague_banter_begins': {
-        id: 'colleague_banter_begins',
-        mentorId: 'kapoor',
-        text: `"You cannot anthropomorphize every piece of equipment, Martinez." [Dr. Kapoor replies with a slight smile]`,
-        options: [
-          {
-            id: 'continue_listening',
-            text: '[Continue listening to their debate]',
-            nextNodeId: 'jesse_machine_personalities'
-          }
-        ]
-      },
-      'jesse_machine_personalities': {
-        id: 'jesse_machine_personalities',
-        mentorId: 'jesse',
-        text: `"Watch me. Bertha's been moody all week, and the new ion chamber definitely has attitude."`,
+        text: `[Player enters cafeteria. Jesse and Kapoor are mid-conversation]\n\n"...so I told maintenance it's not broken, it just has opinions." [Jesse gestures with sandwich] "Equipment has personality, I'm telling you."`,
         options: [
           {
             id: 'approach_group',
-            text: '[Approach the group]',
-            nextNodeId: 'kapoor_introduces_self'
+            text: '[Approach their table]',
+            nextNodeId: 'team_introductions'
           }
         ]
       },
-      'kapoor_introduces_self': {
-        id: 'kapoor_introduces_self',
+      'team_introductions': {
+        id: 'team_introductions',
         mentorId: 'kapoor',
-        text: `[Noticing you joining the conversation] "Jesse believes our equipment has personalities. I am Dr. Kapoor, dosimetry."`,
+        text: `[Noticing you] "Jesse believes machines have feelings. I am Dr. Kapoor, dosimetry. You must be our new resident."`,
         options: [
           {
-            id: 'nice_to_meet_you',
+            id: 'nice_to_meet_both',
             text: 'Nice to meet you both.',
-            nextNodeId: 'ongoing_debate_revealed',
+            nextNodeId: 'jesse_personality_debate',
             relationshipChange: 2
           }
         ]
       },
-      'ongoing_debate_revealed': {
-        id: 'ongoing_debate_revealed',
+      'jesse_personality_debate': {
+        id: 'jesse_personality_debate',
         mentorId: 'jesse',
-        text: `"And Kapoor thinks calibration curves have personalities. We're both right." [Both chuckle - clearly an ongoing friendly debate]`,
+        text: `"And Kapoor thinks calibration curves have personalities. We're both right." [They share a knowing look - clearly an ongoing debate]`,
         options: [
           {
-            id: 'amused_by_debate',
+            id: 'enjoy_banter',
             text: '[Smile at their friendly argument]',
-            nextNodeId: 'kapoor_deadpan_response'
+            nextNodeId: 'quinn_arrives'
           }
         ]
       },
-      'kapoor_deadpan_response': {
-        id: 'kapoor_deadpan_response',
-        mentorId: 'kapoor',
-        text: `"Calibration curves are predictable. Unlike your machines." [Deadpan delivery with subtle humor]`,
-        options: [
-          {
-            id: 'enjoy_colleague_humor',
-            text: '[Enjoy their collegial back-and-forth]',
-            nextNodeId: 'quinn_arrives_rushing'
-          }
-        ]
-      },
-      'quinn_arrives_rushing': {
-        id: 'quinn_arrives_rushing',
+      'quinn_arrives': {
+        id: 'quinn_arrives',
         mentorId: 'quinn',
-        text: `[Rushing past, then stopping] "Are you two arguing about machine psychology again?"`,
+        text: `[Rushing up with coffee] "Are you two debating machine psychology again?" [To player] "Alex Quinn, treatment planning. These two have the same argument every week."`,
         options: [
-          {
-            id: 'watch_interaction',
-            text: '[Watch Quinn join the conversation]',
-            nextNodeId: 'jesse_explains_argument'
-          }
-        ]
-      },
-      'jesse_explains_argument': {
-        id: 'jesse_explains_argument',
-        mentorId: 'jesse',
-        text: `"Kapoor started it by saying the ion chamber readings are 'merely fluctuations.'"`,
-        options: [
-          {
-            id: 'continue_watching',
-            text: '[Continue watching their dynamic]',
-            nextNodeId: 'quinn_introduces_self'
-          }
-        ]
-      },
-      'quinn_introduces_self': {
-        id: 'quinn_introduces_self',
-        mentorId: 'quinn',
-        text: `[Grinning, to player] "Alex Quinn, treatment planning. These two have been having the same argument for three years."`,
-        options: [
-          {
-            id: 'three_years_question',
-            text: 'Three years of the same argument?',
-            nextNodeId: 'kapoor_philosophical_discussion',
-            relationshipChange: 2,
-            tutorialStepCompletion: 'second_mentor_intro'
-          },
           {
             id: 'impressed_by_team',
             text: 'You all seem to work well together.',
-            nextNodeId: 'kapoor_philosophical_discussion',
+            nextNodeId: 'team_dynamic_revealed',
             relationshipChange: 3,
+            tutorialStepCompletion: 'second_mentor_intro'
+          },
+          {
+            id: 'curious_about_debate',
+            text: 'What exactly are you debating?',
+            nextNodeId: 'philosophy_vs_practicality',
+            relationshipChange: 2,
             tutorialStepCompletion: 'second_mentor_intro'
           }
         ]
       },
-      'kapoor_philosophical_discussion': {
-        id: 'kapoor_philosophical_discussion',
+      'team_dynamic_revealed': {
+        id: 'team_dynamic_revealed',
         mentorId: 'kapoor',
-        text: `"It is not an argument. It is a philosophical discussion about the nature of measurement uncertainty."`,
+        text: `"Twenty years together teaches you to... appreciate different perspectives." [Kapoor's dry humor]`,
         options: [
           {
-            id: 'philosophical_indeed',
-            text: '[Nod] That does sound philosophical.',
-            nextNodeId: 'quinn_sees_point'
+            id: 'appreciate_perspective',
+            text: '[Nod appreciatively]',
+            nextNodeId: 'quinn_time_pressure'
           }
         ]
       },
-      'quinn_sees_point': {
-        id: 'quinn_sees_point',
-        mentorId: 'quinn',
-        text: `"See? Philosophical." [Winks at player] "Jesse, did you fix whatever was 'having opinions' this morning?"`,
-        options: [
-          {
-            id: 'curious_about_fix',
-            text: '[Listen to Jesse\'s response]',
-            nextNodeId: 'jesse_solution'
-          }
-        ]
-      },
-      'jesse_solution': {
-        id: 'jesse_solution',
+      'philosophy_vs_practicality': {
+        id: 'philosophy_vs_practicality',
         mentorId: 'jesse',
-        text: `"Turns out it just needed to be asked nicely. And a firmware update."`,
+        text: `"Equipment talks to you if you listen. Kapoor prefers differential equations." [Both chuckle]`,
         options: [
           {
-            id: 'amused_by_solution',
-            text: '[Smile at the practical solution]',
-            nextNodeId: 'quinn_patient_conference'
+            id: 'both_approaches_valuable',
+            text: 'Both approaches sound valuable.',
+            nextNodeId: 'quinn_time_pressure'
           }
         ]
       },
-      'quinn_patient_conference': {
-        id: 'quinn_patient_conference',
-        mentorId: 'kapoor',
-        text: `"Your 3 o'clock patient conference—" [Kapoor reminds Quinn]`,
-        options: [
-          {
-            id: 'quinn_remembers',
-            text: '[Watch Quinn react]',
-            nextNodeId: 'quinn_cant_stay_long'
-          }
-        ]
-      },
-      'quinn_cant_stay_long': {
-        id: 'quinn_cant_stay_long',
+      'quinn_time_pressure': {
+        id: 'quinn_time_pressure',
         mentorId: 'quinn',
-        text: `"Right! Can't stay long." [To player] "First day going well? Garcia's probably got you swimming in radiation safety protocols by now."`,
+        text: `[Checking time] "Can't stay long - patient conference at 3. How's your first day? Garcia drowning you in protocols yet?"`,
         options: [
           {
-            id: 'team_works_well',
-            text: 'She\'s been great. You all seem to work well together.',
-            nextNodeId: 'jesse_twenty_years',
-            tutorialStepCompletion: 'constellation_preview'
-          },
-          {
-            id: 'equipment_personalities_new',
-            text: 'Definitely learning a lot. The equipment personality thing is new to me.',
-            nextNodeId: 'jesse_one_week_prediction',
-            tutorialStepCompletion: 'constellation_preview'
+            id: 'learning_lot',
+            text: 'Learning a lot. Everyone has different strengths.',
+            nextNodeId: 'quinn_invitation_setup',
+            relationshipChange: 2
           }
         ]
       },
-      'jesse_twenty_years': {
-        id: 'jesse_twenty_years',
-        mentorId: 'jesse',
-        text: `"Twenty years here, you better work well together."`,
-        options: [
-          {
-            id: 'kapoor_correction',
-            text: '[Listen to Kapoor\'s response]',
-            nextNodeId: 'kapoor_eight_years'
-          }
-        ]
-      },
-      'kapoor_eight_years': {
-        id: 'kapoor_eight_years',
-        mentorId: 'kapoor',
-        text: `"Speak for yourself. I have only been here eight years."`,
-        options: [
-          {
-            id: 'quinn_breaking_in',
-            text: '[Watch Quinn\'s reaction]',
-            nextNodeId: 'quinn_breaking_him_in'
-          }
-        ]
-      },
-      'quinn_breaking_him_in': {
-        id: 'quinn_breaking_him_in',
+      'quinn_invitation_setup': {
+        id: 'quinn_invitation_setup',
         mentorId: 'quinn',
-        text: `"And we're still breaking him in." [Kapoor raises eyebrow, amused]`,
-        options: [
-          {
-            id: 'enjoy_team_dynamic',
-            text: '[Enjoy their friendly team dynamic]',
-            nextNodeId: 'quinn_office_invitation'
-          }
-        ]
-      },
-      'jesse_one_week_prediction': {
-        id: 'jesse_one_week_prediction',
-        mentorId: 'jesse',
-        text: `"Give it a week. You'll start hearing the machines talk back."`,
-        options: [
-          {
-            id: 'kapoor_translation',
-            text: '[Listen to Kapoor\'s translation]',
-            nextNodeId: 'kapoor_patterns_explanation'
-          }
-        ]
-      },
-      'kapoor_patterns_explanation': {
-        id: 'kapoor_patterns_explanation',
-        mentorId: 'kapoor',
-        text: `"What Jesse means is that experience teaches you to recognize patterns in equipment behavior."`,
-        options: [
-          {
-            id: 'jesse_agrees',
-            text: '[Watch Jesse\'s response]',
-            nextNodeId: 'jesse_thats_what_i_said'
-          }
-        ]
-      },
-      'jesse_thats_what_i_said': {
-        id: 'jesse_thats_what_i_said',
-        mentorId: 'jesse',
-        text: `"Right. Patterns. That's what I said."`,
-        options: [
-          {
-            id: 'quinn_translation_humor',
-            text: '[Watch Quinn\'s amused reaction]',
-            nextNodeId: 'quinn_translation_both_right'
-          }
-        ]
-      },
-      'quinn_translation_both_right': {
-        id: 'quinn_translation_both_right',
-        mentorId: 'quinn',
-        text: `[To player] "Translation: they're both right, but Jesse's more fun about it."`,
-        options: [
-          {
-            id: 'appreciate_translation',
-            text: '[Appreciate Quinn\'s translation]',
-            nextNodeId: 'quinn_office_invitation'
-          }
-        ]
-      },
-      'quinn_office_invitation': {
-        id: 'quinn_office_invitation',
-        mentorId: 'quinn',
-        text: `"Listen, I need to prep for this conference, but swing by my office around 4:30? Got something that might help with your week."`,
+        text: `"Good attitude. Listen, swing by my office around 4:30? Got something that might help with your week." [Stands to leave] "These two can argue about machine consciousness without me."`,
         options: [
           {
             id: 'accept_invitation',
             text: 'Sounds great, I\'ll stop by.',
-            nextNodeId: 'jesse_optimization_poetry',
+            nextNodeId: 'afternoon_choice_moment',
             relationshipChange: 2
           }
         ]
       },
-      'jesse_optimization_poetry': {
-        id: 'jesse_optimization_poetry',
+      'afternoon_choice_moment': {
+        id: 'afternoon_choice_moment',
         mentorId: 'jesse',
-        text: `[As Quinn starts to leave] "Let me guess - another optimization problem that's 'elegantly complex.'"`,
-        options: [
-          {
-            id: 'quinn_poetry_response',
-            text: '[Listen to Quinn\'s response]',
-            nextNodeId: 'quinn_optimization_is_poetry'
-          }
-        ]
-      },
-      'quinn_optimization_is_poetry': {
-        id: 'quinn_optimization_is_poetry',
-        mentorId: 'quinn',
-        text: `[Over shoulder] "Hey, optimization is poetry!"`,
-        options: [
-          {
-            id: 'kapoor_poetry_math',
-            text: '[Watch Kapoor\'s reaction]',
-            nextNodeId: 'kapoor_poetry_differential_equations'
-          }
-        ]
-      },
-      'kapoor_poetry_differential_equations': {
-        id: 'kapoor_poetry_differential_equations',
-        mentorId: 'kapoor',
-        text: `[To Jesse, after Quinn leaves] "Poetry with differential equations."`,
-        options: [
-          {
-            id: 'jesse_see_what_i_mean',
-            text: '[Listen to Jesse\'s final comment]',
-            nextNodeId: 'jesse_afternoon_choice_setup'
-          }
-        ]
-      },
-      'jesse_afternoon_choice_setup': {
-        id: 'jesse_afternoon_choice_setup',
-        mentorId: 'jesse',
-        text: `[To player] "So what's your preference - afternoon with real equipment that has actual personality, or afternoon with Kapoor's perfectly calibrated universe?"`,
+        text: `[After Quinn leaves] "So, afternoon choice time. Want to see how real equipment behaves in the wild, or dive into Kapoor's perfectly measured universe?"`,
         options: [
           {
             id: 'choose_jesse_equipment',
-            text: 'I think I\'d like to see how you troubleshoot real equipment.',
-            nextNodeId: 'kapoor_mock_offended',
-            tutorialStepCompletion: 'first_ability_intro'
+            text: 'I\'d like to see your hands-on troubleshooting approach.',
+            nextNodeId: 'kapoor_good_natured_response'
           },
           {
             id: 'choose_kapoor_precision',
-            text: 'Quantifiable uncertainties sounds like something I should understand.',
-            nextNodeId: 'kapoor_mock_offended',
-            tutorialStepCompletion: 'first_ability_intro'
+            text: 'Understanding measurement precision sounds important.',
+            nextNodeId: 'kapoor_good_natured_response'
           }
         ]
       },
-      'kapoor_mock_offended': {
-        id: 'kapoor_mock_offended',
+      'kapoor_good_natured_response': {
+        id: 'kapoor_good_natured_response',
         mentorId: 'kapoor',
-        text: `[Slightly mock-offended] "My universe is not perfect. It simply has quantifiable uncertainties."`,
-        options: [
-          {
-            id: 'jesse_final_grin',
-            text: '[Watch Jesse\'s reaction]',
-            nextNodeId: 'jesse_see_what_i_mean_finale'
-          }
-        ]
-      },
-      'jesse_see_what_i_mean_finale': {
-        id: 'jesse_see_what_i_mean_finale',
-        mentorId: 'jesse',
-        text: `[Grins] "See what I mean?"`,
+        text: `[With subtle humor] "Either way, you will learn something useful. Jesse's machines and my equations both serve the same purpose - helping patients."`,
         options: [
           {
             id: 'equipment_path_jesse',
-            text: 'Let\'s go see what the equipment is really saying.',
+            text: 'Let\'s go see what the equipment is telling us.',
             isEndNode: true,
-            relationshipChange: 3,
-            tutorialStepCompletion: 'journal_card_explanation',
-            setsFlag: 'afternoon_choice:jesse'
+            relationshipChange: 3
           },
           {
             id: 'precision_path_kapoor',
-            text: 'I want to understand measurement science properly.',
+            text: 'I want to understand the measurement science properly.',
             isEndNode: true,
-            relationshipChange: 3,
-            tutorialStepCompletion: 'journal_card_explanation',
-            setsFlag: 'afternoon_choice:kapoor'
+            relationshipChange: 3
           }
         ]
       }
@@ -764,7 +536,8 @@ export const tutorialDialogues: Record<string, Dialogue> = {
             id: 'begin_troubleshooting',
             text: 'Let\'s figure out what\'s wrong.',
             nextNodeId: 'jesse_activity_complete',
-            triggersActivity: true
+            triggersActivity: true,
+            tutorialStepCompletion: 'insight_mechanic_intro'
           }
         ]
       },
@@ -799,7 +572,191 @@ export const tutorialDialogues: Record<string, Dialogue> = {
             text: 'Thanks for showing me the practical side of things.',
             isEndNode: true,
             relationshipChange: 2,
+            tutorialStepCompletion: 'quinn_office_meeting'
+          }
+        ]
+      }
+    }
+  },
+
+  /**
+   * Quinn's Office - Journal Introduction & Tutorial Systems
+   * Enhanced tutorial version with insight system explanation and ability card introduction
+   */
+  'tutorial_quinn_office_journal': {
+    id: 'tutorial_quinn_office_journal',
+    title: 'Quinn\'s Office - End of Day Tutorial',
+    description: 'Dr. Quinn explains the insight system, gives journal, and introduces ability cards',
+    startNodeId: 'quinn_office_opening',
+    domain: 'treatment_planning',
+    difficulty: 1,
+    mode: DialogueMode.NARRATIVE,
+    isTutorial: true,
+    nodes: {
+      'quinn_office_opening': {
+        id: 'quinn_office_opening',
+        mentorId: 'quinn',
+        text: `"How was your afternoon? Learning from [Jesse's hands-on troubleshooting / Kapoor's systematic precision] is exactly what you need." [Leans back] "I can see you're starting to understand how we each approach problems differently."`,
+        options: [
+          {
+            id: 'different_approaches_valuable',
+            text: 'The different approaches are really valuable. I feel like I\'m learning faster.',
+            nextNodeId: 'quinn_insight_explanation',
+            relationshipChange: 2,
+            tutorialStepCompletion: 'quinn_office_meeting'
+          }
+        ]
+      },
+      'quinn_insight_explanation': {
+        id: 'quinn_insight_explanation',
+        mentorId: 'quinn',
+        text: `"That feeling? That's what we call Insight. When you're really engaged with learning, when concepts start clicking together, you build understanding that goes deeper than just memorizing facts. You've been gaining Insight all day - notice how it feels different from just completing tasks?"`,
+        options: [
+          {
+            id: 'insight_feels_different',
+            text: 'Yes, it does feel different. More connected somehow.',
+            nextNodeId: 'quinn_insight_application',
+            insightChange: 3,
+            tutorialStepCompletion: 'ability_card_introduction'
+          },
+          {
+            id: 'ask_about_insight_system',
+            text: 'How does this Insight system work exactly?',
+            nextNodeId: 'quinn_insight_mechanics',
+            insightChange: 2,
+            tutorialStepCompletion: 'ability_card_introduction'
+          }
+        ]
+      },
+      'quinn_insight_mechanics': {
+        id: 'quinn_insight_mechanics',
+        mentorId: 'quinn',
+        text: `"Think of Insight as your growing understanding. The more engaged you are, the more you gain. You can use it to unlock new concepts, deepen relationships with mentors, and develop special abilities. It's not just about knowing facts - it's about truly understanding connections."`,
+        options: [
+          {
+            id: 'understand_connections',
+            text: 'Understanding connections... that makes sense.',
+            nextNodeId: 'quinn_journal_introduction',
+            insightChange: 2
+          }
+        ]
+      },
+      'quinn_insight_application': {
+        id: 'quinn_insight_application',
+        mentorId: 'quinn',
+        text: `"Exactly. And here's something that might help you organize those connections..." [Pulls out ornate journal] "This belonged to a former resident - someone who really mastered the art of connecting medical physics concepts."`,
+        options: [
+          {
+            id: 'curious_about_journal',
+            text: 'What made them so good at connecting concepts?',
+            nextNodeId: 'quinn_journal_introduction',
+            relationshipChange: 2
+          }
+        ]
+      },
+      'quinn_journal_introduction': {
+        id: 'quinn_journal_introduction',
+        mentorId: 'quinn',
+        text: `"They developed this system for organizing insights and abilities. See these sections? You can place ability cards here - techniques you learn from mentors, special approaches to problems. The journal helps you see patterns across different areas of physics."`,
+        options: [
+          {
+            id: 'journal_system_interesting',
+            text: 'This system looks fascinating. How do I use it?',
+            nextNodeId: 'quinn_ability_card_demo',
+            tutorialStepCompletion: 'journal_system_explanation'
+          }
+        ]
+      },
+      'quinn_ability_card_demo': {
+        id: 'quinn_ability_card_demo',
+        mentorId: 'quinn',
+        text: `"Here's your first ability card - 'Pattern Recognition.' You earned this today by seeing connections between different mentors' approaches. Place it in your journal tonight, and you'll be able to apply it in future activities." [Hands you a glowing card]`,
+        options: [
+          {
+            id: 'receive_first_ability',
+            text: 'Thank you. I can feel this will be useful.',
+            nextNodeId: 'quinn_constellation_preview',
+            receivesAbility: 'pattern_recognition',
+            insightChange: 5
+          }
+        ]
+      },
+      'quinn_constellation_preview': {
+        id: 'quinn_constellation_preview',
+        mentorId: 'quinn',
+        text: `"One more thing - tonight, try looking up at the stars. Sometimes when you're really focused on learning, you start to see... patterns in unexpected places. The journal will help with that too." [Mysterious smile]`,
+        options: [
+          {
+            id: 'intrigued_by_stars',
+            text: 'I\'ll definitely look up tonight. Thank you for everything.',
+            nextNodeId: 'quinn_day_conclusion',
+            relationshipChange: 3
+          }
+        ]
+      },
+      'quinn_day_conclusion': {
+        id: 'quinn_day_conclusion',
+        mentorId: 'quinn',
+        text: `"Go home, organize your thoughts. Use the journal to reflect on today's connections. I might call later - first days here can bring... interesting discoveries. Sweet dreams!" [Winks knowingly]`,
+        options: [
+          {
+            id: 'ready_for_night_exploration',
+            text: 'I\'m excited to explore what I\'ve learned today.',
+            isEndNode: true,
+            relationshipChange: 3,
             tutorialStepCompletion: 'night_phase_transition'
+          }
+        ]
+      }
+    }
+  },
+
+  // NIGHT PHASE TUTORIAL SEQUENCE
+
+  /**
+   * Observatory Phone Call - Night Phase
+   * Natural check-in with mystery over exposition approach
+   */
+  'tutorial_observatory_call': {
+    id: 'tutorial_observatory_call',
+    title: 'Evening Check-in Call',
+    description: 'Dr. Quinn calls to see how your first day is settling in',
+    startNodeId: 'quinn_phone_opening',
+    domain: 'general',
+    difficulty: 1,
+    mode: DialogueMode.NARRATIVE,
+    isTutorial: true,
+    nodes: {
+      'quinn_phone_opening': {
+        id: 'quinn_phone_opening',
+        mentorId: 'quinn',
+        text: `"Hope I'm not calling too late - saw your office light was still on. How's your brain feeling? Sometimes first days here are... a lot to process. Notice anything interesting when you got home?"`,
+        options: [
+          {
+            id: 'just_about_to_explore',
+            text: 'I was just about to explore the journal you gave me.',
+            nextNodeId: 'quinn_discovery_guidance',
+            tutorialStepCompletion: 'observatory_introduction'
+          },
+          {
+            id: 'still_processing',
+            text: 'Still processing everything. Could you remind me what to look for?',
+            nextNodeId: 'quinn_discovery_guidance',
+            tutorialStepCompletion: 'observatory_introduction'
+          }
+        ]
+      },
+      'quinn_discovery_guidance': {
+        id: 'quinn_discovery_guidance',
+        mentorId: 'quinn',
+        text: `"Perfect timing then. Just... browse through it with an open mind. Some residents pick up on patterns others miss. You strike me as someone who might notice connections."`,
+        options: [
+          {
+            id: 'see_what_i_discover',
+            text: 'I\'ll see what I can discover.',
+            isEndNode: true,
+            insightChange: 3,
+            tutorialStepCompletion: 'constellation_interface'
           }
         ]
       }
@@ -895,150 +852,7 @@ export const tutorialDialogues: Record<string, Dialogue> = {
             text: 'Thank you for showing me how precision actually works.',
             isEndNode: true,
             relationshipChange: 2,
-            tutorialStepCompletion: 'night_phase_transition'
-          }
-        ]
-      }
-    }
-  },
-
-  /**
-   * Quinn's Office - Journal Introduction
-   * Lore setup with Amara's journal handover, following mystery over exposition approach
-   */
-  'tutorial_quinn_office_journal': {
-    id: 'tutorial_quinn_office_journal',
-    title: 'Quinn\'s Office - Research Insights',
-    description: 'Private conversation with Dr. Quinn and introduction to former resident\'s journal',
-    startNodeId: 'quinn_office_opening',
-    domain: 'treatment_planning',
-    difficulty: 1,
-    mode: DialogueMode.NARRATIVE,
-    isTutorial: true,
-    nodes: {
-      'quinn_office_opening': {
-        id: 'quinn_office_opening',
-        mentorId: 'quinn',
-        text: `"How'd your afternoon go? [Jesse's equipment detective work / Kapoor's precision training] is excellent preparation for the kind of thinking we do here." [Pause, more thoughtful]`,
-        options: [
-          {
-            id: 'valuable_preparation',
-            text: 'It was really valuable. Different from what I expected.',
-            nextNodeId: 'quinn_thoughtful_pause',
-            relationshipChange: 2
-          }
-        ]
-      },
-      'quinn_thoughtful_pause': {
-        id: 'quinn_thoughtful_pause',
-        mentorId: 'quinn',
-        text: `"Garcia mentioned you're someone who picks up on patterns quickly. I've got something that might help with that..." [Pulls out journal] "This belonged to a former resident - brilliant student who developed some... interesting approaches to learning medical physics."`,
-        options: [
-          {
-            id: 'ask_about_approaches',
-            text: 'What kind of approaches did they develop?',
-            nextNodeId: 'quinn_approaches_inquiry',
-            insightChange: 2
-          },
-          {
-            id: 'grateful_for_guidance',
-            text: 'Thank you. I appreciate the guidance.',
-            nextNodeId: 'quinn_grateful_response',
-            relationshipChange: 2
-          }
-        ]
-      },
-      'quinn_approaches_inquiry': {
-        id: 'quinn_approaches_inquiry',
-        mentorId: 'quinn',
-        text: `"Hard to explain, really. They saw connections between concepts that others missed. Had this way of making everything feel... interconnected. Take it home tonight, see what you think."`,
-        options: [
-          {
-            id: 'explore_tonight',
-            text: 'I\'ll definitely explore it tonight.',
-            nextNodeId: 'quinn_night_transition',
-            receivesAbility: 'spring_journal',
-            tutorialStepCompletion: 'journal_introduction'
-          }
-        ]
-      },
-      'quinn_grateful_response': {
-        id: 'quinn_grateful_response',
-        mentorId: 'quinn',
-        text: `"Garcia's right about you. Take this home tonight, browse through it. Sometimes the best insights come when you're not trying so hard to learn."`,
-        options: [
-          {
-            id: 'look_tonight',
-            text: 'I\'ll take a look tonight. Thank you.',
-            nextNodeId: 'quinn_night_transition',
-            receivesAbility: 'spring_journal',
-            tutorialStepCompletion: 'journal_introduction'
-          }
-        ]
-      },
-      'quinn_night_transition': {
-        id: 'quinn_night_transition',
-        mentorId: 'quinn',
-        text: `"Go home, let today settle in. Sometimes the best insights come when you're not trying so hard. I might call later - curious how your first day sits with you."`,
-        options: [
-          {
-            id: 'looking_forward_tomorrow',
-            text: 'Thanks for everything. I\'m looking forward to tomorrow.',
-            isEndNode: true,
-            relationshipChange: 3,
-            tutorialStepCompletion: 'night_phase_transition'
-          }
-        ]
-      }
-    }
-  },
-
-  // NIGHT PHASE TUTORIAL SEQUENCE
-
-  /**
-   * Observatory Phone Call - Night Phase
-   * Natural check-in with mystery over exposition approach
-   */
-  'tutorial_observatory_call': {
-    id: 'tutorial_observatory_call',
-    title: 'Evening Check-in Call',
-    description: 'Dr. Quinn calls to see how your first day is settling in',
-    startNodeId: 'quinn_phone_opening',
-    domain: 'general',
-    difficulty: 1,
-    mode: DialogueMode.NARRATIVE,
-    isTutorial: true,
-    nodes: {
-      'quinn_phone_opening': {
-        id: 'quinn_phone_opening',
-        mentorId: 'quinn',
-        text: `"Hope I'm not calling too late - saw your office light was still on. How's your brain feeling? Sometimes first days here are... a lot to process. Notice anything interesting when you got home?"`,
-        options: [
-          {
-            id: 'just_about_to_explore',
-            text: 'I was just about to explore the journal you gave me.',
-            nextNodeId: 'quinn_discovery_guidance',
-            tutorialStepCompletion: 'observatory_introduction'
-          },
-          {
-            id: 'still_processing',
-            text: 'Still processing everything. Could you remind me what to look for?',
-            nextNodeId: 'quinn_discovery_guidance',
-            tutorialStepCompletion: 'observatory_introduction'
-          }
-        ]
-      },
-      'quinn_discovery_guidance': {
-        id: 'quinn_discovery_guidance',
-        mentorId: 'quinn',
-        text: `"Perfect timing then. Just... browse through it with an open mind. Some residents pick up on patterns others miss. You strike me as someone who might notice connections."`,
-        options: [
-          {
-            id: 'see_what_i_discover',
-            text: 'I\'ll see what I can discover.',
-            isEndNode: true,
-            insightChange: 3,
-            tutorialStepCompletion: 'constellation_interface'
+            tutorialStepCompletion: 'quinn_office_meeting'
           }
         ]
       }
@@ -1052,22 +866,58 @@ export const TUTORIAL_DIALOGUE_MAP: Record<string, string> = {
   'physics-office': 'tutorial_physics_office_intro',
   'cafeteria': 'tutorial_lunch_dialogue',
   'dosimetry-lab': 'tutorial_dosimetry_lab_intro',
+  // Jesse's specific afternoon location
+  'linac-1': 'tutorial_jesse_equipment_path',
   // Lunch can be triggered from any room
   'any-room-lunch': 'tutorial_lunch_dialogue',
+  // Quinn's office for end-of-day meeting
+  'physics-office-end-day': 'tutorial_quinn_office_journal',
   // Night phase tutorial
   'observatory': 'tutorial_observatory_call'
 };
 
-// Simplified helper - no special case logic
+// Tutorial dialogue mapping with proper priority for special cases
 export function getTutorialDialogueForRoom(roomId: string, tutorialStep: string | null): string | null {
-  // Direct room mapping first
-  if (TUTORIAL_DIALOGUE_MAP[roomId]) {
-    return TUTORIAL_DIALOGUE_MAP[roomId];
-  }
-  
   // Special case: lunch dialogue can happen in any room during lunch step
   if (tutorialStep === 'lunch_dialogue') {
     return TUTORIAL_DIALOGUE_MAP['any-room-lunch'];
+  }
+  
+  // Special case: Quinn's office dialogue during end-of-day tutorial steps
+  if (roomId === 'physics-office' && (
+    tutorialStep === 'night_phase_transition' || 
+    tutorialStep === 'quinn_office_meeting' ||
+    tutorialStep === 'ability_card_introduction' ||
+    tutorialStep === 'journal_system_explanation'
+  )) {
+    return TUTORIAL_DIALOGUE_MAP['physics-office-end-day'];
+  }
+  
+  // Override: If we're NOT in the morning tutorial steps, always use Quinn's office dialogue for physics-office
+  if (roomId === 'physics-office' && tutorialStep && !['morning_arrival', 'first_mentor_intro', 'first_educational_activity', 'insight_mechanic_intro'].includes(tutorialStep)) {
+    return TUTORIAL_DIALOGUE_MAP['physics-office-end-day'];
+  }
+  
+  // Special case: Afternoon mentor activities during specific tutorial steps
+  if (roomId === 'linac-1' && (
+    tutorialStep === 'constellation_preview' || 
+    tutorialStep === 'first_ability_intro' ||
+    tutorialStep === 'journal_card_explanation'
+  )) {
+    return 'tutorial_jesse_equipment_path';
+  }
+  
+  if (roomId === 'dosimetry-lab' && (
+    tutorialStep === 'constellation_preview' || 
+    tutorialStep === 'first_ability_intro' ||
+    tutorialStep === 'journal_card_explanation'
+  )) {
+    return 'tutorial_kapoor_precision_path';
+  }
+  
+  // Direct room mapping as fallback
+  if (TUTORIAL_DIALOGUE_MAP[roomId]) {
+    return TUTORIAL_DIALOGUE_MAP[roomId];
   }
   
   return null;
@@ -1128,28 +978,33 @@ export const TUTORIAL_STEP_ROOM_AVAILABILITY: Record<string, {
   },
   
   'second_mentor_intro': {
-    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
-    description: 'Continue lunch conversation with Dr. Quinn'
+    availableRooms: ['linac-1', 'dosimetry-lab'],
+    recommendedRoom: 'linac-1',
+    description: 'Choose between Jesse in LINAC Room 1 (troubleshooting "Bertha") or Dr. Kapoor in the Dosimetry Lab (calibration work)'
   },
   
   'constellation_preview': {
-    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
-    description: 'Learn about the Knowledge Constellation from Dr. Quinn'
+    availableRooms: ['linac-1', 'dosimetry-lab'],
+    recommendedRoom: 'linac-1',
+    description: 'Choose between Jesse in LINAC Room 1 (troubleshooting "Bertha") or Dr. Kapoor in the Dosimetry Lab (calibration work)'
   },
   
   'first_ability_intro': {
-    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
-    description: 'Receive your first ability card from Dr. Quinn'
+    availableRooms: ['linac-1', 'dosimetry-lab'],
+    recommendedRoom: 'linac-1',
+    description: 'Choose between Jesse in LINAC Room 1 (troubleshooting "Bertha") or Dr. Kapoor in the Dosimetry Lab (calibration work)'
   },
   
   'journal_card_explanation': {
-    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
-    description: 'Learn about the journal system from Dr. Quinn'
+    availableRooms: ['linac-1', 'dosimetry-lab'],
+    recommendedRoom: 'linac-1',
+    description: 'Choose between Jesse in LINAC Room 1 (troubleshooting "Bertha") or Dr. Kapoor in the Dosimetry Lab (calibration work)'
   },
   
   'night_phase_transition': {
-    availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
-    description: 'Prepare to end your first day'
+    availableRooms: ['physics-office'],
+    recommendedRoom: 'physics-office',
+    description: 'Visit Quinn\'s office to end your first day and receive guidance for tonight'
   },
   
   'third_mentor_intro': {
@@ -1213,6 +1068,25 @@ export const TUTORIAL_STEP_ROOM_AVAILABILITY: Record<string, {
   'boss_encounter_prep': {
     availableRooms: ['physics-office', 'linac-1', 'dosimetry-lab', 'linac-2', 'simulation-suite'],
     description: 'Prepare for challenging scenarios'
+  },
+
+  // New tutorial steps for Quinn's office meeting
+  'quinn_office_meeting': {
+    availableRooms: ['physics-office'],
+    recommendedRoom: 'physics-office',
+    description: 'Meet with Dr. Quinn in her office to wrap up your first day'
+  },
+
+  'ability_card_introduction': {
+    availableRooms: ['physics-office'],
+    recommendedRoom: 'physics-office',
+    description: 'Receive your first ability card from Dr. Quinn'
+  },
+
+  'journal_system_explanation': {
+    availableRooms: ['physics-office'],
+    recommendedRoom: 'physics-office',
+    description: 'Learn about the journal system from Dr. Quinn'
   }
 };
 

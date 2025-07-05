@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import NarrativeDialogue from '@/app/components/dialogue/NarrativeDialogue';
 import ChallengeDialogue from '@/app/components/dialogue/ChallengeDialogue';
 import { useSceneStore } from '@/app/store/sceneStore';
@@ -18,11 +18,75 @@ export function SceneNarrativeDialogue({ mentorId, dialogueId, roomId }: SceneNa
   // Generate a dialogue ID if not provided - prioritize room-specific dialogues
   const effectiveDialogueId = dialogueId || `${roomId}-intro` || `${mentorId}_intro` || 'default_narrative';
   
-  const handleComplete = (results: any) => {
+  console.log('[SceneNarrativeDialogue] Props:', { mentorId, dialogueId, roomId });
+  console.log('[SceneNarrativeDialogue] Effective dialogue ID:', effectiveDialogueId);
+  
+  // Flag to prevent multiple cafeteria overlay timeouts
+  const cafeteriaOverlayTriggered = useRef(false);
+  
+  // Reset the flag when component unmounts
+  useEffect(() => {
+    return () => {
+      cafeteriaOverlayTriggered.current = false;
+    };
+  }, []);
+  
+  // Reset the flag when dialogue changes
+  useEffect(() => {
+    cafeteriaOverlayTriggered.current = false;
+  }, [effectiveDialogueId]);
+  
+  const handleComplete = useCallback((results: any) => {
     console.log('[SceneNarrativeDialogue] Dialogue completed:', results);
-    // Return to previous scene (hospital)
-    returnToPrevious();
-  };
+    
+    // Check if this was the tutorial physics office dialogue
+    if (effectiveDialogueId === 'tutorial_physics_office_intro') {
+      // Prevent multiple overlay triggers
+      if (cafeteriaOverlayTriggered.current) {
+        console.log('[SceneNarrativeDialogue] Cafeteria overlay already triggered, skipping duplicate');
+        return;
+      }
+      
+      cafeteriaOverlayTriggered.current = true;
+      
+      // For tutorial physics office, go directly to hospital (not previous scene)
+      console.log('[SceneNarrativeDialogue] Tutorial physics office complete, returning to hospital');
+      const { returnToHospital } = useSceneStore.getState();
+      returnToHospital();
+      
+      // Set tutorial step to enable lunch dialogue and show overlay
+      import('@/app/store/tutorialStore').then(({ useTutorialStore }) => {
+        const tutorialStore = useTutorialStore.getState();
+        
+        // Short delay to let scene transition complete
+        setTimeout(() => {
+          // Set the tutorial step to enable lunch dialogue
+          console.log('[SceneNarrativeDialogue] Setting tutorial step to lunch_dialogue');
+          tutorialStore.skipToStep('lunch_dialogue');
+          
+          // Show the cafeteria overlay
+          tutorialStore.showOverlay({
+            id: 'guide_lunch_dialogue',
+            type: 'tooltip',
+            title: 'Cafeteria Interactions',
+            content: 'Informal conversations with mentors are just as valuable as formal activities.',
+            position: { x: 500, y: 150 },
+            dismissable: true
+          });
+        }, 1000);
+      });
+    } else if (effectiveDialogueId === 'tutorial_jesse_equipment_path' || effectiveDialogueId === 'tutorial_kapoor_precision_path') {
+      // For Jesse/Kapoor activities, return to hospital - tutorial step will advance automatically
+      console.log('[SceneNarrativeDialogue] Tutorial activity path complete, returning to hospital');
+      const { returnToHospital } = useSceneStore.getState();
+      returnToHospital();
+      
+      // Don't manually set tutorial step - let the dialogue option tutorialStepCompletion handle it
+    } else {
+      // For other dialogues, use normal return to previous scene
+      returnToPrevious();
+    }
+  }, [effectiveDialogueId, returnToPrevious]);
   
   // If no dialogue exists, show a placeholder
   if (!effectiveDialogueId) {
@@ -84,11 +148,11 @@ export function SceneChallengeDialogue({ activityId, mentorId, roomId }: SceneCh
   // Generate a dialogue ID based on activity - prioritize room-specific challenges
   const effectiveDialogueId = activityId ? `${activityId}_challenge` : `${roomId}-activity_challenge` || `${mentorId}_challenge` || 'default_challenge';
   
-  const handleComplete = (results: any) => {
+  const handleComplete = useCallback((results: any) => {
     console.log('[SceneChallengeDialogue] Challenge completed:', results);
     // Return to previous scene (hospital)
     returnToPrevious();
-  };
+  }, [returnToPrevious]);
   
   // If no activity, show a placeholder
   if (!effectiveDialogueId) {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { 
   useTutorialStore, 
@@ -182,6 +182,61 @@ const OverlayTitle = styled.h3<{ $type: TutorialOverlayType }>`
   line-height: 1.2;
 `;
 
+// Styled component for highlighting system words
+const SystemWord = styled.span<{ $type: TutorialOverlayType }>`
+  color: ${({ $type }) => {
+    switch ($type) {
+      case 'spotlight': return '#FFA500'; // Orange for spotlight
+      case 'guided_interaction': return '#90EE90'; // Light green for guided
+      case 'modal': return '#FF69B4'; // Pink for modal
+      default: return '#00FFFF'; // Cyan for tooltip/default
+    }
+  }};
+  font-weight: bold;
+  text-shadow: 0 0 2px currentColor;
+`;
+
+// System words to highlight
+const SYSTEM_WORDS = [
+  'activity', 'activities', 
+  'ability', 'abilities',
+  'card', 'cards',
+  'star', 'stars',
+  'constellation',
+  'journal',
+  'mentor', 'mentors',
+  'room', 'rooms',
+  'insight', 'insights',
+  'points', 'SP', 'IP',
+  'system',
+  'interface',
+  'overlay', 'overlays'
+];
+
+// Utility function to parse and highlight system words
+function parseContentWithHighlights(content: string, overlayType: TutorialOverlayType): React.ReactNode {
+  // Create regex pattern for system words (case insensitive, word boundaries)
+  const pattern = new RegExp(`\\b(${SYSTEM_WORDS.join('|')})\\b`, 'gi');
+  
+  const parts = content.split(pattern);
+  
+  return parts.map((part, index) => {
+    const isSystemWord = SYSTEM_WORDS.some(word => 
+      word.toLowerCase() === part.toLowerCase()
+    );
+    
+    if (isSystemWord) {
+      return (
+        <SystemWord key={index} $type={overlayType}>
+          {part}
+        </SystemWord>
+      );
+    }
+    
+    return part;
+  });
+}
+
 const OverlayContent2 = styled.p<{ $type: TutorialOverlayType }>`
   margin: 0;
   font-size: ${({ $type }) => $type === 'modal' ? '16px' : '14px'};
@@ -264,12 +319,16 @@ const TutorialOverlayComponent: React.FC<TutorialOverlayProps> = ({ overlay, onD
   const [autoAdvanceTimer, setAutoAdvanceTimer] = useState<NodeJS.Timeout | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Log when overlay component mounts
+  // Stabilize object dependencies to prevent unnecessary re-renders
+  const stablePosition = useMemo(() => overlay.position, [overlay.position?.x, overlay.position?.y]);
+  const stableActionRequired = useMemo(() => overlay.actionRequired, [overlay.actionRequired?.type, overlay.actionRequired?.target]);
+
+  // Log when overlay component mounts - use stable dependencies
   useEffect(() => {
     console.log(`🚀 [TUTORIAL RENDER] Overlay component mounted: "${overlay.title}" (${overlay.type}) - ID: ${overlay.id}`);
     
-    if (overlay.position) {
-      console.log(`📍 [TUTORIAL RENDER] Overlay positioned at: x=${overlay.position.x}, y=${overlay.position.y}`);
+    if (stablePosition) {
+      console.log(`📍 [TUTORIAL RENDER] Overlay positioned at: x=${stablePosition.x}, y=${stablePosition.y}`);
     }
     
     if (overlay.targetElement) {
@@ -279,9 +338,9 @@ const TutorialOverlayComponent: React.FC<TutorialOverlayProps> = ({ overlay, onD
     return () => {
       console.log(`🔚 [TUTORIAL RENDER] Overlay component unmounted: "${overlay.title}" (${overlay.type})`);
     };
-  }, [overlay.id, overlay.title, overlay.type, overlay.position, overlay.targetElement]);
+  }, [overlay.id, overlay.title, overlay.type, stablePosition, overlay.targetElement]);
 
-  // Handle auto-advance timer
+  // Handle auto-advance timer - use stable dependencies
   useEffect(() => {
     if (overlay.autoAdvance && overlay.autoAdvance > 0) {
       console.log(`⏰ [TUTORIAL RENDER] Starting auto-advance timer: ${overlay.autoAdvance}s for overlay "${overlay.title}"`);
@@ -298,12 +357,12 @@ const TutorialOverlayComponent: React.FC<TutorialOverlayProps> = ({ overlay, onD
         clearTimeout(timer);
       };
     }
-  }, [overlay.autoAdvance, overlay.id, overlay.title, onDismiss]);
+  }, [overlay.autoAdvance, overlay.id, onDismiss]);
 
-  // Handle action required
+  // Handle action required - use stable dependencies
   useEffect(() => {
-    if (overlay.actionRequired) {
-      const { type, target } = overlay.actionRequired;
+    if (stableActionRequired) {
+      const { type, target } = stableActionRequired;
       console.log(`🎮 [TUTORIAL RENDER] Setting up action listener: ${type} on ${target} for overlay "${overlay.title}"`);
       
       const handleAction = () => {
@@ -333,7 +392,7 @@ const TutorialOverlayComponent: React.FC<TutorialOverlayProps> = ({ overlay, onD
         console.log(`❌ [TUTORIAL RENDER] Target element not found: ${target}`);
       }
     }
-  }, [overlay.actionRequired, overlay.id, overlay.title, onDismiss]);
+  }, [stableActionRequired, overlay.id, onDismiss]);
 
   const handleDismiss = () => {
     if (overlay.dismissable) {
@@ -362,13 +421,13 @@ const TutorialOverlayComponent: React.FC<TutorialOverlayProps> = ({ overlay, onD
         </OverlayTitle>
         
         <OverlayContent2 $type={overlay.type}>
-          {overlay.content}
+          {parseContentWithHighlights(overlay.content, overlay.type)}
         </OverlayContent2>
         
         {overlay.type === 'progress_indicator' && (
           <>
             <ProgressBar $progress={75} /> {/* This would be dynamic */}
-            <ProgressText>Tutorial Progress: 75%</ProgressText>
+            <ProgressText>Progress: 75%</ProgressText>
           </>
         )}
         
@@ -380,7 +439,7 @@ const TutorialOverlayComponent: React.FC<TutorialOverlayProps> = ({ overlay, onD
         
         {overlay.autoAdvance && overlay.autoAdvance > 0 && (
           <ProgressText style={{ marginTop: '8px', fontSize: '10px' }}>
-            Auto-advancing in {overlay.autoAdvance}s...
+            Auto: {overlay.autoAdvance}s
           </ProgressText>
         )}
       </OverlayContent>

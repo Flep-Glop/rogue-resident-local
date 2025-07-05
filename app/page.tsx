@@ -8,7 +8,6 @@ import { DayPhase } from './components/phase/DayPhase';
 import { NightPhase } from './components/phase/NightPhase';
 import { useGameStore } from './store/gameStore';
 import { GamePhase } from './types';
-import DebugPanel from './components/ui/DebugPanel';
 import { useLoading } from './providers/LoadingProvider';
 
 const PageContainer = styled.div`
@@ -78,7 +77,6 @@ export default function Home() {
   return (
     <PageContainer>
       <Game />
-      <DebugPanel />
     </PageContainer>
   );
 }

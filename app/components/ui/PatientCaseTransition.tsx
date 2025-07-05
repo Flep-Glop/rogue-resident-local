@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { colors, spacing, typography, animation } from '@/app/styles/pixelTheme';
 import { ActivityOption, MentorId } from '@/app/types';
 import SpriteImage from './SpriteImage';
-import { getPortraitCoordinates, SPRITE_SHEETS } from '@/app/utils/spriteMap';
+import { getPortraitCoordinates, getMediumPortraitSrc, getExpressionCoordinates, SPRITE_SHEETS, ExpressionType } from '@/app/utils/spriteMap';
 
 interface PatientCaseTransitionProps {
   activity: ActivityOption;
@@ -99,9 +99,148 @@ const getMentorSprite = (mentorId?: MentorId) => {
   };
 };
 
+// Spinning Patient Icon Component
+const SpinningPatientIcon: React.FC<{ size?: number }> = ({ size = 64 }) => {
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const frameCount = 16;
+  const frameSize = 16; // Each frame is 16x16 pixels
+  const scaleFactor = size / frameSize;
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentFrame(prev => (prev + 1) % frameCount);
+    }, 150); // Slower animation - 150ms per frame for smoother rotation
+    
+    return () => clearInterval(interval);
+  }, [frameCount]);
+  
+  return (
+    <div style={{
+      width: `${size}px`,
+      height: `${size}px`,
+      background: `url('/images/ui/patient-rotation.png') no-repeat`,
+      backgroundPosition: `-${currentFrame * frameSize * scaleFactor}px 0px`,
+      backgroundSize: `${frameCount * frameSize * scaleFactor}px ${size}px`,
+      imageRendering: 'pixelated',
+      border: `2px solid ${colors.border}`,
+      borderRadius: spacing.xs,
+      backgroundColor: colors.backgroundAlt
+    }} />
+  );
+};
+
+// Mentor Portrait Component with Expressions
+const MentorPortrait: React.FC<{ 
+  mentorId: MentorId, 
+  expression?: ExpressionType,
+  size?: number,
+  useExpressions?: boolean
+}> = ({ mentorId, expression = 'neutral', size = 80, useExpressions = false }) => {
+  const mentorCharacterId = (() => {
+    switch (mentorId) {
+      case MentorId.GARCIA: return 'garcia';
+      case MentorId.KAPOOR: return 'kapoor';
+      case MentorId.QUINN: return 'quinn';
+      case MentorId.JESSE: return 'jesse';
+      default: return 'garcia';
+    }
+  })();
+
+  // Use expression spritesheet for Garcia if available and requested
+  const hasExpressionSheet = mentorCharacterId === 'garcia' && useExpressions;
+  
+  if (hasExpressionSheet) {
+    const expressionCoords = getExpressionCoordinates(expression);
+    const scale = size / 42; // Scale from 42px base size
+    
+    return (
+      <div style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        border: `3px solid ${colors.border}`,
+        borderRadius: spacing.sm,
+        background: colors.backgroundAlt,
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: `0 4px 0 ${colors.border}, 0 6px 12px rgba(0,0,0,0.3)`,
+        position: 'relative'
+      }}>
+        <div style={{
+          width: '100%',
+          height: '100%',
+          backgroundImage: `url('/images/characters/portraits/garcia-animation.png')`,
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: `-${expressionCoords.x * scale}px 0px`,
+          backgroundSize: `${15 * 42 * scale}px ${42 * scale}px`,
+          imageRendering: 'pixelated'
+        }} />
+        {/* Expression indicator - more subtle for spritesheet version */}
+        <div style={{
+          position: 'absolute',
+          top: '-2px',
+          right: '-2px',
+          width: '8px',
+          height: '8px',
+          backgroundColor: colors.highlight,
+          borderRadius: '50%',
+          border: `1px solid ${colors.border}`,
+          opacity: 0.8
+        }} />
+      </div>
+    );
+  }
+
+  // Fallback to static portrait for other mentors
+  const portraitSrc = getMediumPortraitSrc(mentorCharacterId);
+  
+  return (
+    <div style={{
+      width: `${size}px`,
+      height: `${size}px`,
+      border: `3px solid ${colors.border}`,
+      borderRadius: spacing.sm,
+      background: colors.backgroundAlt,
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: `0 4px 0 ${colors.border}, 0 6px 12px rgba(0,0,0,0.3)`,
+      position: 'relative'
+    }}>
+      <img 
+        src={portraitSrc}
+        alt={`${mentorCharacterId} portrait`}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          imageRendering: 'pixelated'
+        }}
+      />
+      {/* Expression indicator */}
+      <div style={{
+        position: 'absolute',
+        bottom: '-2px',
+        right: '-2px',
+        width: '12px',
+        height: '12px',
+        backgroundColor: expression === 'happy' ? '#22c55e' : 
+                        expression === 'concerned' ? '#ef4444' :
+                        expression === 'thinking' ? '#3b82f6' :
+                        expression === 'encouraging' ? '#f59e0b' : colors.textDim,
+        borderRadius: '50%',
+        border: `1px solid ${colors.border}`
+      }} />
+    </div>
+  );
+};
+
 export default function PatientCaseTransition({ activity, onTransitionComplete }: PatientCaseTransitionProps) {
   const [phase, setPhase] = useState<'intro' | 'patient-reveal' | 'slide-to-panel' | 'mentor-entry'>('intro');
   const [showMentorDialogue, setShowMentorDialogue] = useState(false);
+  const [mentorExpression, setMentorExpression] = useState<ExpressionType>('neutral');
   
   // Get patient data (fallback to first patient if activity not found)
   const patientData = SAMPLE_PATIENTS[activity.id] || SAMPLE_PATIENTS['patient_case_review'];
@@ -115,6 +254,7 @@ export default function PatientCaseTransition({ activity, onTransitionComplete }
       
       // 2. Patient card reveal (time to read patient info)
       setPhase('patient-reveal');
+      setMentorExpression('focused');
       await new Promise(resolve => setTimeout(resolve, 3000));
       
       // 3. Slide to side panel (smooth transition)
@@ -124,6 +264,7 @@ export default function PatientCaseTransition({ activity, onTransitionComplete }
       // 4. Brief mentor context (just one bubble)
       setPhase('mentor-entry');
       setShowMentorDialogue(true);
+      setMentorExpression('confident');
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // 5. Complete transition - straight into challenge!
@@ -231,7 +372,7 @@ export default function PatientCaseTransition({ activity, onTransitionComplete }
 
       {/* Patient Information Card */}
       <div style={getPatientCardStyle()}>
-        {/* Patient Header */}
+        {/* Patient Header with Mentor */}
         <div style={{
           borderBottom: `2px solid ${colors.border}`,
           paddingBottom: spacing.md,
@@ -240,21 +381,8 @@ export default function PatientCaseTransition({ activity, onTransitionComplete }
           alignItems: 'center',
           gap: spacing.md
         }}>
-          {/* Patient Photo Placeholder */}
-          <div style={{
-            width: '80px',
-            height: '80px',
-            backgroundColor: colors.backgroundAlt,
-            border: `2px solid ${colors.border}`,
-            borderRadius: spacing.xs,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: typography.fontSize.xl,
-            color: colors.textDim
-          }}>
-            👤
-          </div>
+          {/* Spinning Patient Icon */}
+          <SpinningPatientIcon size={64} />
           
           {/* Patient Basic Info */}
           <div style={{ flex: 1 }}>
@@ -278,9 +406,33 @@ export default function PatientCaseTransition({ activity, onTransitionComplete }
               <span>{patientData.gender}</span>
             </div>
           </div>
+
+          {/* Mentor Portrait */}
+          {activity.mentor && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: spacing.xs
+            }}>
+              <MentorPortrait 
+                mentorId={activity.mentor} 
+                expression={mentorExpression}
+                size={64}
+                useExpressions={true}
+              />
+              <div style={{
+                fontSize: typography.fontSize.xs,
+                color: colors.textDim,
+                fontWeight: 'bold'
+              }}>
+                {mentorName}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Diagnosis Section */}
+        {/* Primary Case Info - Condensed */}
         <div style={{ marginBottom: spacing.lg }}>
           <h3 style={{
             fontSize: typography.fontSize.lg,
@@ -292,7 +444,7 @@ export default function PatientCaseTransition({ activity, onTransitionComplete }
             alignItems: 'center',
             gap: spacing.xs
           }}>
-            📋 Primary Diagnosis
+            📋 Case Overview
           </h3>
           <div style={{
             backgroundColor: colors.backgroundAlt,
@@ -303,38 +455,15 @@ export default function PatientCaseTransition({ activity, onTransitionComplete }
             color: colors.text,
             lineHeight: '1.4'
           }}>
-            {patientData.diagnosis}
+            <strong>{patientData.diagnosis}</strong>
+            <br />
+            <span style={{ color: colors.textDim, fontSize: typography.fontSize.sm }}>
+              {patientData.lesionDetails}
+            </span>
           </div>
         </div>
 
-        {/* Lesion Details */}
-        <div style={{ marginBottom: spacing.lg }}>
-          <h3 style={{
-            fontSize: typography.fontSize.lg,
-            fontWeight: 'bold',
-            color: colors.insight,
-            margin: 0,
-            marginBottom: spacing.sm,
-            display: 'flex',
-            alignItems: 'center',
-            gap: spacing.xs
-          }}>
-            🔬 Lesion Details
-          </h3>
-          <div style={{
-            backgroundColor: 'rgba(67, 215, 230, 0.1)',
-            border: `1px solid ${colors.insight}`,
-            borderRadius: spacing.xs,
-            padding: spacing.md,
-            fontSize: typography.fontSize.md,
-            color: colors.text,
-            lineHeight: '1.4'
-          }}>
-            {patientData.lesionDetails}
-          </div>
-        </div>
-
-        {/* Additional Information */}
+        {/* Key Notes - Simplified */}
         <div>
           <h3 style={{
             fontSize: typography.fontSize.lg,
@@ -346,21 +475,26 @@ export default function PatientCaseTransition({ activity, onTransitionComplete }
             alignItems: 'center',
             gap: spacing.xs
           }}>
-            📝 Clinical Notes
+            💡 Key Notes
           </h3>
-          <ul style={{
-            margin: 0,
-            paddingLeft: spacing.lg,
+          <div style={{
             fontSize: typography.fontSize.sm,
             color: colors.textDim,
-            lineHeight: '1.6'
+            lineHeight: '1.5'
           }}>
-            {patientData.additionalInfo.map((info, index) => (
-              <li key={index} style={{ marginBottom: spacing.xs }}>
-                {info}
-              </li>
+            {patientData.additionalInfo.slice(0, 2).map((info, index) => (
+              <div key={index} style={{ 
+                marginBottom: spacing.xs,
+                padding: `${spacing.xs} ${spacing.sm}`,
+                backgroundColor: 'rgba(67, 215, 230, 0.1)',
+                border: `1px solid ${colors.insight}`,
+                borderRadius: spacing.xs,
+                fontSize: typography.fontSize.xs
+              }}>
+                • {info}
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       </div>
 

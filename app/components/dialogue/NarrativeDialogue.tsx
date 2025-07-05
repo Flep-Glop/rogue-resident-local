@@ -1,16 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import styled, { keyframes, css } from 'styled-components';
 import { useDialogueStore } from '@/app/store/dialogueStore';
-import { DialogueOption } from '@/app/types';
+import { DialogueOption, DialogueMode } from '@/app/types';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
-import styled, { keyframes } from 'styled-components';
 import PortraitImage from '../ui/PortraitImage';
 import { CharacterId, isValidCharacterId } from '@/app/utils/portraitUtils';
-import { colors, spacing, typography, borders, animation } from '@/app/styles/pixelTheme';
+import { colors, spacing, typography, borders, animation, shadows } from '@/app/styles/pixelTheme';
 import { mixins } from '@/app/styles/pixelTheme';
 import { getRoomBackground } from '@/app/utils/roomBackgrounds';
 import { useReactionSystem, getPortraitAnimation, PortraitAnimationType, ReactionSymbolType } from '../ui/ReactionSystem';
+import { useSceneNavigation } from '../scenes/GameContainer';
+import TypewriterText from '@/app/components/ui/TypewriterText';
+import { useTutorialStore } from '@/app/store/tutorialStore';
+import ReactionSystemComponent from '@/app/components/ui/ReactionSystem';
+import AbilityCardFlip from '@/app/components/ui/AbilityCardFlip';
 
 // Keyframe animations
 const blink = keyframes`
@@ -505,7 +510,11 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   const [currentPortraitAnimation, setCurrentPortraitAnimation] = useState<PortraitAnimationType>('none');
   const [parsedDialogue, setParsedDialogue] = useState<ParsedDialogue>({ stageDirections: [], cleanText: '' });
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(0); // For arrow key navigation
+  const [activityTriggered, setActivityTriggered] = useState(false); // Prevent multiple activity triggers
   const typingSpeed = 30; // ms per character
+  
+  // Scene navigation for tutorial activities
+  const { enterTutorialActivity } = useSceneNavigation();
   
   // Reaction system
   const containerRef = useRef<HTMLDivElement>(null);
@@ -530,13 +539,46 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   // Knowledge store for checking star requirements
   const stars = useKnowledgeStore(state => state.stars);
   
+  // Tutorial overlay state
+  const [showTutorialOverlay, setShowTutorialOverlay] = useState(false);
+  const [overlayType, setOverlayType] = useState<'activity' | 'cafeteria'>('activity');
+  const [overlayTriggered, setOverlayTriggered] = useState(false);
+  
+  // Ability card flip state
+  const [showAbilityCard, setShowAbilityCard] = useState(false);
+  const [currentAbilityId, setCurrentAbilityId] = useState<string | null>(null);
+  
+  // Ability card image mapping
+  const ABILITY_CARD_IMAGES: Record<string, { front: string; back: string }> = {
+    'pattern_recognition': {
+      front: '/images/cards/card-laser-focus.png',
+      back: '/images/cards/card-back-orange.png'
+    },
+    'laser_focus': {
+      front: '/images/cards/card-laser-focus.png', 
+      back: '/images/cards/card-back-orange.png'
+    },
+    // Add more abilities as needed - can reuse the orange back for all cards
+  };
+  
   // Start dialogue when component mounts
   useEffect(() => {
     if (!initialized) {
-      startDialogue(dialogueId);
-      setInitialized(true);
+      // Reset activity trigger flag for new dialogue
+      setActivityTriggered(false);
+      
+      // Check if this dialogue is already active (e.g., returning from tutorial activity)
+      const currentActiveDialogue = getActiveDialogue();
+      if (currentActiveDialogue?.id === dialogueId) {
+        console.log('[NarrativeDialogue] Dialogue already active, not restarting:', dialogueId);
+        setInitialized(true);
+      } else {
+        console.log('[NarrativeDialogue] Starting new dialogue:', dialogueId);
+        startDialogue(dialogueId);
+        setInitialized(true);
+      }
     }
-  }, [dialogueId, initialized, startDialogue]);
+  }, [dialogueId, initialized, startDialogue, getActiveDialogue]);
   
   // Parse dialogue text and type out effect - FIXED: Removed currentCharIndex from dependencies
   useEffect(() => {
@@ -591,10 +633,25 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
     setSelectedOptionIndex(0);
   }, [availableOptions.length]);
 
+  // Reset activity trigger flag when dialogue ID changes
+  useEffect(() => {
+    setActivityTriggered(false);
+  }, [dialogueId]);
+
   // Handle keyboard navigation
   useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
+    const handleKeyPress = async (e: KeyboardEvent) => {
       if (e.code === 'Space') {
+        // Check if there are any active overlays that prevent space activation
+        const { useTutorialStore } = await import('@/app/store/tutorialStore');
+        const tutorialStore = useTutorialStore.getState();
+        const hasPreventSpaceOverlay = tutorialStore.activeOverlays.some((overlay: any) => overlay.preventSpaceActivation);
+        
+        if (hasPreventSpaceOverlay) {
+          // Space activation is prevented by an active overlay
+          return;
+        }
+        
         e.preventDefault();
         if (isTyping) {
           handleSkipTyping();
@@ -633,38 +690,112 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   
   // Handle selecting an option
   const handleSelectOption = (option: DialogueOption) => {
-    if (option.id) {
-      // Trigger reaction based on option effects
-      let reactionType: ReactionSymbolType = '!';
-      let animationType: PortraitAnimationType = 'nod';
+    if (!option.id) return;
+    
+    // Check if this option grants an ability - show card flip first
+    if ((option as any).receivesAbility) {
+      console.log('[NarrativeDialogue] Ability received:', (option as any).receivesAbility);
+      setCurrentAbilityId((option as any).receivesAbility);
+      setShowAbilityCard(true);
       
-      if (option.insightChange && option.insightChange > 0) {
-        reactionType = '💡';
-        animationType = 'bounce';
-      } else if (option.insightChange && option.insightChange < 0) {
-        reactionType = '?';
-        animationType = 'shake';
-      } else if (option.momentumChange && option.momentumChange > 0) {
-        reactionType = '⭐';
-        animationType = 'bounce';
-      } else if (option.momentumChange && option.momentumChange < 0) {
-        reactionType = '...';
-        animationType = 'shake';
+      // Process the dialogue option but don't continue until card is dismissed
+      selectOption(option.id);
+      return;
+    }
+    
+    // Check if this is a tutorial activity trigger - show overlay first
+    if ((option as any).triggersActivity && activeDialogue?.isTutorial) {
+      // Prevent multiple triggers of the same activity
+      if (activityTriggered) {
+        console.log('[NarrativeDialogue] Activity already triggered, ignoring duplicate call');
+        return;
       }
       
-      // Trigger portrait animation
-      setCurrentPortraitAnimation(animationType);
+      console.log('[NarrativeDialogue] Tutorial activity triggered, showing preparation overlay');
+      setActivityTriggered(true);
       
-      // Trigger floating reaction symbol
-      triggerReaction(reactionType);
+      // Show generic "Ready?" overlay before launching
+      import('@/app/store/tutorialStore').then(({ useTutorialStore }) => {
+        const tutorialStore = useTutorialStore.getState();
+        const mentorId = currentNode?.mentorId || 'garcia';
+        const mentorName = mentorId === 'garcia' ? 'Dr. Garcia' : 
+                          mentorId === 'jesse' ? 'Jesse' : 
+                          mentorId === 'kapoor' ? 'Dr. Kapoor' : 'Dr. Quinn';
+        const activityType = mentorId === 'garcia' ? 'patient case' : 'hands-on work';
+        
+        tutorialStore.showOverlay({
+          id: 'guide_first_activity',
+          type: 'modal',
+          title: 'Ready?',
+          content: `Begin ${activityType} with ${mentorName}.`,
+          dismissable: true,
+          preventSpaceActivation: true
+        });
+      });
       
-      // Reset animation after it completes
-      setTimeout(() => {
-        setCurrentPortraitAnimation('none');
-      }, 1200);
+      // Set up listener for when overlay is dismissed to continue with activity
+      const checkOverlayDismissed = () => {
+        import('@/app/store/tutorialStore').then(({ useTutorialStore }) => {
+          const tutorialStore = useTutorialStore.getState();
+          if (!tutorialStore.activeOverlays.some((o: any) => o.id === 'guide_first_activity')) {
+            // Overlay dismissed, now process option and launch activity
+            selectOption(option.id!);
+            
+            // Dynamic activity parameters based on mentor
+            const mentorId = currentNode?.mentorId || 'garcia';
+            if (mentorId === 'garcia') {
+              enterTutorialActivity('Mrs. Patterson', 'garcia', roomId || 'physics-office');
+            } else if (mentorId === 'jesse') {
+              enterTutorialActivity('Bertha (LINAC)', 'jesse', roomId || 'linac-1');
+            } else if (mentorId === 'kapoor') {
+              enterTutorialActivity('Calibration Setup', 'kapoor', roomId || 'dosimetry-lab');
+            } else {
+              // Default to Garcia for other mentors
+              enterTutorialActivity('Mrs. Patterson', 'garcia', roomId || 'physics-office');
+            }
+          } else {
+            // Check again in 100ms
+            setTimeout(checkOverlayDismissed, 100);
+          }
+        });
+      };
       
-      selectOption(option.id);
+      // Start checking for dismissal
+      setTimeout(checkOverlayDismissed, 100);
+      return;
     }
+    
+    // Regular dialogue option handling - SINGLE selectOption call
+    selectOption(option.id);
+    
+    // Trigger reaction based on option effects
+    let reactionType: ReactionSymbolType = '!';
+    let animationType: PortraitAnimationType = 'nod';
+    
+    if (option.insightChange && option.insightChange > 0) {
+      reactionType = '💡';
+      animationType = 'bounce';
+    } else if (option.insightChange && option.insightChange < 0) {
+      reactionType = '?';
+      animationType = 'shake';
+    } else if (option.momentumChange && option.momentumChange > 0) {
+      reactionType = '⭐';
+      animationType = 'bounce';
+    } else if (option.momentumChange && option.momentumChange < 0) {
+      reactionType = '...';
+      animationType = 'shake';
+    }
+    
+    // Trigger portrait animation
+    setCurrentPortraitAnimation(animationType);
+    
+    // Trigger floating reaction symbol
+    triggerReaction(reactionType);
+    
+    // Reset animation after it completes
+    setTimeout(() => {
+      setCurrentPortraitAnimation('none');
+    }, 1200);
   };
   
   // Check if option should be disabled
@@ -673,6 +804,18 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
     
     const star = stars[option.requiredStarId];
     return !star || !star.active;
+  };
+  
+  // Handle ability card flip completion
+  const handleCardFlipComplete = () => {
+    console.log('[NarrativeDialogue] Card flip animation completed');
+  };
+
+  // Handle ability card sequence completion
+  const handleCardComplete = () => {
+    console.log('[NarrativeDialogue] Card sequence completed, continuing dialogue');
+    setShowAbilityCard(false);
+    setCurrentAbilityId(null);
   };
   
   // If dialogue not initialized or no current node, show loading
@@ -794,6 +937,19 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
       
       {/* Foreground Layer for Depth Effect */}
       <ForegroundLayer $roomId={roomId} />
+      
+      {/* Ability Card Flip Display */}
+      {showAbilityCard && currentAbilityId && ABILITY_CARD_IMAGES[currentAbilityId] && (
+        <AbilityCardFlip
+          cardId={currentAbilityId}
+          frontImage={ABILITY_CARD_IMAGES[currentAbilityId].front}
+          backImage={ABILITY_CARD_IMAGES[currentAbilityId].back}
+          autoFlip={false}
+          autoFlipDelay={2000}
+          onFlipComplete={handleCardFlipComplete}
+          onCardComplete={handleCardComplete}
+        />
+      )}
     </Container>
   );
 }
