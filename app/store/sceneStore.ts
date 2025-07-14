@@ -7,7 +7,10 @@ export type GameScene =
   | 'narrative'          // Narrative dialogue with mentors
   | 'challenge'          // Challenge dialogue/activities
   | 'tutorial_activity'  // Tutorial-specific activities (simplified)
+  | 'home'               // Player's home (ground floor)
+  | 'observatory'        // Player's observatory (upstairs)
   | 'constellation'      // Knowledge constellation view
+  | 'lunch-room'         // Hospital social hub with chat bubbles
   | 'transition';        // Loading/transition state
 
 // Scene transition context
@@ -34,6 +37,7 @@ export interface SceneState {
 interface SceneActions {
   // Core navigation
   transitionToScene: (scene: GameScene, context?: SceneContext) => Promise<void>;
+  setSceneDirectly: (scene: GameScene, context?: SceneContext) => void;
   returnToPrevious: () => Promise<void>;
   clearSceneStack: () => void;
   
@@ -129,6 +133,37 @@ export const useSceneStore = create<SceneStore>()(
         state.isTransitioning = false;
         state.transitionProgress = 100;
       });
+    },
+
+    // Direct scene change without loading animation (for special cases like day-night transition)
+    setSceneDirectly: (scene: GameScene, context: SceneContext = {}) => {
+      const currentState = get();
+      
+      console.log('[SceneStore] setSceneDirectly() called');
+      console.log('[SceneStore] Current scene:', currentState.currentScene, '→', scene);
+      
+      // Push current scene to stack (for back navigation) - only if not transition
+      if (currentState.currentScene !== 'transition') {
+        set(state => {
+          state.sceneStack.push({
+            scene: state.currentScene,
+            context: state.context
+          });
+        });
+      }
+
+      // Set scene directly without animation
+      set(state => {
+        state.currentScene = scene;
+        state.context = {
+          ...context,
+          previousScene: currentState.currentScene
+        };
+        state.isTransitioning = false;
+        state.transitionProgress = 100;
+      });
+      
+      console.log('[SceneStore] Scene set directly to:', scene);
     },
 
     // Return to previous scene in stack

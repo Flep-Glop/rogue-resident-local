@@ -109,7 +109,7 @@ interface HospitalRoomOverlayProps {
   roomId: string;
   roomName: string;
   mentorName: string;
-  activityType: 'narrative' | 'challenge';
+  activityType: 'narrative' | 'challenge' | 'social-hub';
   x?: number;
   y?: number;
 }

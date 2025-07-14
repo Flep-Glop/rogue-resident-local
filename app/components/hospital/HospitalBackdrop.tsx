@@ -10,11 +10,12 @@ import { centralEventBus } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/types';
 import { useGameStore } from '@/app/store/gameStore';
 import HospitalRoomOverlay from '@/app/components/hospital/HospitalRoomOverlay';
+import { useSceneStore } from '@/app/store/sceneStore';
 
 // Using the user's fine-tuned coordinates for room placement.
 const ROOM_AREAS = [
     { id: 'physics-office', name: 'Physics Office', icon: '/images/temp/Notepad.png', x: 48, y: 37, isoWidth: 2, isoHeight: 2, mentorId: 'garcia', activityType: 'narrative' as const },
-    { id: 'cafeteria', name: 'Hospital Cafeteria', icon: '/images/temp/Cardboard Box.png', x: 46, y: 39, isoWidth: 2, isoHeight: 4.5, mentorId: 'quinn', activityType: 'narrative' as const },
+    { id: 'lunch-room', name: 'Hospital Cafeteria', icon: '/images/temp/Cardboard Box.png', x: 46, y: 39, isoWidth: 2, isoHeight: 4.5, mentorId: 'social', activityType: 'social-hub' as const },
     { id: 'linac-1', name: 'LINAC Room 1',  icon: '/images/temp/Warning Icon.png', x: 59.5, y: 34, isoWidth: 3, isoHeight: 3.8, mentorId: 'garcia', activityType: 'narrative' as const },
     { id: 'linac-2', name: 'LINAC Room 2', icon: '/images/temp/Red Warning icon.png', x: 62.5, y: 37, isoWidth: 3, isoHeight: 3.8, mentorId: 'jesse', activityType: 'narrative' as const },
     { id: 'dosimetry-lab', name: 'Dosimetry Lab', icon: '/images/temp/CD.png', x: 65.2, y: 44.5, isoWidth: 2.4, isoHeight: 2.4, mentorId: 'kapoor', activityType: 'narrative' as const },
@@ -48,7 +49,7 @@ const AMBIENT_CREATURES = [
     { id: 'quinn-walking', spriteSheet: '/images/ambient/quinn-walking.png', frameCount: 6, pathDuration: 55, startX: -150, startY: -50, endX: 120, endY: -50, scale: 1.5, animationSpeed: 0.1, delay: 0 },
 
     // Animals (world coordinates)
-    { id: 'deer-1', spriteSheet: '/images/ambient/deer.png', frameCount: 4, pathDuration: 60, startX: -600, startY: -350, endX: -500, endY: -350, scale: 1.5, animationSpeed: 0.05, delay: 0 },
+    { id: 'deer-1', spriteSheet: '/images/ambient/deer.png', frameCount: 4, pathDuration: 60, startX: -900, startY: -300, endX: -850, endY: -300, scale: 1.5, animationSpeed: 0.05, delay: 0 },
     { id: 'small-animal-1', spriteSheet: '/images/ambient/small-animals.png', frameCount: 3, pathDuration: 35, startX: 620, startY: -270, endX: 670, endY: -300, scale: 1.5, animationSpeed: 0.1, delay: 0 },
 ];
 
@@ -121,13 +122,114 @@ const POND_RIPPLES = [
 const ENVIRONMENT_SPRITES = [
     // Trees positioned around the world
     { id: 'tree-1', sprite: '/images/ambient/tree-oak-medium.png', x: -700, y: -350, scale: 0.8 },
-    { id: 'tree-2', sprite: '/images/ambient/tree-pine-large.png', x: -500, y: -380, scale: 0.9 },
+    { id: 'tree-2', sprite: '/images/ambient/tree-pine-large.png', x: -500, y: -410, scale: 0.9 },
     { id: 'tree-3', sprite: '/images/ambient/tree-oak-large.png', x: -300, y: -320, scale: 0.7 },
     { id: 'tree-4', sprite: '/images/ambient/tree-pine-medium.png', x: -750, y: -200, scale: 1.0 },
     { id: 'tree-5', sprite: '/images/ambient/tree-oak-medium.png', x: 700, y: -350, scale: 0.9 },
     { id: 'tree-6', sprite: '/images/ambient/tree-pine-large.png', x: 500, y: -300, scale: 0.8 },
     { id: 'tree-7', sprite: '/images/ambient/tree-oak-large.png', x: 750, y: -200, scale: 0.6 },
     { id: 'tree-8', sprite: '/images/ambient/tree-pine-medium.png', x: 450, y: -400, scale: 1.1 },
+    
+    // Additional northern forest density - creating a dense woodland
+    { id: 'tree-9', sprite: '/images/ambient/tree-pine-medium.png', x: -850, y: -420, scale: 0.9 },
+    { id: 'tree-10', sprite: '/images/ambient/tree-oak-large.png', x: -600, y: -450, scale: 0.8 },
+    { id: 'tree-11', sprite: '/images/ambient/tree-pine-large.png', x: -350, y: -480, scale: 1.0 },
+    { id: 'tree-12', sprite: '/images/ambient/tree-oak-medium.png', x: -100, y: -410, scale: 0.7 },
+    { id: 'tree-13', sprite: '/images/ambient/tree-pine-medium.png', x: 200, y: -450, scale: 1.1 },
+    { id: 'tree-14', sprite: '/images/ambient/tree-oak-large.png', x: 600, y: -420, scale: 0.9 },
+    { id: 'tree-15', sprite: '/images/ambient/tree-pine-large.png', x: 850, y: -380, scale: 0.8 },
+    { id: 'tree-16', sprite: '/images/ambient/tree-oak-medium.png', x: -450, y: -380, scale: 1.0 },
+    
+    // Even more forest density - filling in gaps
+    { id: 'tree-17', sprite: '/images/ambient/tree-pine-medium.png', x: -750, y: -500, scale: 0.6 },
+    { id: 'tree-18', sprite: '/images/ambient/tree-oak-medium.png', x: -250, y: -460, scale: 0.9 },
+    { id: 'tree-19', sprite: '/images/ambient/tree-pine-large.png', x: 50, y: -480, scale: 0.8 },
+    { id: 'tree-20', sprite: '/images/ambient/tree-oak-large.png', x: 400, y: -460, scale: 1.0 },
+    { id: 'tree-21', sprite: '/images/ambient/tree-pine-medium.png', x: 750, y: -440, scale: 0.7 },
+    { id: 'tree-22', sprite: '/images/ambient/tree-oak-medium.png', x: -950, y: -380, scale: 0.8 },
+    { id: 'tree-23', sprite: '/images/ambient/tree-pine-large.png', x: 950, y: -420, scale: 0.9 },
+    { id: 'tree-24', sprite: '/images/ambient/tree-oak-large.png', x: -150, y: -520, scale: 0.6 },
+    
+    // New birch tree variety for visual diversity
+    { id: 'tree-25', sprite: '/images/ambient/tree-birch-medium.png', x: -800, y: -450, scale: 0.9 },
+    { id: 'tree-26', sprite: '/images/ambient/tree-birch-medium.png', x: -400, y: -480, scale: 1.1 },
+    { id: 'tree-27', sprite: '/images/ambient/tree-birch-medium.png', x: 150, y: -420, scale: 0.8 },
+    { id: 'tree-28', sprite: '/images/ambient/tree-birch-medium.png', x: 500, y: -480, scale: 1.0 },
+    { id: 'tree-29', sprite: '/images/ambient/tree-birch-medium.png', x: 800, y: -460, scale: 0.7 },
+    { id: 'tree-30', sprite: '/images/ambient/tree-birch-medium.png', x: -200, y: -500, scale: 1.2 },
+    
+    // Additional trees for the stepped green areas (smaller scale) - only trees here
+    // Range 1: 600-900 (x), around -300 (y)
+    { id: 'tree-31', sprite: '/images/ambient/tree-oak-large.png', x: 620, y: -335, scale: 0.6 },
+    { id: 'tree-33', sprite: '/images/ambient/tree-birch-medium.png', x: 720, y: -305, scale: 0.5 },
+    { id: 'tree-35', sprite: '/images/ambient/tree-pine-large.png', x: 830, y: -300, scale: 0.5 },
+    
+    // Range 2: 700-900 (x), around -200 (y)
+    { id: 'tree-38', sprite: '/images/ambient/tree-pine-medium.png', x: 770, y: -190, scale: 0.7 },
+    { id: 'tree-40', sprite: '/images/ambient/tree-pine-large.png', x: 870, y: -195, scale: 0.6 },
+    
+    // Range 3: 800-900 (x), around -100 (y)
+    { id: 'tree-41', sprite: '/images/ambient/tree-birch-medium.png', x: 810, y: -110, scale: 0.6 },
+    
+    // Range 4: 800-900 (x), around 0 (y)
+    { id: 'tree-44', sprite: '/images/ambient/tree-oak-medium.png', x: 820, y: -10, scale: 0.6 },
+    { id: 'tree-46', sprite: '/images/ambient/tree-pine-large.png', x: 890, y: -5, scale: 0.7 },
+    
+    // Left area trees: -900 to -800 (x), -300 to -100 (y)
+    { id: 'tree-47', sprite: '/images/ambient/tree-oak-medium.png', x: -880, y: -280, scale: 0.6 },
+    { id: 'tree-50', sprite: '/images/ambient/tree-pine-medium.png', x: -820, y: -220, scale: 0.6 },
+    { id: 'tree-52', sprite: '/images/ambient/tree-birch-medium.png', x: -830, y: -180, scale: 0.5 },
+    { id: 'tree-55', sprite: '/images/ambient/tree-pine-large.png', x: -810, y: -120, scale: 0.6 },
+];
+
+// Bush system - flowering and berry bushes spread across entire landscape
+const BUSH_SPRITES = [
+    // Flowering bushes - colorful accents spread around
+    { id: 'bush-1', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -720, y: -380, scale: 1.0, animationSpeed: 0.02 },
+    { id: 'bush-2', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -320, y: -350, scale: 1.1, animationSpeed: 0.025 },
+    { id: 'bush-3', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 520, y: -350, scale: 1.0, animationSpeed: 0.02 },
+    { id: 'bush-4', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 720, y: -380, scale: 0.9, animationSpeed: 0.025 },
+    { id: 'bush-5', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -850, y: -350, scale: 1.1, animationSpeed: 0.02 },
+    
+    // Additional flowering bushes for foliage areas (small scale)
+    { id: 'bush-6', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 670, y: -290, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-7', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 720, y: -210, scale: 0.6, animationSpeed: 0.025 },
+    { id: 'bush-8', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 860, y: 10, scale: 0.5, animationSpeed: 0.03 },
+    { id: 'bush-9', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -850, y: -260, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-10', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -840, y: -140, scale: 0.5, animationSpeed: 0.025 },
+    
+    // Berry bushes - natural food sources spread wide
+    { id: 'berry-2', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -280, y: -330, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'berry-3', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 450, y: -320, scale: 1.2, animationSpeed: 0.025 },
+    { id: 'berry-4', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 780, y: -320, scale: 0.8, animationSpeed: 0.025 },
+    
+    // Additional berry bushes for foliage areas (small scale)
+    { id: 'berry-5', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 880, y: -290, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'berry-6', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 850, y: -90, scale: 0.7, animationSpeed: 0.025 },
+    { id: 'berry-7', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -860, y: -200, scale: 0.7, animationSpeed: 0.02 },
+];
+
+// Forest floor elements - ferns and fallen logs for natural ground detail
+const FOREST_FLOOR_SPRITES = [
+    // Fern clusters spread across shaded areas throughout the landscape
+    { id: 'fern-1', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -680, y: -360, scale: 1.0, animationSpeed: 0.01 },
+    { id: 'fern-2', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -380, y: -370, scale: 1.1, animationSpeed: 0.01 },
+    { id: 'fern-3', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 320, y: -360, scale: 1.0, animationSpeed: 0.02 },
+    { id: 'fern-4', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 580, y: -380, scale: 0.9, animationSpeed: 0.015 },
+    { id: 'fern-5', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -800, y: -340, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-6', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 780, y: -350, scale: 1.1, animationSpeed: 0.01 },
+    
+    // Additional fern clusters for foliage areas (small scale)
+    { id: 'fern-7', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 780, y: -295, scale: 0.6, animationSpeed: 0.015 },
+    { id: 'fern-8', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 820, y: -205, scale: 0.5, animationSpeed: 0.02 },
+    { id: 'fern-9', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 890, y: -105, scale: 0.5, animationSpeed: 0.015 },
+    { id: 'fern-10', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -890, y: -240, scale: 0.5, animationSpeed: 0.02 },
+    { id: 'fern-11', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -870, y: -160, scale: 0.6, animationSpeed: 0.015 },
+    
+    // Fallen logs - occasional natural decay elements (static, no animation)
+    { id: 'log-1', sprite: '/images/ambient/fallen-log.png', x: -920, y: -300, scale: 1.0, rotation: -0.2 },
+    { id: 'log-2', sprite: '/images/ambient/fallen-log.png', x: 600, y: -290, scale: 0.9, rotation: -0.2 },
+    { id: 'log-3', sprite: '/images/ambient/fallen-log.png', x: 180, y: -480, scale: 0.8, rotation: -0.3 },
 ];
 
 // Lily pads system - distributed across pond area, biased toward visible top areas
@@ -153,15 +255,13 @@ const BENCHES = [
     // { id: 'bench-5', sprite: '/images/ambient/bench-vertical.png', x: 320, y: 100, scale: 1.1, rotation: -0.1, type: 'vertical' },
 ];
 
-// Lamp post system - positioned outside hospital building only (classic lamp only)
+// Lamp post system - positioned around hospital area for atmospheric lighting
 const LAMP_POSTS = [
-    { id: 'lamp-4', sprite: '/images/ambient/lamp-post-classic.png', x: 350, y: 180, scale: 1.1, glowIntensity: 0.8, glowColor: 0xFFF8DC },
-    // TODO: Removed modern lamp that was inside building
-    // { id: 'lamp-3', sprite: '/images/ambient/lamp-post-modern.png', x: -300, y: 50, scale: 1.3, glowIntensity: 0.9, glowColor: 0xFFD700 },
-    // { id: 'lamp-1', sprite: '/images/ambient/lamp-post-modern.png', x: -150, y: -80, scale: 1.4, glowIntensity: 0.8, glowColor: 0xFFD700 },
-    // { id: 'lamp-2', sprite: '/images/ambient/lamp-post-classic.png', x: 250, y: -120, scale: 1.2, glowIntensity: 0.7, glowColor: 0xFFF8DC },
-    // { id: 'lamp-5', sprite: '/images/ambient/lamp-post-modern.png', x: 100, y: -50, scale: 1.2, glowIntensity: 0.8, glowColor: 0xFFD700 },
-    // { id: 'lamp-6', sprite: '/images/ambient/lamp-post-classic.png', x: -50, y: 150, scale: 1.3, glowIntensity: 0.7, glowColor: 0xFFF8DC },
+    { id: 'lamp-1', sprite: '/images/ambient/lamp-post-classic.png', x: 360, y: 290, scale: 1.2, glowIntensity: 0.8, glowColor: 0xFFD700 },
+    { id: 'lamp-2', sprite: '/images/ambient/lamp-post-classic.png', x: -600, y: 180, scale: 1.2, glowIntensity: 0.7, glowColor: 0xFFD700 },
+    { id: 'lamp-3', sprite: '/images/ambient/lamp-post-classic.png', x: -500, y: 134, scale: 1.2, glowIntensity: 0.9, glowColor: 0xFFD700 },
+    { id: 'lamp-5', sprite: '/images/ambient/lamp-post-classic.png', x: -700, y: 226, scale: 1.2, glowIntensity: 0.8, glowColor: 0xFFD700 },
+    { id: 'lamp-6', sprite: '/images/ambient/lamp-post-classic.png', x: -130, y: 170, scale: 1.2, glowIntensity: 0.7, glowColor: 0xFFD700 },
 ];
 
 // Window glow system - positioned with absolute world coordinates (like benches/lamps)
@@ -204,19 +304,19 @@ const SITTING_PEOPLE: Array<{
 
 // Fish system - swimming in pond with gameplay integration for fishing minigame
 const POND_FISH = [
-    // Common fish - frequent spawns, easy to catch (AVAILABLE NOW)
+    // Common fish - frequent spawns, easy to catch
     { id: 'fish-goldfish-1', spriteSheet: '/images/ambient/fish-small-orange.png', frameCount: 3, pathDuration: 25, scale: 0.8, animationSpeed: 0.15, fishType: 'common', rarity: 'common', xpValue: 5, pathType: 'swim' },
     { id: 'fish-minnow-1', spriteSheet: '/images/ambient/fish-small-silver.png', frameCount: 3, pathDuration: 30, scale: 0.7, animationSpeed: 0.2, fishType: 'common', rarity: 'common', xpValue: 3, pathType: 'swim' },
     { id: 'fish-goldfish-2', spriteSheet: '/images/ambient/fish-small-orange.png', frameCount: 3, pathDuration: 22, scale: 0.9, animationSpeed: 0.18, fishType: 'common', rarity: 'common', xpValue: 5, pathType: 'swim' },
     { id: 'fish-minnow-2', spriteSheet: '/images/ambient/fish-small-silver.png', frameCount: 3, pathDuration: 35, scale: 0.6, animationSpeed: 0.25, fishType: 'common', rarity: 'common', xpValue: 3, pathType: 'swim' },
     
-    // TODO: Uncommon fish - moderate spawns, medium catch difficulty (NEXT ROUND)
-    // { id: 'fish-koi-orange', spriteSheet: '/images/ambient/fish-koi-orange.png', frameCount: 4, pathDuration: 40, scale: 1.2, animationSpeed: 0.12, fishType: 'koi', rarity: 'uncommon', xpValue: 15, pathType: 'slow_swim' },
-    // { id: 'fish-koi-white', spriteSheet: '/images/ambient/fish-koi-white.png', frameCount: 4, pathDuration: 45, scale: 1.1, animationSpeed: 0.1, fishType: 'koi', rarity: 'uncommon', xpValue: 15, pathType: 'slow_swim' },
-    // { id: 'fish-bass-1', spriteSheet: '/images/ambient/fish-bass.png', frameCount: 3, pathDuration: 35, scale: 1.0, animationSpeed: 0.14, fishType: 'bass', rarity: 'uncommon', xpValue: 12, pathType: 'swim' },
+    // Uncommon fish - moderate spawns, medium catch difficulty
+    { id: 'fish-koi-orange', spriteSheet: '/images/ambient/fish-koi-orange.png', frameCount: 4, pathDuration: 40, scale: 1.2, animationSpeed: 0.12, fishType: 'koi', rarity: 'uncommon', xpValue: 15, pathType: 'slow_swim' },
+    { id: 'fish-koi-white', spriteSheet: '/images/ambient/fish-koi-white.png', frameCount: 4, pathDuration: 45, scale: 1.1, animationSpeed: 0.1, fishType: 'koi', rarity: 'uncommon', xpValue: 15, pathType: 'slow_swim' },
+    { id: 'fish-bass-1', spriteSheet: '/images/ambient/fish-bass.png', frameCount: 3, pathDuration: 35, scale: 1.0, animationSpeed: 0.14, fishType: 'bass', rarity: 'uncommon', xpValue: 12, pathType: 'swim' },
     
-    // TODO: Rare fish - infrequent spawns, high catch difficulty (NEXT ROUND)
-    // { id: 'fish-golden-koi', spriteSheet: '/images/ambient/fish-golden-koi.png', frameCount: 4, pathDuration: 60, scale: 1.5, animationSpeed: 0.08, fishType: 'legendary', rarity: 'rare', xpValue: 50, pathType: 'slow_swim' },
+    // Rare fish - infrequent spawns, high catch difficulty
+    { id: 'fish-golden-koi', spriteSheet: '/images/ambient/fish-golden-koi.png', frameCount: 4, pathDuration: 60, scale: 1.5, animationSpeed: 0.08, fishType: 'legendary', rarity: 'rare', xpValue: 50, pathType: 'slow_swim' },
 ];
 
 // TODO: Fish interaction effects for fishing gameplay (NEXT ROUND)
@@ -318,6 +418,32 @@ const GRASS_SPRITES = [
     { id: 'grass-70', sprite: '/images/ambient/grass-tuft-medium.png', x: 820, y: -230, scale: 1.15, opacity: 0.65 },
     { id: 'grass-71', sprite: '/images/ambient/grass-patch-wide.png', x: 650, y: -240, scale: 0.8, opacity: 0.8 },
     { id: 'grass-72', sprite: '/images/ambient/grass-flowers.png', x: 350, y: -230, scale: 1.05, opacity: 0.9 },
+    
+    // Grass sprinkled in right foliage area (600-900, -300 to 0)
+    { id: 'grass-73', sprite: '/images/ambient/grass-tuft-small.png', x: 640, y: -280, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-74', sprite: '/images/ambient/grass-flowers.png', x: 690, y: -270, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-75', sprite: '/images/ambient/grass-tuft-medium.png', x: 740, y: -290, scale: 0.7, opacity: 0.7 },
+    { id: 'grass-76', sprite: '/images/ambient/grass-patch-wide.png', x: 800, y: -280, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-77', sprite: '/images/ambient/grass-tuft-tall.png', x: 850, y: -270, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-78', sprite: '/images/ambient/grass-tuft-small.png', x: 740, y: -180, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-79', sprite: '/images/ambient/grass-flowers.png', x: 790, y: -170, scale: 0.7, opacity: 0.7 },
+    { id: 'grass-80', sprite: '/images/ambient/grass-tuft-medium.png', x: 840, y: -190, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-81', sprite: '/images/ambient/grass-patch-wide.png', x: 880, y: -180, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-82', sprite: '/images/ambient/grass-tuft-small.png', x: 830, y: -80, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-83', sprite: '/images/ambient/grass-flowers.png', x: 870, y: -70, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-84', sprite: '/images/ambient/grass-tuft-tall.png', x: 840, y: 20, scale: 0.7, opacity: 0.7 },
+    { id: 'grass-85', sprite: '/images/ambient/grass-tuft-medium.png', x: 880, y: 30, scale: 0.5, opacity: 0.9 },
+    
+    // Grass sprinkled in left foliage area (-900 to -800, -300 to -100)
+    { id: 'grass-86', sprite: '/images/ambient/grass-tuft-small.png', x: -870, y: -270, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-87', sprite: '/images/ambient/grass-flowers.png', x: -840, y: -250, scale: 0.7, opacity: 0.9 },
+    { id: 'grass-88', sprite: '/images/ambient/grass-tuft-medium.png', x: -880, y: -230, scale: 0.5, opacity: 0.8 },
+    { id: 'grass-89', sprite: '/images/ambient/grass-patch-wide.png', x: -830, y: -210, scale: 0.6, opacity: 0.9 },
+    { id: 'grass-90', sprite: '/images/ambient/grass-tuft-tall.png', x: -850, y: -190, scale: 0.7, opacity: 0.7 },
+    { id: 'grass-91', sprite: '/images/ambient/grass-tuft-small.png', x: -820, y: -170, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-92', sprite: '/images/ambient/grass-flowers.png', x: -860, y: -150, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-93', sprite: '/images/ambient/grass-tuft-medium.png', x: -830, y: -130, scale: 0.7, opacity: 0.9 },
+    { id: 'grass-94', sprite: '/images/ambient/grass-patch-wide.png', x: -800, y: -110, scale: 0.5, opacity: 0.8 },
 ];
 
 // The main container for the scene. The background gradient provides a base layer.
@@ -396,6 +522,10 @@ export default function HospitalBackdrop() {
   const activeFishRef = useRef<PIXI.AnimatedSprite[]>([]);
   const fishSpawnerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Debug grid state management
+  const [showDebugGrid, setShowDebugGrid] = useState(false);
+  const debugGridContainerRef = useRef<PIXI.Container | null>(null);
+
   useEffect(() => {
     let isMounted = true;
     if (appRef.current || !pixiContainerRef.current) return;
@@ -436,6 +566,8 @@ export default function HospitalBackdrop() {
             ...AMBIENT_CREATURES.map(c => ({ alias: c.id, src: c.spriteSheet })),
             ...ENVIRONMENT_SPRITES.map(env => ({ alias: env.id, src: env.sprite })),
             ...GRASS_SPRITES.map(grass => ({ alias: grass.id, src: grass.sprite })),
+            ...BUSH_SPRITES.map(bush => ({ alias: bush.id, src: bush.sprite })),
+            ...FOREST_FLOOR_SPRITES.map(floor => ({ alias: floor.id, src: floor.sprite })),
             ...ROOM_AREAS.map(room => ({ alias: `room-icon-${room.id}`, src: room.icon })),
             ...WEATHER_PARTICLES.map(weather => ({ alias: weather.id, src: weather.spriteSheet })),
             ...POND_RIPPLES.map(ripple => ({ alias: ripple.id, src: ripple.spriteSheet })),
@@ -838,35 +970,26 @@ export default function HospitalBackdrop() {
             // === FISH SYSTEM (SWIMMING IN POND WITH RARITY-BASED SPAWNING) ===
             
             const spawnFish = () => {
-                if (!pondPositionRef.current.width || !pondPositionRef.current.height) return;
+                // Guard check: Don't spawn if app is destroyed or pond not initialized
+                if (!app || !app.stage || !app.ticker || !pondPositionRef.current.width || !pondPositionRef.current.height) return;
                 
-                // Fish selection (currently only common fish available)
-                const availableFish = POND_FISH.filter(f => f.rarity === 'common');
+                // Rarity-based fish selection
                 let selectedFish: any;
+                const rarityRoll = Math.random();
                 
-                if (availableFish.length > 0) {
-                    // Select random common fish (100% chance for now)
-                    selectedFish = availableFish[Math.floor(Math.random() * availableFish.length)];
+                if (rarityRoll < 0.6) {
+                    // 60% chance for common fish
+                    const commonFish = POND_FISH.filter(f => f.rarity === 'common');
+                    selectedFish = commonFish[Math.floor(Math.random() * commonFish.length)];
+                } else if (rarityRoll < 0.85) {
+                    // 25% chance for uncommon fish
+                    const uncommonFish = POND_FISH.filter(f => f.rarity === 'uncommon');
+                    selectedFish = uncommonFish[Math.floor(Math.random() * uncommonFish.length)];
                 } else {
-                    console.warn('[HospitalBackdrop] No fish available to spawn');
-                    return;
+                    // 15% chance for rare fish
+                    const rareFish = POND_FISH.filter(f => f.rarity === 'rare');
+                    selectedFish = rareFish[Math.floor(Math.random() * rareFish.length)];
                 }
-                
-                // TODO: Enable rarity-based selection when more fish are added
-                // const rarityRoll = Math.random();
-                // if (rarityRoll < 0.6) {
-                //     // 60% chance for common fish
-                //     const commonFish = POND_FISH.filter(f => f.rarity === 'common');
-                //     selectedFish = commonFish[Math.floor(Math.random() * commonFish.length)];
-                // } else if (rarityRoll < 0.85) {
-                //     // 25% chance for uncommon fish
-                //     const uncommonFish = POND_FISH.filter(f => f.rarity === 'uncommon');
-                //     selectedFish = uncommonFish[Math.floor(Math.random() * uncommonFish.length)];
-                // } else {
-                //     // 15% chance for rare fish
-                //     const rareFish = POND_FISH.filter(f => f.rarity === 'rare');
-                //     selectedFish = rareFish[Math.floor(Math.random() * rareFish.length)];
-                // }
                 
                 if (!selectedFish) return;
                 
@@ -961,7 +1084,8 @@ export default function HospitalBackdrop() {
                 
                 // Remove fish after lifespan
                 setTimeout(() => {
-                    if (fish && !fish.destroyed) {
+                    // Guard check: Don't clean up if app is destroyed
+                    if (fish && !fish.destroyed && app && app.ticker) {
                         app.ticker.remove(pathTicker);
                         fish.destroy();
                         const index = activeFishRef.current.indexOf(fish);
@@ -973,6 +1097,9 @@ export default function HospitalBackdrop() {
             // Start fish spawning system
             const startFishSpawning = () => {
                 const spawnNextFish = () => {
+                    // Guard check: Don't spawn if app is destroyed
+                    if (!app || !app.stage || !app.ticker) return;
+                    
                     spawnFish();
                     
                     // Schedule next fish spawn (1-3 seconds for better visibility during testing)
@@ -1023,9 +1150,194 @@ export default function HospitalBackdrop() {
                 grassContainer.addChild(grassSprite);
             });
 
+            // === FOREST FLOOR SPRITES (FERNS AND LOGS) - GROUND DETAIL LAYER ===
+            const forestFloorContainer = new PIXI.Container();
+            app.stage.addChild(forestFloorContainer);
+            
+            // Store forest floor sprites and shadows for proper layering
+            const forestFloorShadows: PIXI.Graphics[] = [];
+            const forestFloorSprites: (PIXI.Sprite | PIXI.AnimatedSprite)[] = [];
+            
+            FOREST_FLOOR_SPRITES.forEach(floorData => {
+                const floorTexture = textures[floorData.id] as PIXI.Texture;
+                
+                if (!floorTexture) {
+                    console.warn(`[HospitalBackdrop] Failed to load forest floor texture: ${floorData.id}`);
+                    return;
+                }
+                
+                // Create sprite (animated for ferns, static for logs)
+                let floorSprite: PIXI.Sprite | PIXI.AnimatedSprite;
+                let frameWidth = floorTexture.width; // Default for static sprites
+                
+                if (floorData.frameCount && floorData.frameCount > 1) {
+                    // Create animated sprite for ferns
+                    const sheetSource = floorTexture.source;
+                    const frames = [];
+                    frameWidth = sheetSource.width / floorData.frameCount;
+                    for (let i = 0; i < floorData.frameCount; i++) {
+                        frames.push(new PIXI.Texture({
+                            source: sheetSource,
+                            frame: new PIXI.Rectangle(i * frameWidth, 0, frameWidth, sheetSource.height),
+                        }));
+                    }
+                    
+                    floorSprite = new PIXI.AnimatedSprite(frames);
+                    (floorSprite as PIXI.AnimatedSprite).animationSpeed = floorData.animationSpeed || 0.01;
+                    (floorSprite as PIXI.AnimatedSprite).play();
+                } else {
+                    // Create static sprite for logs
+                    floorSprite = new PIXI.Sprite(floorTexture);
+                }
+                
+                floorSprite.anchor.set(0.5, 1); // Bottom center anchor
+                
+                // Position using world coordinates
+                floorSprite.x = (app.screen.width * 0.5) + (floorData.x * worldScale);
+                floorSprite.y = (app.screen.height * 0.5) + (floorData.y * worldScale);
+                floorSprite.scale.set(floorData.scale * worldScale * 2.2);
+                if (floorData.rotation) floorSprite.rotation = floorData.rotation;
+                
+                // === CREATE SUBTLE ELLIPTICAL SHADOW UNDER FOREST FLOOR ELEMENTS ===
+                // Only add shadows for ferns, not for fallen logs (logs are already on ground)
+                let shadow: PIXI.Graphics | null = null;
+                if (floorData.frameCount && floorData.frameCount > 1) { // Only for animated ferns
+                    shadow = new PIXI.Graphics();
+                    
+                    // Shadow dimensions based on fern scale (smaller than bushes, reduced by 30%)
+                    const shadowWidth = frameWidth * floorSprite.scale.x * 0.28; // 28% of fern width (was 40%, reduced by 30%)
+                    const shadowHeight = shadowWidth * 0.2; // Very flat for ground-level ferns
+                    
+                    // Create soft gradient shadow using single layer for ferns
+                    const shadowLayers = 1; // Single layer for subtle ferns
+                    for (let i = 0; i < shadowLayers; i++) {
+                        const layerAlpha = 0.04; // Very light for ferns
+                        const layerScale = 1.0;
+                        
+                        shadow.beginFill(0x000000, layerAlpha);
+                        shadow.drawEllipse(0, 0, shadowWidth * layerScale, shadowHeight * layerScale);
+                        shadow.endFill();
+                    }
+                    
+                    // Position shadow under fern base
+                    shadow.x = floorSprite.x;
+                    shadow.y = floorSprite.y + (2 * worldScale); // Minimal offset for ground-level
+                    
+                    forestFloorShadows.push(shadow);
+                }
+                
+                forestFloorSprites.push(floorSprite);
+                
+                console.log(`[HospitalBackdrop] Forest floor ${floorData.id} positioned at: ${floorSprite.x}, ${floorSprite.y}`);
+            });
+            
+            // Add all forest floor shadows first (bottom layer)
+            forestFloorShadows.forEach(shadow => {
+                forestFloorContainer.addChild(shadow);
+            });
+            
+            // Then add all forest floor elements on top (top layer)
+            forestFloorSprites.forEach(sprite => {
+                forestFloorContainer.addChild(sprite);
+            });
+
+            // === BUSH SPRITES (FLOWERING AND BERRY BUSHES) - MID LAYER ===
+            const bushContainer = new PIXI.Container();
+            app.stage.addChild(bushContainer);
+            
+            // Store bush sprites and shadows for proper layering
+            const bushShadows: PIXI.Graphics[] = [];
+            const bushSprites: PIXI.AnimatedSprite[] = [];
+            
+            BUSH_SPRITES.forEach(bushData => {
+                const bushTexture = textures[bushData.id] as PIXI.Texture;
+                
+                if (!bushTexture) {
+                    console.warn(`[HospitalBackdrop] Failed to load bush texture: ${bushData.id}`);
+                    return;
+                }
+                
+                // Create animated bush sprite
+                const sheetSource = bushTexture.source;
+                const frames = [];
+                const frameWidth = sheetSource.width / bushData.frameCount;
+                for (let i = 0; i < bushData.frameCount; i++) {
+                    frames.push(new PIXI.Texture({
+                        source: sheetSource,
+                        frame: new PIXI.Rectangle(i * frameWidth, 0, frameWidth, sheetSource.height),
+                    }));
+                }
+                
+                const bush = new PIXI.AnimatedSprite(frames);
+                bush.anchor.set(0.5, 1); // Bottom center anchor
+                bush.animationSpeed = bushData.animationSpeed;
+                bush.scale.set(bushData.scale * worldScale * 2.8); // Scale for visibility
+                bush.play();
+                
+                // Position using world coordinates
+                bush.x = (app.screen.width * 0.5) + (bushData.x * worldScale);
+                bush.y = (app.screen.height * 0.5) + (bushData.y * worldScale);
+                
+                // === CREATE SUBTLE ELLIPTICAL SHADOW UNDER BUSH ===
+                const shadow = new PIXI.Graphics();
+                
+                // Shadow dimensions based on bush scale (smaller than trees, reduced by 30%)
+                const shadowWidth = frameWidth * bush.scale.x * 0.35; // 35% of bush width (was 50%, reduced by 30%)
+                const shadowHeight = shadowWidth * 0.25; // Even flatter for bushes
+                
+                // Create soft gradient shadow using multiple ellipses for blur effect
+                const shadowLayers = 2; // Fewer layers for bushes
+                for (let i = 0; i < shadowLayers; i++) {
+                    const layerAlpha = 0.06 - (i * 0.02); // Lower intensity for bushes
+                    const layerScale = 1.0 + (i * 0.15); // Smaller spread
+                    
+                    shadow.beginFill(0x000000, layerAlpha);
+                    shadow.drawEllipse(0, 0, shadowWidth * layerScale, shadowHeight * layerScale);
+                    shadow.endFill();
+                }
+                
+                // Position shadow under bush base
+                shadow.x = bush.x;
+                shadow.y = bush.y + (3 * worldScale); // Slightly offset down from bush base
+                
+                // Add gentle swaying animation
+                const baseX = bush.x;
+                const bushSwayTicker = (ticker: PIXI.Ticker) => {
+                    const animTime = Date.now();
+                    // Very gentle sway for bushes
+                    const primarySway = Math.sin(animTime * 0.004 + baseX * 0.015) * 0.05;
+                    const microSway = Math.sin(animTime * 0.01 + baseX * 0.025) * 0.02;
+                    bush.rotation = primarySway + microSway;
+                    
+                    // Very subtle shadow movement
+                    shadow.rotation = (primarySway + microSway) * 0.05; // 5% of bush sway
+                };
+                app.ticker.add(bushSwayTicker);
+                
+                // Store for proper layering
+                bushShadows.push(shadow);
+                bushSprites.push(bush);
+                
+                console.log(`[HospitalBackdrop] Bush ${bushData.id} positioned at: ${bush.x}, ${bush.y}`);
+            });
+            
+            // Add all bush shadows first (bottom layer)
+            bushShadows.forEach(shadow => {
+                bushContainer.addChild(shadow);
+            });
+            
+            // Then add all bushes on top (top layer)
+            bushSprites.forEach(bush => {
+                bushContainer.addChild(bush);
+            });
+
             // === ENVIRONMENT SPRITES (TREES WITH SWAYING ANIMATION) - FOREGROUND LAYER ===
             const environmentContainer = new PIXI.Container();
             app.stage.addChild(environmentContainer);
+            
+            // Store tree sprites and shadows for proper layering
+            const treeShadows: PIXI.Graphics[] = [];
+            const treeSprites: PIXI.Sprite[] = [];
             
             ENVIRONMENT_SPRITES.forEach(envData => {
                 const envTexture = textures[envData.id] as PIXI.Texture;
@@ -1044,6 +1356,28 @@ export default function HospitalBackdrop() {
                 envSprite.y = (app.screen.height * 0.5) + (envData.y * worldScale); // World position
                 envSprite.scale.set(envData.scale * 3.2 * worldScale); // Slightly smaller trees for better proportion
                 
+                // === CREATE SUBTLE ELLIPTICAL SHADOW UNDER TREE ===
+                const shadow = new PIXI.Graphics();
+                
+                // Shadow dimensions based on tree scale and type (reduced by 30%)
+                const shadowWidth = envTexture.width * envSprite.scale.x * 0.42; // 42% of tree width (was 60%, reduced by 30%)
+                const shadowHeight = shadowWidth * 0.3; // Make it elliptical (30% height)
+                
+                // Create soft gradient shadow using multiple ellipses for blur effect
+                const shadowLayers = 3;
+                for (let i = 0; i < shadowLayers; i++) {
+                    const layerAlpha = 0.08 - (i * 0.02); // Reduced intensity (was 0.15 - 0.04)
+                    const layerScale = 1.0 + (i * 0.2); // Reduced spread (was 0.3)
+                    
+                    shadow.beginFill(0x000000, layerAlpha);
+                    shadow.drawEllipse(0, 0, shadowWidth * layerScale, shadowHeight * layerScale);
+                    shadow.endFill();
+                }
+                
+                // Position shadow under tree base
+                shadow.x = envSprite.x;
+                shadow.y = envSprite.y + (5 * worldScale); // Slightly offset down from tree base
+                
                 console.log(`[HospitalBackdrop] Tree ${envData.id} positioned at: ${envSprite.x}, ${envSprite.y}, scale: ${envSprite.scale.x}`);
                 
                 // Add subtle swaying animation using rotation (reduced intensity!)
@@ -1054,10 +1388,25 @@ export default function HospitalBackdrop() {
                     const primarySway = Math.sin(animTime * 0.003 + baseX * 0.01) * 0.06; // Reduced from 0.15
                     const microSway = Math.sin(animTime * 0.008 + baseX * 0.02) * 0.02; // Reduced from 0.05
                     envSprite.rotation = primarySway + microSway;
+                    
+                    // Very subtle shadow movement (much less than tree sway)
+                    shadow.rotation = (primarySway + microSway) * 0.1; // 10% of tree sway
                 };
                 app.ticker.add(swayTicker);
                 
-                environmentContainer.addChild(envSprite);
+                // Store for proper layering
+                treeShadows.push(shadow);
+                treeSprites.push(envSprite);
+            });
+            
+            // Add all shadows first (bottom layer)
+            treeShadows.forEach(shadow => {
+                environmentContainer.addChild(shadow);
+            });
+            
+            // Then add all trees on top (top layer)
+            treeSprites.forEach(tree => {
+                environmentContainer.addChild(tree);
             });
 
             // === ROOM CLICK AREAS (ORIGINAL ISOMETRIC DIAMOND SHAPES) ===
@@ -1108,8 +1457,15 @@ export default function HospitalBackdrop() {
                             dialogueId = getTutorialDialogueForRoom(room.id, currentTutorialStep) || dialogueId;
                         }
 
-                        if (room.activityType === 'narrative') enterNarrative(room.mentorId, dialogueId, room.id);
-                        else enterChallenge(`${room.id}-activity`, room.mentorId, room.id);
+                        if (room.activityType === 'narrative') {
+                            enterNarrative(room.mentorId, dialogueId, room.id);
+                        } else if (room.activityType === 'social-hub') {
+                            // Navigate directly to lunch room scene
+                            const { setSceneDirectly } = useSceneStore.getState();
+                            setSceneDirectly('lunch-room');
+                        } else {
+                            enterChallenge(`${room.id}-activity`, room.mentorId, room.id);
+                        }
                     });
                 } else {
                     // Unavailable rooms have no visual indicator (clean interface)
@@ -1173,6 +1529,29 @@ export default function HospitalBackdrop() {
                 creature.animationSpeed = creatureData.animationSpeed;
                 creature.scale.set(creatureData.scale * worldScale * 1.4); // Scale with world, slightly smaller for proportion
                 creature.play();
+                
+                // === CREATE SUBTLE ELLIPTICAL SHADOW UNDER CREATURE ===
+                // Only for ground-based creatures (not flying ones)
+                let creatureShadow: PIXI.Graphics | null = null;
+                if (!creatureData.pathType || creatureData.pathType !== 'arc') { // Include creatures with no pathType (people, animals) and skip only flying creatures
+                    creatureShadow = new PIXI.Graphics();
+                    
+                    // Shadow dimensions based on creature scale (very small, reduced by 30%)
+                    const shadowWidth = frameWidth * creature.scale.x * 0.21; // 21% of creature width (was 30%, reduced by 30%)
+                    const shadowHeight = shadowWidth * 0.15; // Very flat for creature shadows
+                    
+                    // Create single layer subtle shadow for creatures
+                    const layerAlpha = 0.05; // Slightly more visible for easier debugging
+                    
+                    creatureShadow.beginFill(0x000000, layerAlpha);
+                    creatureShadow.drawEllipse(0, 0, shadowWidth, shadowHeight);
+                    creatureShadow.endFill();
+                    
+                    creatureShadow.visible = false; // Start hidden like creature
+                    app.stage.addChild(creatureShadow);
+                    
+                    console.log(`[HospitalBackdrop] Created shadow for ground creature: ${creatureData.id}, pathType: ${creatureData.pathType || 'undefined'}`);
+                }
 
                 // === CREATURE INTERACTIVITY (FIRE-AND-FORGET PARTICLE EFFECTS) ===
                 creature.eventMode = 'static';
@@ -1232,10 +1611,12 @@ export default function HospitalBackdrop() {
                     
                     if (currentTime < startTime) {
                         creature.visible = false;
+                        if (creatureShadow) creatureShadow.visible = false;
                         return;
                     }
                     
                     creature.visible = true;
+                    if (creatureShadow) creatureShadow.visible = true;
                     
                     // Calculate progress along path (0 to 1, repeating)
                     const elapsedSinceStart = currentTime - startTime;
@@ -1252,6 +1633,12 @@ export default function HospitalBackdrop() {
                     
                     creature.x = x;
                     creature.y = y;
+                    
+                    // Update shadow position for ground creatures
+                    if (creatureShadow && (!creatureData.pathType || creatureData.pathType !== 'arc')) {
+                        creatureShadow.x = x;
+                        creatureShadow.y = y + (3 * worldScale); // Slightly below creature
+                    }
                 });
             });
 
@@ -1580,6 +1967,11 @@ export default function HospitalBackdrop() {
                     console.log('  setEvening() - Test evening lighting with window glows beginning to show');
                     console.log('  setDay() - Test day lighting (no glows)');
                     console.log('  setWindowsOnly() - Test only window glows (evening time, no lamps)');
+                    console.log('');
+                    console.log('[HospitalBackdrop] Debug grid controls added to dev console:');
+                    console.log('  showGrid() - Show coordinate grid overlay');
+                    console.log('  hideGrid() - Hide coordinate grid overlay');
+                    console.log('  toggleGrid() - Toggle coordinate grid visibility');
                     
                     // Add lighting test commands
                     (window as any).setNight = () => {
@@ -1601,13 +1993,31 @@ export default function HospitalBackdrop() {
                         console.log('[Dev Console] Testing window glows only (evening, no lamps)');
                         applyTimeLighting(18); // 6 PM - shows windows but not lamps yet
                     };
+                    
+                    // Add debug grid commands
+                    (window as any).showGrid = () => {
+                        console.log('[Dev Console] Showing coordinate grid overlay');
+                        setShowDebugGrid(true);
+                    };
+                    
+                    (window as any).hideGrid = () => {
+                        console.log('[Dev Console] Hiding coordinate grid overlay');
+                        setShowDebugGrid(false);
+                    };
+                    
+                    (window as any).toggleGrid = () => {
+                        const newState = !showDebugGrid;
+                        console.log(`[Dev Console] Toggling coordinate grid: ${newState ? 'ON' : 'OFF'}`);
+                        setShowDebugGrid(newState);
+                    };
                 }
             };
             addWeatherControls();
 
             // === POND RIPPLE SYSTEM ===
             const spawnRipple = (rippleType?: 'ambient' | 'rain' | 'storm' | 'sparkle') => {
-                if (!pondPositionRef.current.width || !pondPositionRef.current.height) return;
+                // Guard check: Don't spawn if app is destroyed or pond not initialized
+                if (!app || !app.stage || !app.ticker || !pondPositionRef.current.width || !pondPositionRef.current.height) return;
                 
                 // Filter ripples by type, default to ambient
                 const availableRipples = POND_RIPPLES.filter(r => 
@@ -1655,6 +2065,9 @@ export default function HospitalBackdrop() {
                 
                 // Self-cleanup after duration
                 setTimeout(() => {
+                    // Guard check: Don't start fade if app is destroyed
+                    if (!app || !app.ticker || ripple.destroyed) return;
+                    
                     // Fade out effect
                     let fadeElapsed = 0;
                     const fadeDuration = 0.5;
@@ -1666,8 +2079,13 @@ export default function HospitalBackdrop() {
                         ripple.alpha = 1.0 - fadeProgress;
                         
                         if (fadeProgress >= 1.0) {
-                            app.ticker.remove(fadeTicker);
-                            ripple.destroy();
+                            // Guard check before removing ticker
+                            if (app && app.ticker) {
+                                app.ticker.remove(fadeTicker);
+                            }
+                            if (!ripple.destroyed) {
+                                ripple.destroy();
+                            }
                             
                             // Remove from active ripples array
                             const index = activeRipplesRef.current.indexOf(ripple);
@@ -1684,6 +2102,9 @@ export default function HospitalBackdrop() {
             // Weather-reactive ripple spawning
             const startRippleSpawner = () => {
                 const spawnRipples = () => {
+                    // Guard check: Don't spawn if app is destroyed
+                    if (!app || !app.stage || !app.ticker) return;
+                    
                     const weather = currentWeather;
                     
                     if (weather === 'clear') {
@@ -1884,6 +2305,122 @@ export default function HospitalBackdrop() {
             // Apply initial lighting based on current game time
             // Start with default morning lighting - events will update it when time changes
             applyTimeLighting(8); // Morning lighting as default
+
+            // === DEBUG GRID SYSTEM ===
+            const createDebugGrid = () => {
+                if (debugGridContainerRef.current) {
+                    app.stage.removeChild(debugGridContainerRef.current);
+                    debugGridContainerRef.current.destroy();
+                }
+
+                const gridContainer = new PIXI.Container();
+                gridContainer.name = 'DebugGrid';
+                
+                // Grid parameters using world coordinates (2x resolution)
+                const majorGridSize = 100; // Major grid lines every 100 world units
+                const minorGridSize = 50; // Minor grid lines every 50 world units
+                const worldBounds = {
+                    left: -1200,
+                    right: 1200,
+                    top: -600,
+                    bottom: 400
+                };
+
+                // Create grid graphics
+                const gridGraphics = new PIXI.Graphics();
+                
+                // Draw minor grid lines (lighter)
+                gridGraphics.lineStyle(1 * worldScale, 0x888888, 0.3);
+                for (let x = worldBounds.left; x <= worldBounds.right; x += minorGridSize) {
+                    const screenX = (app.screen.width * 0.5) + (x * worldScale);
+                    gridGraphics.moveTo(screenX, 0);
+                    gridGraphics.lineTo(screenX, app.screen.height);
+                }
+                for (let y = worldBounds.top; y <= worldBounds.bottom; y += minorGridSize) {
+                    const screenY = (app.screen.height * 0.5) + (y * worldScale);
+                    gridGraphics.moveTo(0, screenY);
+                    gridGraphics.lineTo(app.screen.width, screenY);
+                }
+
+                // Draw major grid lines (darker)
+                gridGraphics.lineStyle(2 * worldScale, 0x444444, 0.6);
+                for (let x = worldBounds.left; x <= worldBounds.right; x += majorGridSize) {
+                    const screenX = (app.screen.width * 0.5) + (x * worldScale);
+                    gridGraphics.moveTo(screenX, 0);
+                    gridGraphics.lineTo(screenX, app.screen.height);
+                }
+                for (let y = worldBounds.top; y <= worldBounds.bottom; y += majorGridSize) {
+                    const screenY = (app.screen.height * 0.5) + (y * worldScale);
+                    gridGraphics.moveTo(0, screenY);
+                    gridGraphics.lineTo(app.screen.width, screenY);
+                }
+
+                // Draw world center axes (bright)
+                gridGraphics.lineStyle(3 * worldScale, 0xFF0000, 0.8);
+                // X-axis (horizontal through world center)
+                const centerY = app.screen.height * 0.5;
+                gridGraphics.moveTo(0, centerY);
+                gridGraphics.lineTo(app.screen.width, centerY);
+                // Y-axis (vertical through world center)
+                const centerX = app.screen.width * 0.5;
+                gridGraphics.moveTo(centerX, 0);
+                gridGraphics.lineTo(centerX, app.screen.height);
+
+                gridContainer.addChild(gridGraphics);
+
+                // Add coordinate labels
+                for (let x = worldBounds.left; x <= worldBounds.right; x += majorGridSize) {
+                    for (let y = worldBounds.top; y <= worldBounds.bottom; y += majorGridSize) {
+                        const screenX = (app.screen.width * 0.5) + (x * worldScale);
+                        const screenY = (app.screen.height * 0.5) + (y * worldScale);
+                        
+                        // Only show labels for major intersections and skip center
+                        if ((x % majorGridSize === 0 && y % majorGridSize === 0) && !(x === 0 && y === 0)) {
+                            const label = new PIXI.Text(`${x},${y}`, {
+                                fontFamily: 'monospace',
+                                fontSize: Math.max(8, 10 * worldScale),
+                                fill: 0xFFFFFF
+                            });
+                            label.anchor.set(0.5);
+                            label.x = screenX;
+                            label.y = screenY;
+                            gridContainer.addChild(label);
+                        }
+                    }
+                }
+
+                // Add center origin label
+                const originLabel = new PIXI.Text('(0,0)\nWorld Center', {
+                    fontFamily: 'monospace',
+                    fontSize: Math.max(10, 12 * worldScale),
+                    fill: 0xFF0000,
+                    align: 'center'
+                });
+                originLabel.anchor.set(0.5);
+                originLabel.x = app.screen.width * 0.5;
+                originLabel.y = app.screen.height * 0.5;
+                gridContainer.addChild(originLabel);
+
+                // Set grid visibility and add to stage
+                gridContainer.visible = showDebugGrid;
+                app.stage.addChild(gridContainer);
+                debugGridContainerRef.current = gridContainer;
+                
+                console.log('[HospitalBackdrop] Debug grid created with world coordinate system (2x resolution)');
+                console.log(`[HospitalBackdrop] Grid bounds: ${worldBounds.left} to ${worldBounds.right} (X), ${worldBounds.top} to ${worldBounds.bottom} (Y)`);
+                console.log(`[HospitalBackdrop] High-resolution grid: Major lines every ${majorGridSize} units, Minor lines every ${minorGridSize} units`);
+            };
+
+            // Create initial debug grid
+            createDebugGrid();
+
+            // Update grid visibility when state changes
+            const updateGridVisibility = () => {
+                if (debugGridContainerRef.current) {
+                    debugGridContainerRef.current.visible = showDebugGrid;
+                }
+            };
+            updateGridVisibility();
             
             // Clean up time event listener when component unmounts
             return () => {
@@ -1928,7 +2465,13 @@ export default function HospitalBackdrop() {
                 });
                 activeFishRef.current = [];
                 
-                console.log('[HospitalBackdrop] Pond ripple and fish systems cleaned up');
+                // Clean up debug grid
+                if (debugGridContainerRef.current) {
+                    debugGridContainerRef.current.destroy();
+                    debugGridContainerRef.current = null;
+                }
+                
+                console.log('[HospitalBackdrop] Pond ripple, fish systems, and debug grid cleaned up');
             };
 
         }).catch(console.error);
@@ -1981,6 +2524,14 @@ export default function HospitalBackdrop() {
         }
     };
   }, []);
+
+  // Update debug grid visibility when state changes
+  useEffect(() => {
+    if (debugGridContainerRef.current) {
+      debugGridContainerRef.current.visible = showDebugGrid;
+      console.log(`[HospitalBackdrop] Debug grid visibility updated: ${showDebugGrid ? 'VISIBLE' : 'HIDDEN'}`);
+    }
+  }, [showDebugGrid]);
 
   const handleEndDayClick = () => {
     centralEventBus.dispatch(GameEventType.END_OF_DAY_REACHED, { day: daysPassed }, 'HospitalBackdrop.handleEndDayClick');
