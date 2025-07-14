@@ -470,12 +470,144 @@ const ReactionOverlay = styled.div<{ $type: 'positive' | 'negative' | 'neutral' 
   }
 `;
 
+// Enhanced Resource Display Components using sprite assets (same as ChallengeUI)
+const EnhancedResourceDisplay = styled.div`
+  position: absolute;
+  top: ${spacing.lg};
+  right: ${spacing.lg};
+  display: flex;
+  flex-direction: column;
+  gap: ${spacing.md};
+  z-index: 10; /* Above all other content */
+  background: rgba(15, 23, 42, 0.95);
+  padding: ${spacing.md};
+  border-radius: ${spacing.xs};
+  ${borders.pixelBorder.outer}
+  backdrop-filter: blur(4px);
+  min-width: 180px;
+`;
+
+const ResourceDisplayTitle = styled.div`
+  font-size: ${typography.fontSize.xs};
+  color: ${colors.textDim};
+  text-align: center;
+  margin-bottom: ${spacing.xs};
+  font-family: ${typography.fontFamily.pixel};
+`;
+
+const InsightBarContainer = styled.div`
+  position: relative;
+  width: 100%;
+  height: 32px;
+  display: flex;
+  align-items: center;
+`;
+
+const InsightBarBackground = styled.div<{ $insightLevel: number }>`
+  position: relative;
+  width: 140px;
+  height: 24px;
+  background-image: url('/images/ui/insight-bar.png');
+  background-size: 600% 100%; /* 6 frames horizontally: 6 * 100% = 600% */
+  background-repeat: no-repeat;
+  background-position: ${props => {
+    // Calculate which frame (0-5) based on insight level
+    const frameIndex = Math.min(5, Math.floor((props.$insightLevel / 100) * 6));
+    return `${frameIndex * -100}% 0%`; /* Move left by frameIndex * 100% */
+  }};
+  image-rendering: pixelated;
+  margin: 0 auto;
+  transition: background-position 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+`;
+
+const InsightValueOverlay = styled.div`
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-family: ${typography.fontFamily.pixel};
+  color: #ffffff;
+  text-shadow: 1px 1px 0px #000, -1px -1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000;
+  font-weight: normal;
+  pointer-events: none;
+`;
+
+const MomentumContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: ${spacing.xs};
+`;
+
+const MomentumLabel = styled.div`
+  font-size: ${typography.fontSize.xs};
+  color: ${colors.textDim};
+  font-family: ${typography.fontFamily.pixel};
+  text-align: center;
+`;
+
+const MomentumBlipsContainer = styled.div`
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+`;
+
+const MomentumBlip = styled.div<{ $momentumState: number; $index: number }>`
+  width: 20px;
+  height: 20px;
+  background-image: url('/images/ui/momentum-blip.png');
+  background-size: 400% 100%; /* 4 frames horizontally: 4 * 100% = 400% */
+  background-repeat: no-repeat;
+  background-position: ${props => {
+    // State 0: empty/inactive (frame 0)
+    // State 1: low momentum (frame 1) 
+    // State 2: medium momentum (frame 2)
+    // State 3: high momentum (frame 3)
+    const frameIndex = Math.min(3, Math.max(0, props.$momentumState));
+    return `${frameIndex * -100}% 0%`; /* Move left by frameIndex * 100% */
+  }};
+  image-rendering: pixelated;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: ${props => props.$momentumState > 0 ? 'scale(1.1)' : 'scale(1)'};
+  
+  /* Staggered animation for momentum gain */
+  animation: ${props => props.$momentumState > 0 ? `momentumPulse 0.6s ease-out ${props.$index * 0.1}s` : 'none'};
+  
+  @keyframes momentumPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); filter: brightness(1.3) drop-shadow(0 0 6px #FFD700); }
+    100% { transform: scale(1.1); }
+  }
+`;
+
+const MomentumBonus = styled.div<{ $visible: boolean; $level: number }>`
+  font-size: ${typography.fontSize.xs};
+  color: ${props => 
+    props.$level === 3 ? '#FF6B35' : 
+    props.$level === 2 ? '#FFD700' : 
+    colors.textDim
+  };
+  text-align: center;
+  font-family: ${typography.fontFamily.pixel};
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+  text-shadow: ${props => props.$level > 1 ? '0 0 4px currentColor' : 'none'};
+  margin-top: ${spacing.xs};
+`;
+
 export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: ChallengeDialogueProps) {
   const [initialized, setInitialized] = useState(false);
   const [dialogueHistory, setDialogueHistory] = useState<DialogueHistoryItem[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [showReaction, setShowReaction] = useState<'positive' | 'negative' | 'neutral' | null>(null);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(0); // For arrow key navigation
+  
+  // Enhanced resource tracking for sprite displays
+  const [currentInsight, setCurrentInsight] = useState(50); // Start with 50 insight
+  const [currentMomentum, setCurrentMomentum] = useState(1); // Start with 1 momentum
+  const maxMomentum = 3;
   
   // Reaction system
   const containerRef = useRef<HTMLDivElement>(null);
@@ -594,6 +726,14 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
         isPlayer: true
       }]);
       
+      // Update resources based on option effects
+      if (option.insightChange) {
+        setCurrentInsight(prev => Math.max(0, Math.min(100, prev + option.insightChange)));
+      }
+      if (option.momentumChange) {
+        setCurrentMomentum(prev => Math.max(0, Math.min(maxMomentum, prev + option.momentumChange)));
+      }
+      
       // Show reaction based on option effects
       let reactionType: ReactionSymbolType = '!';
       if (option.insightChange && option.insightChange > 0) {
@@ -643,6 +783,15 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
     );
   }
   
+  // Calculate values for sprite displays
+  const insightPercentage = Math.min(100, (currentInsight / 100) * 100);
+  const momentumLevel = currentMomentum >= 3 ? 3 : currentMomentum >= 2 ? 2 : 1;
+  const getBonusText = () => {
+    if (currentMomentum >= 3) return 'BOAST UNLOCKED!';
+    if (currentMomentum >= 2) return '+25% Insight Bonus';
+    return '';
+  };
+
   return (
     <Container ref={containerRef} $roomId={roomId} className="no-scrollbar">
       {/* Background layer with blur/darken effects */}
@@ -650,6 +799,40 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
       
       {/* Clean atmosphere overlay */}
       <AtmosphereOverlay $roomId={roomId} />
+      
+      {/* Enhanced Resource Display with Beautiful Sprites */}
+      <EnhancedResourceDisplay>
+        <ResourceDisplayTitle>Resources</ResourceDisplayTitle>
+        
+        {/* Insight Bar using insight-bar.png sprite sheet */}
+        <InsightBarContainer>
+          <InsightBarBackground $insightLevel={insightPercentage}>
+            <InsightValueOverlay>{currentInsight}</InsightValueOverlay>
+          </InsightBarBackground>
+        </InsightBarContainer>
+        
+        {/* Momentum Blips using momentum-blip.png sprite sheet */}
+        <MomentumContainer>
+          <MomentumLabel>Momentum</MomentumLabel>
+          <MomentumBlipsContainer>
+            {Array.from({ length: maxMomentum }).map((_, index) => {
+              // Each blip shows state based on current momentum level
+              // 0: inactive, 1: low, 2: medium, 3: high
+              const blipState = index < currentMomentum ? Math.min(3, currentMomentum) : 0;
+              return (
+                <MomentumBlip
+                  key={index}
+                  $momentumState={blipState}
+                  $index={index}
+                />
+              );
+            })}
+          </MomentumBlipsContainer>
+          <MomentumBonus $visible={currentMomentum >= 2} $level={momentumLevel}>
+            {getBonusText()}
+          </MomentumBonus>
+        </MomentumContainer>
+      </EnhancedResourceDisplay>
       
       {/* Message Feed */}
       <FeedContainer className="no-scrollbar">

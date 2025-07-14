@@ -371,8 +371,8 @@ const ConsoleTitle = styled.h2`
 const ConsoleContent = styled.div`
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+  gap: 12px;
   padding: 12px 16px;
   overflow-y: auto;
 `;
@@ -392,7 +392,7 @@ const SectionTitle = styled.h4`
   border-bottom: 1px solid rgba(226, 232, 240, 0.2);
 `;
 
-const CompactButton = styled.button<{ $variant?: 'primary' | 'success' | 'warning' | 'danger' | 'weather' | 'ripple' }>`
+const CompactButton = styled.button<{ $variant?: 'primary' | 'success' | 'warning' | 'danger' | 'weather' | 'ripple' | 'grid' }>`
   background: ${({ $variant }) => {
     switch ($variant) {
       case 'primary': return '#3B82F6';
@@ -401,6 +401,7 @@ const CompactButton = styled.button<{ $variant?: 'primary' | 'success' | 'warnin
       case 'danger': return '#EF4444';
       case 'weather': return '#8B5CF6';
       case 'ripple': return '#06B6D4';
+      case 'grid': return '#EC4899';
       default: return '#475569';
     }
   }};
@@ -483,6 +484,20 @@ const GameDevConsole: React.FC = () => {
     jumpToNight: () => {
       console.log('🌙 Jumping to night phase');
       useSceneStore.getState().transitionToScene('constellation');
+    },
+
+    // Day/Night Transition Shortcut
+    triggerDayNightTransition: () => {
+      console.log('🌅→🌙 Triggering day/night transition with magical starfield!');
+      const gameStore = useGameStore.getState();
+      const daysPassed = gameStore.daysPassed || 0;
+      
+      // Dispatch the same event that the "End Day" button triggers
+      centralEventBus.dispatch(
+        GameEventType.END_OF_DAY_REACHED, 
+        { day: daysPassed, insightRemaining: gameStore.resources?.insight || 0 }, 
+        'GameDevConsole.triggerDayNightTransition'
+      );
     },
 
     // Tutorial Control
@@ -580,6 +595,13 @@ const GameDevConsole: React.FC = () => {
       }
     },
 
+    // Scene Navigation
+    jumpToLunchRoom: () => {
+      console.log('🍽️ Navigating to Lunch Room social hub');
+      const sceneStore = useSceneStore.getState();
+      sceneStore.setSceneDirectly('lunch-room');
+    },
+
     // Pond Ripple Controls
     spawnAmbient: () => {
       console.log('🌊 Spawning ambient ripple');
@@ -614,7 +636,110 @@ const GameDevConsole: React.FC = () => {
       if (typeof window !== 'undefined' && (window as any).clearRipples) {
         (window as any).clearRipples();
       }
-    }
+    },
+
+    // Fish Controls
+    spawnFish: () => {
+      console.log('🐟 Spawning test fish');
+      if (typeof window !== 'undefined' && (window as any).spawnFish) {
+        (window as any).spawnFish();
+      }
+    },
+
+    clearFish: () => {
+      console.log('🧹 Clearing all fish');
+      if (typeof window !== 'undefined' && (window as any).clearFish) {
+        (window as any).clearFish();
+      }
+    },
+
+    // Grid Controls
+    showGrid: () => {
+      console.log('🗺️ Showing coordinate grid');
+      if (typeof window !== 'undefined' && (window as any).showGrid) {
+        (window as any).showGrid();
+      }
+    },
+
+    hideGrid: () => {
+      console.log('🗺️ Hiding coordinate grid');
+      if (typeof window !== 'undefined' && (window as any).hideGrid) {
+        (window as any).hideGrid();
+      }
+    },
+
+    toggleGrid: () => {
+      console.log('🗺️ Toggling coordinate grid');
+      if (typeof window !== 'undefined' && (window as any).toggleGrid) {
+        (window as any).toggleGrid();
+      }
+    },
+
+    // Advanced Lighting Controls
+    testWindowsOnly: () => {
+      console.log('🏢 Testing window glows only');
+      if (typeof window !== 'undefined' && (window as any).setWindowsOnly) {
+        (window as any).setWindowsOnly();
+      }
+    },
+
+    testLampsOnly: () => {
+      console.log('💡 Testing lamp glows only');
+      if (typeof window !== 'undefined' && (window as any).setNight) {
+        (window as any).setNight();
+      }
+    },
+
+    // Knowledge System
+    unlockSomeKnowledge: () => {
+      console.log('🌟 Unlocking some knowledge stars for testing!');
+      
+      // First, initialize the knowledge store with concept data if it's empty
+      const knowledgeStore = useKnowledgeStore.getState();
+      if (Object.keys(knowledgeStore.stars).length === 0) {
+        console.log('🔧 Knowledge store is empty, initializing with concept data...');
+        
+        // Import and initialize the concept data
+        import('@/app/data/conceptData').then(({ initializeKnowledgeStore }) => {
+          initializeKnowledgeStore(useKnowledgeStore);
+          
+          // After initialization, unlock some stars
+          setTimeout(() => {
+            const { stars, unlockStar } = useKnowledgeStore.getState();
+            const allStars = Object.values(stars);
+            
+            // Unlock first 2 stars in each domain
+            const domains = ['TREATMENT_PLANNING', 'RADIATION_THERAPY', 'LINAC_ANATOMY', 'DOSIMETRY'];
+            domains.forEach(domain => {
+              const domainStars = allStars.filter(star => star.domain === domain);
+              if (domainStars.length > 0) {
+                console.log(`Unlocking: ${domainStars[0].name}`);
+                unlockStar(domainStars[0].id);
+              }
+              if (domainStars.length > 1) {
+                console.log(`Unlocking: ${domainStars[1].name}`);
+                unlockStar(domainStars[1].id);
+              }
+            });
+            
+            console.log('🌟 Stars unlocked! Check the constellation view!');
+          }, 100);
+        });
+      } else {
+        // Store already has stars, just unlock some
+        const { stars, unlockStar } = useKnowledgeStore.getState();
+        const allStars = Object.values(stars);
+        
+        const domains = ['TREATMENT_PLANNING', 'RADIATION_THERAPY', 'LINAC_ANATOMY', 'DOSIMETRY'];
+        domains.forEach(domain => {
+          const domainStars = allStars.filter(star => star.domain === domain);
+          if (domainStars.length > 0) unlockStar(domainStars[0].id);
+          if (domainStars.length > 1) unlockStar(domainStars[1].id);
+        });
+        
+        console.log('🌟 Additional stars unlocked!');
+      }
+    },
   };
 
   // Only render in development
@@ -665,8 +790,14 @@ const GameDevConsole: React.FC = () => {
             <CompactButton $variant="primary" onClick={quickActions.jumpToHospital}>
               🏥 Hospital
             </CompactButton>
+            <CompactButton $variant="primary" onClick={quickActions.jumpToLunchRoom}>
+              🍽️ Lunch Room
+            </CompactButton>
             <CompactButton $variant="primary" onClick={quickActions.jumpToNight}>
               🌙 Night Phase
+            </CompactButton>
+            <CompactButton $variant="success" onClick={quickActions.triggerDayNightTransition}>
+              🌅→🌙 Day→Night
             </CompactButton>
             <CompactButton $variant="warning" onClick={quickActions.freeRoam}>
               🔓 Free Roam
@@ -699,6 +830,14 @@ const GameDevConsole: React.FC = () => {
             </CompactButton>
           </ControlSection>
 
+          {/* Knowledge Controls */}
+          <ControlSection>
+            <SectionTitle>🌟 Knowledge</SectionTitle>
+            <CompactButton $variant="success" onClick={quickActions.unlockSomeKnowledge}>
+              Unlock Stars
+            </CompactButton>
+          </ControlSection>
+
           {/* Weather Controls */}
           <ControlSection>
             <SectionTitle>🌦️ Weather</SectionTitle>
@@ -719,9 +858,9 @@ const GameDevConsole: React.FC = () => {
             </CompactButton>
           </ControlSection>
 
-          {/* Pond Ripples */}
+          {/* Pond Ripples & Fish */}
           <ControlSection>
-            <SectionTitle>🌊 Pond Ripples</SectionTitle>
+            <SectionTitle>🌊 Pond Effects</SectionTitle>
             <CompactButton $variant="ripple" onClick={quickActions.spawnAmbient}>
               🌊 Ambient
             </CompactButton>
@@ -734,8 +873,65 @@ const GameDevConsole: React.FC = () => {
             <CompactButton $variant="ripple" onClick={quickActions.spawnSparkle}>
               ✨ Sparkle
             </CompactButton>
+            <CompactButton $variant="ripple" onClick={quickActions.spawnFish}>
+              🐟 Spawn Fish
+            </CompactButton>
             <CompactButton $variant="danger" onClick={quickActions.clearRipples}>
-              🧹 Clear All
+              🧹 Clear Ripples
+            </CompactButton>
+            <CompactButton $variant="danger" onClick={quickActions.clearFish}>
+              🧹 Clear Fish
+            </CompactButton>
+          </ControlSection>
+
+          {/* Debug Grid */}
+          <ControlSection>
+            <SectionTitle>🗺️ Debug Grid</SectionTitle>
+            <CompactButton $variant="grid" onClick={quickActions.showGrid}>
+              📍 Show Grid
+            </CompactButton>
+            <CompactButton $variant="grid" onClick={quickActions.hideGrid}>
+              🚫 Hide Grid
+            </CompactButton>
+            <CompactButton $variant="grid" onClick={quickActions.toggleGrid}>
+              🔄 Toggle Grid
+            </CompactButton>
+            <CompactButton $variant="warning" onClick={quickActions.testWindowsOnly}>
+              🏢 Windows Only
+            </CompactButton>
+            <CompactButton $variant="warning" onClick={quickActions.testLampsOnly}>
+              💡 Lamps Only
+            </CompactButton>
+          </ControlSection>
+
+          {/* Advanced Controls */}
+          <ControlSection>
+            <SectionTitle>⚙️ Advanced</SectionTitle>
+            <CompactButton $variant="primary" onClick={() => {
+              console.log('🎯 Running performance test...');
+              // Could add performance testing here
+            }}>
+              🎯 Perf Test
+            </CompactButton>
+            <CompactButton $variant="warning" onClick={() => {
+              console.log('🖼️ Taking screenshot...');
+              // Could add screenshot functionality
+            }}>
+              📸 Screenshot
+            </CompactButton>
+            <CompactButton $variant="success" onClick={() => {
+              console.log('📊 Logging world state...');
+              console.log('Current scene:', useSceneStore.getState().currentScene);
+              console.log('Tutorial mode:', useTutorialStore.getState().mode);
+              console.log('Current step:', useTutorialStore.getState().currentStep);
+            }}>
+              📊 Log State
+            </CompactButton>
+            <CompactButton $variant="danger" onClick={() => {
+              console.log('⚠️ Testing error handling...');
+              // Could test error boundaries
+            }}>
+              ⚠️ Test Error
             </CompactButton>
           </ControlSection>
         </ConsoleContent>

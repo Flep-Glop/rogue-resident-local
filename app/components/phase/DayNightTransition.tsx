@@ -8,42 +8,13 @@ import { GamePhase } from '@/app/types';
 import { PhaseManager } from '@/app/core/phase/PhaseManager';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/types';
-import PixiDayNightAnimation from './PixiDayNightAnimation';
-import styled, { keyframes } from 'styled-components';
+import { useSceneStore } from '@/app/store/sceneStore';
 
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-`;
 
-const SummaryCard = styled.div`
-  background-color: #1a202c; // bg-gray-900
-  border: 1px solid #6366f1; // border-indigo-500
-  border-radius: 0.5rem; // rounded-lg
-  padding: 1.5rem; // p-6
-  width: 24rem; // w-96
-  color: white;
-  animation: ${fadeIn} 0.5s ease-out forwards;
-`;
 
-interface DaySummary {
-  dayNumber: number;
-  insightGained: number;
-  insightRemaining: number;
-  insightConverted: number;
-  starPointsEarned: number;
-  conceptsDiscovered: string[];
-  activitiesCompleted: number;
-}
 
 interface GameEvent {
-  payload: {
+  payload?: {
     day: number;
     insightBonus?: number;
   };
@@ -52,11 +23,14 @@ interface GameEvent {
 export const DayNightTransition: React.FC = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionDirection, setTransitionDirection] = useState<'to-night' | 'to-day'>('to-night');
-  const [showSummary, setShowSummary] = useState(false);
-  const [daySummary, setDaySummary] = useState<DaySummary | null>(null);
+
+
   const [isAnimating, setIsAnimating] = useState(false);
+  const [shouldHide, setShouldHide] = useState(false);
   
-  console.log('[DayNightTransition] Component state:', { isTransitioning, isAnimating, showSummary });
+
+  
+
   
   // Game state - use separate selectors to avoid recreating objects
   const setPhase = useGameStore(state => state.setPhase);
@@ -65,8 +39,6 @@ export const DayNightTransition: React.FC = () => {
   const convertInsightToSP = useGameStore(state => state.convertInsightToSP);
   
   // Knowledge state
-  const discoveredToday = useKnowledgeStore(state => state.discoveredToday);
-  const getActiveStars = useKnowledgeStore(state => state.getActiveStars);
   const clearDailyDiscoveries = useKnowledgeStore(state => state.clearDailyDiscoveries);
   
   // Subscribe to end of day event
@@ -87,20 +59,7 @@ export const DayNightTransition: React.FC = () => {
       setTransitionDirection('to-night');
       setIsTransitioning(true);
       setIsAnimating(true);
-      
-      // Generate day summary
-      const summary = PhaseManager.generateDaySummary(
-        event.payload.day,
-        0, // TODO: Track daily insight gained
-        insightValue,
-        discoveredToday,
-        0 // TODO: Track activities completed
-      );
-      
-      console.log('[DayNightTransition] Generated day summary:', summary);
-      setDaySummary(summary);
-      
-      // Show summary after animation completes
+      setShouldHide(false); // Reset hide state for new transition
     };
     
     const unsubscribe = centralEventBus.subscribe(GameEventType.END_OF_DAY_REACHED, handleEndOfDay);
@@ -109,7 +68,7 @@ export const DayNightTransition: React.FC = () => {
       console.log('[DayNightTransition] Cleaning up END_OF_DAY_REACHED subscription');
       unsubscribe();
     };
-  }, [insightValue, discoveredToday]);
+  }, []);
   
   // Subscribe to day start event
   useEffect(() => {
@@ -131,120 +90,69 @@ export const DayNightTransition: React.FC = () => {
   
   const handleAnimationComplete = useCallback(() => {
     setIsAnimating(false);
-    setShowSummary(true);
+    
+    // Clean up transition state (scene change happens at midpoint)
+    setIsTransitioning(false);
+    setShouldHide(true);
   }, []);
-  
-  // Handle continue button clicks
-  const handleContinue = useCallback(() => {
-    if (transitionDirection === 'to-night') {
-      // Complete transition to night
+
+  // Handle scene change at midpoint of animation (when screen is fully black)
+  useEffect(() => {
+    if (isAnimating && transitionDirection === 'to-night') {
+      // Change scene at 1.5 seconds (midpoint of 3-second animation when fully black)
+      const midpointTimer = setTimeout(() => {
+        // Convert remaining insight to SP
+        convertInsightToSP();
+        
+        // Clear daily discoveries
+        clearDailyDiscoveries();
+        
+        // Navigate directly to home scene while screen is black
+        const { setSceneDirectly } = useSceneStore.getState();
+        setSceneDirectly('home');
+        
+        console.log('[DayNightTransition] Scene changed to home at animation midpoint');
+      }, 1500); // 1.5 seconds = midpoint of 3-second animation
       
-      // Convert remaining insight to SP
-      convertInsightToSP();
-      
-      // Clear daily discoveries
-      clearDailyDiscoveries();
-      
-      // Update game phase
-      setPhase(GamePhase.NIGHT);
-      
-      // Hide summary and transition
-      setShowSummary(false);
-      setIsTransitioning(false);
-    } else {
-      // Complete transition to day
-      setPhase(GamePhase.DAY);
-      setShowSummary(false);
-      setIsTransitioning(false);
+      return () => clearTimeout(midpointTimer);
     }
-  }, [transitionDirection, convertInsightToSP, clearDailyDiscoveries, setPhase]);
+  }, [isAnimating, transitionDirection, convertInsightToSP, clearDailyDiscoveries]);
   
-  if (!isTransitioning) return null;
+
   
+    if (shouldHide || !isTransitioning) {
+    return null;
+  }
+  
+  // Simple fade to black and back
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center transition-opacity duration-1000">
+    <>
       {isAnimating && (
-        <PixiDayNightAnimation 
+        <div
           key={`animation-${transitionDirection}`}
-          transitionTo={transitionDirection === 'to-night' ? 'night' : 'day'} 
-          onComplete={handleAnimationComplete} 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: '#000',
+            zIndex: 1010,  // Increased z-index to ensure it covers everything
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            animation: 'fadeInOut 3s ease-in-out forwards'
+          }}
+          onAnimationEnd={handleAnimationComplete}
         />
       )}
-      {showSummary && daySummary && (
-        <SummaryCard>
-          <h2 className="text-2xl font-bold mb-4 text-center">
-            {transitionDirection === 'to-night' 
-              ? `Day ${daySummary.dayNumber} Complete` 
-              : `Day ${daySummary.dayNumber} Beginning`}
-          </h2>
-          
-          {transitionDirection === 'to-night' ? (
-            <>
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold mb-2 text-indigo-300">Day Summary</h3>
-                
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <div className="text-gray-300">Insight Remaining:</div>
-                  <div className="text-right font-bold">{daySummary.insightRemaining}</div>
-                  
-                  <div className="text-gray-300">Converted to SP:</div>
-                  <div className="text-right font-bold text-yellow-400">+{daySummary.starPointsEarned}</div>
-                  
-                  <div className="text-gray-300">Concepts Discovered:</div>
-                  <div className="text-right font-bold">{daySummary.conceptsDiscovered.length}</div>
-                </div>
-              </div>
-              
-              {daySummary.conceptsDiscovered.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-md font-semibold mb-1 text-indigo-300">Discovered Concepts</h3>
-                  <ul className="text-sm max-h-40 overflow-y-auto bg-gray-800 p-2 rounded">
-                    {daySummary.conceptsDiscovered.map(conceptId => (
-                      <li key={conceptId} className="mb-1 last:mb-0">
-                        • {conceptId.replace(/_/g, ' ')}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              
-              <button
-                className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors mt-4"
-                onClick={handleContinue}
-              >
-                Continue to Night Phase
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="mb-4">
-                <p className="text-center mb-3">
-                  A new day at the hospital awaits. Your knowledge constellation will guide you today.
-                </p>
-                
-                <div className="bg-gray-800 p-3 rounded">
-                  <div className="flex justify-between items-center">
-                    <span>Active Stars:</span>
-                    <span className="font-bold">{getActiveStars().length}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center mt-1">
-                    <span>Insight Bonus:</span>
-                    <span className="font-bold text-blue-400">+{getActiveStars().length}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <button
-                className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors mt-4"
-                onClick={handleContinue}
-              >
-                Start Your Day
-              </button>
-            </>
-          )}
-        </SummaryCard>
-      )}
-    </div>
+      <style jsx>{`
+        @keyframes fadeInOut {
+          0% { opacity: 0; }
+          50% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
+    </>
   );
 }; 

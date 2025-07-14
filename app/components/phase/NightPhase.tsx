@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { ConstellationView } from '../constellation/ConstellationView';
 import { StarMap } from '../constellation/StarMap';
 import { useGameStore } from '@/app/store/gameStore';
 import { PhaseManager } from '@/app/core/phase/PhaseManager';

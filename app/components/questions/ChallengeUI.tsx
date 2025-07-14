@@ -120,31 +120,117 @@ const MentorName = styled.span`
   font-size: 1.3rem; /* Adjusted for VT323 */
 `;
 
-const ResourceDisplay = styled.div`
-  margin-bottom: 1rem;
+// Enhanced Resource Display Components using sprite assets
+const EnhancedResourceDisplay = styled.div`
+  margin-bottom: 1.5rem;
   width: 100%;
-  text-align: left; /* Align resource text left */
-`;
-
-const ResourceItem = styled.div`
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const InsightBarContainer = styled.div`
+  position: relative;
+  width: 100%;
+  height: 32px;
+  display: flex;
   align-items: center;
-  margin-bottom: 0.6rem;
-  font-size: 1.15rem; /* Adjusted for VT323 */
-  color: #cbd5e1; /* slate-300 */
 `;
 
-const ResourceLabel = styled.span`
+const InsightBarBackground = styled.div<{ $insightLevel: number }>`
+  position: relative;
+  width: 140px;
+  height: 24px;
+  background-image: url('/images/ui/insight-bar.png');
+  background-size: 600% 100%; /* 6 frames horizontally: 6 * 100% = 600% */
+  background-repeat: no-repeat;
+  background-position: ${props => {
+    // Calculate which frame (0-5) based on insight level
+    const frameIndex = Math.min(5, Math.floor((props.$insightLevel / 100) * 6));
+    return `${frameIndex * -100}% 0%`; /* Move left by frameIndex * 100% */
+  }};
+  image-rendering: pixelated;
+  margin: 0 auto;
+  transition: background-position 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+`;
+
+const InsightValueOverlay = styled.div`
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-family: 'VT323', monospace;
+  color: #ffffff;
+  text-shadow: 1px 1px 0px #000, -1px -1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000;
   font-weight: normal;
-  color: #94a3b8; /* slate-400 */
+  pointer-events: none;
 `;
 
-const ResourceValue = styled.span`
-  color: #e2e8f0; /* slate-200, brighter for value */
+const MomentumContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 `;
 
-// ... (QuestionHeader, ProgressInfo, ProgressText, ProgressDots, ProgressDot - might be reused or adapted)
+const MomentumLabel = styled.div`
+  font-size: 1rem;
+  color: #94a3b8;
+  font-family: 'VT323', monospace;
+  text-align: center;
+`;
+
+const MomentumBlipsContainer = styled.div`
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+`;
+
+const MomentumBlip = styled.div<{ $momentumState: number; $index: number }>`
+  width: 20px;
+  height: 20px;
+  background-image: url('/images/ui/momentum-blip.png');
+  background-size: 400% 100%; /* 4 frames horizontally: 4 * 100% = 400% */
+  background-repeat: no-repeat;
+  background-position: ${props => {
+    // State 0: empty/inactive (frame 0)
+    // State 1: low momentum (frame 1) 
+    // State 2: medium momentum (frame 2)
+    // State 3: high momentum (frame 3)
+    const frameIndex = Math.min(3, Math.max(0, props.$momentumState));
+    return `${frameIndex * -100}% 0%`; /* Move left by frameIndex * 100% */
+  }};
+  image-rendering: pixelated;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: ${props => props.$momentumState > 0 ? 'scale(1.1)' : 'scale(1)'};
+  
+  /* Staggered animation for momentum gain */
+  animation: ${props => props.$momentumState > 0 ? `momentumPulse 0.6s ease-out ${props.$index * 0.1}s` : 'none'};
+  
+  @keyframes momentumPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); filter: brightness(1.3) drop-shadow(0 0 6px #FFD700); }
+    100% { transform: scale(1.1); }
+  }
+`;
+
+const MomentumBonus = styled.div<{ $visible: boolean; $level: number }>`
+  font-size: 0.8rem;
+  color: ${props => 
+    props.$level === 3 ? '#FF6B35' : 
+    props.$level === 2 ? '#FFD700' : 
+    '#94a3b8'
+  };
+  text-align: center;
+  font-family: 'VT323', monospace;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+  text-shadow: ${props => props.$level > 1 ? '0 0 4px currentColor' : 'none'};
+  margin-top: 0.25rem;
+`;
+
 const QuestionHeader = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -181,7 +267,6 @@ const ProgressDot = styled.span<{ $correct?: boolean; $incorrect?: boolean; $emp
     '#4b5563'};
   transition: background-color 0.3s ease;
 `;
-
 
 const QuestionContent = styled.div`
   background-color: rgba(30, 41, 59, 0.7);
@@ -459,6 +544,18 @@ const ChallengeUI: React.FC<ChallengeProps> = ({
   onBoost
 }) => {
   const currentQuestion = questions[currentQuestionIndex];
+  
+  // Calculate insight percentage for the bar fill
+  const maxInsight = 100; // Assuming max insight is 100
+  const insightPercentage = Math.min(100, (insight / maxInsight) * 100);
+  
+  // Calculate momentum level for bonus display
+  const momentumLevel = momentum >= 3 ? 3 : momentum >= 2 ? 2 : 1;
+  const getBonusText = () => {
+    if (momentum >= 3) return 'BOAST UNLOCKED!';
+    if (momentum >= 2) return '+25% Insight Bonus';
+    return '';
+  };
 
   return (
     <OverallContainer>
@@ -550,16 +647,38 @@ const ChallengeUI: React.FC<ChallengeProps> = ({
 
       <PlayerPanelContainer>
         <PanelTitle>Player HQ</PanelTitle>
-        <ResourceDisplay>
-          <ResourceItem>
-            <ResourceLabel>Insight:</ResourceLabel>
-            <ResourceValue>{insight}</ResourceValue>
-          </ResourceItem>
-          <ResourceItem>
-            <ResourceLabel>Momentum:</ResourceLabel>
-            <ResourceValue>{momentum} / {maxMomentum}</ResourceValue>
-          </ResourceItem>
-        </ResourceDisplay>
+        
+        {/* Enhanced Resource Display with Sprite Assets */}
+        <EnhancedResourceDisplay>
+          {/* Insight Bar using insight-bar.png */}
+          <InsightBarContainer>
+            <InsightBarBackground $insightLevel={insightPercentage}>
+              <InsightValueOverlay>{insight}</InsightValueOverlay>
+            </InsightBarBackground>
+          </InsightBarContainer>
+          
+          {/* Momentum Blips using momentum-blip.png */}
+          <MomentumContainer>
+            <MomentumLabel>Momentum</MomentumLabel>
+            <MomentumBlipsContainer>
+              {Array.from({ length: maxMomentum }).map((_, index) => {
+                // Each blip shows state based on current momentum level
+                // 0: inactive, 1: low, 2: medium, 3: high
+                const blipState = index < momentum ? Math.min(3, momentum) : 0;
+                return (
+                  <MomentumBlip
+                    key={index}
+                    $momentumState={blipState}
+                    $index={index}
+                  />
+                );
+              })}
+            </MomentumBlipsContainer>
+            <MomentumBonus $visible={momentum >= 2} $level={momentumLevel}>
+              {getBonusText()}
+            </MomentumBonus>
+          </MomentumContainer>
+        </EnhancedResourceDisplay>
 
         {!showFeedback && (
           <>
@@ -568,7 +687,7 @@ const ChallengeUI: React.FC<ChallengeProps> = ({
               onClick={onTangent}
               disabled={usedTangent || insight < 25} 
             >
-              <ActionIcon role="img" aria-label="Tangent">!</ActionIcon> {/* Changed Icon for better pixel look */}
+              <ActionIcon role="img" aria-label="Tangent">!</ActionIcon>
               Tangent
             </SpecialActionButton>
             
@@ -577,7 +696,7 @@ const ChallengeUI: React.FC<ChallengeProps> = ({
               onClick={onBoost}
               disabled={usedBoost || momentum <= 0} 
             >
-              <ActionIcon role="img" aria-label="Boost">★</ActionIcon> {/* Changed Icon for better pixel look */}
+              <ActionIcon role="img" aria-label="Boost">★</ActionIcon>
               Boost
             </SpecialActionButton>
           </>

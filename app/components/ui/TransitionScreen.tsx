@@ -88,6 +88,13 @@ export default function TransitionScreen() {
   
   // Generate contextual messages based on the transition
   const getTransitionMessage = () => {
+    const currentScene = useSceneStore(sceneSelectors.getCurrentScene);
+    
+    // Special message for constellation transitions
+    if (currentScene === 'constellation' || context.previousScene === 'constellation') {
+      return 'Entering the knowledge constellation...';
+    }
+    
     if (context.mentorId) {
       const mentorNames = {
         garcia: 'Dr. Garcia',

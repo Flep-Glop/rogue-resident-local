@@ -7,6 +7,9 @@ import HospitalBackdrop from '@/app/components/hospital/HospitalBackdrop';
 import { SceneNarrativeDialogue, SceneChallengeDialogue } from '@/app/components/scenes/SceneDialogueAdapters';
 import TransitionScreen from '@/app/components/ui/TransitionScreen';
 import ConstellationView from '@/app/components/knowledge/ConstellationView';
+import HomeScene from '@/app/components/scenes/HomeScene';
+import ObservatoryScene from '@/app/components/scenes/ObservatoryScene';
+import LunchRoomScene from '@/app/components/scenes/LunchRoomScene';
 import RoomUIOverlay from '../rooms/RoomUIOverlays';
 import TutorialOverlayManager from '@/app/components/tutorial/TutorialOverlay';
 import { TutorialModeIndicator } from '@/app/components/tutorial/TutorialControls';
@@ -98,8 +101,17 @@ export default function GameContainer() {
           />
         );
         
+      case 'home':
+        return <HomeScene />;
+        
+      case 'observatory':
+        return <ObservatoryScene />;
+        
       case 'constellation':
         return <ConstellationView />;
+        
+      case 'lunch-room':
+        return <LunchRoomScene />;
         
       default:
         // Fallback to hospital if unknown scene
@@ -110,8 +122,10 @@ export default function GameContainer() {
   
   return (
     <>
-      {/* Main scene content */}
-      {renderScene()}
+      {/* Main scene content - ensure it renders below overlays */}
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        {renderScene()}
+      </div>
       
       {/* Global UI Overlays */}
       <DayNightTransition />
@@ -153,6 +167,8 @@ export function useSceneNavigation() {
     
     // Quick navigation helpers
     goToConstellation: () => useSceneStore.getState().transitionToScene('constellation'),
+    goToHome: () => useSceneStore.getState().transitionToScene('home'),
+    goToObservatory: () => useSceneStore.getState().transitionToScene('observatory'),
     
     // Activity shortcuts
     startNarrativeWithGarcia: (dialogueId?: string) => enterNarrative('garcia', dialogueId),

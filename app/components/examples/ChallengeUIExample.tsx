@@ -1,54 +1,30 @@
 'use client';
 
 import React, { useState } from 'react';
-import ChallengeUI from '../questions/ChallengeUI';
-import { ActivityDifficulty, MentorId } from '../../types';
 import styled from 'styled-components';
+import ChallengeUI from '@/app/components/questions/ChallengeUI';
+import { ActivityDifficulty, MentorId } from '@/app/types';
 
-// Sample challenge data
 const SAMPLE_CHALLENGE = {
-  title: "QA Protocol Review",
+  title: "Enhanced Resource Display Test",
   difficulty: ActivityDifficulty.MEDIUM,
-  mentor: MentorId.KAPOOR,
+  mentor: MentorId.GARCIA,
   questions: [
     {
-      content: "When calibrating a 6 MV photon beam according to TG-51, at what depth is the reference measurement taken?",
+      content: "Watch the beautiful sprite-based resource displays! The insight bar fills dynamically and momentum blips light up with gorgeous animations. Which feature do you like most?",
       options: [
-        {
-          text: "dmax (depth of maximum dose)",
-          correct: false,
-          feedback: "That's not correct. While dmax is important for other measurements, it's not the reference depth for TG-51 calibration."
-        },
-        {
-          text: "5 cm depth",
-          correct: false,
-          feedback: "Not quite. 5 cm is not the standard reference depth for TG-51 protocol."
-        },
-        {
-          text: "10 cm depth",
-          correct: true,
-          feedback: "Correct! TG-51 protocol specifies that the reference calibration for photon beams should be performed at 10 cm depth."
-        }
+        { text: "The insight bar with animated fill and glow effects", correct: true, feedback: "Great choice! The insight bar uses your sprite asset with smooth animations." },
+        { text: "The momentum blips with staggered pulse animations", correct: true, feedback: "Excellent! Each momentum blip has individual animations and effects." },
+        { text: "The dynamic bonus text that changes with momentum level", correct: true, feedback: "Perfect! The bonus text shows when special abilities unlock." },
+        { text: "All of them - this looks amazing!", correct: true, feedback: "That's the spirit! The enhanced UI brings your assets to life." }
       ]
     },
     {
-      content: "Which chamber correction factor accounts for the difference between the beam quality used for calibration and the beam quality of the user's beam?",
+      content: "Test the momentum system! Notice how the blips light up with golden glow effects and the bonus text changes dynamically. What happens at momentum level 3?",
       options: [
-        {
-          text: "Pion",
-          correct: false,
-          feedback: "Incorrect. Pion is the ion recombination correction factor."
-        },
-        {
-          text: "kQ",
-          correct: true,
-          feedback: "Correct! kQ is the beam quality correction factor that accounts for the difference between the calibration beam quality and the user's beam quality."
-        },
-        {
-          text: "Ptp",
-          correct: false,
-          feedback: "Incorrect. Ptp is the temperature and pressure correction factor."
-        }
+        { text: "Boast ability unlocks with special effects", correct: true, feedback: "Exactly! Level 3 momentum unlocks the powerful Boast ability." },
+        { text: "The insight bar starts glowing", correct: false, feedback: "Close! The insight bar glows when it's 75%+ full, regardless of momentum." },
+        { text: "All blips turn golden", correct: false, feedback: "The blips do get golden effects, but that happens at any active level." }
       ]
     }
   ]
@@ -57,23 +33,80 @@ const SAMPLE_CHALLENGE = {
 const PageContainer = styled.div`
   display: flex;
   justify-content: center;
-  align-items: flex-start; /* Align items to the top */
+  align-items: flex-start;
   padding: 2rem;
-  background-color: #0f172a; /* Match global background */
+  background-color: #0f172a;
   min-height: 100vh;
 `;
 
 const MainContentContainer = styled.div`
-  max-width: 1000px; /* Adjust as needed for wider layout with panels */
+  max-width: 1200px;
   width: 100%;
 `;
 
 const PageTitle = styled.h1`
-  color: #e5e7eb; /* Light gray title */
+  color: #e5e7eb;
   margin-bottom: 1.5rem;
-  font-weight: 700; /* Make title bolder */
-  font-size: 2rem; /* Increase title size */
+  font-weight: 700;
+  font-size: 2rem;
   text-align: center;
+  font-family: 'VT323', monospace;
+`;
+
+const ControlPanel = styled.div`
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid #374151;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ControlGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const ControlLabel = styled.label`
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-family: 'VT323', monospace;
+`;
+
+const ControlButton = styled.button`
+  padding: 0.5rem 1rem;
+  background: rgba(59, 130, 246, 0.3);
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-family: 'VT323', monospace;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(59, 130, 246, 0.5);
+    transform: translateY(-1px);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const StatusDisplay = styled.div`
+  background: rgba(0, 0, 0, 0.5);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-family: 'VT323', monospace;
+  font-size: 1.1rem;
 `;
 
 const ChallengeUIExample: React.FC = () => {
@@ -84,70 +117,118 @@ const ChallengeUIExample: React.FC = () => {
   const [usedTangent, setUsedTangent] = useState(false);
   const [usedBoost, setUsedBoost] = useState(false);
   
+  // Enhanced state for testing the new displays
   const [insight, setInsight] = useState(50);
-  const [momentum, setMomentum] = useState(3);
-  
+  const [momentum, setMomentum] = useState(1);
+
   const handleOptionSelect = (index: number) => {
     setSelectedOption(index);
     setShowFeedback(true);
     const isCorrect = SAMPLE_CHALLENGE.questions[currentQuestionIndex].options[index].correct;
     setAllAnswers([...allAnswers, isCorrect]);
+    
+    // Demonstrate momentum system
     if (isCorrect) {
-      setInsight(prev => prev + 10);
       setMomentum(prev => Math.min(3, prev + 1));
+      setInsight(prev => Math.min(100, prev + 15));
     } else {
-      setMomentum(0);
+      setMomentum(0); // Reset on wrong answer
     }
   };
-  
+
   const handleContinue = () => {
-    if (currentQuestionIndex < SAMPLE_CHALLENGE.questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+    const nextQuestionIndex = currentQuestionIndex + 1;
+    if (nextQuestionIndex < SAMPLE_CHALLENGE.questions.length) {
+      setCurrentQuestionIndex(nextQuestionIndex);
       setSelectedOption(null);
       setShowFeedback(false);
     } else {
-      alert("Challenge complete!");
-      // Reset for demo purposes
+      // Demo complete, reset
       setCurrentQuestionIndex(0);
       setSelectedOption(null);
       setShowFeedback(false);
       setAllAnswers([]);
-      setUsedTangent(false);
-      setUsedBoost(false);
-      setInsight(50);
-      setMomentum(3);
     }
   };
-  
+
   const handleTangent = () => {
-    if (insight >= 25 && !usedTangent) {
-      setInsight(prev => prev - 25);
+    if (insight >= 25) {
       setUsedTangent(true);
-      alert("Tangent used! (Functionality to show alternate question/hint would be here)");
-    } else if (usedTangent) {
-      alert("Tangent already used for this question set.");
-    } else {
-      alert("Not enough Insight to use Tangent.");
+      setInsight(prev => prev - 25);
     }
   };
-  
+
   const handleBoost = () => {
-    if (momentum > 0 && !usedBoost) { // Let's say boost needs at least 1 momentum
-      // For demo, let's consume 1 momentum for a boost
-      setMomentum(prev => prev -1);
+    if (momentum > 0) {
       setUsedBoost(true);
-      alert("Boost used! (Rewards would be multiplied if correct)");
-    } else if (usedBoost) {
-      alert("Boost already used for this question.");
-    } else {
-      alert("Not enough Momentum to use Boost.");
+      setInsight(prev => Math.min(100, prev + 10));
     }
   };
-  
+
+  // Control functions for testing
+  const addInsight = (amount: number) => {
+    setInsight(prev => Math.max(0, Math.min(100, prev + amount)));
+  };
+
+  const setMomentumLevel = (level: number) => {
+    setMomentum(Math.max(0, Math.min(3, level)));
+  };
+
+  const resetDemo = () => {
+    setInsight(50);
+    setMomentum(1);
+    setCurrentQuestionIndex(0);
+    setSelectedOption(null);
+    setShowFeedback(false);
+    setAllAnswers([]);
+    setUsedTangent(false);
+    setUsedBoost(false);
+  };
+
   return (
     <PageContainer>
       <MainContentContainer>
-        <PageTitle>Challenge UI Example</PageTitle>
+        <PageTitle>Enhanced Challenge UI with Sprite Assets</PageTitle>
+        
+        {/* Interactive Controls for Testing */}
+        <ControlPanel>
+          <ControlGroup>
+            <ControlLabel>Insight Controls</ControlLabel>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <ControlButton onClick={() => addInsight(-10)}>-10</ControlButton>
+              <StatusDisplay>{insight}/100</StatusDisplay>
+              <ControlButton onClick={() => addInsight(10)}>+10</ControlButton>
+            </div>
+          </ControlGroup>
+          
+          <ControlGroup>
+            <ControlLabel>Momentum Controls</ControlLabel>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {[0, 1, 2, 3].map(level => (
+                <ControlButton 
+                  key={level}
+                  onClick={() => setMomentumLevel(level)}
+                  style={{ 
+                    background: momentum === level ? 'rgba(255, 215, 0, 0.3)' : 'rgba(59, 130, 246, 0.3)',
+                    borderColor: momentum === level ? '#FFD700' : '#3b82f6'
+                  }}
+                >
+                  {level}
+                </ControlButton>
+              ))}
+            </div>
+          </ControlGroup>
+          
+          <ControlGroup>
+            <ControlLabel>Demo Controls</ControlLabel>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <ControlButton onClick={resetDemo}>Reset Demo</ControlButton>
+              <ControlButton onClick={() => addInsight(25)}>Fill Insight Bar</ControlButton>
+              <ControlButton onClick={() => setMomentumLevel(3)}>Max Momentum</ControlButton>
+            </div>
+          </ControlGroup>
+        </ControlPanel>
+        
         <ChallengeUI
           title={SAMPLE_CHALLENGE.title}
           questions={SAMPLE_CHALLENGE.questions}
@@ -161,7 +242,7 @@ const ChallengeUIExample: React.FC = () => {
           usedBoost={usedBoost}
           insight={insight}
           momentum={momentum}
-          maxMomentum={3} // Pass max momentum for display
+          maxMomentum={3}
           onOptionSelect={handleOptionSelect}
           onContinue={handleContinue}
           onTangent={handleTangent}
