@@ -18,14 +18,22 @@ export interface ChangelogEntry {
 
 // Current version info - update this when releasing new versions
 export const CURRENT_VERSION: VersionInfo = {
-  version: "0.5.0-dev",
-  buildDate: "2025-07-05",
+  version: "0.5.1-dev",
+  buildDate: "2025-07-15",
   environment: "development",
-  commitHash: "45a6d5f" // Latest commit from git log
+  commitHash: "6a9e330" // Latest commit from git log
 };
 
 // Changelog entries - add new entries at the top
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: "v0.5.1-dev",
+    date: "2025-07-15",
+    type: "patch",
+    changes: [
+      "Enable dev console in production deployment"
+    ]
+  },
   {
     version: "v0.5.0-dev",
     date: "2025-07-05",

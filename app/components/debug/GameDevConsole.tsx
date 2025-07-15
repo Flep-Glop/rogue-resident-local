@@ -742,10 +742,10 @@ const GameDevConsole: React.FC = () => {
     },
   };
 
-  // Only render in development
-  if (process.env.NODE_ENV !== 'development') {
-    return null;
-  }
+  // Dev console now available in all environments (including deployment)
+  // if (process.env.NODE_ENV !== 'development') {
+  //   return null;
+  // }
 
   return (
     <>
