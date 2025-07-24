@@ -18,14 +18,22 @@ export interface ChangelogEntry {
 
 // Current version info - update this when releasing new versions
 export const CURRENT_VERSION: VersionInfo = {
-  version: "0.5.1-dev",
-  buildDate: "2025-07-15",
+  version: "0.6.0-dev",
+  buildDate: "2025-07-24",
   environment: "development",
-  commitHash: "6a9e330" // Latest commit from git log
+  commitHash: "437db3b" // Latest commit from git log
 };
 
 // Changelog entries - add new entries at the top
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: "v0.6.0-dev",
+    date: "2025-07-24",
+    type: "minor",
+    changes: [
+      "Interface Revolution Complete - PNG-based strategic gameplay interface achieving Coworker Ready status"
+    ]
+  },
   {
     version: "v0.5.1-dev",
     date: "2025-07-15",

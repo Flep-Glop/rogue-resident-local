@@ -18,8 +18,7 @@ export function SceneNarrativeDialogue({ mentorId, dialogueId, roomId }: SceneNa
   // Generate a dialogue ID if not provided - prioritize room-specific dialogues
   const effectiveDialogueId = dialogueId || `${roomId}-intro` || `${mentorId}_intro` || 'default_narrative';
   
-  console.log('[SceneNarrativeDialogue] Props:', { mentorId, dialogueId, roomId });
-  console.log('[SceneNarrativeDialogue] Effective dialogue ID:', effectiveDialogueId);
+  // Scene narrative dialogue initialized
   
   // Flag to prevent multiple cafeteria overlay timeouts
   const cafeteriaOverlayTriggered = useRef(false);

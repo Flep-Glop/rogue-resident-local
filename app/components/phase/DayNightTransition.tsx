@@ -43,17 +43,11 @@ export const DayNightTransition: React.FC = () => {
   
   // Subscribe to end of day event
   useEffect(() => {
-    console.log('[DayNightTransition] Setting up END_OF_DAY_REACHED subscription');
-    
     const handleEndOfDay = (event: GameEvent) => {
-      console.log('[DayNightTransition] END_OF_DAY_REACHED event received:', event);
-      
       if (!event.payload) {
         console.warn('[DayNightTransition] Event has no payload, ignoring');
         return;
       }
-      
-      console.log('[DayNightTransition] Starting transition to night');
       
       // Start transition to night
       setTransitionDirection('to-night');
@@ -65,7 +59,6 @@ export const DayNightTransition: React.FC = () => {
     const unsubscribe = centralEventBus.subscribe(GameEventType.END_OF_DAY_REACHED, handleEndOfDay);
     
     return () => {
-      console.log('[DayNightTransition] Cleaning up END_OF_DAY_REACHED subscription');
       unsubscribe();
     };
   }, []);

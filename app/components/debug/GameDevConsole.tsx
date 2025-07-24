@@ -7,6 +7,7 @@ import { useTutorialStore } from '@/app/store/tutorialStore';
 import { useDialogueStore } from '@/app/store/dialogueStore';
 import { useGameStore } from '@/app/store/gameStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
+import { useResourceStore } from '@/app/store/resourceStore';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/types';
 
@@ -455,6 +456,7 @@ const GameDevConsole: React.FC = () => {
   const currentScene = useSceneStore(state => state.currentScene);
   const tutorialMode = useTutorialStore(state => state.mode);
   const currentStep = useTutorialStore(state => state.currentStep);
+  const playerName = useGameStore(state => state.playerName);
 
   // Keyboard shortcut to toggle console (F2 key)
   useEffect(() => {
@@ -530,6 +532,34 @@ const GameDevConsole: React.FC = () => {
       const sceneStore = useSceneStore.getState();
       tutorialStore.disableTutorialMode();
       sceneStore.transitionToScene('hospital');
+    },
+
+    testActivity: () => {
+      console.log('🧪 Setting up test activity environment');
+      
+      // Set up the same test state as the title screen button
+      const gameStore = useGameStore.getState();
+      gameStore.setPlayerName("TEST_PLAYER");
+      
+      // Set up test resources
+      const resourceStore = useResourceStore.getState();
+      useResourceStore.setState({
+        insight: 75,
+        momentum: 0,
+        starPoints: 20
+      });
+      
+      // Disable tutorial
+      const tutorialStore = useTutorialStore.getState();
+      tutorialStore.disableTutorialMode();
+      
+      // Go to the dedicated test activity scene
+      const sceneStore = useSceneStore.getState();
+      sceneStore.transitionToScene('test_activity', {
+        mentorId: 'jesse'
+      });
+      
+      console.log('🧪 Test Activity Environment Ready!');
     },
 
     resetAll: () => {
@@ -777,6 +807,11 @@ const GameDevConsole: React.FC = () => {
             <StatusItem><strong>Scene:</strong> {currentScene}</StatusItem>
             <StatusItem><strong>Tutorial:</strong> {tutorialMode}</StatusItem>
             <StatusItem><strong>Step:</strong> {currentStep || 'None'}</StatusItem>
+            {playerName === 'TEST_PLAYER' && (
+              <StatusItem style={{ color: '#10B981', fontWeight: 'bold' }}>
+                🧪 <strong>TEST MODE</strong>
+              </StatusItem>
+            )}
           </StatusBar>
           <div style={{ color: '#94A3B8', fontSize: '10px' }}>
             F2 • ESC
@@ -787,6 +822,9 @@ const GameDevConsole: React.FC = () => {
           {/* Scene Navigation */}
           <ControlSection>
             <SectionTitle>🏠 Navigation</SectionTitle>
+            <CompactButton $variant="success" onClick={quickActions.testActivity}>
+              🧪 Test Activity
+            </CompactButton>
             <CompactButton $variant="primary" onClick={quickActions.jumpToHospital}>
               🏥 Hospital
             </CompactButton>

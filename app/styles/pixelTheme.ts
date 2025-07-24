@@ -91,26 +91,26 @@ export const shadows = {
 export const typography = {
   // Font families
   fontFamily: {
-    pixel: 'var(--font-press-start-2p), var(--font-vt323), monospace', // Primary pixel font
+    pixel: "'Aseprite', 'Press Start 2P', 'VT323', monospace", // Primary pixel font - now using Aseprite!
     mono: 'var(--font-roboto-mono), monospace',              // For code/technical text
     system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' // Fallback
   },
   
-  // Font sizes (pixel-perfect)
+  // Font sizes (pixel-perfect) - 2x scaled for optimal Aseprite font readability
   fontSize: {
-    xs: '8px',
-    sm: '12px',
-    md: '16px',
-    lg: '20px',
-    xl: '24px',
-    xxl: '32px',
+    xs: '24px',   // 2x scale from original 12px
+    sm: '32px',   // 2x scale from original 16px
+    md: '40px',   // 2x scale from original 20px
+    lg: '48px',   // 2x scale from original 24px
+    xl: '56px',   // 2x scale from original 28px
+    xxl: '72px',  // 2x scale from original 36px
   },
   
-  // Line heights (for pixel perfect text)
+  // Line heights (optimized for Aseprite font readability)
   lineHeight: {
-    tight: 1.0,    // For pixel fonts, this keeps things compact
-    normal: 1.2,   // Slightly more breathing room
-    relaxed: 1.5,  // For longer text passages
+    tight: 1.1,    // Slightly more space for pixel fonts
+    normal: 1.3,   // Better breathing room for Aseprite font
+    relaxed: 1.6,  // Enhanced spacing for longer text passages
   },
   
   // Text shadow for that retro feel

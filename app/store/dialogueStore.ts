@@ -214,13 +214,11 @@ export const useDialogueStore = create<DialogueState>((set, get) => ({
     
     // Handle tutorial step completion
     if (selectedOption.tutorialStepCompletion) {
-      console.log(`🎯 [TUTORIAL TRIGGER] Dialogue option selected with tutorial step completion: "${selectedOption.tutorialStepCompletion}"`);
-      console.log(`📝 [TUTORIAL TRIGGER] Option: "${selectedOption.text}" → step: ${selectedOption.tutorialStepCompletion}`);
+      console.log(`[TUTORIAL] ${selectedOption.tutorialStepCompletion}`);
       
       // Import tutorial store dynamically to avoid circular dependencies
       import('../store/tutorialStore').then(({ useTutorialStore }) => {
         const tutorialStore = useTutorialStore.getState();
-        console.log(`🔄 [TUTORIAL TRIGGER] Calling tutorialStore.completeStep(${selectedOption.tutorialStepCompletion})`);
         tutorialStore.completeStep(selectedOption.tutorialStepCompletion!);
       });
     }

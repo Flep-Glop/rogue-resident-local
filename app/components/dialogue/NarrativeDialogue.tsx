@@ -570,7 +570,7 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
       // Check if this dialogue is already active (e.g., returning from tutorial activity)
       const currentActiveDialogue = getActiveDialogue();
       if (currentActiveDialogue?.id === dialogueId) {
-        console.log('[NarrativeDialogue] Dialogue already active, not restarting:', dialogueId);
+        // Dialogue already active, continuing
         setInitialized(true);
       } else {
         console.log('[NarrativeDialogue] Starting new dialogue:', dialogueId);

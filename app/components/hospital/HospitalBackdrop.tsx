@@ -9,26 +9,34 @@ import { isRoomAvailableInTutorial, isRecommendedTutorialRoom, getTutorialDialog
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/types';
 import { useGameStore } from '@/app/store/gameStore';
-import HospitalRoomOverlay from '@/app/components/hospital/HospitalRoomOverlay';
+import MentorClickOverlay from '@/app/components/hospital/MentorClickOverlay';
 import { useSceneStore } from '@/app/store/sceneStore';
+import { initializeMentorContentManager } from '@/app/core/mentors/mentorContentManager';
+import { initializeTutorialTimeProgression, type TimeOfDay } from '@/app/core/time/TutorialTimeProgression';
 
 // Using the user's fine-tuned coordinates for room placement.
-const ROOM_AREAS = [
-    { id: 'physics-office', name: 'Physics Office', icon: '/images/temp/Notepad.png', x: 48, y: 37, isoWidth: 2, isoHeight: 2, mentorId: 'garcia', activityType: 'narrative' as const },
-    { id: 'lunch-room', name: 'Hospital Cafeteria', icon: '/images/temp/Cardboard Box.png', x: 46, y: 39, isoWidth: 2, isoHeight: 4.5, mentorId: 'social', activityType: 'social-hub' as const },
-    { id: 'linac-1', name: 'LINAC Room 1',  icon: '/images/temp/Warning Icon.png', x: 59.5, y: 34, isoWidth: 3, isoHeight: 3.8, mentorId: 'garcia', activityType: 'narrative' as const },
-    { id: 'linac-2', name: 'LINAC Room 2', icon: '/images/temp/Red Warning icon.png', x: 62.5, y: 37, isoWidth: 3, isoHeight: 3.8, mentorId: 'jesse', activityType: 'narrative' as const },
-    { id: 'dosimetry-lab', name: 'Dosimetry Lab', icon: '/images/temp/CD.png', x: 65.2, y: 44.5, isoWidth: 2.4, isoHeight: 2.4, mentorId: 'kapoor', activityType: 'narrative' as const },
-    { id: 'simulation-suite', name: 'Simulation Suite', icon: '/images/temp/Modern TV Colors.png', x: 55, y: 32, isoWidth: 3.4, isoHeight: 3.4, mentorId: 'jesse', activityType: 'narrative' as const }
+interface RoomArea {
+    id: string;
+    name: string;
+    icon: string;
+    x: number;
+    y: number;
+    isoWidth: number;
+    isoHeight: number;
+    mentorId: string;
+    activityType: 'narrative' | 'social-hub';
+}
+
+const ROOM_AREAS: RoomArea[] = [
+    { id: 'physics-office', name: 'Physics Office', icon: '/images/temp/Notepad.png', x: 48, y: 37, isoWidth: 2, isoHeight: 2, mentorId: 'garcia', activityType: 'narrative' },
+    { id: 'lunch-room', name: 'Hospital Cafeteria', icon: '/images/temp/Cardboard Box.png', x: 46, y: 39, isoWidth: 2, isoHeight: 4.5, mentorId: 'social', activityType: 'social-hub' },
+    { id: 'linac-1', name: 'LINAC Room 1',  icon: '/images/temp/Warning Icon.png', x: 59.5, y: 34, isoWidth: 3, isoHeight: 3.8, mentorId: 'garcia', activityType: 'narrative' },
+    { id: 'linac-2', name: 'LINAC Room 2', icon: '/images/temp/Red Warning icon.png', x: 62.5, y: 37, isoWidth: 3, isoHeight: 3.8, mentorId: 'jesse', activityType: 'narrative' },
+    { id: 'dosimetry-lab', name: 'Dosimetry Lab', icon: '/images/temp/CD.png', x: 65.2, y: 44.5, isoWidth: 2.4, isoHeight: 2.4, mentorId: 'kapoor', activityType: 'narrative' },
+    { id: 'simulation-suite', name: 'Simulation Suite', icon: '/images/temp/Modern TV Colors.png', x: 55, y: 32, isoWidth: 3.4, isoHeight: 3.4, mentorId: 'jesse', activityType: 'narrative' }
 ];
 
-// Mentor name mapping
-const MENTOR_NAMES: Record<string, string> = {
-    'garcia': 'Dr. Garcia',
-    'quinn': 'Dr. Quinn', 
-    'jesse': 'Dr. Jesse',
-    'kapoor': 'Dr. Kapoor'
-};
+
 
 // === GAME WORLD CONFIGURATION ===
 // Define fixed world dimensions for consistent scaling
@@ -38,19 +46,18 @@ const WORLD_HEIGHT = 1080;
 // Ambient creature definitions in world coordinates
 const AMBIENT_CREATURES = [
     // Birds (world coordinates)
-    { id: 'bird-1', spriteSheet: '/images/ambient/birds.png', frameCount: 4, pathDuration: 25, startX: -800, startY: -500, endX: 800, endY: -300, scale: 1.5, animationSpeed: 0.15, pathType: 'arc', delay: 0 },
-    { id: 'bird-2', spriteSheet: '/images/ambient/birds-two.png', frameCount: 4, pathDuration: 30, startX: 800, startY: -600, endX: -800, endY: -350, scale: 1.4, animationSpeed: 0.12, pathType: 'arc', delay: 8000 },
-    { id: 'bird-3', spriteSheet: '/images/ambient/birds-three.png', frameCount: 4, pathDuration: 35, startX: -900, startY: -700, endX: 900, endY: -400, scale: 1.6, animationSpeed: 0.1, pathType: 'arc', delay: 15000 },
+    { id: 'bird-1', spriteSheet: '/images/ambient/birds.png', frameCount: 4, pathDuration: 25, startX: -750, startY: -450, endX: 850, endY: -250, scale: 1.5, animationSpeed: 0.15, pathType: 'arc', delay: 0 },
+    { id: 'bird-2', spriteSheet: '/images/ambient/birds-two.png', frameCount: 4, pathDuration: 30, startX: 850, startY: -550, endX: -750, endY: -300, scale: 1.4, animationSpeed: 0.12, pathType: 'arc', delay: 8000 },
+    { id: 'bird-3', spriteSheet: '/images/ambient/birds-three.png', frameCount: 4, pathDuration: 35, startX: -850, startY: -650, endX: 950, endY: -350, scale: 1.6, animationSpeed: 0.1, pathType: 'arc', delay: 15000 },
     
     // People (world coordinates, positioned in hospital area)
-    { id: 'garcia-walking', spriteSheet: '/images/ambient/garcia-walking.png', frameCount: 6, pathDuration: 50, startX: -100, startY: -100, endX: 100, endY: -100, scale: 1.5, animationSpeed: 0.1, delay: 0 },
-    { id: 'jesse-walking', spriteSheet: '/images/ambient/jesse-walking.png', frameCount: 6, pathDuration: 45, startX: -50, startY: -20, endX: 50, endY: -20, scale: 1.5, animationSpeed: 0.12, delay: 0 },
-    { id: 'kapoor-walking', spriteSheet: '/images/ambient/kapoor-walking.png', frameCount: 6, pathDuration: 60, startX: 0, startY: -120, endX: 150, endY: -140, scale: 1.5, animationSpeed: 0.08, delay: 0 },
-    { id: 'quinn-walking', spriteSheet: '/images/ambient/quinn-walking.png', frameCount: 6, pathDuration: 55, startX: -150, startY: -50, endX: 120, endY: -50, scale: 1.5, animationSpeed: 0.1, delay: 0 },
+    { id: 'garcia-walking', spriteSheet: '/images/ambient/garcia-walking.png', frameCount: 6, pathDuration: 50, startX: -350, startY: -150, endX: -350, endY: -150, scale: 1.5, animationSpeed: 0.1, delay: 0 },
+    { id: 'jesse-walking', spriteSheet: '/images/ambient/jesse-walking.png', frameCount: 6, pathDuration: 45, startX: -770, startY: 70, endX: -770, endY: 70, scale: 1.5, animationSpeed: 0.12, delay: 0 },
+    { id: 'kapoor-walking', spriteSheet: '/images/ambient/kapoor-walking.png', frameCount: 6, pathDuration: 60, startX: 650, startY: 50, endX: 650, endY: 50, scale: 1.5, animationSpeed: 0.08, delay: 0 },
+    { id: 'quinn-walking', spriteSheet: '/images/ambient/quinn-walking.png', frameCount: 6, pathDuration: 55, startX: 750, startY: 100, endX: 750, endY: 100, scale: 1.5, animationSpeed: 0.1, delay: 0 },
 
     // Animals (world coordinates)
-    { id: 'deer-1', spriteSheet: '/images/ambient/deer.png', frameCount: 4, pathDuration: 60, startX: -900, startY: -300, endX: -850, endY: -300, scale: 1.5, animationSpeed: 0.05, delay: 0 },
-    { id: 'small-animal-1', spriteSheet: '/images/ambient/small-animals.png', frameCount: 3, pathDuration: 35, startX: 620, startY: -270, endX: 670, endY: -300, scale: 1.5, animationSpeed: 0.1, delay: 0 },
+    { id: 'deer-1', spriteSheet: '/images/ambient/deer.png', frameCount: 4, pathDuration: 60, startX: -850, startY: -250, endX: -800, endY: -250, scale: 1.5, animationSpeed: 0.05, delay: 0 },
 ];
 
 // Weather particle definitions in world coordinates (hidden by default)
@@ -121,115 +128,259 @@ const POND_RIPPLES = [
 // Static environment elements in world coordinates
 const ENVIRONMENT_SPRITES = [
     // Trees positioned around the world
-    { id: 'tree-1', sprite: '/images/ambient/tree-oak-medium.png', x: -700, y: -350, scale: 0.8 },
-    { id: 'tree-2', sprite: '/images/ambient/tree-pine-large.png', x: -500, y: -410, scale: 0.9 },
-    { id: 'tree-3', sprite: '/images/ambient/tree-oak-large.png', x: -300, y: -320, scale: 0.7 },
-    { id: 'tree-4', sprite: '/images/ambient/tree-pine-medium.png', x: -750, y: -200, scale: 1.0 },
-    { id: 'tree-5', sprite: '/images/ambient/tree-oak-medium.png', x: 700, y: -350, scale: 0.9 },
-    { id: 'tree-6', sprite: '/images/ambient/tree-pine-large.png', x: 500, y: -300, scale: 0.8 },
-    { id: 'tree-7', sprite: '/images/ambient/tree-oak-large.png', x: 750, y: -200, scale: 0.6 },
-    { id: 'tree-8', sprite: '/images/ambient/tree-pine-medium.png', x: 450, y: -400, scale: 1.1 },
+    { id: 'tree-1', sprite: '/images/ambient/tree-oak-medium.png', x: -650, y: -300, scale: 0.8 },
+    { id: 'tree-2', sprite: '/images/ambient/tree-pine-large.png', x: -450, y: -360, scale: 0.9 },
+    { id: 'tree-3', sprite: '/images/ambient/tree-oak-large.png', x: -250, y: -270, scale: 0.7 },
+    { id: 'tree-4', sprite: '/images/ambient/tree-pine-medium.png', x: -700, y: -150, scale: 1.0 },
+    { id: 'tree-5', sprite: '/images/ambient/tree-oak-medium.png', x: 750, y: -300, scale: 0.9 },
+    { id: 'tree-6', sprite: '/images/ambient/tree-pine-large.png', x: 550, y: -250, scale: 0.8 },
+    { id: 'tree-7', sprite: '/images/ambient/tree-oak-large.png', x: 800, y: -150, scale: 0.6 },
+    { id: 'tree-8', sprite: '/images/ambient/tree-pine-medium.png', x: 500, y: -350, scale: 1.1 },
     
     // Additional northern forest density - creating a dense woodland
-    { id: 'tree-9', sprite: '/images/ambient/tree-pine-medium.png', x: -850, y: -420, scale: 0.9 },
-    { id: 'tree-10', sprite: '/images/ambient/tree-oak-large.png', x: -600, y: -450, scale: 0.8 },
-    { id: 'tree-11', sprite: '/images/ambient/tree-pine-large.png', x: -350, y: -480, scale: 1.0 },
-    { id: 'tree-12', sprite: '/images/ambient/tree-oak-medium.png', x: -100, y: -410, scale: 0.7 },
-    { id: 'tree-13', sprite: '/images/ambient/tree-pine-medium.png', x: 200, y: -450, scale: 1.1 },
-    { id: 'tree-14', sprite: '/images/ambient/tree-oak-large.png', x: 600, y: -420, scale: 0.9 },
-    { id: 'tree-15', sprite: '/images/ambient/tree-pine-large.png', x: 850, y: -380, scale: 0.8 },
-    { id: 'tree-16', sprite: '/images/ambient/tree-oak-medium.png', x: -450, y: -380, scale: 1.0 },
+    { id: 'tree-9', sprite: '/images/ambient/tree-pine-medium.png', x: -800, y: -370, scale: 0.9 },
+    { id: 'tree-10', sprite: '/images/ambient/tree-oak-large.png', x: -550, y: -400, scale: 0.8 },
+    { id: 'tree-11', sprite: '/images/ambient/tree-pine-large.png', x: -300, y: -430, scale: 1.0 },
+    { id: 'tree-12', sprite: '/images/ambient/tree-oak-medium.png', x: -50, y: -360, scale: 0.7 },
+    { id: 'tree-13', sprite: '/images/ambient/tree-pine-medium.png', x: 250, y: -400, scale: 1.1 },
+    { id: 'tree-14', sprite: '/images/ambient/tree-oak-large.png', x: 650, y: -370, scale: 0.9 },
+    { id: 'tree-15', sprite: '/images/ambient/tree-pine-large.png', x: 900, y: -330, scale: 0.8 },
+    { id: 'tree-16', sprite: '/images/ambient/tree-oak-medium.png', x: -400, y: -330, scale: 1.0 },
     
     // Even more forest density - filling in gaps
-    { id: 'tree-17', sprite: '/images/ambient/tree-pine-medium.png', x: -750, y: -500, scale: 0.6 },
-    { id: 'tree-18', sprite: '/images/ambient/tree-oak-medium.png', x: -250, y: -460, scale: 0.9 },
-    { id: 'tree-19', sprite: '/images/ambient/tree-pine-large.png', x: 50, y: -480, scale: 0.8 },
-    { id: 'tree-20', sprite: '/images/ambient/tree-oak-large.png', x: 400, y: -460, scale: 1.0 },
-    { id: 'tree-21', sprite: '/images/ambient/tree-pine-medium.png', x: 750, y: -440, scale: 0.7 },
-    { id: 'tree-22', sprite: '/images/ambient/tree-oak-medium.png', x: -950, y: -380, scale: 0.8 },
-    { id: 'tree-23', sprite: '/images/ambient/tree-pine-large.png', x: 950, y: -420, scale: 0.9 },
-    { id: 'tree-24', sprite: '/images/ambient/tree-oak-large.png', x: -150, y: -520, scale: 0.6 },
+    { id: 'tree-17', sprite: '/images/ambient/tree-pine-medium.png', x: -700, y: -450, scale: 0.6 },
+    { id: 'tree-18', sprite: '/images/ambient/tree-oak-medium.png', x: -200, y: -410, scale: 0.9 },
+    { id: 'tree-19', sprite: '/images/ambient/tree-pine-large.png', x: 100, y: -430, scale: 0.8 },
+    { id: 'tree-20', sprite: '/images/ambient/tree-oak-large.png', x: 450, y: -410, scale: 1.0 },
+    { id: 'tree-21', sprite: '/images/ambient/tree-pine-medium.png', x: 800, y: -390, scale: 0.7 },
+    { id: 'tree-22', sprite: '/images/ambient/tree-oak-medium.png', x: -900, y: -330, scale: 0.8 },
+    { id: 'tree-23', sprite: '/images/ambient/tree-pine-large.png', x: 1000, y: -370, scale: 0.9 },
+    { id: 'tree-24', sprite: '/images/ambient/tree-oak-large.png', x: -100, y: -470, scale: 0.6 },
     
     // New birch tree variety for visual diversity
-    { id: 'tree-25', sprite: '/images/ambient/tree-birch-medium.png', x: -800, y: -450, scale: 0.9 },
-    { id: 'tree-26', sprite: '/images/ambient/tree-birch-medium.png', x: -400, y: -480, scale: 1.1 },
-    { id: 'tree-27', sprite: '/images/ambient/tree-birch-medium.png', x: 150, y: -420, scale: 0.8 },
-    { id: 'tree-28', sprite: '/images/ambient/tree-birch-medium.png', x: 500, y: -480, scale: 1.0 },
-    { id: 'tree-29', sprite: '/images/ambient/tree-birch-medium.png', x: 800, y: -460, scale: 0.7 },
-    { id: 'tree-30', sprite: '/images/ambient/tree-birch-medium.png', x: -200, y: -500, scale: 1.2 },
+    { id: 'tree-25', sprite: '/images/ambient/tree-birch-medium.png', x: -750, y: -400, scale: 0.9 },
+    { id: 'tree-26', sprite: '/images/ambient/tree-birch-medium.png', x: -350, y: -430, scale: 1.1 },
+    { id: 'tree-27', sprite: '/images/ambient/tree-birch-medium.png', x: 200, y: -370, scale: 0.8 },
+    { id: 'tree-28', sprite: '/images/ambient/tree-birch-medium.png', x: 550, y: -430, scale: 1.0 },
+    { id: 'tree-29', sprite: '/images/ambient/tree-birch-medium.png', x: 850, y: -410, scale: 0.7 },
+    { id: 'tree-30', sprite: '/images/ambient/tree-birch-medium.png', x: -150, y: -450, scale: 1.2 },
     
     // Additional trees for the stepped green areas (smaller scale) - only trees here
     // Range 1: 600-900 (x), around -300 (y)
-    { id: 'tree-31', sprite: '/images/ambient/tree-oak-large.png', x: 620, y: -335, scale: 0.6 },
-    { id: 'tree-33', sprite: '/images/ambient/tree-birch-medium.png', x: 720, y: -305, scale: 0.5 },
-    { id: 'tree-35', sprite: '/images/ambient/tree-pine-large.png', x: 830, y: -300, scale: 0.5 },
+    { id: 'tree-31', sprite: '/images/ambient/tree-oak-large.png', x: 670, y: -285, scale: 0.6 },
+    { id: 'tree-33', sprite: '/images/ambient/tree-birch-medium.png', x: 770, y: -255, scale: 0.5 },
+    { id: 'tree-35', sprite: '/images/ambient/tree-pine-large.png', x: 880, y: -250, scale: 0.5 },
     
     // Range 2: 700-900 (x), around -200 (y)
-    { id: 'tree-38', sprite: '/images/ambient/tree-pine-medium.png', x: 770, y: -190, scale: 0.7 },
-    { id: 'tree-40', sprite: '/images/ambient/tree-pine-large.png', x: 870, y: -195, scale: 0.6 },
+    { id: 'tree-38', sprite: '/images/ambient/tree-pine-medium.png', x: 820, y: -140, scale: 0.7 },
+    { id: 'tree-40', sprite: '/images/ambient/tree-pine-large.png', x: 920, y: -145, scale: 0.6 },
     
     // Range 3: 800-900 (x), around -100 (y)
-    { id: 'tree-41', sprite: '/images/ambient/tree-birch-medium.png', x: 810, y: -110, scale: 0.6 },
+    { id: 'tree-41', sprite: '/images/ambient/tree-birch-medium.png', x: 860, y: -60, scale: 0.6 },
     
     // Range 4: 800-900 (x), around 0 (y)
-    { id: 'tree-44', sprite: '/images/ambient/tree-oak-medium.png', x: 820, y: -10, scale: 0.6 },
-    { id: 'tree-46', sprite: '/images/ambient/tree-pine-large.png', x: 890, y: -5, scale: 0.7 },
+    { id: 'tree-44', sprite: '/images/ambient/tree-oak-medium.png', x: 870, y: 40, scale: 0.6 },
+    { id: 'tree-46', sprite: '/images/ambient/tree-pine-large.png', x: 940, y: 45, scale: 0.7 },
     
     // Left area trees: -900 to -800 (x), -300 to -100 (y)
-    { id: 'tree-47', sprite: '/images/ambient/tree-oak-medium.png', x: -880, y: -280, scale: 0.6 },
-    { id: 'tree-50', sprite: '/images/ambient/tree-pine-medium.png', x: -820, y: -220, scale: 0.6 },
-    { id: 'tree-52', sprite: '/images/ambient/tree-birch-medium.png', x: -830, y: -180, scale: 0.5 },
-    { id: 'tree-55', sprite: '/images/ambient/tree-pine-large.png', x: -810, y: -120, scale: 0.6 },
+    { id: 'tree-47', sprite: '/images/ambient/tree-oak-medium.png', x: -830, y: -230, scale: 0.6 },
+    { id: 'tree-50', sprite: '/images/ambient/tree-pine-medium.png', x: -770, y: -170, scale: 0.6 },
+    { id: 'tree-52', sprite: '/images/ambient/tree-birch-medium.png', x: -780, y: -130, scale: 0.5 },
+    { id: 'tree-55', sprite: '/images/ambient/tree-pine-large.png', x: -760, y: -70, scale: 0.6 },
+    
+    // Dense forest line at y=-500 (back row) - scattered naturally
+    { id: 'tree-56', sprite: '/images/ambient/tree-pine-large.png', x: -800, y: -480, scale: 1.0 },
+    { id: 'tree-57', sprite: '/images/ambient/tree-oak-medium.png', x: -700, y: -520, scale: 0.9 },
+    { id: 'tree-58', sprite: '/images/ambient/tree-birch-medium.png', x: -600, y: -460, scale: 1.1 },
+    { id: 'tree-59', sprite: '/images/ambient/tree-pine-medium.png', x: -500, y: -530, scale: 0.8 },
+    { id: 'tree-60', sprite: '/images/ambient/tree-oak-large.png', x: -400, y: -470, scale: 1.0 },
+    { id: 'tree-61', sprite: '/images/ambient/tree-pine-large.png', x: -300, y: -510, scale: 0.9 },
+    { id: 'tree-62', sprite: '/images/ambient/tree-birch-medium.png', x: -200, y: -485, scale: 1.2 },
+    { id: 'tree-63', sprite: '/images/ambient/tree-oak-medium.png', x: -100, y: -495, scale: 0.8 },
+    { id: 'tree-64', sprite: '/images/ambient/tree-pine-medium.png', x: 0, y: -465, scale: 1.1 },
+    { id: 'tree-65', sprite: '/images/ambient/tree-oak-large.png', x: 100, y: -515, scale: 0.9 },
+    { id: 'tree-66', sprite: '/images/ambient/tree-birch-medium.png', x: 200, y: -490, scale: 1.0 },
+    { id: 'tree-67', sprite: '/images/ambient/tree-pine-large.png', x: 300, y: -475, scale: 0.8 },
+    { id: 'tree-68', sprite: '/images/ambient/tree-oak-medium.png', x: 400, y: -525, scale: 1.2 },
+    { id: 'tree-69', sprite: '/images/ambient/tree-pine-medium.png', x: 500, y: -460, scale: 0.9 },
+    { id: 'tree-70', sprite: '/images/ambient/tree-birch-medium.png', x: 600, y: -505, scale: 1.1 },
+    { id: 'tree-71', sprite: '/images/ambient/tree-oak-large.png', x: 700, y: -485, scale: 0.8 },
+    { id: 'tree-72', sprite: '/images/ambient/tree-pine-large.png', x: 800, y: -520, scale: 1.0 },
+    
+    // Extra corner density (left corner around x=-900) - scattered
+    { id: 'tree-73', sprite: '/images/ambient/tree-oak-large.png', x: -920, y: -485, scale: 0.9 },
+    { id: 'tree-74', sprite: '/images/ambient/tree-pine-medium.png', x: -880, y: -515, scale: 1.1 },
+    { id: 'tree-75', sprite: '/images/ambient/tree-birch-medium.png', x: -850, y: -460, scale: 0.8 },
+    { id: 'tree-76', sprite: '/images/ambient/tree-oak-medium.png', x: -900, y: -495, scale: 1.0 },
+    
+    // Extra corner density (right corner around x=900) - scattered
+    { id: 'tree-77', sprite: '/images/ambient/tree-pine-large.png', x: 920, y: -475, scale: 0.9 },
+    { id: 'tree-78', sprite: '/images/ambient/tree-oak-medium.png', x: 880, y: -520, scale: 1.1 },
+    { id: 'tree-79', sprite: '/images/ambient/tree-birch-medium.png', x: 850, y: -465, scale: 0.8 },
+    { id: 'tree-80', sprite: '/images/ambient/tree-pine-medium.png', x: 900, y: -500, scale: 1.0 },
+    
+    // Left edge trees (x=-900, y=-500 to 0) - new addition
+    { id: 'tree-91', sprite: '/images/ambient/tree-oak-large.png', x: -960, y: -435, scale: 0.7 },
+    { id: 'tree-92', sprite: '/images/ambient/tree-pine-medium.png', x: -910, y: -385, scale: 0.9 },
+    { id: 'tree-93', sprite: '/images/ambient/tree-birch-medium.png', x: -870, y: -330, scale: 0.8 },
+    { id: 'tree-94', sprite: '/images/ambient/tree-oak-medium.png', x: -980, y: -285, scale: 1.0 },
+    { id: 'tree-96', sprite: '/images/ambient/tree-birch-medium.png', x: -880, y: -185, scale: 0.8 },
+    { id: 'tree-97', sprite: '/images/ambient/tree-oak-medium.png', x: -910, y: -135, scale: 0.7 },
+    { id: 'tree-99', sprite: '/images/ambient/tree-oak-large.png', x: -940, y: -35, scale: 0.6 },
+    { id: 'tree-100', sprite: '/images/ambient/tree-birch-medium.png', x: -890, y: 15, scale: 0.8 },
+    
+    // Right edge trees (x=900, y=-500 to 0) - scattered
+    { id: 'tree-81', sprite: '/images/ambient/tree-oak-large.png', x: 870, y: -440, scale: 0.7 },
+    { id: 'tree-83', sprite: '/images/ambient/tree-birch-medium.png', x: 880, y: -335, scale: 0.8 },
+    { id: 'tree-84', sprite: '/images/ambient/tree-oak-medium.png', x: 900, y: -290, scale: 1.0 },
+    { id: 'tree-87', sprite: '/images/ambient/tree-oak-medium.png', x: 870, y: -145, scale: 0.7 },
+    { id: 'tree-90', sprite: '/images/ambient/tree-birch-medium.png', x: 890, y: 5, scale: 0.8 },
 ];
 
 // Bush system - flowering and berry bushes spread across entire landscape
 const BUSH_SPRITES = [
     // Flowering bushes - colorful accents spread around
-    { id: 'bush-1', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -720, y: -380, scale: 1.0, animationSpeed: 0.02 },
-    { id: 'bush-2', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -320, y: -350, scale: 1.1, animationSpeed: 0.025 },
-    { id: 'bush-3', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 520, y: -350, scale: 1.0, animationSpeed: 0.02 },
-    { id: 'bush-4', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 720, y: -380, scale: 0.9, animationSpeed: 0.025 },
-    { id: 'bush-5', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -850, y: -350, scale: 1.1, animationSpeed: 0.02 },
+    { id: 'bush-1', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -670, y: -330, scale: 1.0, animationSpeed: 0.02 },
+    { id: 'bush-2', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -270, y: -300, scale: 1.1, animationSpeed: 0.025 },
+    { id: 'bush-3', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 570, y: -300, scale: 1.0, animationSpeed: 0.02 },
+    { id: 'bush-4', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 770, y: -330, scale: 0.9, animationSpeed: 0.025 },
+    { id: 'bush-5', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -800, y: -300, scale: 1.1, animationSpeed: 0.02 },
     
     // Additional flowering bushes for foliage areas (small scale)
-    { id: 'bush-6', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 670, y: -290, scale: 0.7, animationSpeed: 0.02 },
-    { id: 'bush-7', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 720, y: -210, scale: 0.6, animationSpeed: 0.025 },
-    { id: 'bush-8', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 860, y: 10, scale: 0.5, animationSpeed: 0.03 },
-    { id: 'bush-9', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -850, y: -260, scale: 0.7, animationSpeed: 0.02 },
-    { id: 'bush-10', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -840, y: -140, scale: 0.5, animationSpeed: 0.025 },
+    { id: 'bush-6', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 720, y: -240, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-7', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 770, y: -160, scale: 0.6, animationSpeed: 0.025 },
+    { id: 'bush-8', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 910, y: 60, scale: 0.5, animationSpeed: 0.03 },
+    { id: 'bush-9', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -800, y: -210, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-10', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -790, y: -90, scale: 0.5, animationSpeed: 0.025 },
     
     // Berry bushes - natural food sources spread wide
-    { id: 'berry-2', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -280, y: -330, scale: 0.8, animationSpeed: 0.025 },
-    { id: 'berry-3', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 450, y: -320, scale: 1.2, animationSpeed: 0.025 },
-    { id: 'berry-4', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 780, y: -320, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'berry-2', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -230, y: -280, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'berry-3', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 500, y: -270, scale: 1.2, animationSpeed: 0.025 },
+    { id: 'berry-4', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 830, y: -270, scale: 0.8, animationSpeed: 0.025 },
     
     // Additional berry bushes for foliage areas (small scale)
-    { id: 'berry-5', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 880, y: -290, scale: 0.8, animationSpeed: 0.02 },
-    { id: 'berry-6', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 850, y: -90, scale: 0.7, animationSpeed: 0.025 },
-    { id: 'berry-7', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -860, y: -200, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'berry-5', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 930, y: -240, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'berry-6', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 900, y: -40, scale: 0.7, animationSpeed: 0.025 },
+    { id: 'berry-7', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -810, y: -150, scale: 0.7, animationSpeed: 0.02 },
+    
+    // Dense bush line at y=-500 to complement trees
+    { id: 'bush-11', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -750, y: -485, scale: 0.9, animationSpeed: 0.02 },
+    { id: 'bush-12', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -650, y: -515, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'bush-13', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -550, y: -475, scale: 1.0, animationSpeed: 0.02 },
+    { id: 'bush-14', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -450, y: -520, scale: 0.9, animationSpeed: 0.025 },
+    { id: 'bush-15', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -350, y: -465, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'bush-16', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -250, y: -510, scale: 1.1, animationSpeed: 0.025 },
+    { id: 'bush-17', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -150, y: -480, scale: 0.9, animationSpeed: 0.02 },
+    { id: 'bush-18', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -50, y: -495, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'bush-19', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 50, y: -525, scale: 1.0, animationSpeed: 0.02 },
+    { id: 'bush-20', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 150, y: -470, scale: 0.9, animationSpeed: 0.025 },
+    { id: 'bush-21', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 250, y: -505, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'bush-22', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 350, y: -485, scale: 1.1, animationSpeed: 0.025 },
+    { id: 'bush-23', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 450, y: -515, scale: 0.9, animationSpeed: 0.02 },
+    { id: 'bush-24', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 550, y: -475, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'bush-25', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 650, y: -490, scale: 1.0, animationSpeed: 0.02 },
+    { id: 'bush-26', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 750, y: -525, scale: 0.9, animationSpeed: 0.025 },
+    
+    // Corner density bushes - scattered
+    { id: 'bush-27', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -900, y: -515, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'bush-28', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -870, y: -465, scale: 0.9, animationSpeed: 0.025 },
+    { id: 'bush-29', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 870, y: -475, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'bush-30', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 900, y: -485, scale: 0.9, animationSpeed: 0.025 },
+    
+    // Left edge bushes (x=-900 area) - new addition
+    { id: 'bush-39', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -880, y: -415, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-40', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -890, y: -355, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'bush-41', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -910, y: -295, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-42', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -900, y: -245, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'bush-43', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -870, y: -195, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-44', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -880, y: -145, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'bush-45', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: -920, y: -95, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-46', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: -800, y: -45, scale: 0.8, animationSpeed: 0.025 },
+    
+    // Right edge bushes (x=900 area) - scattered
+    { id: 'bush-31', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 910, y: -420, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-32', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 880, y: -365, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'bush-33', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 880, y: -315, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-34', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 900, y: -225, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'bush-35', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 880, y: -175, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-36', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 860, y: -125, scale: 0.8, animationSpeed: 0.025 },
+    { id: 'bush-37', sprite: '/images/ambient/bush-flowering.png', frameCount: 2, x: 920, y: -75, scale: 0.7, animationSpeed: 0.02 },
+    { id: 'bush-38', sprite: '/images/ambient/bush-berry.png', frameCount: 2, x: 880, y: -25, scale: 0.8, animationSpeed: 0.025 },
 ];
 
 // Forest floor elements - ferns and fallen logs for natural ground detail
 const FOREST_FLOOR_SPRITES = [
     // Fern clusters spread across shaded areas throughout the landscape
-    { id: 'fern-1', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -680, y: -360, scale: 1.0, animationSpeed: 0.01 },
-    { id: 'fern-2', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -380, y: -370, scale: 1.1, animationSpeed: 0.01 },
-    { id: 'fern-3', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 320, y: -360, scale: 1.0, animationSpeed: 0.02 },
-    { id: 'fern-4', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 580, y: -380, scale: 0.9, animationSpeed: 0.015 },
-    { id: 'fern-5', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -800, y: -340, scale: 0.8, animationSpeed: 0.02 },
-    { id: 'fern-6', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 780, y: -350, scale: 1.1, animationSpeed: 0.01 },
+    { id: 'fern-1', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -630, y: -310, scale: 1.0, animationSpeed: 0.01 },
+    { id: 'fern-2', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -330, y: -320, scale: 1.1, animationSpeed: 0.01 },
+    { id: 'fern-3', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 370, y: -310, scale: 1.0, animationSpeed: 0.02 },
+    { id: 'fern-4', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 630, y: -330, scale: 0.9, animationSpeed: 0.015 },
+    { id: 'fern-5', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -750, y: -290, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-6', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 830, y: -300, scale: 1.1, animationSpeed: 0.01 },
     
     // Additional fern clusters for foliage areas (small scale)
-    { id: 'fern-7', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 780, y: -295, scale: 0.6, animationSpeed: 0.015 },
-    { id: 'fern-8', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 820, y: -205, scale: 0.5, animationSpeed: 0.02 },
-    { id: 'fern-9', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 890, y: -105, scale: 0.5, animationSpeed: 0.015 },
-    { id: 'fern-10', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -890, y: -240, scale: 0.5, animationSpeed: 0.02 },
-    { id: 'fern-11', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -870, y: -160, scale: 0.6, animationSpeed: 0.015 },
+    { id: 'fern-7', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 830, y: -245, scale: 0.6, animationSpeed: 0.015 },
+    { id: 'fern-8', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 870, y: -155, scale: 0.5, animationSpeed: 0.02 },
+    { id: 'fern-9', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 940, y: -55, scale: 0.5, animationSpeed: 0.015 },
+    { id: 'fern-10', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -840, y: -190, scale: 0.5, animationSpeed: 0.02 },
+    { id: 'fern-11', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -820, y: -110, scale: 0.6, animationSpeed: 0.015 },
     
     // Fallen logs - occasional natural decay elements (static, no animation)
-    { id: 'log-1', sprite: '/images/ambient/fallen-log.png', x: -920, y: -300, scale: 1.0, rotation: -0.2 },
-    { id: 'log-2', sprite: '/images/ambient/fallen-log.png', x: 600, y: -290, scale: 0.9, rotation: -0.2 },
-    { id: 'log-3', sprite: '/images/ambient/fallen-log.png', x: 180, y: -480, scale: 0.8, rotation: -0.3 },
+    { id: 'log-1', sprite: '/images/ambient/fallen-log.png', x: -870, y: -250, scale: 1.0, rotation: -0.2 },
+    { id: 'log-2', sprite: '/images/ambient/fallen-log.png', x: 650, y: -240, scale: 0.9, rotation: -0.2 },
+    { id: 'log-3', sprite: '/images/ambient/fallen-log.png', x: 230, y: -430, scale: 0.8, rotation: -0.3 },
+    
+    // Dense fern line at y=-500 to complement trees and bushes - scattered naturally
+    { id: 'fern-12', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -720, y: -475, scale: 0.9, animationSpeed: 0.015 },
+    { id: 'fern-13', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -620, y: -520, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-14', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -520, y: -465, scale: 1.0, animationSpeed: 0.015 },
+    { id: 'fern-15', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -420, y: -515, scale: 0.9, animationSpeed: 0.02 },
+    { id: 'fern-16', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -320, y: -485, scale: 0.8, animationSpeed: 0.015 },
+    { id: 'fern-17', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -220, y: -525, scale: 1.1, animationSpeed: 0.02 },
+    { id: 'fern-18', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -120, y: -470, scale: 0.9, animationSpeed: 0.015 },
+    { id: 'fern-19', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -20, y: -505, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-20', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 80, y: -480, scale: 1.0, animationSpeed: 0.015 },
+    { id: 'fern-21', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 180, y: -520, scale: 0.9, animationSpeed: 0.02 },
+    { id: 'fern-22', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 280, y: -460, scale: 0.8, animationSpeed: 0.015 },
+    { id: 'fern-23', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 380, y: -510, scale: 1.1, animationSpeed: 0.02 },
+    { id: 'fern-24', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 480, y: -485, scale: 0.9, animationSpeed: 0.015 },
+    { id: 'fern-25', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 580, y: -495, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-26', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 680, y: -475, scale: 1.0, animationSpeed: 0.015 },
+    { id: 'fern-27', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 780, y: -530, scale: 0.9, animationSpeed: 0.02 },
+    
+    // Corner density ferns - scattered
+    { id: 'fern-28', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -890, y: -485, scale: 0.8, animationSpeed: 0.015 },
+    { id: 'fern-29', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -860, y: -465, scale: 0.9, animationSpeed: 0.02 },
+    { id: 'fern-30', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 860, y: -495, scale: 0.8, animationSpeed: 0.015 },
+    { id: 'fern-31', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 890, y: -515, scale: 0.9, animationSpeed: 0.02 },
+    
+    // Left edge ferns (x=-900 area) - new addition
+    { id: 'fern-40', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -880, y: -405, scale: 0.7, animationSpeed: 0.015 },
+    { id: 'fern-41', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -910, y: -345, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-42', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -880, y: -275, scale: 0.7, animationSpeed: 0.015 },
+    { id: 'fern-43', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -900, y: -215, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-44', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -880, y: -155, scale: 0.7, animationSpeed: 0.015 },
+    { id: 'fern-45', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -920, y: -105, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-46', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -890, y: -55, scale: 0.7, animationSpeed: 0.015 },
+    { id: 'fern-47', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: -900, y: -5, scale: 0.8, animationSpeed: 0.02 },
+    
+    // Right edge ferns (x=900 area) - scattered
+    { id: 'fern-32', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 860, y: -410, scale: 0.7, animationSpeed: 0.015 },
+    { id: 'fern-33', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 900, y: -350, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-34', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 870, y: -275, scale: 0.7, animationSpeed: 0.015 },
+    { id: 'fern-35', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 900, y: -215, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-36', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 920, y: -155, scale: 0.7, animationSpeed: 0.015 },
+    { id: 'fern-37', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 880, y: -105, scale: 0.8, animationSpeed: 0.02 },
+    { id: 'fern-38', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 910, y: -55, scale: 0.7, animationSpeed: 0.015 },
+    { id: 'fern-39', sprite: '/images/ambient/fern-cluster.png', frameCount: 2, x: 880, y: -5, scale: 0.8, animationSpeed: 0.02 },
+    
+    // Additional fallen logs in dense areas - scattered naturally
+    { id: 'log-4', sprite: '/images/ambient/fallen-log.png', x: -820, y: -485, scale: 0.9, rotation: 0.1 },
+    { id: 'log-5', sprite: '/images/ambient/fallen-log.png', x: -280, y: -515, scale: 1.1, rotation: -0.3 },
+    { id: 'log-6', sprite: '/images/ambient/fallen-log.png', x: 220, y: -475, scale: 0.8, rotation: 0.2 },
+    { id: 'log-7', sprite: '/images/ambient/fallen-log.png', x: 720, y: -505, scale: 1.0, rotation: -0.1 },
+    { id: 'log-8', sprite: '/images/ambient/fallen-log.png', x: 900, y: -280, scale: 0.7, rotation: 0.15 },
+    { id: 'log-9', sprite: '/images/ambient/fallen-log.png', x: -900, y: -320, scale: 0.7, rotation: -0.2 },
 ];
 
 // Lily pads system - distributed across pond area, biased toward visible top areas
@@ -246,7 +397,7 @@ const LILY_PADS = [
 
 // Bench system - positioned around hospital and pond areas (horizontal only for isometric view)
 const BENCHES = [
-    { id: 'bench-3', sprite: '/images/ambient/bench-horizontal.png', x: 400, y: 280, scale: 1.0, rotation: 0, type: 'horizontal' },
+    { id: 'bench-3', sprite: '/images/ambient/bench-horizontal.png', x: 400, y: 320, scale: 1.0, rotation: 0, type: 'horizontal' },
     // TODO: Removed leftmost benches for better view, can add more horizontal benches when needed
     // { id: 'bench-1', sprite: '/images/ambient/bench-horizontal.png', x: 180, y: 150, scale: 1.2, rotation: 0, type: 'horizontal' },
     // { id: 'bench-6', sprite: '/images/ambient/bench-horizontal.png', x: -100, y: 200, scale: 1.0, rotation: 0, type: 'horizontal' },
@@ -257,32 +408,32 @@ const BENCHES = [
 
 // Lamp post system - positioned around hospital area for atmospheric lighting
 const LAMP_POSTS = [
-    { id: 'lamp-1', sprite: '/images/ambient/lamp-post-classic.png', x: 360, y: 290, scale: 1.2, glowIntensity: 0.8, glowColor: 0xFFD700 },
-    { id: 'lamp-2', sprite: '/images/ambient/lamp-post-classic.png', x: -600, y: 180, scale: 1.2, glowIntensity: 0.7, glowColor: 0xFFD700 },
-    { id: 'lamp-3', sprite: '/images/ambient/lamp-post-classic.png', x: -500, y: 134, scale: 1.2, glowIntensity: 0.9, glowColor: 0xFFD700 },
-    { id: 'lamp-5', sprite: '/images/ambient/lamp-post-classic.png', x: -700, y: 226, scale: 1.2, glowIntensity: 0.8, glowColor: 0xFFD700 },
-    { id: 'lamp-6', sprite: '/images/ambient/lamp-post-classic.png', x: -130, y: 170, scale: 1.2, glowIntensity: 0.7, glowColor: 0xFFD700 },
+    { id: 'lamp-1', sprite: '/images/ambient/lamp-post-classic.png', x: 360, y: 334, scale: 1.2, glowIntensity: 0.8, glowColor: 0xFFD700 },
+    { id: 'lamp-2', sprite: '/images/ambient/lamp-post-classic.png', x: -560, y: 220, scale: 1.2, glowIntensity: 0.7, glowColor: 0xFFD700 },
+    { id: 'lamp-3', sprite: '/images/ambient/lamp-post-classic.png', x: -460, y: 174, scale: 1.2, glowIntensity: 0.9, glowColor: 0xFFD700 },
+    { id: 'lamp-5', sprite: '/images/ambient/lamp-post-classic.png', x: -660, y: 266, scale: 1.2, glowIntensity: 0.8, glowColor: 0xFFD700 },
+    { id: 'lamp-6', sprite: '/images/ambient/lamp-post-classic.png', x: -90, y: 210, scale: 1.2, glowIntensity: 0.7, glowColor: 0xFFD700 },
 ];
 
 // Window glow system - positioned with absolute world coordinates (like benches/lamps)
 const WINDOW_GLOWS = [
     // Based on your tweaked positions - light blue hospital lighting
-    { id: 'window-glow-1', x: 790, y: 95, width: 12, height: 8, glowIntensity: 0.6, glowColor: 0xE0FFFF, lightType: 'office' },
-    { id: 'window-glow-2', x: 760, y: 80, width: 12, height: 8, glowIntensity: 0.6, glowColor: 0xE0FFFF, lightType: 'office' },
+    { id: 'window-glow-1', x: 840, y: 145, width: 12, height: 8, glowIntensity: 0.3, glowColor: 0xE0FFFF, lightType: 'office' },
+    { id: 'window-glow-2', x: 810, y: 130, width: 12, height: 8, glowIntensity: 0.3, glowColor: 0xE0FFFF, lightType: 'office' },
     
     // More variations based on your tweaked settings - standardized to match first two
-    { id: 'window-glow-3', x: 730, y: 65, width: 12, height: 8, glowIntensity: 0.6, glowColor: 0xE0FFFF, lightType: 'office' },
-    { id: 'window-glow-4', x: -500, y: -110, width: 8, height: 135, glowIntensity: 0.6, glowColor: 0xE0FFFF, lightType: 'office' },
-    { id: 'window-glow-6', x: -400, y: -160, width: 8, height: 12, glowIntensity: 0.6, glowColor: 0xE0FFFF, lightType: 'office' },
+    { id: 'window-glow-3', x: 780, y: 115, width: 12, height: 8, glowIntensity: 0.3, glowColor: 0xE0FFFF, lightType: 'office' },
+    { id: 'window-glow-4', x: -450, y: -60, width: 8, height: 135, glowIntensity: 0.3, glowColor: 0xE0FFFF, lightType: 'office' },
+    { id: 'window-glow-6', x: -350, y: -110, width: 8, height: 12, glowIntensity: 0.3, glowColor: 0xE0FFFF, lightType: 'office' },
     
     // Standardized to match first two window settings
-    { id: 'window-glow-8', x: 640, y: 20, width: 12, height: 8, glowIntensity: 0.6, glowColor: 0xE0FFFF, lightType: 'office' },
-    { id: 'window-glow-9', x: -370, y: -175, width: 8, height: 12, glowIntensity: 0.6, glowColor: 0xE0FFFF, lightType: 'office' },
-    { id: 'window-glow-10', x: 610, y: 5, width: 12, height: 8, glowIntensity: 0.6, glowColor: 0xE0FFFF, lightType: 'office' },
+    { id: 'window-glow-8', x: 690, y: 70, width: 12, height: 8, glowIntensity: 0.3, glowColor: 0xE0FFFF, lightType: 'office' },
+    { id: 'window-glow-9', x: -320, y: -125, width: 8, height: 12, glowIntensity: 0.3, glowColor: 0xE0FFFF, lightType: 'office' },
+    { id: 'window-glow-10', x: 660, y: 55, width: 12, height: 8, glowIntensity: 0.3, glowColor: 0xE0FFFF, lightType: 'office' },
     
     // Additional glows further down and to the left (based on 6 and 9)
-    { id: 'window-glow-11', x: -820, y: 50, width: 8, height: 12, glowIntensity: 0.6, glowColor: 0xE0FFFF, lightType: 'office' },
-    { id: 'window-glow-12', x: -790, y: 35, width: 8, height: 12, glowIntensity: 0.6, glowColor: 0xE0FFFF, lightType: 'office' },
+    { id: 'window-glow-11', x: -770, y: 100, width: 8, height: 12, glowIntensity: 0.3, glowColor: 0xE0FFFF, lightType: 'office' },
+    { id: 'window-glow-12', x: -740, y: 85, width: 8, height: 12, glowIntensity: 0.3, glowColor: 0xE0FFFF, lightType: 'office' },
 ];
 
 // TODO: Sitting people system - positioned on benches (NEXT ROUND)
@@ -336,114 +487,152 @@ const FISH_EFFECTS: Array<{
 // Grass sprites in world coordinates (positioned in top area)
 const GRASS_SPRITES = [
     // Left area grass
-    { id: 'grass-1', sprite: '/images/ambient/grass-tuft-small.png', x: -750, y: -450, scale: 1.0, opacity: 0.8 },
-    { id: 'grass-2', sprite: '/images/ambient/grass-tuft-medium.png', x: -650, y: -420, scale: 0.9, opacity: 0.9 },
-    { id: 'grass-3', sprite: '/images/ambient/grass-patch-wide.png', x: -700, y: -380, scale: 1.1, opacity: 0.7 },
-    { id: 'grass-4', sprite: '/images/ambient/grass-flowers.png', x: -600, y: -460, scale: 0.8, opacity: 0.85 },
-    { id: 'grass-5', sprite: '/images/ambient/grass-tuft-tall.png', x: -550, y: -430, scale: 1.0, opacity: 0.9 },
-    { id: 'grass-6', sprite: '/images/ambient/grass-tuft-small.png', x: -620, y: -360, scale: 0.9, opacity: 0.75 },
-    { id: 'grass-7', sprite: '/images/ambient/grass-tuft-medium.png', x: -720, y: -340, scale: 0.85, opacity: 0.8 },
-    { id: 'grass-8', sprite: '/images/ambient/grass-patch-wide.png', x: -580, y: -390, scale: 1.05, opacity: 0.65 },
-    { id: 'grass-9', sprite: '/images/ambient/grass-flowers.png', x: -660, y: -320, scale: 0.95, opacity: 0.9 },
-    { id: 'grass-10', sprite: '/images/ambient/grass-tuft-tall.png', x: -480, y: -370, scale: 0.9, opacity: 0.7 },
-    { id: 'grass-11', sprite: '/images/ambient/grass-tuft-small.png', x: -800, y: -420, scale: 1.1, opacity: 0.85 },
-    { id: 'grass-12', sprite: '/images/ambient/grass-tuft-medium.png', x: -520, y: -300, scale: 0.8, opacity: 0.75 },
+    { id: 'grass-1', sprite: '/images/ambient/grass-tuft-small.png', x: -700, y: -400, scale: 1.0, opacity: 0.8 },
+    { id: 'grass-2', sprite: '/images/ambient/grass-tuft-medium.png', x: -600, y: -370, scale: 0.9, opacity: 0.9 },
+    { id: 'grass-3', sprite: '/images/ambient/grass-patch-wide.png', x: -650, y: -330, scale: 1.1, opacity: 0.7 },
+    { id: 'grass-4', sprite: '/images/ambient/grass-flowers.png', x: -550, y: -410, scale: 0.8, opacity: 0.85 },
+    { id: 'grass-5', sprite: '/images/ambient/grass-tuft-tall.png', x: -500, y: -380, scale: 1.0, opacity: 0.9 },
+    { id: 'grass-6', sprite: '/images/ambient/grass-tuft-small.png', x: -570, y: -310, scale: 0.9, opacity: 0.75 },
+    { id: 'grass-7', sprite: '/images/ambient/grass-tuft-medium.png', x: -670, y: -290, scale: 0.85, opacity: 0.8 },
+    { id: 'grass-8', sprite: '/images/ambient/grass-patch-wide.png', x: -530, y: -340, scale: 1.05, opacity: 0.65 },
+    { id: 'grass-9', sprite: '/images/ambient/grass-flowers.png', x: -610, y: -270, scale: 0.95, opacity: 0.9 },
+    { id: 'grass-10', sprite: '/images/ambient/grass-tuft-tall.png', x: -430, y: -320, scale: 0.9, opacity: 0.7 },
+    { id: 'grass-11', sprite: '/images/ambient/grass-tuft-small.png', x: -750, y: -370, scale: 1.1, opacity: 0.85 },
+    { id: 'grass-12', sprite: '/images/ambient/grass-tuft-medium.png', x: -470, y: -250, scale: 0.8, opacity: 0.75 },
     
     // Right area grass
-    { id: 'grass-13', sprite: '/images/ambient/grass-tuft-medium.png', x: 550, y: -440, scale: 1.1, opacity: 0.8 },
-    { id: 'grass-14', sprite: '/images/ambient/grass-patch-wide.png', x: 650, y: -410, scale: 0.85, opacity: 0.9 },
-    { id: 'grass-15', sprite: '/images/ambient/grass-flowers.png', x: 750, y: -480, scale: 1.0, opacity: 0.7 },
-    { id: 'grass-16', sprite: '/images/ambient/grass-tuft-tall.png', x: 600, y: -360, scale: 0.95, opacity: 0.8 },
-    { id: 'grass-17', sprite: '/images/ambient/grass-tuft-small.png', x: 680, y: -340, scale: 1.2, opacity: 0.85 },
-    { id: 'grass-18', sprite: '/images/ambient/grass-tuft-medium.png', x: 780, y: -380, scale: 0.9, opacity: 0.9 },
-    { id: 'grass-19', sprite: '/images/ambient/grass-patch-wide.png', x: 720, y: -320, scale: 0.8, opacity: 0.75 },
-    { id: 'grass-20', sprite: '/images/ambient/grass-flowers.png', x: 580, y: -300, scale: 1.05, opacity: 0.8 },
-    { id: 'grass-21', sprite: '/images/ambient/grass-tuft-tall.png', x: 800, y: -350, scale: 0.9, opacity: 0.7 },
-    { id: 'grass-22', sprite: '/images/ambient/grass-tuft-small.png', x: 620, y: -330, scale: 1.0, opacity: 0.85 },
-    { id: 'grass-23', sprite: '/images/ambient/grass-tuft-medium.png', x: 700, y: -280, scale: 0.85, opacity: 0.9 },
-    { id: 'grass-24', sprite: '/images/ambient/grass-patch-wide.png', x: 820, y: -420, scale: 1.1, opacity: 0.65 },
+    { id: 'grass-13', sprite: '/images/ambient/grass-tuft-medium.png', x: 600, y: -390, scale: 1.1, opacity: 0.8 },
+    { id: 'grass-14', sprite: '/images/ambient/grass-patch-wide.png', x: 700, y: -360, scale: 0.85, opacity: 0.9 },
+    { id: 'grass-15', sprite: '/images/ambient/grass-flowers.png', x: 800, y: -430, scale: 1.0, opacity: 0.7 },
+    { id: 'grass-16', sprite: '/images/ambient/grass-tuft-tall.png', x: 650, y: -310, scale: 0.95, opacity: 0.8 },
+    { id: 'grass-17', sprite: '/images/ambient/grass-tuft-small.png', x: 730, y: -290, scale: 1.2, opacity: 0.85 },
+    { id: 'grass-18', sprite: '/images/ambient/grass-tuft-medium.png', x: 830, y: -330, scale: 0.9, opacity: 0.9 },
+    { id: 'grass-19', sprite: '/images/ambient/grass-patch-wide.png', x: 770, y: -270, scale: 0.8, opacity: 0.75 },
+    { id: 'grass-20', sprite: '/images/ambient/grass-flowers.png', x: 630, y: -250, scale: 1.05, opacity: 0.8 },
+    { id: 'grass-21', sprite: '/images/ambient/grass-tuft-tall.png', x: 850, y: -300, scale: 0.9, opacity: 0.7 },
+    { id: 'grass-22', sprite: '/images/ambient/grass-tuft-small.png', x: 670, y: -280, scale: 1.0, opacity: 0.85 },
+    { id: 'grass-23', sprite: '/images/ambient/grass-tuft-medium.png', x: 750, y: -230, scale: 0.85, opacity: 0.9 },
+    { id: 'grass-24', sprite: '/images/ambient/grass-patch-wide.png', x: 870, y: -370, scale: 1.1, opacity: 0.65 },
     
     // Top center area grass
-    { id: 'grass-25', sprite: '/images/ambient/grass-patch-wide.png', x: -200, y: -500, scale: 0.8, opacity: 0.7 },
-    { id: 'grass-26', sprite: '/images/ambient/grass-flowers.png', x: -50, y: -520, scale: 1.0, opacity: 0.8 },
-    { id: 'grass-27', sprite: '/images/ambient/grass-tuft-tall.png', x: 100, y: -480, scale: 0.9, opacity: 0.85 },
-    { id: 'grass-28', sprite: '/images/ambient/grass-tuft-small.png', x: 250, y: -510, scale: 1.1, opacity: 0.75 },
-    { id: 'grass-29', sprite: '/images/ambient/grass-tuft-medium.png', x: -150, y: -520, scale: 0.85, opacity: 0.8 },
-    { id: 'grass-30', sprite: '/images/ambient/grass-patch-wide.png', x: 0, y: -510, scale: 1.05, opacity: 0.7 },
-    { id: 'grass-31', sprite: '/images/ambient/grass-flowers.png', x: 150, y: -500, scale: 0.9, opacity: 0.85 },
-    { id: 'grass-32', sprite: '/images/ambient/grass-tuft-tall.png', x: 300, y: -520, scale: 1.0, opacity: 0.75 },
-    { id: 'grass-33', sprite: '/images/ambient/grass-tuft-small.png', x: -250, y: -480, scale: 0.95, opacity: 0.9 },
-    { id: 'grass-34', sprite: '/images/ambient/grass-tuft-medium.png', x: 50, y: -460, scale: 1.15, opacity: 0.65 },
-    { id: 'grass-35', sprite: '/images/ambient/grass-patch-wide.png', x: 200, y: -480, scale: 0.8, opacity: 0.8 },
-    { id: 'grass-36', sprite: '/images/ambient/grass-flowers.png', x: 350, y: -490, scale: 1.05, opacity: 0.7 },
+    { id: 'grass-25', sprite: '/images/ambient/grass-patch-wide.png', x: -150, y: -450, scale: 0.8, opacity: 0.7 },
+    { id: 'grass-26', sprite: '/images/ambient/grass-flowers.png', x: 0, y: -470, scale: 1.0, opacity: 0.8 },
+    { id: 'grass-27', sprite: '/images/ambient/grass-tuft-tall.png', x: 150, y: -430, scale: 0.9, opacity: 0.85 },
+    { id: 'grass-28', sprite: '/images/ambient/grass-tuft-small.png', x: 300, y: -460, scale: 1.1, opacity: 0.75 },
+    { id: 'grass-29', sprite: '/images/ambient/grass-tuft-medium.png', x: -100, y: -470, scale: 0.85, opacity: 0.8 },
+    { id: 'grass-30', sprite: '/images/ambient/grass-patch-wide.png', x: 50, y: -460, scale: 1.05, opacity: 0.7 },
+    { id: 'grass-31', sprite: '/images/ambient/grass-flowers.png', x: 200, y: -450, scale: 0.9, opacity: 0.85 },
+    { id: 'grass-32', sprite: '/images/ambient/grass-tuft-tall.png', x: 350, y: -470, scale: 1.0, opacity: 0.75 },
+    { id: 'grass-33', sprite: '/images/ambient/grass-tuft-small.png', x: -200, y: -430, scale: 0.95, opacity: 0.9 },
+    { id: 'grass-34', sprite: '/images/ambient/grass-tuft-medium.png', x: 100, y: -410, scale: 1.15, opacity: 0.65 },
+    { id: 'grass-35', sprite: '/images/ambient/grass-patch-wide.png', x: 250, y: -430, scale: 0.8, opacity: 0.8 },
+    { id: 'grass-36', sprite: '/images/ambient/grass-flowers.png', x: 400, y: -440, scale: 1.05, opacity: 0.7 },
     
     // More scattered grass
-    { id: 'grass-37', sprite: '/images/ambient/grass-tuft-medium.png', x: -400, y: -440, scale: 0.8, opacity: 0.6 },
-    { id: 'grass-38', sprite: '/images/ambient/grass-patch-wide.png', x: 400, y: -430, scale: 1.0, opacity: 0.8 },
-    { id: 'grass-39', sprite: '/images/ambient/grass-flowers.png', x: -300, y: -420, scale: 0.9, opacity: 0.7 },
-    { id: 'grass-40', sprite: '/images/ambient/grass-tuft-tall.png', x: 300, y: -410, scale: 1.0, opacity: 0.9 },
-    { id: 'grass-41', sprite: '/images/ambient/grass-tuft-small.png', x: -100, y: -400, scale: 0.85, opacity: 0.8 },
-    { id: 'grass-42', sprite: '/images/ambient/grass-tuft-medium.png', x: 450, y: -380, scale: 1.1, opacity: 0.75 },
-    { id: 'grass-43', sprite: '/images/ambient/grass-patch-wide.png', x: -450, y: -370, scale: 0.9, opacity: 0.85 },
-    { id: 'grass-44', sprite: '/images/ambient/grass-flowers.png', x: 380, y: -360, scale: 0.95, opacity: 0.9 },
-    { id: 'grass-45', sprite: '/images/ambient/grass-tuft-tall.png', x: -350, y: -350, scale: 1.05, opacity: 0.7 },
-    { id: 'grass-46', sprite: '/images/ambient/grass-tuft-small.png', x: 0, y: -340, scale: 0.9, opacity: 0.8 },
-    { id: 'grass-47', sprite: '/images/ambient/grass-tuft-medium.png', x: 250, y: -330, scale: 1.0, opacity: 0.75 },
-    { id: 'grass-48', sprite: '/images/ambient/grass-patch-wide.png', x: 50, y: -320, scale: 0.85, opacity: 0.85 },
+    { id: 'grass-37', sprite: '/images/ambient/grass-tuft-medium.png', x: -350, y: -390, scale: 0.8, opacity: 0.6 },
+    { id: 'grass-38', sprite: '/images/ambient/grass-patch-wide.png', x: 450, y: -380, scale: 1.0, opacity: 0.8 },
+    { id: 'grass-39', sprite: '/images/ambient/grass-flowers.png', x: -250, y: -370, scale: 0.9, opacity: 0.7 },
+    { id: 'grass-40', sprite: '/images/ambient/grass-tuft-tall.png', x: 350, y: -360, scale: 1.0, opacity: 0.9 },
+    { id: 'grass-41', sprite: '/images/ambient/grass-tuft-small.png', x: -50, y: -350, scale: 0.85, opacity: 0.8 },
+    { id: 'grass-42', sprite: '/images/ambient/grass-tuft-medium.png', x: 500, y: -330, scale: 1.1, opacity: 0.75 },
+    { id: 'grass-43', sprite: '/images/ambient/grass-patch-wide.png', x: -400, y: -320, scale: 0.9, opacity: 0.85 },
+    { id: 'grass-44', sprite: '/images/ambient/grass-flowers.png', x: 430, y: -310, scale: 0.95, opacity: 0.9 },
+    { id: 'grass-45', sprite: '/images/ambient/grass-tuft-tall.png', x: -300, y: -300, scale: 1.05, opacity: 0.7 },
+    { id: 'grass-46', sprite: '/images/ambient/grass-tuft-small.png', x: 50, y: -290, scale: 0.9, opacity: 0.8 },
+    { id: 'grass-47', sprite: '/images/ambient/grass-tuft-medium.png', x: 300, y: -280, scale: 1.0, opacity: 0.75 },
+    { id: 'grass-48', sprite: '/images/ambient/grass-patch-wide.png', x: 100, y: -270, scale: 0.85, opacity: 0.85 },
     
     // Extra dense areas
-    { id: 'grass-49', sprite: '/images/ambient/grass-tuft-small.png', x: -750, y: -300, scale: 0.7, opacity: 0.6 },
-    { id: 'grass-50', sprite: '/images/ambient/grass-tuft-medium.png', x: -600, y: -280, scale: 1.2, opacity: 0.8 },
-    { id: 'grass-51', sprite: '/images/ambient/grass-patch-wide.png', x: -450, y: -270, scale: 0.9, opacity: 0.7 },
-    { id: 'grass-52', sprite: '/images/ambient/grass-flowers.png', x: -300, y: -260, scale: 1.1, opacity: 0.9 },
-    { id: 'grass-53', sprite: '/images/ambient/grass-tuft-tall.png', x: -150, y: -250, scale: 0.8, opacity: 0.75 },
-    { id: 'grass-54', sprite: '/images/ambient/grass-tuft-small.png', x: 150, y: -240, scale: 1.0, opacity: 0.85 },
-    { id: 'grass-55', sprite: '/images/ambient/grass-tuft-medium.png', x: 300, y: -250, scale: 0.9, opacity: 0.7 },
-    { id: 'grass-56', sprite: '/images/ambient/grass-patch-wide.png', x: 480, y: -300, scale: 1.15, opacity: 0.8 },
-    { id: 'grass-57', sprite: '/images/ambient/grass-flowers.png', x: 650, y: -280, scale: 0.85, opacity: 0.9 },
-    { id: 'grass-58', sprite: '/images/ambient/grass-tuft-tall.png', x: 800, y: -270, scale: 1.05, opacity: 0.65 },
-    { id: 'grass-59', sprite: '/images/ambient/grass-tuft-small.png', x: -800, y: -260, scale: 0.95, opacity: 0.8 },
-    { id: 'grass-60', sprite: '/images/ambient/grass-tuft-medium.png', x: -50, y: -250, scale: 1.1, opacity: 0.75 },
+    { id: 'grass-49', sprite: '/images/ambient/grass-tuft-small.png', x: -700, y: -250, scale: 0.7, opacity: 0.6 },
+    { id: 'grass-50', sprite: '/images/ambient/grass-tuft-medium.png', x: -550, y: -230, scale: 1.2, opacity: 0.8 },
+    { id: 'grass-51', sprite: '/images/ambient/grass-patch-wide.png', x: -400, y: -220, scale: 0.9, opacity: 0.7 },
+    { id: 'grass-52', sprite: '/images/ambient/grass-flowers.png', x: -250, y: -210, scale: 1.1, opacity: 0.9 },
+    { id: 'grass-53', sprite: '/images/ambient/grass-tuft-tall.png', x: -100, y: -200, scale: 0.8, opacity: 0.75 },
+    { id: 'grass-54', sprite: '/images/ambient/grass-tuft-small.png', x: 200, y: -190, scale: 1.0, opacity: 0.85 },
+    { id: 'grass-55', sprite: '/images/ambient/grass-tuft-medium.png', x: 350, y: -200, scale: 0.9, opacity: 0.7 },
+    { id: 'grass-56', sprite: '/images/ambient/grass-patch-wide.png', x: 530, y: -250, scale: 1.15, opacity: 0.8 },
+    { id: 'grass-57', sprite: '/images/ambient/grass-flowers.png', x: 700, y: -230, scale: 0.85, opacity: 0.9 },
+    { id: 'grass-58', sprite: '/images/ambient/grass-tuft-tall.png', x: 850, y: -220, scale: 1.05, opacity: 0.65 },
+    { id: 'grass-59', sprite: '/images/ambient/grass-tuft-small.png', x: -750, y: -210, scale: 0.95, opacity: 0.8 },
+    { id: 'grass-60', sprite: '/images/ambient/grass-tuft-medium.png', x: 0, y: -200, scale: 1.1, opacity: 0.75 },
     
     // Final section - edge areas
-    { id: 'grass-61', sprite: '/images/ambient/grass-patch-wide.png', x: -700, y: -240, scale: 0.8, opacity: 0.7 },
-    { id: 'grass-62', sprite: '/images/ambient/grass-flowers.png', x: -550, y: -230, scale: 1.0, opacity: 0.85 },
-    { id: 'grass-63', sprite: '/images/ambient/grass-tuft-tall.png', x: -400, y: -240, scale: 0.9, opacity: 0.8 },
-    { id: 'grass-64', sprite: '/images/ambient/grass-tuft-small.png', x: -250, y: -230, scale: 1.05, opacity: 0.9 },
-    { id: 'grass-65', sprite: '/images/ambient/grass-tuft-medium.png', x: 0, y: -240, scale: 0.85, opacity: 0.75 },
-    { id: 'grass-66', sprite: '/images/ambient/grass-patch-wide.png', x: 200, y: -230, scale: 1.1, opacity: 0.8 },
-    { id: 'grass-67', sprite: '/images/ambient/grass-flowers.png', x: 400, y: -240, scale: 0.95, opacity: 0.85 },
-    { id: 'grass-68', sprite: '/images/ambient/grass-tuft-tall.png', x: 600, y: -230, scale: 1.0, opacity: 0.7 },
-    { id: 'grass-69', sprite: '/images/ambient/grass-tuft-small.png', x: 750, y: -240, scale: 0.9, opacity: 0.9 },
-    { id: 'grass-70', sprite: '/images/ambient/grass-tuft-medium.png', x: 820, y: -230, scale: 1.15, opacity: 0.65 },
-    { id: 'grass-71', sprite: '/images/ambient/grass-patch-wide.png', x: 650, y: -240, scale: 0.8, opacity: 0.8 },
-    { id: 'grass-72', sprite: '/images/ambient/grass-flowers.png', x: 350, y: -230, scale: 1.05, opacity: 0.9 },
+    { id: 'grass-61', sprite: '/images/ambient/grass-patch-wide.png', x: -650, y: -190, scale: 0.8, opacity: 0.7 },
+    { id: 'grass-62', sprite: '/images/ambient/grass-flowers.png', x: -500, y: -180, scale: 1.0, opacity: 0.85 },
+    { id: 'grass-63', sprite: '/images/ambient/grass-tuft-tall.png', x: -350, y: -190, scale: 0.9, opacity: 0.8 },
+    { id: 'grass-64', sprite: '/images/ambient/grass-tuft-small.png', x: -200, y: -180, scale: 1.05, opacity: 0.9 },
+    { id: 'grass-65', sprite: '/images/ambient/grass-tuft-medium.png', x: 50, y: -190, scale: 0.85, opacity: 0.75 },
+    { id: 'grass-66', sprite: '/images/ambient/grass-patch-wide.png', x: 250, y: -180, scale: 1.1, opacity: 0.8 },
+    { id: 'grass-67', sprite: '/images/ambient/grass-flowers.png', x: 450, y: -190, scale: 0.95, opacity: 0.85 },
+    { id: 'grass-68', sprite: '/images/ambient/grass-tuft-tall.png', x: 650, y: -180, scale: 1.0, opacity: 0.7 },
+    { id: 'grass-69', sprite: '/images/ambient/grass-tuft-small.png', x: 800, y: -190, scale: 0.9, opacity: 0.9 },
+    { id: 'grass-70', sprite: '/images/ambient/grass-tuft-medium.png', x: 870, y: -180, scale: 1.15, opacity: 0.65 },
+    { id: 'grass-71', sprite: '/images/ambient/grass-patch-wide.png', x: 700, y: -190, scale: 0.8, opacity: 0.8 },
+    { id: 'grass-72', sprite: '/images/ambient/grass-flowers.png', x: 400, y: -180, scale: 1.05, opacity: 0.9 },
     
     // Grass sprinkled in right foliage area (600-900, -300 to 0)
-    { id: 'grass-73', sprite: '/images/ambient/grass-tuft-small.png', x: 640, y: -280, scale: 0.6, opacity: 0.8 },
-    { id: 'grass-74', sprite: '/images/ambient/grass-flowers.png', x: 690, y: -270, scale: 0.5, opacity: 0.9 },
-    { id: 'grass-75', sprite: '/images/ambient/grass-tuft-medium.png', x: 740, y: -290, scale: 0.7, opacity: 0.7 },
-    { id: 'grass-76', sprite: '/images/ambient/grass-patch-wide.png', x: 800, y: -280, scale: 0.6, opacity: 0.8 },
-    { id: 'grass-77', sprite: '/images/ambient/grass-tuft-tall.png', x: 850, y: -270, scale: 0.5, opacity: 0.9 },
-    { id: 'grass-78', sprite: '/images/ambient/grass-tuft-small.png', x: 740, y: -180, scale: 0.6, opacity: 0.8 },
-    { id: 'grass-79', sprite: '/images/ambient/grass-flowers.png', x: 790, y: -170, scale: 0.7, opacity: 0.7 },
-    { id: 'grass-80', sprite: '/images/ambient/grass-tuft-medium.png', x: 840, y: -190, scale: 0.5, opacity: 0.9 },
-    { id: 'grass-81', sprite: '/images/ambient/grass-patch-wide.png', x: 880, y: -180, scale: 0.6, opacity: 0.8 },
-    { id: 'grass-82', sprite: '/images/ambient/grass-tuft-small.png', x: 830, y: -80, scale: 0.5, opacity: 0.9 },
-    { id: 'grass-83', sprite: '/images/ambient/grass-flowers.png', x: 870, y: -70, scale: 0.6, opacity: 0.8 },
-    { id: 'grass-84', sprite: '/images/ambient/grass-tuft-tall.png', x: 840, y: 20, scale: 0.7, opacity: 0.7 },
-    { id: 'grass-85', sprite: '/images/ambient/grass-tuft-medium.png', x: 880, y: 30, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-73', sprite: '/images/ambient/grass-tuft-small.png', x: 690, y: -230, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-74', sprite: '/images/ambient/grass-flowers.png', x: 740, y: -220, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-75', sprite: '/images/ambient/grass-tuft-medium.png', x: 790, y: -240, scale: 0.7, opacity: 0.7 },
+    { id: 'grass-76', sprite: '/images/ambient/grass-patch-wide.png', x: 850, y: -230, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-77', sprite: '/images/ambient/grass-tuft-tall.png', x: 900, y: -220, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-78', sprite: '/images/ambient/grass-tuft-small.png', x: 790, y: -130, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-79', sprite: '/images/ambient/grass-flowers.png', x: 840, y: -120, scale: 0.7, opacity: 0.7 },
+    { id: 'grass-80', sprite: '/images/ambient/grass-tuft-medium.png', x: 890, y: -140, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-81', sprite: '/images/ambient/grass-patch-wide.png', x: 930, y: -130, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-82', sprite: '/images/ambient/grass-tuft-small.png', x: 880, y: -30, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-83', sprite: '/images/ambient/grass-flowers.png', x: 920, y: -20, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-84', sprite: '/images/ambient/grass-tuft-tall.png', x: 890, y: 70, scale: 0.7, opacity: 0.7 },
+    { id: 'grass-85', sprite: '/images/ambient/grass-tuft-medium.png', x: 930, y: 80, scale: 0.5, opacity: 0.9 },
     
     // Grass sprinkled in left foliage area (-900 to -800, -300 to -100)
-    { id: 'grass-86', sprite: '/images/ambient/grass-tuft-small.png', x: -870, y: -270, scale: 0.6, opacity: 0.8 },
-    { id: 'grass-87', sprite: '/images/ambient/grass-flowers.png', x: -840, y: -250, scale: 0.7, opacity: 0.9 },
-    { id: 'grass-88', sprite: '/images/ambient/grass-tuft-medium.png', x: -880, y: -230, scale: 0.5, opacity: 0.8 },
-    { id: 'grass-89', sprite: '/images/ambient/grass-patch-wide.png', x: -830, y: -210, scale: 0.6, opacity: 0.9 },
-    { id: 'grass-90', sprite: '/images/ambient/grass-tuft-tall.png', x: -850, y: -190, scale: 0.7, opacity: 0.7 },
-    { id: 'grass-91', sprite: '/images/ambient/grass-tuft-small.png', x: -820, y: -170, scale: 0.5, opacity: 0.9 },
-    { id: 'grass-92', sprite: '/images/ambient/grass-flowers.png', x: -860, y: -150, scale: 0.6, opacity: 0.8 },
-    { id: 'grass-93', sprite: '/images/ambient/grass-tuft-medium.png', x: -830, y: -130, scale: 0.7, opacity: 0.9 },
-    { id: 'grass-94', sprite: '/images/ambient/grass-patch-wide.png', x: -800, y: -110, scale: 0.5, opacity: 0.8 },
+    { id: 'grass-86', sprite: '/images/ambient/grass-tuft-small.png', x: -820, y: -220, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-87', sprite: '/images/ambient/grass-flowers.png', x: -790, y: -200, scale: 0.7, opacity: 0.9 },
+    { id: 'grass-88', sprite: '/images/ambient/grass-tuft-medium.png', x: -830, y: -180, scale: 0.5, opacity: 0.8 },
+    { id: 'grass-89', sprite: '/images/ambient/grass-patch-wide.png', x: -780, y: -160, scale: 0.6, opacity: 0.9 },
+    { id: 'grass-90', sprite: '/images/ambient/grass-tuft-tall.png', x: -800, y: -140, scale: 0.7, opacity: 0.7 },
+    { id: 'grass-91', sprite: '/images/ambient/grass-tuft-small.png', x: -770, y: -120, scale: 0.5, opacity: 0.9 },
+    { id: 'grass-92', sprite: '/images/ambient/grass-flowers.png', x: -810, y: -100, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-93', sprite: '/images/ambient/grass-tuft-medium.png', x: -780, y: -80, scale: 0.7, opacity: 0.9 },
+    { id: 'grass-94', sprite: '/images/ambient/grass-patch-wide.png', x: -750, y: -60, scale: 0.5, opacity: 0.8 },
+
+    // Dense grass line at y=-500 to complement trees, bushes, and ferns - scattered naturally
+    { id: 'grass-95', sprite: '/images/ambient/grass-tuft-small.png', x: -770, y: -485, scale: 0.8, opacity: 0.7 },
+    { id: 'grass-96', sprite: '/images/ambient/grass-flowers.png', x: -670, y: -520, scale: 0.6, opacity: 0.9 },
+    { id: 'grass-97', sprite: '/images/ambient/grass-tuft-medium.png', x: -570, y: -460, scale: 0.9, opacity: 0.8 },
+    { id: 'grass-98', sprite: '/images/ambient/grass-patch-wide.png', x: -470, y: -525, scale: 0.7, opacity: 0.8 },
+    { id: 'grass-99', sprite: '/images/ambient/grass-tuft-tall.png', x: -370, y: -475, scale: 0.8, opacity: 0.9 },
+    { id: 'grass-100', sprite: '/images/ambient/grass-tuft-small.png', x: -270, y: -505, scale: 0.6, opacity: 0.7 },
+    { id: 'grass-101', sprite: '/images/ambient/grass-flowers.png', x: -170, y: -490, scale: 0.9, opacity: 0.8 },
+    { id: 'grass-102', sprite: '/images/ambient/grass-tuft-medium.png', x: -70, y: -470, scale: 0.7, opacity: 0.9 },
+    { id: 'grass-103', sprite: '/images/ambient/grass-patch-wide.png', x: 30, y: -515, scale: 0.8, opacity: 0.8 },
+    { id: 'grass-104', sprite: '/images/ambient/grass-tuft-tall.png', x: 130, y: -480, scale: 0.6, opacity: 0.9 },
+    { id: 'grass-105', sprite: '/images/ambient/grass-tuft-small.png', x: 230, y: -495, scale: 0.9, opacity: 0.7 },
+    { id: 'grass-106', sprite: '/images/ambient/grass-flowers.png', x: 330, y: -465, scale: 0.7, opacity: 0.8 },
+    { id: 'grass-107', sprite: '/images/ambient/grass-tuft-medium.png', x: 430, y: -520, scale: 0.8, opacity: 0.9 },
+    { id: 'grass-108', sprite: '/images/ambient/grass-patch-wide.png', x: 530, y: -485, scale: 0.6, opacity: 0.8 },
+    { id: 'grass-109', sprite: '/images/ambient/grass-tuft-tall.png', x: 630, y: -510, scale: 0.9, opacity: 0.9 },
+    { id: 'grass-110', sprite: '/images/ambient/grass-tuft-small.png', x: 730, y: -475, scale: 0.7, opacity: 0.7 },
+    
+    // Corner density grass - scattered
+    { id: 'grass-111', sprite: '/images/ambient/grass-flowers.png', x: -920, y: -515, scale: 0.8, opacity: 0.8 },
+    { id: 'grass-112', sprite: '/images/ambient/grass-tuft-medium.png', x: -880, y: -465, scale: 0.6, opacity: 0.9 },
+    { id: 'grass-113', sprite: '/images/ambient/grass-patch-wide.png', x: -850, y: -495, scale: 0.7, opacity: 0.8 },
+    { id: 'grass-114', sprite: '/images/ambient/grass-tuft-small.png', x: 850, y: -475, scale: 0.6, opacity: 0.9 },
+    { id: 'grass-115', sprite: '/images/ambient/grass-flowers.png', x: 880, y: -505, scale: 0.8, opacity: 0.8 },
+    { id: 'grass-116', sprite: '/images/ambient/grass-tuft-medium.png', x: 920, y: -485, scale: 0.7, opacity: 0.9 },
+    
+    // Left edge grass (x=-900 area) - new addition
+    { id: 'grass-127', sprite: '/images/ambient/grass-tuft-small.png', x: -920, y: -455, scale: 0.5, opacity: 0.8 },
+    { id: 'grass-128', sprite: '/images/ambient/grass-flowers.png', x: -870, y: -395, scale: 0.6, opacity: 0.9 },
+    { id: 'grass-129', sprite: '/images/ambient/grass-tuft-medium.png', x: -880, y: -325, scale: 0.5, opacity: 0.8 },
+    { id: 'grass-130', sprite: '/images/ambient/grass-patch-wide.png', x: -910, y: -265, scale: 0.6, opacity: 0.9 },
+    { id: 'grass-131', sprite: '/images/ambient/grass-tuft-tall.png', x: -900, y: -205, scale: 0.5, opacity: 0.8 },
+    { id: 'grass-132', sprite: '/images/ambient/grass-tuft-small.png', x: -860, y: -165, scale: 0.6, opacity: 0.9 },
+    { id: 'grass-133', sprite: '/images/ambient/grass-flowers.png', x: -900, y: -125, scale: 0.5, opacity: 0.8 },
+    { id: 'grass-134', sprite: '/images/ambient/grass-tuft-medium.png', x: -880, y: -75, scale: 0.6, opacity: 0.9 },
+    { id: 'grass-135', sprite: '/images/ambient/grass-patch-wide.png', x: -900, y: -25, scale: 0.5, opacity: 0.8 },
+    { id: 'grass-136', sprite: '/images/ambient/grass-tuft-tall.png', x: -890, y: 25, scale: 0.6, opacity: 0.9 },
 ];
 
 // The main container for the scene. The background gradient provides a base layer.
@@ -505,9 +694,7 @@ export default function HospitalBackdrop() {
   const currentTutorialStep = tutorialStore.currentStep;
   const showEndDayButton = tutorialStore.completedSteps.has('night_phase_transition');
 
-  // Tooltip state
-  const [hoveredRoom, setHoveredRoom] = useState<string | null>(null);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+        
 
   // Weather state management
   const [currentWeather, setCurrentWeather] = useState<'clear' | 'rain' | 'storm' | 'snow' | 'fog'>('clear');
@@ -517,6 +704,32 @@ export default function HospitalBackdrop() {
   const activeRipplesRef = useRef<PIXI.AnimatedSprite[]>([]);
   const pondPositionRef = useRef<{ x: number; y: number; width: number; height: number }>({ x: 0, y: 0, width: 0, height: 0 });
   const rippleSpawnerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Time of day state for visual effects
+  const [currentTimeOfDay, setCurrentTimeOfDay] = useState<TimeOfDay>('dawn');
+  
+  // Initialize systems
+  useEffect(() => {
+    initializeMentorContentManager();
+    initializeTutorialTimeProgression();
+    
+    // Listen for time progression updates
+    const unsubscribeTime = centralEventBus.subscribe(GameEventType.TIME_ADVANCED, (event) => {
+      const timeData = event.payload as { 
+        timeOfDay: TimeOfDay; 
+        hour: number; 
+        visualSettings: any; 
+        stageProgress: number; 
+      };
+      
+      console.log(`[HospitalBackdrop] Time advanced to ${timeData.timeOfDay} (${timeData.hour}:00)`);
+      setCurrentTimeOfDay(timeData.timeOfDay);
+    });
+    
+    return () => {
+      unsubscribeTime();
+    };
+  }, []);
 
   // Fish system state management
   const activeFishRef = useRef<PIXI.AnimatedSprite[]>([]);
@@ -533,10 +746,7 @@ export default function HospitalBackdrop() {
     const parentElement = pixiContainerRef.current;
     const app = new PIXI.Application();
 
-    // Track mouse position for tooltips
-    const handleMouseMove = (event: MouseEvent) => {
-        setMousePosition({ x: event.clientX, y: event.clientY });
-    };
+
     
     app.init({
         width: parentElement.clientWidth,
@@ -556,10 +766,10 @@ export default function HospitalBackdrop() {
         const scaleY = app.screen.height / WORLD_HEIGHT;
         const worldScale = Math.min(scaleX, scaleY) * 1;
         
-        console.log(`[HospitalBackdrop] World scaling: ${worldScale} (screen: ${app.screen.width}x${app.screen.height}, world: ${WORLD_WIDTH}x${WORLD_HEIGHT})`);
+        console.log(`[HospitalBackdrop] Scale: ${worldScale.toFixed(2)}`);
 
-        // Load assets with proper creature spritesheet aliases
-        const assetLoadConfig = [
+        // Define all assets that need to be loaded
+        const allAssets = [
             { alias: 'hospital', src: '/images/hospital/hospital-isometric-base.png' },
             { alias: 'reaction-symbols', src: '/images/ui/reaction-symbols.png' },
             { alias: 'pond-base', src: '/images/ambient/pond-base.png' },
@@ -568,7 +778,6 @@ export default function HospitalBackdrop() {
             ...GRASS_SPRITES.map(grass => ({ alias: grass.id, src: grass.sprite })),
             ...BUSH_SPRITES.map(bush => ({ alias: bush.id, src: bush.sprite })),
             ...FOREST_FLOOR_SPRITES.map(floor => ({ alias: floor.id, src: floor.sprite })),
-            ...ROOM_AREAS.map(room => ({ alias: `room-icon-${room.id}`, src: room.icon })),
             ...WEATHER_PARTICLES.map(weather => ({ alias: weather.id, src: weather.spriteSheet })),
             ...POND_RIPPLES.map(ripple => ({ alias: ripple.id, src: ripple.spriteSheet })),
             ...LILY_PADS.map(pad => ({ alias: pad.id, src: pad.sprite })),
@@ -579,7 +788,28 @@ export default function HospitalBackdrop() {
             ...FISH_EFFECTS.map(effect => ({ alias: effect.id, src: effect.spriteSheet })),
         ];
 
-        PIXI.Assets.load(assetLoadConfig).then((textures) => {
+        // Filter out assets that are already cached to prevent warnings
+        const uncachedAssets = allAssets.filter(asset => !PIXI.Assets.cache.has(asset.alias));
+        
+        // Load textures (either from cache or newly loaded)
+        const loadTexturesPromise = uncachedAssets.length > 0 
+            ? PIXI.Assets.load(uncachedAssets).then(newTextures => {
+                // Combine cached textures with newly loaded ones
+                const allTextures: Record<string, PIXI.Texture> = {};
+                allAssets.forEach(asset => {
+                    allTextures[asset.alias] = PIXI.Assets.cache.get(asset.alias) || newTextures[asset.alias];
+                });
+                return allTextures;
+              })
+            : Promise.resolve(
+                // All assets are cached, just retrieve them
+                allAssets.reduce((textures, asset) => {
+                    textures[asset.alias] = PIXI.Assets.cache.get(asset.alias);
+                    return textures;
+                }, {} as Record<string, PIXI.Texture>)
+              );
+
+        loadTexturesPromise.then((textures) => {
             if (!isMounted || !appRef.current) return;
 
             // --- Set all pixel art textures to use nearest-neighbor scaling ---
@@ -594,12 +824,12 @@ export default function HospitalBackdrop() {
             const hospital = new PIXI.Sprite(hospitalTexture);
             // Position hospital at world center (0,0), scale uniformly
             hospital.anchor.set(0.5, 0.5);
-            hospital.x = app.screen.width * 0.36;
-            hospital.y = app.screen.height * 0.7;
-            hospital.scale.set(worldScale * 3.12); // Increased scale to compensate for image shrunk to 25% of original (0.78 * 4 = 3.12)
+            hospital.x = Math.floor(app.screen.width * 0.5);
+            hospital.y = Math.floor(app.screen.height * 0.5);
+            hospital.scale.set(worldScale * 3); // Scale up 640×360 hospital to match 1920×1080 world coordinates (3x compensation)
             app.stage.addChild(hospital);
             
-            console.log(`[HospitalBackdrop] Hospital positioned at world center: ${hospital.x}, ${hospital.y}, scale: ${hospital.scale.x}`);
+            // Hospital positioned at world center
 
             // === POND (WORLD COORDINATES) ===
             const pondTexture = textures['pond-base'] as PIXI.Texture;
@@ -607,9 +837,9 @@ export default function HospitalBackdrop() {
             if (pondTexture) {
                 const pond = new PIXI.Sprite(pondTexture);
                 pond.anchor.set(0.5, 0.5);
-                // Position pond in world coordinates (bottom right area, closer to hospital)
-                pond.x = (app.screen.width * 0.5) + (300 * worldScale);  // World position: +300 (closer)
-                pond.y = (app.screen.height * 0.85) + (250 * worldScale); // World position: +250 (closer)
+                // Position pond in world coordinates with pixel snapping
+                pond.x = Math.floor((app.screen.width * 0.5) + (300 * worldScale));  // Pixel-perfect positioning
+                pond.y = Math.floor((app.screen.height * 0.9) + (250 * worldScale)); // Pixel-perfect positioning
                 pond.scale.set(worldScale * 2.85); // Slightly smaller pond
                 
                 // Store pond position and dimensions for ripple spawning
@@ -621,8 +851,7 @@ export default function HospitalBackdrop() {
                     height: pondTexture.height * pondScale * 0.8
                 };
                 
-                console.log(`[HospitalBackdrop] Pond positioned at: ${pond.x}, ${pond.y}, scale: ${pond.scale.x}`);
-                console.log(`[HospitalBackdrop] Pond ripple area: ${pondPositionRef.current.width}x${pondPositionRef.current.height}`);
+                // Pond positioned with ripple area calculated
                 app.stage.addChild(pond);
                 pondSprite = pond;
             }
@@ -640,10 +869,10 @@ export default function HospitalBackdrop() {
                     const pad = new PIXI.Sprite(padTexture);
                     pad.anchor.set(0.5, 0.5);
                     
-                    // Position distributed across pond area (increased distribution for better spread)
+                    // Position distributed across pond area with pixel snapping
                     const pondBounds = pondPositionRef.current;
-                    pad.x = pondBounds.x + (padData.relativeX * pondBounds.width * 0.7); // Increased to 0.7 for wider distribution
-                    pad.y = pondBounds.y + (padData.relativeY * pondBounds.height * 0.7); // Spread across more of the pond
+                    pad.x = Math.floor(pondBounds.x + (padData.relativeX * pondBounds.width * 0.7)); // Pixel-perfect positioning
+                    pad.y = Math.floor(pondBounds.y + (padData.relativeY * pondBounds.height * 0.7)); // Pixel-perfect positioning
                     pad.scale.set(padData.scale * worldScale * 2.0); // Keep 2.0 for visibility
                     pad.rotation = padData.rotation;
                     
@@ -657,7 +886,6 @@ export default function HospitalBackdrop() {
                     app.ticker.add(floatTicker);
                     
                     app.stage.addChild(pad);
-                    console.log(`[HospitalBackdrop] Lily pad ${padData.id} positioned at: ${pad.x}, ${pad.y}`);
                 });
             }
 
@@ -674,15 +902,14 @@ export default function HospitalBackdrop() {
                 const bench = new PIXI.Sprite(benchTexture);
                 bench.anchor.set(0.5, 0.5);
                 
-                // Position using world coordinates
-                bench.x = (app.screen.width * 0.5) + (benchData.x * worldScale);
-                bench.y = (app.screen.height * 0.5) + (benchData.y * worldScale);
+                // Position using world coordinates with pixel snapping
+                bench.x = Math.floor((app.screen.width * 0.5) + (benchData.x * worldScale));
+                bench.y = Math.floor((app.screen.height * 0.5) + (benchData.y * worldScale));
                 bench.scale.set(benchData.scale * worldScale * 2.0);
                 bench.rotation = benchData.rotation;
                 
                 benchSprites.set(benchData.id, bench);
                 app.stage.addChild(bench);
-                console.log(`[HospitalBackdrop] Bench ${benchData.id} positioned at: ${bench.x}, ${bench.y}`);
             });
 
             // === LAMP POSTS (WITH WARM ORANGE-YELLOW ATMOSPHERIC LIGHTING EFFECTS) ===
@@ -698,9 +925,9 @@ export default function HospitalBackdrop() {
                 const lamp = new PIXI.Sprite(lampTexture);
                 lamp.anchor.set(0.5, 1.0); // Bottom center anchor for lamp posts
                 
-                // Position using world coordinates
-                lamp.x = (app.screen.width * 0.5) + (lampData.x * worldScale);
-                lamp.y = (app.screen.height * 0.5) + (lampData.y * worldScale);
+                // Position using world coordinates with pixel snapping
+                lamp.x = Math.floor((app.screen.width * 0.5) + (lampData.x * worldScale));
+                lamp.y = Math.floor((app.screen.height * 0.5) + (lampData.y * worldScale));
                 lamp.scale.set(lampData.scale * worldScale * 2.2);
                 
                 // Create atmospheric glow effect with multiple layers and blur
@@ -715,9 +942,8 @@ export default function HospitalBackdrop() {
                 // Layer 1: Large soft outer glow (blur effect) - reduced intensity
                 const outerGlow = new PIXI.Graphics();
                 const outerRadius = 100 * worldScale * lampData.glowIntensity; // Reduced from 140
-                outerGlow.beginFill(warmGlowColor, 0.08); // Reduced from 0.15
-                outerGlow.drawCircle(0, 0, outerRadius);
-                outerGlow.endFill();
+                outerGlow.circle(0, 0, outerRadius);
+                outerGlow.fill({ color: warmGlowColor, alpha: 0.08 }); // Reduced from 0.15
                 outerGlow.filters = [new PIXI.BlurFilter(20)]; // Reduced from 25
                 outerGlow.blendMode = 'screen'; // Additive blending for realistic light
                 glowContainer.addChild(outerGlow);
@@ -725,9 +951,8 @@ export default function HospitalBackdrop() {
                 // Layer 2: Medium glow (moderate blur) - reduced intensity
                 const mediumGlow = new PIXI.Graphics();
                 const mediumRadius = 60 * worldScale * lampData.glowIntensity; // Reduced from 80
-                mediumGlow.beginFill(warmGlowColor, 0.12); // Reduced from 0.25
-                mediumGlow.drawCircle(0, 0, mediumRadius);
-                mediumGlow.endFill();
+                mediumGlow.circle(0, 0, mediumRadius);
+                mediumGlow.fill({ color: warmGlowColor, alpha: 0.12 }); // Reduced from 0.25
                 mediumGlow.filters = [new PIXI.BlurFilter(10)]; // Reduced from 12
                 mediumGlow.blendMode = 'screen';
                 glowContainer.addChild(mediumGlow);
@@ -735,9 +960,8 @@ export default function HospitalBackdrop() {
                 // Layer 3: Inner bright core (slight blur) - reduced intensity
                 const innerGlow = new PIXI.Graphics();
                 const innerRadius = 30 * worldScale * lampData.glowIntensity; // Reduced from 40
-                innerGlow.beginFill(warmGlowColor, 0.18); // Reduced from 0.4
-                innerGlow.drawCircle(0, 0, innerRadius);
-                innerGlow.endFill();
+                innerGlow.circle(0, 0, innerRadius);
+                innerGlow.fill({ color: warmGlowColor, alpha: 0.18 }); // Reduced from 0.4
                 innerGlow.filters = [new PIXI.BlurFilter(4)]; // Reduced from 6
                 innerGlow.blendMode = 'screen';
                 glowContainer.addChild(innerGlow);
@@ -745,9 +969,8 @@ export default function HospitalBackdrop() {
                 // Layer 4: Very bright center (no blur) - reduced intensity
                 const centerGlow = new PIXI.Graphics();
                 const centerRadius = 12 * worldScale * lampData.glowIntensity; // Reduced from 15
-                centerGlow.beginFill(warmGlowColor, 0.25); // Reduced from 0.6
-                centerGlow.drawCircle(0, 0, centerRadius);
-                centerGlow.endFill();
+                centerGlow.circle(0, 0, centerRadius);
+                centerGlow.fill({ color: warmGlowColor, alpha: 0.25 }); // Reduced from 0.6
                 centerGlow.blendMode = 'screen';
                 glowContainer.addChild(centerGlow);
                 
@@ -788,15 +1011,14 @@ export default function HospitalBackdrop() {
                 lampGlowSprites.push(glowContainer);
                 app.stage.addChild(lamp);
                 app.stage.addChild(glowContainer);
-                console.log(`[HospitalBackdrop] Lamp post ${lampData.id} with warm orange-yellow glow positioned at: ${lamp.x}, ${lamp.y}`);
             });
 
             // === WINDOW GLOWS (INTERIOR LIGHTING EFFECTS) ===
             const windowGlowSprites: PIXI.Container[] = [];
             WINDOW_GLOWS.forEach(windowData => {
-                // Position using world coordinates (same as benches, lamps, etc.)
-                const windowX = (app.screen.width * 0.5) + (windowData.x * worldScale);
-                const windowY = (app.screen.height * 0.5) + (windowData.y * worldScale);
+                // Position using world coordinates with pixel snapping
+                const windowX = Math.floor((app.screen.width * 0.5) + (windowData.x * worldScale));
+                const windowY = Math.floor((app.screen.height * 0.5) + (windowData.y * worldScale));
 
                 // Create multi-layered window glow effect (same technique as lamp glow)
                 const glowContainer = new PIXI.Container();
@@ -825,9 +1047,8 @@ export default function HospitalBackdrop() {
                 const outerWidth = windowData.width * worldScale * 6.0 * windowData.glowIntensity;
                 const outerHeight = windowData.height * worldScale * 6.0 * windowData.glowIntensity;
                 const outerPoints = createIsometricWindow(outerWidth, outerHeight);
-                outerGlow.beginFill(glowColor, 0.25);
-                outerGlow.drawPolygon(outerPoints);
-                outerGlow.endFill();
+                outerGlow.poly(outerPoints);
+                outerGlow.fill({ color: glowColor, alpha: 0.25 });
                 outerGlow.filters = [new PIXI.BlurFilter(25)];
                 outerGlow.blendMode = 'screen';
                 glowContainer.addChild(outerGlow);
@@ -837,9 +1058,8 @@ export default function HospitalBackdrop() {
                 const mediumWidth = windowData.width * worldScale * 4.0 * windowData.glowIntensity;
                 const mediumHeight = windowData.height * worldScale * 4.0 * windowData.glowIntensity;
                 const mediumPoints = createIsometricWindow(mediumWidth, mediumHeight);
-                mediumGlow.beginFill(glowColor, 0.35);
-                mediumGlow.drawPolygon(mediumPoints);
-                mediumGlow.endFill();
+                mediumGlow.poly(mediumPoints);
+                mediumGlow.fill({ color: glowColor, alpha: 0.35 });
                 mediumGlow.filters = [new PIXI.BlurFilter(15)];
                 mediumGlow.blendMode = 'screen';
                 glowContainer.addChild(mediumGlow);
@@ -849,9 +1069,8 @@ export default function HospitalBackdrop() {
                 const innerWidth = windowData.width * worldScale * 2.5 * windowData.glowIntensity;
                 const innerHeight = windowData.height * worldScale * 2.5 * windowData.glowIntensity;
                 const innerPoints = createIsometricWindow(innerWidth, innerHeight);
-                innerGlow.beginFill(glowColor, 0.5);
-                innerGlow.drawPolygon(innerPoints);
-                innerGlow.endFill();
+                innerGlow.poly(innerPoints);
+                innerGlow.fill({ color: glowColor, alpha: 0.5 });
                 innerGlow.filters = [new PIXI.BlurFilter(8)];
                 innerGlow.blendMode = 'screen';
                 glowContainer.addChild(innerGlow);
@@ -861,9 +1080,8 @@ export default function HospitalBackdrop() {
                 const frameWidth = windowData.width * worldScale * 1.5;
                 const frameHeight = windowData.height * worldScale * 1.5;
                 const framePoints = createIsometricWindow(frameWidth, frameHeight);
-                windowFrame.beginFill(glowColor, 0.15); // Reduced opacity significantly for subtle white parallelogram
-                windowFrame.drawPolygon(framePoints);
-                windowFrame.endFill();
+                windowFrame.poly(framePoints);
+                windowFrame.fill({ color: glowColor, alpha: 0.15 }); // Reduced opacity significantly for subtle white parallelogram
                 windowFrame.blendMode = 'screen';
                 glowContainer.addChild(windowFrame);
                 
@@ -923,7 +1141,6 @@ export default function HospitalBackdrop() {
                 
                 windowGlowSprites.push(glowContainer);
                 app.stage.addChild(glowContainer);
-                console.log(`[HospitalBackdrop] Window glow ${windowData.id} positioned at: ${windowX}, ${windowY} (${windowData.lightType} lighting)`);
             });
 
             // === SITTING PEOPLE (POSITIONED ON BENCHES) - TODO: NEXT ROUND ===
@@ -1047,6 +1264,12 @@ export default function HospitalBackdrop() {
                 
                 let startTime = Date.now();
                 const pathTicker = (ticker: PIXI.Ticker) => {
+                    // Guard check: stop if app is destroyed or fish is destroyed
+                    if (!app || !app.stage || !app.ticker || !isMounted || fish.destroyed) {
+                        if (app && app.ticker) app.ticker.remove(pathTicker);
+                        return;
+                    }
+                    
                     const currentTime = Date.now();
                     const elapsedSinceStart = currentTime - startTime;
                     const progress = (elapsedSinceStart / (selectedFish.pathDuration * 1000)) % 1;
@@ -1076,11 +1299,24 @@ export default function HospitalBackdrop() {
                     fish.y = y;
                 };
                 
-                app.ticker.add(pathTicker);
-                app.stage.addChild(fish);
-                activeFishRef.current.push(fish);
+                // Store ticker function on sprite for cleanup
+                (fish as any).pathTicker = pathTicker;
                 
-                console.log(`[HospitalBackdrop] Spawned ${selectedFish.rarity} ${selectedFish.fishType} in area ${Math.round(centerX)}, ${Math.round(centerY)} (scale: ${fish.scale.x}, radius: ${Math.round(pathRadius)})`);
+                // Additional guard check before adding to stage
+                if (!app || !app.stage || !app.ticker || !isMounted) return;
+                
+                try {
+                    app.ticker.add(pathTicker);
+                    app.stage.addChild(fish);
+                    activeFishRef.current.push(fish);
+                } catch (e) {
+                    console.warn('[HospitalBackdrop] Error adding fish to stage:', e);
+                    // Clean up on error
+                    if (fish && !fish.destroyed) {
+                        fish.destroy();
+                    }
+                    return;
+                }
                 
                 // Remove fish after lifespan
                 setTimeout(() => {
@@ -1112,7 +1348,7 @@ export default function HospitalBackdrop() {
             };
             
             startFishSpawning();
-            console.log('[HospitalBackdrop] Fish spawning system initialized - fish will spawn every 1-3 seconds');
+            // Fish spawning system ready
 
             // === GRASS SPRITES (GROUND LEVEL WITH SUBTLE SWAY) - BACKGROUND LAYER ===
             const grassContainer = new PIXI.Container();
@@ -1131,9 +1367,9 @@ export default function HospitalBackdrop() {
                 grassSprite.anchor.set(0.5, 1); // Bottom center anchor for grass
                 grassSprite.alpha = grassData.opacity || 1.0; // Apply opacity for natural variation
                 
-                // Position using world coordinates
-                grassSprite.x = (app.screen.width * 0.5) + (grassData.x * worldScale);  // World position
-                grassSprite.y = (app.screen.height * 0.35) + (grassData.y * worldScale); // World position
+                // Position using world coordinates with pixel snapping
+                grassSprite.x = Math.floor((app.screen.width * 0.5) + (grassData.x * worldScale));  // Pixel-perfect positioning
+                grassSprite.y = Math.floor((app.screen.height * 0.35) + (grassData.y * worldScale)); // Pixel-perfect positioning
                 grassSprite.scale.set(grassData.scale * 1.3 * worldScale); // Slightly smaller grass for better proportion
                 
                 // Add subtle swaying animation (lighter than trees)
@@ -1192,9 +1428,9 @@ export default function HospitalBackdrop() {
                 
                 floorSprite.anchor.set(0.5, 1); // Bottom center anchor
                 
-                // Position using world coordinates
-                floorSprite.x = (app.screen.width * 0.5) + (floorData.x * worldScale);
-                floorSprite.y = (app.screen.height * 0.5) + (floorData.y * worldScale);
+                // Position using world coordinates with pixel snapping
+                floorSprite.x = Math.floor((app.screen.width * 0.5) + (floorData.x * worldScale));
+                floorSprite.y = Math.floor((app.screen.height * 0.5) + (floorData.y * worldScale));
                 floorSprite.scale.set(floorData.scale * worldScale * 2.2);
                 if (floorData.rotation) floorSprite.rotation = floorData.rotation;
                 
@@ -1214,9 +1450,8 @@ export default function HospitalBackdrop() {
                         const layerAlpha = 0.04; // Very light for ferns
                         const layerScale = 1.0;
                         
-                        shadow.beginFill(0x000000, layerAlpha);
-                        shadow.drawEllipse(0, 0, shadowWidth * layerScale, shadowHeight * layerScale);
-                        shadow.endFill();
+                        shadow.ellipse(0, 0, shadowWidth * layerScale, shadowHeight * layerScale);
+                        shadow.fill({ color: 0x000000, alpha: layerAlpha });
                     }
                     
                     // Position shadow under fern base
@@ -1227,8 +1462,6 @@ export default function HospitalBackdrop() {
                 }
                 
                 forestFloorSprites.push(floorSprite);
-                
-                console.log(`[HospitalBackdrop] Forest floor ${floorData.id} positioned at: ${floorSprite.x}, ${floorSprite.y}`);
             });
             
             // Add all forest floor shadows first (bottom layer)
@@ -1274,9 +1507,9 @@ export default function HospitalBackdrop() {
                 bush.scale.set(bushData.scale * worldScale * 2.8); // Scale for visibility
                 bush.play();
                 
-                // Position using world coordinates
-                bush.x = (app.screen.width * 0.5) + (bushData.x * worldScale);
-                bush.y = (app.screen.height * 0.5) + (bushData.y * worldScale);
+                // Position using world coordinates with pixel snapping
+                bush.x = Math.floor((app.screen.width * 0.5) + (bushData.x * worldScale));
+                bush.y = Math.floor((app.screen.height * 0.5) + (bushData.y * worldScale));
                 
                 // === CREATE SUBTLE ELLIPTICAL SHADOW UNDER BUSH ===
                 const shadow = new PIXI.Graphics();
@@ -1291,9 +1524,8 @@ export default function HospitalBackdrop() {
                     const layerAlpha = 0.06 - (i * 0.02); // Lower intensity for bushes
                     const layerScale = 1.0 + (i * 0.15); // Smaller spread
                     
-                    shadow.beginFill(0x000000, layerAlpha);
-                    shadow.drawEllipse(0, 0, shadowWidth * layerScale, shadowHeight * layerScale);
-                    shadow.endFill();
+                    shadow.ellipse(0, 0, shadowWidth * layerScale, shadowHeight * layerScale);
+                    shadow.fill({ color: 0x000000, alpha: layerAlpha });
                 }
                 
                 // Position shadow under bush base
@@ -1317,8 +1549,6 @@ export default function HospitalBackdrop() {
                 // Store for proper layering
                 bushShadows.push(shadow);
                 bushSprites.push(bush);
-                
-                console.log(`[HospitalBackdrop] Bush ${bushData.id} positioned at: ${bush.x}, ${bush.y}`);
             });
             
             // Add all bush shadows first (bottom layer)
@@ -1335,9 +1565,8 @@ export default function HospitalBackdrop() {
             const environmentContainer = new PIXI.Container();
             app.stage.addChild(environmentContainer);
             
-            // Store tree sprites and shadows for proper layering
-            const treeShadows: PIXI.Graphics[] = [];
-            const treeSprites: PIXI.Sprite[] = [];
+            // Store tree sprites and shadows for proper layering with y-sorting
+            const treeData: Array<{ sprite: PIXI.Sprite; shadow: PIXI.Graphics; y: number }> = [];
             
             ENVIRONMENT_SPRITES.forEach(envData => {
                 const envTexture = textures[envData.id] as PIXI.Texture;
@@ -1351,9 +1580,9 @@ export default function HospitalBackdrop() {
                 const envSprite = new PIXI.Sprite(envTexture);
                 envSprite.anchor.set(0.5, 1); // Bottom center anchor for trees
                 
-                // Position using world coordinates
-                envSprite.x = (app.screen.width * 0.5) + (envData.x * worldScale);  // World position
-                envSprite.y = (app.screen.height * 0.5) + (envData.y * worldScale); // World position
+                // Position using world coordinates with pixel snapping
+                envSprite.x = Math.floor((app.screen.width * 0.5) + (envData.x * worldScale));  // Pixel-perfect positioning
+                envSprite.y = Math.floor((app.screen.height * 0.5) + (envData.y * worldScale)); // Pixel-perfect positioning
                 envSprite.scale.set(envData.scale * 3.2 * worldScale); // Slightly smaller trees for better proportion
                 
                 // === CREATE SUBTLE ELLIPTICAL SHADOW UNDER TREE ===
@@ -1369,16 +1598,13 @@ export default function HospitalBackdrop() {
                     const layerAlpha = 0.08 - (i * 0.02); // Reduced intensity (was 0.15 - 0.04)
                     const layerScale = 1.0 + (i * 0.2); // Reduced spread (was 0.3)
                     
-                    shadow.beginFill(0x000000, layerAlpha);
-                    shadow.drawEllipse(0, 0, shadowWidth * layerScale, shadowHeight * layerScale);
-                    shadow.endFill();
+                    shadow.ellipse(0, 0, shadowWidth * layerScale, shadowHeight * layerScale);
+                    shadow.fill({ color: 0x000000, alpha: layerAlpha });
                 }
                 
                 // Position shadow under tree base
                 shadow.x = envSprite.x;
                 shadow.y = envSprite.y + (5 * worldScale); // Slightly offset down from tree base
-                
-                console.log(`[HospitalBackdrop] Tree ${envData.id} positioned at: ${envSprite.x}, ${envSprite.y}, scale: ${envSprite.scale.x}`);
                 
                 // Add subtle swaying animation using rotation (reduced intensity!)
                 const baseX = envSprite.x;
@@ -1394,19 +1620,25 @@ export default function HospitalBackdrop() {
                 };
                 app.ticker.add(swayTicker);
                 
-                // Store for proper layering
-                treeShadows.push(shadow);
-                treeSprites.push(envSprite);
+                // Store tree data with y-coordinate for depth sorting
+                treeData.push({
+                    sprite: envSprite,
+                    shadow: shadow,
+                    y: envSprite.y
+                });
             });
             
-            // Add all shadows first (bottom layer)
-            treeShadows.forEach(shadow => {
-                environmentContainer.addChild(shadow);
+            // Sort trees by y-coordinate (lower y = further back, higher y = closer/in front)
+            treeData.sort((a, b) => a.y - b.y);
+            
+            // Add shadows first (in depth order)
+            treeData.forEach(tree => {
+                environmentContainer.addChild(tree.shadow);
             });
             
-            // Then add all trees on top (top layer)
-            treeSprites.forEach(tree => {
-                environmentContainer.addChild(tree);
+            // Then add tree sprites on top (in depth order)
+            treeData.forEach(tree => {
+                environmentContainer.addChild(tree.sprite);
             });
 
             // === ROOM CLICK AREAS (ORIGINAL ISOMETRIC DIAMOND SHAPES) ===
@@ -1417,7 +1649,7 @@ export default function HospitalBackdrop() {
                 };
 
                 // Calculate room position in world coordinates (relative to hospital)
-                const hospitalScale = worldScale * 1.12; // Match the hospital's scale
+                const hospitalScale = worldScale * 3.0; // Match the hospital's scale
                 
                 // Account for hospital's center anchor (0.5, 0.5) - need to offset from center to top-left
                 const hospitalCenterOffsetX = -(hospitalTexture.width * hospitalScale) / 2 + 10;
@@ -1443,28 +1675,24 @@ export default function HospitalBackdrop() {
                 if (roomState.available) {
                     roomGraphic.eventMode = 'static';
                     roomGraphic.cursor = 'pointer';
-                    roomGraphic.on('pointerover', () => {
-                        // Show tooltip (no visual fill - clean interface)
-                        setHoveredRoom(room.id);
-                    });
-                    roomGraphic.on('pointerout', () => {
-                        // Hide tooltip
-                        setHoveredRoom(null);
-                    });
+
                     roomGraphic.on('click', () => {
-                        let dialogueId = `${room.id}-intro`;
+                        // Capture room reference to avoid TypeScript narrowing issues
+                        const currentRoom = room;
+                        
+                        let dialogueId = `${currentRoom.id}-intro`;
                         if(isTutorialActive) {
-                            dialogueId = getTutorialDialogueForRoom(room.id, currentTutorialStep) || dialogueId;
+                            dialogueId = getTutorialDialogueForRoom(currentRoom.id, currentTutorialStep) || dialogueId;
                         }
 
-                        if (room.activityType === 'narrative') {
-                            enterNarrative(room.mentorId, dialogueId, room.id);
-                        } else if (room.activityType === 'social-hub') {
+                        if (currentRoom.activityType === 'narrative') {
+                            enterNarrative(currentRoom.mentorId, dialogueId, currentRoom.id);
+                        } else if (currentRoom.activityType === 'social-hub') {
                             // Navigate directly to lunch room scene
                             const { setSceneDirectly } = useSceneStore.getState();
                             setSceneDirectly('lunch-room');
                         } else {
-                            enterChallenge(`${room.id}-activity`, room.mentorId, room.id);
+                            enterChallenge(`${currentRoom.id}-activity`, currentRoom.mentorId, currentRoom.id);
                         }
                     });
                 } else {
@@ -1474,36 +1702,7 @@ export default function HospitalBackdrop() {
                 // Add room to hospital container for proper scaling
                 hospital.addChild(roomGraphic);
 
-                // Position room icon using pixel sprite
-                const iconTexture = textures[`room-icon-${room.id}`] as PIXI.Texture;
-                if (iconTexture) {
-                    const icon = new PIXI.Sprite(iconTexture);
-                    icon.anchor.set(0.5);
-                    icon.scale.set(0.75); // Reduced to compensate for 4x hospital scale increase (3.0 ÷ 4 = 0.75)
-                    icon.x = px + (pIsoWidth - pIsoHeight) / 2; // Relative to hospital center
-                    const iconBaseY = py + (pIsoWidth * 0.5 + pIsoHeight * 0.5) / 2; // Relative to hospital center
-                    
-                    // Apply visual effects based on room availability
-                    if (!roomState.available) {
-                        // Full greyscale and semi-transparent for unavailable rooms
-                        const greyscaleFilter = new PIXI.ColorMatrixFilter();
-                        greyscaleFilter.desaturate(); // Full greyscale
-                        icon.filters = [greyscaleFilter];
-                        icon.alpha = 0.5; // Semi-transparent
-                    }
-                    
-                    hospital.addChild(icon);
 
-                    // Working bobbing animation for room icons
-                    const bobTicker = (ticker: PIXI.Ticker) => {
-                        const currentTime = Date.now();
-                        const bobHeight = roomState.available ? 6 : 3; // Available rooms bob higher
-                        const bobSpeed = roomState.available ? 1000 : 1500; // Cycle duration in ms
-                        const offset = px * 0.01; // Use position as phase offset
-                        icon.y = iconBaseY + Math.sin((currentTime / bobSpeed) + offset) * bobHeight;
-                    };
-                    app.ticker.add(bobTicker);
-                }
             });
 
             // === AMBIENT CREATURES (SELF-CONTAINED ANIMATIONS) ===
@@ -1514,8 +1713,6 @@ export default function HospitalBackdrop() {
                     console.warn(`Failed to load texture for creature: ${creatureData.id}`);
                     return;
                 }
-                
-                console.log(`Loading creature: ${creatureData.id}, texture size: ${sheetTexture.width}x${sheetTexture.height}`);
                 const sheetSource = sheetTexture.source;
                 const frames = [];
                 const frameWidth = sheetSource.width / creatureData.frameCount;
@@ -1543,14 +1740,11 @@ export default function HospitalBackdrop() {
                     // Create single layer subtle shadow for creatures
                     const layerAlpha = 0.05; // Slightly more visible for easier debugging
                     
-                    creatureShadow.beginFill(0x000000, layerAlpha);
-                    creatureShadow.drawEllipse(0, 0, shadowWidth, shadowHeight);
-                    creatureShadow.endFill();
+                    creatureShadow.ellipse(0, 0, shadowWidth, shadowHeight);
+                    creatureShadow.fill({ color: 0x000000, alpha: layerAlpha });
                     
                     creatureShadow.visible = false; // Start hidden like creature
                     app.stage.addChild(creatureShadow);
-                    
-                    console.log(`[HospitalBackdrop] Created shadow for ground creature: ${creatureData.id}, pathType: ${creatureData.pathType || 'undefined'}`);
                 }
 
                 // === CREATURE INTERACTIVITY (FIRE-AND-FORGET PARTICLE EFFECTS) ===
@@ -1598,12 +1792,12 @@ export default function HospitalBackdrop() {
                 
                 app.stage.addChild(creature);
 
-                // Self-contained path animation using FIXED world coordinates (calculated once)
+                // Self-contained path animation using FIXED world coordinates with pixel snapping
                 // Calculate fixed path endpoints using world coordinates (same as static elements)
-                const pathStartX = (app.screen.width * 0.5) + (creatureData.startX * worldScale);
-                const pathEndX = (app.screen.width * 0.5) + (creatureData.endX * worldScale);
-                const pathStartY = (app.screen.height * 0.5) + (creatureData.startY * worldScale);  
-                const pathEndY = (app.screen.height * 0.5) + (creatureData.endY * worldScale);
+                const pathStartX = Math.floor((app.screen.width * 0.5) + (creatureData.startX * worldScale));
+                const pathEndX = Math.floor((app.screen.width * 0.5) + (creatureData.endX * worldScale));
+                const pathStartY = Math.floor((app.screen.height * 0.5) + (creatureData.startY * worldScale));  
+                const pathEndY = Math.floor((app.screen.height * 0.5) + (creatureData.endY * worldScale));
                 
                 let startTime = Date.now() + creatureData.delay;
                 app.ticker.add((time) => {
@@ -1650,8 +1844,6 @@ export default function HospitalBackdrop() {
                     console.warn(`Failed to load texture for weather: ${weatherData.id}`);
                     return;
                 }
-                
-                console.log(`Loading weather: ${weatherData.id}, texture size: ${sheetTexture.width}x${sheetTexture.height}`);
                 const sheetSource = sheetTexture.source;
                 const frames = [];
                 const frameWidth = sheetSource.width / weatherData.frameCount;
@@ -1716,12 +1908,12 @@ export default function HospitalBackdrop() {
                 app.stage.addChild(weather);
                 weatherParticlesRef.current.push(weather); // Store reference for weather control
 
-                // Self-contained path animation using FIXED world coordinates (calculated once)
+                // Self-contained path animation using FIXED world coordinates with pixel snapping
                 // Calculate fixed path endpoints using world coordinates (same as static elements)
-                const pathStartX = (app.screen.width * 0.5) + (weatherData.startX * worldScale);
-                const pathEndX = (app.screen.width * 0.5) + (weatherData.endX * worldScale);
-                const pathStartY = (app.screen.height * 0.5) + (weatherData.startY * worldScale);  
-                const pathEndY = (app.screen.height * 0.5) + (weatherData.endY * worldScale);
+                const pathStartX = Math.floor((app.screen.width * 0.5) + (weatherData.startX * worldScale));
+                const pathEndX = Math.floor((app.screen.width * 0.5) + (weatherData.endX * worldScale));
+                const pathStartY = Math.floor((app.screen.height * 0.5) + (weatherData.startY * worldScale));  
+                const pathEndY = Math.floor((app.screen.height * 0.5) + (weatherData.endY * worldScale));
                 
                 let startTime = Date.now() + weatherData.delay;
                 const pathTicker = (time: PIXI.Ticker) => {
@@ -1944,54 +2136,43 @@ export default function HospitalBackdrop() {
                         activeFishRef.current = [];
                     };
                     
-                    console.log('[HospitalBackdrop] Weather controls added to dev console:');
-                    console.log('  setWeather("clear") - Clear skies (neutral lighting)');
-                    console.log('  setWeather("rain") - Light rain (cool, slightly darker atmosphere)');
-                    console.log('  setWeather("storm") - Heavy storm (both heavy + light rain, dark and dramatic atmosphere)');
-                    console.log('  setWeather("snow") - Snowfall (bright, cool blue-white atmosphere)');
-                    console.log('  setWeather("fog") - Misty atmosphere (desaturated and muted)');
-                    console.log('');
-                    console.log('[HospitalBackdrop] Pond ripple controls added to dev console:');
-                    console.log('  spawnRipple() - Spawn ambient ripple');
-                    console.log('  spawnRipple("rain") - Spawn rain ripple');
-                    console.log('  spawnRipple("storm") - Spawn storm ripple');
-                    console.log('  spawnRipple("sparkle") - Spawn water sparkle');
-                    console.log('  clearRipples() - Clear all active ripples');
-                    console.log('');
-                    console.log('[HospitalBackdrop] Fish system controls added to dev console:');
-                    console.log('  spawnFish() - Spawn test fish (random rarity)');
-                    console.log('  clearFish() - Clear all active fish');
-                    console.log('');
-                    console.log('[HospitalBackdrop] Lighting controls added to dev console:');
-                    console.log('  setNight() - Test night lighting with warm orange-yellow lamp glow + interior window glows');
-                    console.log('  setEvening() - Test evening lighting with window glows beginning to show');
-                    console.log('  setDay() - Test day lighting (no glows)');
-                    console.log('  setWindowsOnly() - Test only window glows (evening time, no lamps)');
-                    console.log('');
-                    console.log('[HospitalBackdrop] Debug grid controls added to dev console:');
-                    console.log('  showGrid() - Show coordinate grid overlay');
-                    console.log('  hideGrid() - Hide coordinate grid overlay');
-                    console.log('  toggleGrid() - Toggle coordinate grid visibility');
+                    // Dev console commands ready for debugging
                     
-                    // Add lighting test commands
-                    (window as any).setNight = () => {
-                        console.log('[Dev Console] Setting night lighting - warm orange-yellow lamp glow + window glows activated');
-                        applyTimeLighting(22); // 10 PM
-                    };
-                    
-                    (window as any).setEvening = () => {
-                        console.log('[Dev Console] Setting evening lighting - window glows starting to show');
-                        applyTimeLighting(17); // 5 PM
+                    // Add 4-stage time progression test commands
+                    (window as any).setDawn = () => {
+                        console.log('[Dev Console] Setting dawn lighting - warm golden light');
+                        applyTimeOfDayEffects('dawn', 6, {
+                            lightingIntensity: 0.3,
+                            windowGlowIntensity: 0.2,
+                            ambientColor: '#FFB366'
+                        });
                     };
                     
                     (window as any).setDay = () => {
-                        console.log('[Dev Console] Setting day lighting - no glows');
-                        applyTimeLighting(12); // Noon
+                        console.log('[Dev Console] Setting day lighting - bright clear light');
+                        applyTimeOfDayEffects('day', 10, {
+                            lightingIntensity: 1.0,
+                            windowGlowIntensity: 0.1,
+                            ambientColor: '#87CEEB'
+                        });
                     };
                     
-                    (window as any).setWindowsOnly = () => {
-                        console.log('[Dev Console] Testing window glows only (evening, no lamps)');
-                        applyTimeLighting(18); // 6 PM - shows windows but not lamps yet
+                    (window as any).setEvening = () => {
+                        console.log('[Dev Console] Setting evening lighting - warm sunset colors');
+                        applyTimeOfDayEffects('evening', 16, {
+                            lightingIntensity: 0.6,
+                            windowGlowIntensity: 0.7,
+                            ambientColor: '#FF7F50'
+                        });
+                    };
+                    
+                    (window as any).setNight = () => {
+                        console.log('[Dev Console] Setting night lighting - deep blue with prominent windows');
+                        applyTimeOfDayEffects('night', 20, {
+                            lightingIntensity: 0.2,
+                            windowGlowIntensity: 1.0,
+                            ambientColor: '#191970'
+                        });
                     };
                     
                     // Add debug grid commands
@@ -2056,12 +2237,24 @@ export default function HospitalBackdrop() {
                 ripple.y = pondBounds.y + (Math.random() - 0.5) * pondBounds.height;
                 ripple.scale.set(rippleData.scale * worldScale);
                 
-                // Start animation
-                ripple.play();
-                app.stage.addChild(ripple);
-                activeRipplesRef.current.push(ripple);
+                // Additional guard check before adding to stage
+                if (!app || !app.stage || !app.ticker || !isMounted) return;
                 
-                console.log(`[HospitalBackdrop] Spawned ${rippleData.rippleType} ripple at ${Math.round(ripple.x)}, ${Math.round(ripple.y)}`);
+                try {
+                    // Start animation
+                    ripple.play();
+                    app.stage.addChild(ripple);
+                    activeRipplesRef.current.push(ripple);
+                } catch (e) {
+                    console.warn('[HospitalBackdrop] Error adding ripple to stage:', e);
+                    // Clean up on error
+                    if (ripple && !ripple.destroyed) {
+                        ripple.destroy();
+                    }
+                    return;
+                }
+                
+                // Ripple spawned (logging removed for cleaner console)
                 
                 // Self-cleanup after duration
                 setTimeout(() => {
@@ -2073,6 +2266,12 @@ export default function HospitalBackdrop() {
                     const fadeDuration = 0.5;
                     
                     const fadeTicker = (ticker: PIXI.Ticker) => {
+                        // Guard check: stop if app is destroyed or ripple is destroyed
+                        if (!app || !app.stage || !app.ticker || !isMounted || ripple.destroyed) {
+                            if (app && app.ticker) app.ticker.remove(fadeTicker);
+                            return;
+                        }
+                        
                         fadeElapsed += ticker.deltaTime / 60;
                         const fadeProgress = Math.min(fadeElapsed / fadeDuration, 1.0);
                         
@@ -2095,7 +2294,14 @@ export default function HospitalBackdrop() {
                         }
                     };
                     
-                    app.ticker.add(fadeTicker);
+                    // Store ticker function on sprite for cleanup
+                    (ripple as any).fadeTicker = fadeTicker;
+                    
+                    try {
+                        app.ticker.add(fadeTicker);
+                    } catch (e) {
+                        console.warn('[HospitalBackdrop] Error adding fadeTicker:', e);
+                    }
                 }, rippleData.duration * 1000);
             };
             
@@ -2154,7 +2360,7 @@ export default function HospitalBackdrop() {
             // Start the ripple system
             startRippleSpawner();
             
-            console.log('[HospitalBackdrop] Pond ripple system initialized');
+            // Pond ripple system ready
 
             // --- Time-Based Lighting System (Event-Driven) ---
             // Function to apply lighting based on time of day
@@ -2292,19 +2498,177 @@ export default function HospitalBackdrop() {
                 console.log(`[HospitalBackdrop] Applied ultra-subtle time lighting for hour ${hour}, warm orange-yellow lamp glows: ${shouldShowLampGlow ? 'ON' : 'OFF'}`);
             };
             
+            // Enhanced function to apply comprehensive time-based visual effects
+            const applyTimeOfDayEffects = (timeOfDay: TimeOfDay, hour: number, visualSettings: any) => {
+                if (!app.stage) return;
+                
+                // Apply time of day effects (logging removed for cleaner console)
+                
+                // === LAMP GLOW CONTROL (Atmospheric outdoor lighting) ===
+                // Use time-specific settings for lamp glows
+                const shouldShowLampGlow = visualSettings.windowGlowIntensity > 0.5; // Show when interior lighting is prominent
+                
+                lampGlowSprites.forEach((glowContainer, index) => {
+                    if (shouldShowLampGlow) {
+                        const baseAlpha = 0.4 * visualSettings.windowGlowIntensity; // Scale with time settings
+                        glowContainer.alpha = baseAlpha;
+                    } else {
+                        glowContainer.alpha = 0;
+                    }
+                });
+                
+                // === WINDOW GLOW CONTROL (Interior room lighting) ===
+                // Enhanced window glow control using time-specific intensity
+                
+                windowGlowSprites.forEach((glowContainer, index) => {
+                    const windowData = (glowContainer as any).windowData;
+                    if (!windowData) return;
+                    
+                    // Base intensity from time of day settings
+                    let intensityMultiplier = visualSettings.windowGlowIntensity;
+                    let shouldShow = intensityMultiplier > 0.1; // Show if there's any intensity
+                    
+                    // Room-specific adjustments based on mentor activity and time
+                    if (shouldShow) {
+                        switch (windowData.lightType) {
+                            case 'office':
+                                // Physics office - brighter when Garcia or Quinn are active
+                                if (timeOfDay === 'dawn' || timeOfDay === 'night') {
+                                    intensityMultiplier *= 1.2; // Active periods
+                                } else {
+                                    intensityMultiplier *= 0.8; // Less active
+                                }
+                                break;
+                            case 'social':
+                                // Cafeteria - brightest during day (lunch time)
+                                if (timeOfDay === 'day') {
+                                    intensityMultiplier *= 1.3; // Lunch activity
+                                } else {
+                                    intensityMultiplier *= 0.7; // Quieter times
+                                }
+                                break;
+                            case 'medical':
+                            case 'technical':
+                                // LINAC rooms - active during evening (Jesse's time)
+                                if (timeOfDay === 'evening') {
+                                    intensityMultiplier *= 1.4; // Active treatment
+                                } else {
+                                    intensityMultiplier *= 0.9; // Standby
+                                }
+                                break;
+                            case 'laboratory':
+                                // Dosimetry lab - consistent activity
+                                intensityMultiplier *= 1.0; // Steady work
+                                break;
+                            case 'simulation':
+                                // Simulation suite - varies by time
+                                if (timeOfDay === 'day' || timeOfDay === 'evening') {
+                                    intensityMultiplier *= 1.1; // Training sessions
+                                } else {
+                                    intensityMultiplier *= 0.6; // Off hours
+                                }
+                                break;
+                        }
+                    }
+                    
+                    // Apply the calculated intensity
+                    if (shouldShow && intensityMultiplier > 0.1) {
+                        const finalAlpha = Math.min(intensityMultiplier, 1.0);
+                        glowContainer.alpha = finalAlpha;
+                    } else {
+                        glowContainer.alpha = 0;
+                    }
+                });
+                
+                // === COLOR MATRIX FILTER (Atmospheric tinting) ===
+                let colorFilter = app.stage.filters?.find(f => f instanceof PIXI.ColorMatrixFilter) as PIXI.ColorMatrixFilter;
+                
+                if (!colorFilter) {
+                    colorFilter = new PIXI.ColorMatrixFilter();
+                    app.stage.filters = app.stage.filters ? [...app.stage.filters, colorFilter] : [colorFilter];
+                }
+                
+                // Apply time-specific color adjustments using visual settings
+                colorFilter.reset();
+                colorFilter.brightness(visualSettings.lightingIntensity, true);
+                
+                switch (timeOfDay) {
+                    case 'dawn':
+                        // Warm golden dawn light
+                        colorFilter.sepia(true);
+                        colorFilter.saturate(1.1, true);
+                        // Subtle golden tint
+                        colorFilter.matrix = [
+                            1.0, 0.05, 0, 0, 0.02,
+                            0.05, 0.95, 0, 0, 0.01,
+                            0, 0, 0.9, 0, 0,
+                            0, 0, 0, 1, 0
+                        ] as any;
+                        break;
+                    case 'day':
+                        // Bright, clear daylight - minimal filtering
+                        colorFilter.contrast(1.05, true);
+                        // Very subtle blue sky tint
+                        colorFilter.matrix = [
+                            0.98, 0, 0.02, 0, 0,
+                            0, 0.98, 0.02, 0, 0,
+                            0.02, 0.02, 1.0, 0, 0,
+                            0, 0, 0, 1, 0
+                        ] as any;
+                        break;
+                    case 'evening':
+                        // Warm orange sunset
+                        colorFilter.sepia(true);
+                        colorFilter.saturate(1.15, true);
+                        // Orange sunset tint
+                        colorFilter.matrix = [
+                            1.05, 0.08, 0, 0, 0.03,
+                            0.03, 0.92, 0, 0, 0.01,
+                            0, 0, 0.85, 0, 0,
+                            0, 0, 0, 1, 0
+                        ] as any;
+                        break;
+                    case 'night':
+                        // Deep blue night with reduced brightness
+                        colorFilter.saturate(0.85, true);
+                        // Blue night tint
+                        colorFilter.matrix = [
+                            0.85, 0, 0.08, 0, 0,
+                            0, 0.85, 0.08, 0, 0,
+                            0.05, 0.05, 1.1, 0, 0.02,
+                            0, 0, 0, 1, 0
+                        ] as any;
+                        break;
+                }
+                
+                // Visual effects applied (logging removed for cleaner console)
+            };
+            
             // Listen for time changes (Event-driven - no continuous polling!)
             const timeEventUnsubscribe = centralEventBus.subscribe(
                 GameEventType.TIME_ADVANCED,
                 (event: any) => {
-                    if (event.payload && typeof event.payload.hour === 'number') {
-                        applyTimeLighting(event.payload.hour);
+                    const payload = event.payload;
+                    if (payload && payload.timeOfDay && payload.hour !== undefined && payload.visualSettings) {
+                        applyTimeOfDayEffects(payload.timeOfDay, payload.hour, payload.visualSettings);
+                    } else if (payload && typeof payload.hour === 'number') {
+                        // Fallback for old-style time events
+                        applyTimeLighting(payload.hour);
                     }
                 }
             );
             
-            // Apply initial lighting based on current game time
-            // Start with default morning lighting - events will update it when time changes
-            applyTimeLighting(8); // Morning lighting as default
+            // Apply initial time-based effects
+            // Start with dawn setting - our 4-stage tutorial begins at dawn
+            const initialTimeOfDay: TimeOfDay = 'dawn';
+            const initialVisualSettings = {
+                ambientColor: '#FFB366',
+                lightingIntensity: 0.3,
+                windowGlowIntensity: 0.2,
+                shadowOpacity: 0.7,
+                particleColor: '#FFD700'
+            };
+            applyTimeOfDayEffects(initialTimeOfDay, 6, initialVisualSettings);
 
             // === DEBUG GRID SYSTEM ===
             const createDebugGrid = () => {
@@ -2330,7 +2694,7 @@ export default function HospitalBackdrop() {
                 const gridGraphics = new PIXI.Graphics();
                 
                 // Draw minor grid lines (lighter)
-                gridGraphics.lineStyle(1 * worldScale, 0x888888, 0.3);
+                gridGraphics.setStrokeStyle({ color: 0x888888, alpha: 0.3, width: 1 * worldScale });
                 for (let x = worldBounds.left; x <= worldBounds.right; x += minorGridSize) {
                     const screenX = (app.screen.width * 0.5) + (x * worldScale);
                     gridGraphics.moveTo(screenX, 0);
@@ -2341,9 +2705,10 @@ export default function HospitalBackdrop() {
                     gridGraphics.moveTo(0, screenY);
                     gridGraphics.lineTo(app.screen.width, screenY);
                 }
+                gridGraphics.stroke();
 
                 // Draw major grid lines (darker)
-                gridGraphics.lineStyle(2 * worldScale, 0x444444, 0.6);
+                gridGraphics.setStrokeStyle({ color: 0x444444, alpha: 0.6, width: 2 * worldScale });
                 for (let x = worldBounds.left; x <= worldBounds.right; x += majorGridSize) {
                     const screenX = (app.screen.width * 0.5) + (x * worldScale);
                     gridGraphics.moveTo(screenX, 0);
@@ -2354,9 +2719,10 @@ export default function HospitalBackdrop() {
                     gridGraphics.moveTo(0, screenY);
                     gridGraphics.lineTo(app.screen.width, screenY);
                 }
+                gridGraphics.stroke();
 
                 // Draw world center axes (bright)
-                gridGraphics.lineStyle(3 * worldScale, 0xFF0000, 0.8);
+                gridGraphics.setStrokeStyle({ color: 0xFF0000, alpha: 0.8, width: 3 * worldScale });
                 // X-axis (horizontal through world center)
                 const centerY = app.screen.height * 0.5;
                 gridGraphics.moveTo(0, centerY);
@@ -2365,6 +2731,7 @@ export default function HospitalBackdrop() {
                 const centerX = app.screen.width * 0.5;
                 gridGraphics.moveTo(centerX, 0);
                 gridGraphics.lineTo(centerX, app.screen.height);
+                gridGraphics.stroke();
 
                 gridContainer.addChild(gridGraphics);
 
@@ -2397,8 +2764,8 @@ export default function HospitalBackdrop() {
                     align: 'center'
                 });
                 originLabel.anchor.set(0.5);
-                originLabel.x = app.screen.width * 0.5;
-                originLabel.y = app.screen.height * 0.5;
+                originLabel.x = Math.floor(app.screen.width * 0.5);
+                originLabel.y = Math.floor(app.screen.height * 0.5);
                 gridContainer.addChild(originLabel);
 
                 // Set grid visibility and add to stage
@@ -2406,9 +2773,7 @@ export default function HospitalBackdrop() {
                 app.stage.addChild(gridContainer);
                 debugGridContainerRef.current = gridContainer;
                 
-                console.log('[HospitalBackdrop] Debug grid created with world coordinate system (2x resolution)');
-                console.log(`[HospitalBackdrop] Grid bounds: ${worldBounds.left} to ${worldBounds.right} (X), ${worldBounds.top} to ${worldBounds.bottom} (Y)`);
-                console.log(`[HospitalBackdrop] High-resolution grid: Major lines every ${majorGridSize} units, Minor lines every ${minorGridSize} units`);
+                console.log('[HospitalBackdrop] Debug grid created with world coordinate system');
             };
 
             // Create initial debug grid
@@ -2508,18 +2873,78 @@ export default function HospitalBackdrop() {
         };
 
         window.addEventListener('resize', handleResize);
-        window.addEventListener('mousemove', handleMouseMove);
 
         return () => {
             window.removeEventListener('resize', handleResize);
-            window.removeEventListener('mousemove', handleMouseMove);
         };
     }).catch(console.error);
 
     return () => {
         isMounted = false;
+        
+        // Clear spawner timers immediately to prevent new spawns
+        if (fishSpawnerRef.current) {
+            clearTimeout(fishSpawnerRef.current);
+            fishSpawnerRef.current = null;
+        }
+        if (rippleSpawnerRef.current) {
+            clearTimeout(rippleSpawnerRef.current);
+            rippleSpawnerRef.current = null;
+        }
+        
+        // Immediate cleanup of all active sprites before destroying app
+        if (appRef.current && appRef.current.ticker) {
+            // Stop ticker immediately to prevent further rendering
+            appRef.current.ticker.stop();
+            
+            // Clean up active fish sprites and their tickers
+            activeFishRef.current.forEach(fish => {
+                try {
+                    if (fish && !fish.destroyed) {
+                        // Remove any ticker functions associated with this fish
+                        if (appRef.current && appRef.current.ticker) {
+                            appRef.current.ticker.remove((fish as any).pathTicker);
+                        }
+                        fish.destroy();
+                    }
+                } catch (e) {
+                    console.warn('[HospitalBackdrop] Error cleaning up fish:', e);
+                }
+            });
+            activeFishRef.current = [];
+            
+            // Clean up active ripple sprites and their tickers
+            activeRipplesRef.current.forEach(ripple => {
+                try {
+                    if (ripple && !ripple.destroyed) {
+                        // Remove any ticker functions associated with this ripple
+                        if (appRef.current && appRef.current.ticker) {
+                            appRef.current.ticker.remove((ripple as any).fadeTicker);
+                        }
+                        ripple.destroy();
+                    }
+                } catch (e) {
+                    console.warn('[HospitalBackdrop] Error cleaning up ripple:', e);
+                }
+            });
+            activeRipplesRef.current = [];
+            
+            // Clear the stage to remove any remaining sprites
+            if (appRef.current.stage) {
+                try {
+                    appRef.current.stage.removeChildren();
+                } catch (e) {
+                    console.warn('[HospitalBackdrop] Error clearing stage:', e);
+                }
+            }
+        }
+        
         if (appRef.current) {
-            appRef.current.destroy(true, true);
+            try {
+                appRef.current.destroy(true, true);
+            } catch (e) {
+                console.warn('[HospitalBackdrop] Error destroying PIXI app:', e);
+            }
             appRef.current = null;
         }
     };
@@ -2538,29 +2963,55 @@ export default function HospitalBackdrop() {
   };
 
   // Get hovered room data for tooltip
-  const hoveredRoomData = hoveredRoom ? ROOM_AREAS.find(room => room.id === hoveredRoom) : null;
+
+
+  // Handle mentor clicks (dual click system)
+  const handleMentorClick = (mentorId: string, roomId: string) => {
+    console.log(`[HospitalBackdrop] Mentor clicked: ${mentorId} in room: ${roomId}`);
+    
+    // Find the room data to determine activity type
+    const roomData = ROOM_AREAS.find(room => room.id === roomId);
+    if (!roomData) {
+      console.warn(`[HospitalBackdrop] No room data found for: ${roomId}`);
+      return;
+    }
+
+    // Priority 1: Tutorial dialogue (only for narrative rooms, let social-hubs handle their own tutorial integration)
+    if (isTutorialActive && roomData.activityType === 'narrative') {
+      const tutorialDialogueId = getTutorialDialogueForRoom(roomId, currentTutorialStep);
+      if (tutorialDialogueId) {
+        console.log(`[HospitalBackdrop] Starting tutorial dialogue: ${tutorialDialogueId}`);
+        enterNarrative(mentorId, tutorialDialogueId, roomId);
+        return;
+      }
+    }
+
+    // Priority 2: Room's default activity type
+    const defaultDialogueId = `${roomId}-intro`;
+    if (roomData.activityType === 'narrative') {
+      enterNarrative(mentorId, defaultDialogueId, roomId);
+    } else if (roomData.activityType === 'social-hub') {
+      // Navigate directly to lunch room scene
+      const { setSceneDirectly } = useSceneStore.getState();
+      setSceneDirectly('lunch-room');
+    } else {
+      enterChallenge(`${roomId}-activity`, mentorId, roomId);
+    }
+  };
 
   return (
     <HospitalContainer>
       <PixiCanvasContainer ref={pixiContainerRef} />
+      
+      {/* Mentor Click Overlay - positioned over PixiJS sprites */}
+      <MentorClickOverlay onMentorClick={handleMentorClick} />
+      
       {showEndDayButton && (
         <EndDayButton onClick={handleEndDayClick}>
           End Day {daysPassed + 1}
         </EndDayButton>
       )}
-      
-      {/* Swaggy Room Tooltip */}
-      {hoveredRoomData && (
-        <HospitalRoomOverlay
-          visible={true}
-          roomId={hoveredRoomData.id}
-          roomName={hoveredRoomData.name}
-          mentorName={MENTOR_NAMES[hoveredRoomData.mentorId] || hoveredRoomData.mentorId}
-          activityType={hoveredRoomData.activityType}
-          x={mousePosition.x}
-          y={mousePosition.y}
-        />
-      )}
+
     </HospitalContainer>
   );
 } 

@@ -670,44 +670,44 @@ interface CaseInfo {
 const TUTORIAL_QUESTIONS: Record<string, TutorialQuestion[]> = {
   garcia: [
     {
-      id: 'dose_distribution',
-      text: "Looking at Mrs. Patterson's case, what should we consider first when the standard approach isn't quite right?",
+      id: 'what_is_radiation',
+      text: "What is radiation?",
       options: [
         {
-          text: "The dose distribution around critical organs",
+          text: "Energy that travels in waves or particles",
           isCorrect: true,
-          feedback: "Exactly! When standard approaches don't work, we need to carefully examine how dose affects surrounding healthy tissue."
+          feedback: "Correct! Radiation is energy in motion."
         },
         {
-          text: "Increasing the beam energy",
+          text: "A type of medicine",
           isCorrect: false,
-          feedback: "Not quite. Beam energy alone won't solve geometric complexity issues."
+          feedback: "Not quite. Try again."
         },
         {
-          text: "Using a different treatment machine",
+          text: "A medical device",
           isCorrect: false,
-          feedback: "The machine isn't the issue here - it's about adapting our approach to the patient's unique anatomy."
+          feedback: "Nope. Think about energy."
         }
       ]
     },
     {
-      id: 'thinking_differently',
-      text: "Dr. Garcia mentioned 'thinking differently' - what does this mean in treatment planning?",
+      id: 'what_is_photon',
+      text: "What is a photon?",
       options: [
         {
-          text: "Considering the patient as a whole person, not just a diagnosis",
+          text: "A particle of light",
           isCorrect: true,
-          feedback: "Perfect! This is what makes good medical physicists - seeing beyond the numbers to the human being we're helping."
+          feedback: "Exactly! Photons are light particles."
         },
         {
-          text: "Using the most advanced technology available",
+          text: "A type of atom",
           isCorrect: false,
-          feedback: "Technology helps, but the real difference comes from thoughtful, patient-centered planning."
+          feedback: "Not quite. Think smaller."
         },
         {
-          text: "Following protocols exactly as written",
+          text: "A medical treatment",
           isCorrect: false,
-          feedback: "Sometimes we need to adapt protocols - that's where clinical judgment becomes crucial."
+          feedback: "Nope. It's a particle."
         }
       ]
     }

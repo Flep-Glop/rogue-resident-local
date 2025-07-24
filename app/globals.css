@@ -1,3 +1,21 @@
+/* Aseprite Font - Custom pixel art font */
+@font-face {
+  font-family: 'Aseprite';
+  src: url('/AsepriteFont.ttf') format('truetype');
+  font-display: swap;
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* Enhanced pixel font rendering */
+.aseprite-font, 
+[style*="Aseprite"] {
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  font-smooth: never;
+  text-rendering: geometricPrecision;
+}
+
 html, body {
   padding: 0;
   margin: 0;
@@ -15,7 +33,7 @@ html, body {
 :root {
   --background: #0f172a;
   --foreground: #f8fafc;
-  --font-pixel: 'Press Start 2P', 'VT323', monospace;
+  --font-pixel: 'Aseprite', 'Press Start 2P', 'VT323', monospace;
   --font-mono: 'Roboto Mono', monospace;
   --foreground-rgb: 0, 0, 0;
 }
@@ -25,6 +43,8 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-pixel);
+  font-size: 36px; /* 2x base font size for optimal Aseprite font readability */
+  line-height: 1.3;
   padding: 0;
   margin: 0;
   overflow: hidden; /* This will prevent scrolling on the main page container */

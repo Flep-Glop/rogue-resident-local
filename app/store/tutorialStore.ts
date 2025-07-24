@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { centralEventBus } from '@/app/core/events/CentralEventBus';
+import { GameEventType } from '@/app/types';
 import { enableMapSet } from 'immer';
 
 // Enable MapSet plugin for Immer to handle Sets properly
@@ -354,14 +356,10 @@ export const useTutorialStore = create<TutorialStore>()(
 
     // Start a tutorial sequence
     startTutorial: (sequence: TutorialSequence, step?: TutorialStep) => {
-      console.log(`🎓 [TUTORIAL] Starting tutorial sequence: ${sequence}`);
-      
       set(state => {
         state.mode = 'active_sequence';
         state.activeSequence = sequence;
         state.currentStep = step || TUTORIAL_SEQUENCES[sequence][0];
-        
-        console.log(`📍 [TUTORIAL] Current step set to: ${state.currentStep}`);
         
         // Clear any existing overlays
         state.activeOverlays = [];
@@ -383,15 +381,11 @@ export const useTutorialStore = create<TutorialStore>()(
           dismissable: true
         };
         state.activeOverlays.push(welcomeOverlay);
-        
-        console.log(`🎉 [TUTORIAL POPUP] Welcome overlay shown: "${welcomeOverlay.title}" (${welcomeOverlay.type})`);
       });
     },
 
     // Start tutorial silently without welcome overlay (for debug)
     startTutorialSilently: (sequence: TutorialSequence, step?: TutorialStep) => {
-      console.log(`🤫 [TUTORIAL] Starting tutorial sequence silently: ${sequence}`);
-      
       set(state => {
         state.mode = 'active_sequence';
         state.activeSequence = sequence;
@@ -406,8 +400,6 @@ export const useTutorialStore = create<TutorialStore>()(
 
     // Complete a tutorial step and advance
     completeStep: (step: TutorialStep) => {
-      console.log(`✅ [TUTORIAL] Completing step: ${step}`);
-      
       set(state => {
         const currentSequence = state.activeSequence;
         if (!currentSequence) {
@@ -417,12 +409,19 @@ export const useTutorialStore = create<TutorialStore>()(
         
         // Mark step as completed
         state.completedSteps.add(step);
-        console.log(`📋 [TUTORIAL] Step marked complete: ${step}`);
+        console.log(`[TUTORIAL] ${step} completed`);
+        
+        // Dispatch step completion event for other systems to react
+        centralEventBus.dispatch(
+          GameEventType.TUTORIAL_STEP_COMPLETED,
+          { step: step, sequence: currentSequence },
+          'TutorialStore'
+        );
         
         // Calculate sequence progress
         const sequenceSteps = TUTORIAL_SEQUENCES[currentSequence];
         const completedInSequence = sequenceSteps.filter(s => state.completedSteps.has(s)).length;
-        console.log(`📊 [TUTORIAL] Progress: ${completedInSequence}/${sequenceSteps.length} steps in ${currentSequence}`);
+        // Progress logging removed to reduce console noise
         
         // Find next step in sequence
         const currentIndex = sequenceSteps.indexOf(step);
@@ -430,19 +429,11 @@ export const useTutorialStore = create<TutorialStore>()(
         
         if (nextStep) {
           state.currentStep = nextStep;
-          console.log(`➡️ [TUTORIAL] Advancing to next step: ${nextStep}`);
           
           // Show step-specific guidance overlay
           const stepGuidance = getStepGuidanceOverlay(nextStep);
           if (stepGuidance) {
             state.activeOverlays.push(stepGuidance);
-            console.log(`💡 [TUTORIAL POPUP] Step guidance shown: "${stepGuidance.title}" (${stepGuidance.type}) for step ${nextStep}`);
-            
-            if (stepGuidance.autoAdvance) {
-              console.log(`⏰ [TUTORIAL] Auto-advance in ${stepGuidance.autoAdvance} seconds`);
-            }
-          } else {
-            console.log(`ℹ️ [TUTORIAL] No guidance overlay configured for step: ${nextStep}`);
           }
         } else {
           // Sequence completed
@@ -475,7 +466,7 @@ export const useTutorialStore = create<TutorialStore>()(
         return;
       }
       
-      console.log(`⏭️ [TUTORIAL] Skipping to step: ${step}`);
+              // Tutorial step skipped (logging removed for cleaner console)
       
       set(state => {
         // Find which sequence this step belongs to
@@ -484,7 +475,7 @@ export const useTutorialStore = create<TutorialStore>()(
             state.activeSequence = sequence as TutorialSequence;
             state.currentStep = step;
             state.mode = 'active_sequence';
-            console.log(`🎯 [TUTORIAL] Jumped to sequence: ${sequence}, step: ${step}`);
+            // Tutorial sequence jumped (logging removed for cleaner console)
             break;
           }
         }
@@ -528,60 +519,25 @@ export const useTutorialStore = create<TutorialStore>()(
 
     // Overlay management
     showOverlay: (overlay: TutorialOverlay) => {
-      console.log(`🎪 [TUTORIAL POPUP] Showing overlay: "${overlay.title}" (${overlay.type}) - ID: ${overlay.id}`);
-      
-      if (overlay.position) {
-        console.log(`📍 [TUTORIAL POPUP] Overlay position: x=${overlay.position.x}, y=${overlay.position.y}`);
-      }
-      
-      if (overlay.targetElement) {
-        console.log(`🎯 [TUTORIAL POPUP] Overlay targets element: ${overlay.targetElement}`);
-      }
-      
-      if (overlay.autoAdvance) {
-        console.log(`⏰ [TUTORIAL POPUP] Auto-advance in ${overlay.autoAdvance} seconds`);
-      }
-      
       set(state => {
         // Remove any existing overlay with same id
-        const existingCount = state.activeOverlays.length;
         state.activeOverlays = state.activeOverlays.filter(o => o.id !== overlay.id);
-        
-        if (existingCount !== state.activeOverlays.length) {
-          console.log(`🔄 [TUTORIAL POPUP] Replaced existing overlay with ID: ${overlay.id}`);
-        }
         
         // Add new overlay
         state.activeOverlays.push(overlay);
-        console.log(`➕ [TUTORIAL POPUP] Active overlays count: ${state.activeOverlays.length}`);
       });
     },
 
     dismissOverlay: (overlayId: string) => {
-      console.log(`❌ [TUTORIAL POPUP] Dismissing overlay: ${overlayId}`);
-      
       set(state => {
-        const beforeCount = state.activeOverlays.length;
         state.activeOverlays = state.activeOverlays.filter(o => o.id !== overlayId);
-        const afterCount = state.activeOverlays.length;
-        
-        if (beforeCount !== afterCount) {
-          console.log(`✅ [TUTORIAL POPUP] Overlay dismissed. Active overlays: ${afterCount}`);
-        } else {
-          console.log(`⚠️ [TUTORIAL POPUP] Overlay not found: ${overlayId}`);
-        }
-      });
+              });
     },
 
     dismissAllOverlays: () => {
-      const currentCount = get().activeOverlays.length;
-      console.log(`🧹 [TUTORIAL POPUP] Dismissing all overlays (${currentCount} active)`);
-      
       set(state => {
         state.activeOverlays = [];
       });
-      
-      console.log(`✅ [TUTORIAL POPUP] All overlays dismissed`);
     },
 
     // Tutorial mode control

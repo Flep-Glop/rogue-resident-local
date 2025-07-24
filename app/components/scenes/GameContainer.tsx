@@ -14,6 +14,7 @@ import RoomUIOverlay from '../rooms/RoomUIOverlays';
 import TutorialOverlayManager from '@/app/components/tutorial/TutorialOverlay';
 import { TutorialModeIndicator } from '@/app/components/tutorial/TutorialControls';
 import TutorialActivity from '@/app/components/tutorial/TutorialActivity';
+import TestActivity from '@/app/components/test/TestActivity';
 import GameDevConsole from '@/app/components/debug/GameDevConsole';
 import { DayNightTransition } from '@/app/components/phase/DayNightTransition';
 
@@ -98,6 +99,19 @@ export default function GameContainer() {
             mentorId={context.mentorId || 'garcia'}
             roomId={context.roomId || 'physics-office'}
             onComplete={handleTutorialActivityComplete}
+          />
+        );
+        
+      case 'test_activity':
+        return (
+          <TestActivity
+            mentorId={context.mentorId || 'jesse'}
+            skipIntro={context.skipIntro || false}
+            onComplete={() => {
+              console.log('[GameContainer] Test activity completed, returning to hospital');
+              const { transitionToScene } = useSceneStore.getState();
+              transitionToScene('hospital');
+            }}
           />
         );
         

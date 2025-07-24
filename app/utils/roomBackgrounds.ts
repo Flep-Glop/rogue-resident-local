@@ -22,7 +22,7 @@ export const ROOM_BACKGROUNDS: Record<string, RoomBackgroundConfig> = {
   
   'linac-1': {
     backgroundImage: '/images/hospital/backgrounds/linac-room.png',
-    foregroundImage: '/images/hospital/backgrounds/linac-room-foreground.png', // Ready for future foreground layer!
+    // foregroundImage: '/images/hospital/backgrounds/linac-room-foreground.png', // Ready for future foreground layer!
     fallbackGradient: 'linear-gradient(135deg, #10B981 0%, #34D399 50%, #1e1b4b 100%)',
     atmosphere: {
       overlay: 'radial-gradient(circle at 50% 30%, rgba(16, 185, 129, 0.1) 0%, transparent 60%)',
@@ -32,7 +32,7 @@ export const ROOM_BACKGROUNDS: Record<string, RoomBackgroundConfig> = {
   
   'linac-2': {
     backgroundImage: '/images/hospital/backgrounds/linac-room.png',
-    foregroundImage: '/images/hospital/backgrounds/linac-room-foreground.png', // Ready for future foreground layer!
+    // foregroundImage: '/images/hospital/backgrounds/linac-room-foreground.png', // Ready for future foreground layer!
     fallbackGradient: 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 50%, #1e1b4b 100%)',
     atmosphere: {
       overlay: 'radial-gradient(circle at 40% 35%, rgba(245, 158, 11, 0.12) 0%, transparent 65%)',

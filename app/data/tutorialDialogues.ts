@@ -26,103 +26,54 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'garcia_welcome': {
         id: 'garcia_welcome',
         mentorId: 'garcia',
-        text: `You must be our new resident! I'm Dr. Garcia - grab some coffee if you need it. We've got Mrs. Chen coming in at 10, and I'd love to get your fresh perspective on her case.`,
+        text: `You must be our new resident! I'm Dr. Garcia - grab some coffee if you need it.`,
         options: [
           {
             id: 'excited_to_help',
-            text: 'Thank you. I\'m excited to contribute.',
-            nextNodeId: 'garcia_how_are_you',
+            text: 'Thank you.',
+            nextNodeId: 'garcia_start_activity',
             relationshipChange: 2,
             tutorialStepCompletion: 'first_mentor_intro'
           },
           {
-            id: 'ask_about_mrs_chen',
-            text: 'What makes Mrs. Chen\'s case interesting?',
-            nextNodeId: 'garcia_patient_story',
+            id: 'grab_two_coffee',
+            text: 'I\'ll grab two.',
+            nextNodeId: 'garcia_start_activity',
             relationshipChange: 3,
             tutorialStepCompletion: 'first_mentor_intro'
           }
         ]
       },
-      'garcia_how_are_you': {
-        id: 'garcia_how_are_you',
+      'garcia_start_activity': {
+        id: 'garcia_start_activity',
         mentorId: 'garcia',
-        text: `Coffee's helping? Good. How are you feeling about starting here? First days can be overwhelming - we try to ease people in, but medicine doesn't always wait for us to be ready.`,
+        text: `Let's work through a case together. Ready when you are.`,
         options: [
           {
-            id: 'feeling_ready',
-            text: 'I\'m feeling ready. Nervous but excited.',
-            nextNodeId: 'garcia_learning_approach',
-            insightChange: 2
-          },
-          {
-            id: 'ask_about_support',
-            text: 'How do you help new residents adjust?',
-            nextNodeId: 'garcia_learning_approach',
-            momentumChange: 1
-          }
-        ]
-      },
-      'garcia_patient_story': {
-        id: 'garcia_patient_story',
-        mentorId: 'garcia',
-        text: `Mrs. Chen's tumor is close to her heart - we need precision and compassion in equal measure. She's been asking about her prognosis. When you truly understand what we're doing, patients feel that confidence.`,
-        options: [
-          {
-            id: 'understand_connection',
-            text: 'I can see how our understanding affects their confidence.',
-            nextNodeId: 'garcia_learning_approach',
-            insightChange: 4
-          },
-          {
-            id: 'focus_on_precision',
-            text: 'The precision required must be incredible.',
-            nextNodeId: 'garcia_learning_approach',
-            momentumChange: 2
-          }
-        ]
-      },
-      'garcia_learning_approach': {
-        id: 'garcia_learning_approach',
-        mentorId: 'garcia',
-        text: `Let's work through this together. I've got a case where the standard approach wasn't quite right - sometimes we need to think differently. Want to take a look at it with me? We'll figure out what Mrs. Patterson needs.`,
-        options: [
-          {
-            id: 'work_together',
-            text: 'I\'d like to work through it with you.',
-            nextNodeId: 'garcia_activity_transition',
-            tutorialStepCompletion: 'first_educational_activity'
-          }
-        ]
-      },
-      'garcia_activity_transition': {
-        id: 'garcia_activity_transition',
-        mentorId: 'garcia',
-        text: `Perfect. Take your time - there's no rush. Look at the dose distribution, the organ constraints. How are you feeling about this? When you're really focused on helping someone, you might notice your thinking becomes clearer.`,
-        options: [
-          {
-            id: 'begin_working_together',
-            text: 'I\'m ready. Let\'s help Mrs. Patterson.',
+            id: 'begin_activity',
+            text: 'Let\'s do this.',
             nextNodeId: 'garcia_activity_reflection',
+            tutorialStepCompletion: 'first_educational_activity',
             triggersActivity: true
           }
         ]
       },
+
       'garcia_activity_reflection': {
         id: 'garcia_activity_reflection',
         mentorId: 'garcia',
-        text: `Nice work! How did that feel? Sometimes when we're really focused on helping someone, our thinking gets sharper. Mrs. Patterson's going to benefit from this kind of careful attention.`,
+        text: `Nice work! How did that feel?`,
         options: [
           {
             id: 'felt_more_focused',
-            text: 'I did feel more focused when thinking about helping her.',
+            text: 'Engaging!',
             nextNodeId: 'garcia_validation',
             relationshipChange: 4,
             insightChange: 5
           },
           {
             id: 'learned_a_lot',
-            text: 'I learned a lot about the treatment planning process.',
+            text: 'Confusing...',
             nextNodeId: 'garcia_encouragement',
             relationshipChange: 2,
             insightChange: 3
@@ -132,11 +83,11 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'garcia_validation': {
         id: 'garcia_validation',
         mentorId: 'garcia',
-        text: `That connection you felt? That's what makes the difference. Now, you should meet the rest of our team - grab lunch and see who's around. Quinn's brilliant with optimization, Jesse keeps all our equipment happy, and Kapoor makes sure we're precise. They'll each show you something different.`,
+        text: `You should meet the rest of our team - grab lunch and see who's around.`,
         options: [
           {
             id: 'meet_the_team',
-            text: 'I\'d like to meet the team and see their approaches.',
+            text: 'Thanks.',
             isEndNode: true,
             relationshipChange: 3,
             insightChange: 3
@@ -146,11 +97,11 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'garcia_encouragement': {
         id: 'garcia_encouragement',
         mentorId: 'garcia',
-        text: `Good work. We all approach problems differently here - Quinn loves the math, Jesse trusts his hands, Kapoor lives by the protocols. You'll find what works for you. Go grab lunch and see who's around.`,
+        text: `That is very understandable, with time you'll find what works for you. Go grab lunch and see who's around.`,
         options: [
           {
             id: 'explore_different_styles',
-            text: 'I\'ll go see what I can learn from each of them.',
+            text: 'Thanks.',
             isEndNode: true,
             relationshipChange: 3,
             insightChange: 2
@@ -177,11 +128,11 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'cafeteria_scene_opening': {
         id: 'cafeteria_scene_opening',
         mentorId: 'jesse',
-        text: `[Player enters cafeteria. Jesse and Kapoor are mid-conversation]\n\n"...so I told maintenance it's not broken, it just has opinions." [Jesse gestures with sandwich] "Equipment has personality, I'm telling you."`,
+        text: `"Equipment has personality, I'm telling you."`,
         options: [
           {
             id: 'approach_group',
-            text: '[Approach their table]',
+            text: 'Mind if I join?',
             nextNodeId: 'team_introductions'
           }
         ]
@@ -189,94 +140,38 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'team_introductions': {
         id: 'team_introductions',
         mentorId: 'kapoor',
-        text: `[Noticing you] "Jesse believes machines have feelings. I am Dr. Kapoor, dosimetry. You must be our new resident."`,
+        text: `"I'm Dr. Kapoor, dosimetry. You must be our new resident."`,
         options: [
           {
             id: 'nice_to_meet_both',
-            text: 'Nice to meet you both.',
-            nextNodeId: 'jesse_personality_debate',
+            text: 'Nice to meet you.',
+            nextNodeId: 'quinn_arrives',
             relationshipChange: 2
-          }
-        ]
-      },
-      'jesse_personality_debate': {
-        id: 'jesse_personality_debate',
-        mentorId: 'jesse',
-        text: `"And Kapoor thinks calibration curves have personalities. We're both right." [They share a knowing look - clearly an ongoing debate]`,
-        options: [
-          {
-            id: 'enjoy_banter',
-            text: '[Smile at their friendly argument]',
-            nextNodeId: 'quinn_arrives'
           }
         ]
       },
       'quinn_arrives': {
         id: 'quinn_arrives',
         mentorId: 'quinn',
-        text: `[Rushing up with coffee] "Are you two debating machine psychology again?" [To player] "Alex Quinn, treatment planning. These two have the same argument every week."`,
+        text: `"Alex Quinn, treatment planning. How's your first day going?"`,
         options: [
           {
-            id: 'impressed_by_team',
-            text: 'You all seem to work well together.',
-            nextNodeId: 'team_dynamic_revealed',
-            relationshipChange: 3,
-            tutorialStepCompletion: 'second_mentor_intro'
-          },
-          {
-            id: 'curious_about_debate',
-            text: 'What exactly are you debating?',
-            nextNodeId: 'philosophy_vs_practicality',
+            id: 'going_well',
+            text: 'Learning a lot.',
+            nextNodeId: 'quinn_time_pressure',
             relationshipChange: 2,
             tutorialStepCompletion: 'second_mentor_intro'
-          }
-        ]
-      },
-      'team_dynamic_revealed': {
-        id: 'team_dynamic_revealed',
-        mentorId: 'kapoor',
-        text: `"Twenty years together teaches you to... appreciate different perspectives." [Kapoor's dry humor]`,
-        options: [
-          {
-            id: 'appreciate_perspective',
-            text: '[Nod appreciatively]',
-            nextNodeId: 'quinn_time_pressure'
-          }
-        ]
-      },
-      'philosophy_vs_practicality': {
-        id: 'philosophy_vs_practicality',
-        mentorId: 'jesse',
-        text: `"Equipment talks to you if you listen. Kapoor prefers differential equations." [Both chuckle]`,
-        options: [
-          {
-            id: 'both_approaches_valuable',
-            text: 'Both approaches sound valuable.',
-            nextNodeId: 'quinn_time_pressure'
           }
         ]
       },
       'quinn_time_pressure': {
         id: 'quinn_time_pressure',
         mentorId: 'quinn',
-        text: `[Checking time] "Can't stay long - patient conference at 3. How's your first day? Garcia drowning you in protocols yet?"`,
-        options: [
-          {
-            id: 'learning_lot',
-            text: 'Learning a lot. Everyone has different strengths.',
-            nextNodeId: 'quinn_invitation_setup',
-            relationshipChange: 2
-          }
-        ]
-      },
-      'quinn_invitation_setup': {
-        id: 'quinn_invitation_setup',
-        mentorId: 'quinn',
-        text: `"Good attitude. Listen, swing by my office around 4:30? Got something that might help with your week." [Stands to leave] "These two can argue about machine consciousness without me."`,
+        text: `"Swing by my office around 4:30? I have something for you."`,
         options: [
           {
             id: 'accept_invitation',
-            text: 'Sounds great, I\'ll stop by.',
+            text: 'Sure thing.',
             nextNodeId: 'afternoon_choice_moment',
             relationshipChange: 2
           }
@@ -285,34 +180,17 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'afternoon_choice_moment': {
         id: 'afternoon_choice_moment',
         mentorId: 'jesse',
-        text: `[After Quinn leaves] "So, afternoon choice time. Want to see how real equipment behaves in the wild, or dive into Kapoor's perfectly measured universe?"`,
+        text: `"Want to see some troubleshooting or measurement work this afternoon?"`,
         options: [
           {
             id: 'choose_jesse_equipment',
-            text: 'I\'d like to see your hands-on troubleshooting approach.',
-            nextNodeId: 'kapoor_good_natured_response'
-          },
-          {
-            id: 'choose_kapoor_precision',
-            text: 'Understanding measurement precision sounds important.',
-            nextNodeId: 'kapoor_good_natured_response'
-          }
-        ]
-      },
-      'kapoor_good_natured_response': {
-        id: 'kapoor_good_natured_response',
-        mentorId: 'kapoor',
-        text: `[With subtle humor] "Either way, you will learn something useful. Jesse's machines and my equations both serve the same purpose - helping patients."`,
-        options: [
-          {
-            id: 'equipment_path_jesse',
-            text: 'Let\'s go see what the equipment is telling us.',
+            text: 'Troubleshooting sounds good.',
             isEndNode: true,
             relationshipChange: 3
           },
           {
-            id: 'precision_path_kapoor',
-            text: 'I want to understand the measurement science properly.',
+            id: 'choose_kapoor_precision',
+            text: 'I\'d like to see the measurement work.',
             isEndNode: true,
             relationshipChange: 3
           }
@@ -338,21 +216,15 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'kapoor_introduction': {
         id: 'kapoor_introduction',
         mentorId: 'kapoor',
-        text: `Our new resident. I am Dr. Kapoor, dosimetry and measurement science. I hear you've had quite an... eventful morning with Garcia and Quinn. They each have their approaches to education. Mine is different.`,
+        text: `I'm Dr. Kapoor, dosimetry and measurement science. Precision is everything here.`,
         options: [
           {
             id: 'interested_in_approach',
-            text: 'I\'d like to understand your approach, Dr. Kapoor.',
-            nextNodeId: 'kapoor_professional_standards',
+            text: 'I\'d like to learn about measurement science.',
+            nextNodeId: 'kapoor_practical_conclusion',
             relationshipChange: 3,
-            insightChange: 2
-          },
-          {
-            id: 'value_precision',
-            text: 'I can see precision is important in your work.',
-            nextNodeId: 'kapoor_measurement_reality',
-            relationshipChange: 2,
-            momentumChange: 1
+            insightChange: 2,
+            tutorialStepCompletion: 'third_mentor_intro'
           }
         ]
       },
@@ -468,11 +340,11 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'kapoor_practical_conclusion': {
         id: 'kapoor_practical_conclusion',
         mentorId: 'kapoor',
-        text: `Good. Remember this perspective as you progress through the program. Garcia and Quinn will inspire you, challenge you, help you grow. But maintain your grounding in measurement science. It will serve you well throughout your career.`,
+        text: `Maintain your grounding in measurement science. It will serve you well.`,
         options: [
           {
             id: 'grateful_for_perspective',
-            text: 'Thank you for this perspective, Dr. Kapoor. I\'ll remember it.',
+            text: 'Thanks, Dr. Kapoor.',
             isEndNode: true,
             relationshipChange: 4,
             insightChange: 3
@@ -499,42 +371,11 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'jesse_equipment_intro': {
         id: 'jesse_equipment_intro',
         mentorId: 'jesse',
-        text: `"Alright, let's see what Bertha's complaining about today. Come on." [Leads you to Linear Accelerator room]`,
-        options: [
-          {
-            id: 'follow_to_linac',
-            text: '[Follow Jesse to the LINAC room]',
-            nextNodeId: 'jesse_shows_readout'
-          }
-        ]
-      },
-      'jesse_shows_readout': {
-        id: 'jesse_shows_readout',
-        mentorId: 'jesse',
-        text: `"See this readout? Should be steady as a rock, but look..." [Shows fluctuating display] "Kapoor would tell you to check the protocols first. Me? I say listen to what the machine's actually telling you."`,
-        options: [
-          {
-            id: 'ready_to_listen',
-            text: 'How do you listen to what it\'s telling you?',
-            nextNodeId: 'jesse_activity_setup',
-            insightChange: 2
-          },
-          {
-            id: 'observe_patterns',
-            text: 'I can see the pattern in these fluctuations.',
-            nextNodeId: 'jesse_activity_setup',
-            momentumChange: 1
-          }
-        ]
-      },
-      'jesse_activity_setup': {
-        id: 'jesse_activity_setup',
-        mentorId: 'jesse',
-        text: `"Exactly! Equipment has its own language. Temperature, humidity, beam current - it all tells a story. Let's work through this together and see what Bertha's really trying to say."`,
+        text: `"Let's see what the machine's telling us today."`,
         options: [
           {
             id: 'begin_troubleshooting',
-            text: 'Let\'s figure out what\'s wrong.',
+            text: 'What should I look for?',
             nextNodeId: 'jesse_activity_complete',
             triggersActivity: true,
             tutorialStepCompletion: 'insight_mechanic_intro'
@@ -544,35 +385,15 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'jesse_activity_complete': {
         id: 'jesse_activity_complete',
         mentorId: 'jesse',
-        text: `"Good instincts! Machine's happy now. You've got a knack for reading what equipment's really doing versus what it's supposed to be doing. That's a gift - most people just look at the numbers."`,
-        options: [
-          {
-            id: 'intuitive_approach',
-            text: 'That was more intuitive than I expected.',
-            nextNodeId: 'jesse_end_transition',
-            relationshipChange: 3,
-            insightChange: 4
-          },
-          {
-            id: 'machine_personalities',
-            text: 'I can see why you say machines have personalities.',
-            nextNodeId: 'jesse_end_transition',
-            relationshipChange: 4,
-            insightChange: 3
-          }
-        ]
-      },
-      'jesse_end_transition': {
-        id: 'jesse_end_transition',
-        mentorId: 'jesse',
-        text: `"Head over to Quinn's office when you're ready. She mentioned having something for you. And don't let her convince you that optimization is actually poetry - some of us have to make the machines actually work with her 'elegant solutions.'" [Grins]`,
+        text: `"Nice work! You've got good instincts. Head to Quinn's office when you're ready - she mentioned wanting to see you before the day ends."`,
         options: [
           {
             id: 'thanks_for_practical_side',
-            text: 'Thanks for showing me the practical side of things.',
+            text: 'Thanks, Jesse.',
             isEndNode: true,
-            relationshipChange: 2,
-            tutorialStepCompletion: 'quinn_office_meeting'
+            relationshipChange: 3,
+            insightChange: 4,
+            tutorialStepCompletion: 'constellation_preview'
           }
         ]
       }
@@ -596,12 +417,12 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'quinn_office_opening': {
         id: 'quinn_office_opening',
         mentorId: 'quinn',
-        text: `"How was your afternoon? Learning from [Jesse's hands-on troubleshooting / Kapoor's systematic precision] is exactly what you need." [Leans back] "I can see you're starting to understand how we each approach problems differently."`,
+        text: `"How was your afternoon? I have something for you."`,
         options: [
           {
             id: 'different_approaches_valuable',
-            text: 'The different approaches are really valuable. I feel like I\'m learning faster.',
-            nextNodeId: 'quinn_insight_explanation',
+            text: 'Good. What is it?',
+            nextNodeId: 'quinn_ability_card_demo',
             relationshipChange: 2,
             tutorialStepCompletion: 'quinn_office_meeting'
           }
@@ -670,14 +491,15 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'quinn_ability_card_demo': {
         id: 'quinn_ability_card_demo',
         mentorId: 'quinn',
-        text: `"Here's your first ability card - 'Pattern Recognition.' You earned this today by seeing connections between different mentors' approaches. Place it in your journal tonight, and you'll be able to apply it in future activities." [Hands you a glowing card]`,
+        text: `"Your first ability card and a journal. Use them tonight."`,
         options: [
           {
             id: 'receive_first_ability',
-            text: 'Thank you. I can feel this will be useful.',
-            nextNodeId: 'quinn_constellation_preview',
+            text: 'Thanks.',
+            isEndNode: true,
             receivesAbility: 'pattern_recognition',
-            insightChange: 5
+            insightChange: 5,
+            tutorialStepCompletion: 'night_phase_transition'
           }
         ]
       },
@@ -730,18 +552,12 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'quinn_phone_opening': {
         id: 'quinn_phone_opening',
         mentorId: 'quinn',
-        text: `"Hope I'm not calling too late - saw your office light was still on. How's your brain feeling? Sometimes first days here are... a lot to process. Notice anything interesting when you got home?"`,
+        text: `"How's your first day settling in? Try the journal tonight."`,
         options: [
           {
             id: 'just_about_to_explore',
-            text: 'I was just about to explore the journal you gave me.',
-            nextNodeId: 'quinn_discovery_guidance',
-            tutorialStepCompletion: 'observatory_introduction'
-          },
-          {
-            id: 'still_processing',
-            text: 'Still processing everything. Could you remind me what to look for?',
-            nextNodeId: 'quinn_discovery_guidance',
+            text: 'Will do.',
+            isEndNode: true,
             tutorialStepCompletion: 'observatory_introduction'
           }
         ]
@@ -780,12 +596,28 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'kapoor_precision_intro': {
         id: 'kapoor_precision_intro',
         mentorId: 'kapoor',
-        text: `"Calibration is the foundation of everything we do here. Without precision, treatment becomes guesswork, and patients suffer." [Leads you to Dosimetry Lab]`,
+        text: `"Let's work through a calibration measurement."`,
         options: [
           {
-            id: 'follow_to_dosimetry',
-            text: '[Follow Dr. Kapoor to the Dosimetry Lab]',
-            nextNodeId: 'kapoor_shows_chamber'
+            id: 'begin_calibration',
+            text: 'Ready.',
+            nextNodeId: 'kapoor_precision_complete',
+            triggersActivity: true
+          }
+        ]
+      },
+      'kapoor_precision_complete': {
+        id: 'kapoor_precision_complete',
+        mentorId: 'kapoor',
+        text: `"Good work. Go see Dr. Quinn before you leave."`,
+        options: [
+          {
+            id: 'thanks_for_precision',
+            text: 'Thanks.',
+            isEndNode: true,
+            relationshipChange: 4,
+            insightChange: 3,
+            tutorialStepCompletion: 'quinn_office_meeting'
           }
         ]
       },
@@ -852,7 +684,7 @@ export const tutorialDialogues: Record<string, Dialogue> = {
             text: 'Thank you for showing me how precision actually works.',
             isEndNode: true,
             relationshipChange: 2,
-            tutorialStepCompletion: 'quinn_office_meeting'
+            tutorialStepCompletion: 'first_ability_intro'
           }
         ]
       }
@@ -864,7 +696,7 @@ export const tutorialDialogues: Record<string, Dialogue> = {
 export const TUTORIAL_DIALOGUE_MAP: Record<string, string> = {
   // First day tutorial sequence
   'physics-office': 'tutorial_physics_office_intro',
-  'cafeteria': 'tutorial_lunch_dialogue',
+  'lunch-room': 'tutorial_lunch_dialogue',
   'dosimetry-lab': 'tutorial_dosimetry_lab_intro',
   // Jesse's specific afternoon location
   'linac-1': 'tutorial_jesse_equipment_path',
@@ -893,13 +725,20 @@ export function getTutorialDialogueForRoom(roomId: string, tutorialStep: string 
     return TUTORIAL_DIALOGUE_MAP['physics-office-end-day'];
   }
   
-  // Override: If we're NOT in the morning tutorial steps, always use Quinn's office dialogue for physics-office
-  if (roomId === 'physics-office' && tutorialStep && !['morning_arrival', 'first_mentor_intro', 'first_educational_activity', 'insight_mechanic_intro'].includes(tutorialStep)) {
+  // Override: Only use Quinn's office dialogue for physics-office during specific end-of-day steps
+  if (roomId === 'physics-office' && tutorialStep && [
+    'night_phase_transition', 
+    'quinn_office_meeting',
+    'ability_card_introduction',
+    'journal_system_explanation',
+    'third_mentor_intro'
+  ].includes(tutorialStep)) {
     return TUTORIAL_DIALOGUE_MAP['physics-office-end-day'];
   }
   
-  // Special case: Afternoon mentor activities during specific tutorial steps
+  // Special case: Jesse's afternoon tutorial activities
   if (roomId === 'linac-1' && (
+    tutorialStep === 'second_mentor_intro' ||  // Guide user to Jesse after lunch
     tutorialStep === 'constellation_preview' || 
     tutorialStep === 'first_ability_intro' ||
     tutorialStep === 'journal_card_explanation'
@@ -972,9 +811,9 @@ export const TUTORIAL_STEP_ROOM_AVAILABILITY: Record<string, {
   },
   
   'lunch_dialogue': {
-    availableRooms: ['cafeteria'],
-    recommendedRoom: 'cafeteria',
-    description: 'Head to the cafeteria for lunch with the team'
+    availableRooms: ['lunch-room'],
+    recommendedRoom: 'lunch-room',
+    description: 'Head to the lunch-room for lunch with the team'
   },
   
   'second_mentor_intro': {

@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { useSceneStore } from '@/app/store/sceneStore';
+import { useTutorialStore } from '@/app/store/tutorialStore';
+import { getTutorialDialogueForRoom } from '@/app/data/tutorialDialogues';
 import { colors, spacing, typography } from '@/app/styles/pixelTheme';
+import { useSceneNavigation } from '@/app/components/scenes/GameContainer';
 
 interface CharacterData {
   id: string;
   name: string;
-  sprite: string;
-  portrait: string;
+  portrait: string; // Keep detailed portrait for close-ups
   x: number; // Percentage position on lunch room background
   y: number;
-  scale: number;
-  actualWidth?: number;  // Measured from loaded sprite
-  actualHeight?: number; // Measured from loaded sprite
+  clickWidth: number; // Click area width percentage
+  clickHeight: number; // Click area height percentage
 }
 
 interface ChatBubble {
@@ -29,47 +30,69 @@ const LUNCH_ROOM_CHARACTERS: CharacterData[] = [
   {
     id: 'garcia',
     name: 'Dr. Garcia',
-    sprite: '/images/characters/portraits/lunch-room-garcia.png',
     portrait: '/images/characters/portraits/lunch-room-garcia-detailed.png',
     x: 78, // Far left to match reference image
-    y: 100,
-    scale: 12.0 // Increased from 3.0 to 8.0 for much better visibility
+    y: 90, // Shifted up from 100
+    clickWidth: 8, // Click area width percentage
+    clickHeight: 32 // Double height click area
   },
   {
     id: 'jesse',
     name: 'Jesse',
-    sprite: '/images/characters/portraits/lunch-room-jesse.png',
     portrait: '/images/characters/portraits/lunch-room-jesse-detailed.png',
     x: 71, // Center-left to match reference
-    y: 91,
-    scale: 12.0 // Increased from 3.0 to 8.0 for much better visibility
+    y: 82, // Shifted up from 91
+    clickWidth: 8, // Click area width percentage
+    clickHeight: 27 // Double height click area
   },
   {
     id: 'kapoor',
     name: 'Dr. Kapoor',
-    sprite: '/images/characters/portraits/lunch-room-kapoor.png',
     portrait: '/images/characters/portraits/lunch-room-kapoor-detailed.png',
     x: 16, // Center-right to match reference
-    y: 101,
-    scale: 12.0 // Increased from 3.0 to 8.0 for much better visibility
+    y: 90, // Shifted up from 101
+    clickWidth: 8, // Click area width percentage
+    clickHeight: 34 // Double height click area
   },
   {
     id: 'quinn',
     name: 'Quinn',
-    sprite: '/images/characters/portraits/lunch-room-quinn.png',
     portrait: '/images/characters/portraits/lunch-room-quinn-detailed.png',
     x: 29, // Far right to match reference
-    y: 90,
-    scale: 12.0 // Increased from 3.0 to 8.0 for much better visibility
+    y: 82, // Shifted up from 90
+    clickWidth: 8, // Click area width percentage
+    clickHeight: 30 // Double height click area
   }
 ];
 
-// Sample chat bubbles for testing
+// Expanded chat bubbles with varied content
 const SAMPLE_CHATS = [
-  { characterId: 'garcia', text: "The new treatment protocols are showing great results!", duration: 3000 },
-  { characterId: 'jesse', text: "Did you try the new coffee blend?", duration: 2500 },
-  { characterId: 'kapoor', text: "That was an interesting case this morning.", duration: 3500 },
-  { characterId: 'quinn', text: "The simulation results are in!", duration: 2000 }
+  // Garcia (empathetic, patient-focused)
+  { characterId: 'garcia', text: "Mrs. Patterson is responding well to treatment.", duration: 10000 },
+  { characterId: 'garcia', text: "Quality of life is just as important as cure rates.", duration: 11000 },
+  { characterId: 'garcia', text: "The patient conference went well this morning.", duration: 9000 },
+  { characterId: 'garcia', text: "Always remember the human behind the data.", duration: 10500 },
+  
+  // Jesse (practical, hands-on)
+  { characterId: 'jesse', text: "Fixed the beam alignment this morning.", duration: 8500 },
+  { characterId: 'jesse', text: "Bertha's running smooth as silk today.", duration: 8000 },
+  { characterId: 'jesse', text: "Anyone else hear that weird humming sound?", duration: 9000 },
+  { characterId: 'jesse', text: "Coffee machine's acting up again.", duration: 7500 },
+  { characterId: 'jesse', text: "These new protocols are pretty solid.", duration: 8500 },
+  
+  // Kapoor (precise, methodical)
+  { characterId: 'kapoor', text: "Calibration measurements are within tolerance.", duration: 10500 },
+  { characterId: 'kapoor', text: "The uncertainty analysis looks correct.", duration: 9500 },
+  { characterId: 'kapoor', text: "Quality assurance never takes a day off.", duration: 10000 },
+  { characterId: 'kapoor', text: "Precision leads to better patient outcomes.", duration: 11000 },
+  { characterId: 'kapoor', text: "Temperature corrections were spot on today.", duration: 9000 },
+  
+  // Quinn (analytical, innovative)
+  { characterId: 'quinn', text: "The optimization algorithm is working well.", duration: 10000 },
+  { characterId: 'quinn', text: "Have you seen the new IMRT results?", duration: 8000 },
+  { characterId: 'quinn', text: "The dose distribution looks perfect.", duration: 8500 },
+  { characterId: 'quinn', text: "Mathematical elegance meets clinical need.", duration: 10500 },
+  { characterId: 'quinn', text: "Running some new treatment simulations.", duration: 9000 }
 ];
 
 const LunchRoomScene: React.FC = () => {
@@ -79,41 +102,32 @@ const LunchRoomScene: React.FC = () => {
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const bubbleIdCounter = useRef(0);
+  
+  // Tutorial integration
+  const tutorialStore = useTutorialStore();
+  const { enterNarrative } = useSceneNavigation();
+  const isTutorialActive = tutorialStore.mode === 'active_sequence';
+  const currentTutorialStep = tutorialStore.currentStep;
 
-  // Dynamic image measurement system
+  // Set characters and mark as loaded (no individual sprites to load)
   useEffect(() => {
-    const measureImages = async () => {
-      const updatedCharacters = await Promise.all(
-        LUNCH_ROOM_CHARACTERS.map(async (char) => {
-          return new Promise<CharacterData>((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-              resolve({
-                ...char,
-                actualWidth: img.width,
-                actualHeight: img.height
-              });
-            };
-            img.src = char.sprite;
-          });
-        })
-      );
-      
-      setCharacters(updatedCharacters);
-      setImagesLoaded(true);
-      console.log('[LunchRoom] Character dimensions measured:', updatedCharacters.map(c => ({
-        name: c.name,
-        dimensions: `${c.actualWidth}x${c.actualHeight}px`
-      })));
-    };
-
-    measureImages();
+    setCharacters(LUNCH_ROOM_CHARACTERS);
+    setImagesLoaded(true);
+    console.log('[LunchRoom] Character click areas initialized');
   }, []);
 
   // Chat bubble system
-  const spawnChatBubble = useCallback((characterId: string, text: string, duration: number = 3000) => {
+  const spawnChatBubble = useCallback((characterId: string, text: string, duration: number = 9000) => {
     const character = characters.find(c => c.id === characterId);
     if (!character) return;
+
+    // Character-specific offsets for consistent spacing from heads
+    const bubbleOffsets: Record<string, number> = {
+      garcia: -25,   // y: 90, bubble at: 65
+      jesse: -24,    // y: 82, bubble at: 65 (same visual height as garcia)
+      kapoor: -25,   // y: 90, bubble at: 65
+      quinn: -24     // y: 82, bubble at: 65 (same visual height as kapoor)
+    };
 
     const bubble: ChatBubble = {
       id: `bubble-${bubbleIdCounter.current++}`,
@@ -122,7 +136,7 @@ const LunchRoomScene: React.FC = () => {
       duration,
       phase: 'appearing',
       x: character.x,
-      y: character.y - 20 // Position above character
+      y: character.y + (bubbleOffsets[characterId] || -25)
     };
 
     setActiveBubbles(prev => [...prev, bubble]);
@@ -133,9 +147,24 @@ const LunchRoomScene: React.FC = () => {
     setActiveBubbles(prev => prev.filter(b => b.id !== bubbleId));
   }, []);
 
-  // Enhanced character focus system with smooth transitions
+  // Enhanced character focus system with tutorial integration
   const triggerCharacterFocus = useCallback((characterId: string) => {
-    console.log('[LunchRoom] Triggering camera focus on:', characterId);
+    console.log('[LunchRoom] Character clicked:', characterId);
+    
+    // Priority 1: Tutorial mode - start tutorial dialogue
+    if (isTutorialActive) {
+      const tutorialDialogueId = getTutorialDialogueForRoom('lunch-room', currentTutorialStep);
+      if (tutorialDialogueId) {
+        console.log('[LunchRoom] Tutorial mode: starting dialogue', tutorialDialogueId);
+        enterNarrative(characterId, tutorialDialogueId, 'lunch-room');
+        return;
+      } else {
+        console.log('[LunchRoom] Tutorial mode: no dialogue available for step', currentTutorialStep);
+      }
+    }
+    
+    // Priority 2: Normal mode - camera focus
+    console.log('[LunchRoom] Normal mode: triggering camera focus on:', characterId);
     
     setIsTransitioning(true);
     
@@ -149,7 +178,7 @@ const LunchRoomScene: React.FC = () => {
     window.dispatchEvent(new CustomEvent('lunch-room-focus', {
       detail: { characterId, action: 'zoom-in' }
     }));
-  }, []);
+  }, [isTutorialActive, currentTutorialStep, enterNarrative]);
 
   const exitFocus = useCallback(() => {
     console.log('[LunchRoom] Exiting camera focus');
@@ -173,6 +202,32 @@ const LunchRoomScene: React.FC = () => {
     spawnChatBubble(randomChat.characterId, randomChat.text, randomChat.duration);
   }, [spawnChatBubble]);
 
+  // Automatic random chat spawning
+  useEffect(() => {
+    if (focusedCharacter) return; // Don't spawn chats during focus mode
+
+    const spawnRandomChatBubble = () => {
+      // Only spawn if there aren't too many active bubbles
+      if (activeBubbles.length < 2) {
+        spawnRandomChat();
+      }
+    };
+
+    // Initial delay before first chat
+    const initialDelay = Math.random() * 3000 + 2000; // 2-5 seconds
+    const initialTimer = setTimeout(spawnRandomChatBubble, initialDelay);
+
+    // Set up recurring chats with varying intervals
+    const recurringTimer = setInterval(() => {
+      spawnRandomChatBubble();
+    }, Math.random() * 8000 + 4000); // 4-12 seconds between chats
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(recurringTimer);
+    };
+  }, [focusedCharacter, activeBubbles.length, spawnRandomChat]);
+
   // Navigation back to hospital
   const returnToHospital = useCallback(() => {
     const { setSceneDirectly } = useSceneStore.getState();
@@ -184,23 +239,18 @@ const LunchRoomScene: React.FC = () => {
       {/* Background Layer with transition effects */}
       <LunchRoomBackground $isTransitioning={isTransitioning || !!focusedCharacter} />
       
-      {/* Character Sprites */}
+      {/* Character Click Areas (invisible) */}
       {imagesLoaded && characters.map(character => (
-        <CharacterSprite
+        <CharacterClickArea
           key={character.id}
           $x={character.x}
           $y={character.y}
-          $scale={character.scale}
+          $width={character.clickWidth}
+          $height={character.clickHeight}
           $isTransitioning={isTransitioning}
-          $isFocused={focusedCharacter === character.id}
           onClick={() => !focusedCharacter && !isTransitioning && triggerCharacterFocus(character.id)}
-        >
-          <CharacterImage 
-            src={character.sprite} 
-            alt={character.name}
-            title={character.name}
-          />
-        </CharacterSprite>
+          title={character.name}
+        />
       ))}
       
       {/* Chat Bubbles */}
@@ -220,15 +270,28 @@ const LunchRoomScene: React.FC = () => {
         />
       )}
       
-      {/* Demo Controls */}
+      {/* Controls - Tutorial vs Normal Mode */}
       {!focusedCharacter && (
         <DemoControls>
-          <DemoButton onClick={spawnRandomChat}>
-            💬 Random Chat
-          </DemoButton>
-          <DemoButton onClick={returnToHospital}>
-            🏥 Back to Hospital
-          </DemoButton>
+          {isTutorialActive ? (
+            <>
+              <TutorialIndicator>
+                🎓 Tutorial: Click on mentors to chat!
+              </TutorialIndicator>
+              <DemoButton onClick={returnToHospital}>
+                🏥 Back to Hospital
+              </DemoButton>
+            </>
+          ) : (
+            <>
+              <DemoButton onClick={spawnRandomChat}>
+                💬 Random Chat
+              </DemoButton>
+              <DemoButton onClick={returnToHospital}>
+                🏥 Back to Hospital
+              </DemoButton>
+            </>
+          )}
         </DemoControls>
       )}
     </LunchRoomContainer>
@@ -241,17 +304,17 @@ const ChatBubble: React.FC<{ bubble: ChatBubble; onComplete: () => void }> = ({ 
   
   useEffect(() => {
     const lifecycle = async () => {
-      // Phase 1: Appear (0.4s)
+      // Phase 1: Appear (1.8s to match CSS transition)
       setPhase('appearing');
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise(resolve => setTimeout(resolve, 1800));
       
       // Phase 2: Visible (bubble.duration)
       setPhase('visible');
       await new Promise(resolve => setTimeout(resolve, bubble.duration));
       
-      // Phase 3: Disappear (0.4s)
+      // Phase 3: Disappear (1.8s to match CSS transition)
       setPhase('disappearing');
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise(resolve => setTimeout(resolve, 1800));
       
       onComplete();
     };
@@ -323,38 +386,23 @@ const LunchRoomBackground = styled.div<{ $isTransitioning: boolean }>`
   filter: ${props => props.$isTransitioning ? 'blur(10px)' : 'blur(0px)'};
 `;
 
-const CharacterSprite = styled.div<{ $x: number; $y: number; $scale: number; $isTransitioning: boolean; $isFocused: boolean }>`
+const CharacterClickArea = styled.div<{ $x: number; $y: number; $width: number; $height: number; $isTransitioning: boolean }>`
   position: absolute;
   left: ${props => props.$x}%;
   top: ${props => props.$y}%;
-  transform: translate(-50%, -100%) scale(${props => props.$scale});
-  transform-origin: center bottom;
+  width: ${props => props.$width}%;
+  height: ${props => props.$height}%;
+  transform: translate(-50%, -75%); /* Extend more upward from character position */
   cursor: pointer;
-  transition: transform 0.2s ease, filter 0.5s ease-in-out, opacity 0.5s ease-in-out; /* Enhanced transitions */
+  background: transparent;
+  border: none;
   z-index: 1000;
+  opacity: ${props => props.$isTransitioning ? 0.3 : 1};
+  transition: opacity 0.5s ease-in-out;
   
   &:hover {
-    transform: translate(-50%, -100%) scale(${props => props.$scale * 1.1});
-    filter: brightness(1.2);
+    background: rgba(255, 255, 255, 0.1); /* Subtle hover indication */
   }
-
-  ${props => props.$isFocused && `
-    transform: translate(-50%, -100%) scale(${props.$scale * 1.2}); /* Slightly more scale for focused character */
-    filter: brightness(1.3) drop-shadow(0 0 15px rgba(255, 255, 255, 0.5)); /* Enhanced glow effect */
-  `}
-
-  ${props => props.$isTransitioning && `
-    transition: all 0.5s ease-in-out; /* Match background timing */
-    filter: blur(8px); /* Slightly less blur than background */
-    opacity: 0.6; /* More transparent during transition */
-  `}
-`;
-
-const CharacterImage = styled.img`
-  width: auto;
-  height: auto;
-  image-rendering: pixelated;
-  pointer-events: none;
 `;
 
 const BubbleContainer = styled.div<{ $x: number; $y: number; $phase: string }>`
@@ -362,24 +410,29 @@ const BubbleContainer = styled.div<{ $x: number; $y: number; $phase: string }>`
   left: ${props => props.$x}%;
   top: ${props => props.$y}%;
   transform: translateX(-50%) translateY(-100%) ${props => 
-    props.$phase === 'appearing' ? 'scale(0.3)' :
-    props.$phase === 'disappearing' ? 'scale(0.3)' : 'scale(1)'
+    props.$phase === 'appearing' ? 'scale(0.8)' :
+    props.$phase === 'disappearing' ? 'scale(0.8)' : 'scale(1)'
   };
   opacity: ${props => 
     props.$phase === 'appearing' || props.$phase === 'disappearing' ? 0 : 1
   };
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: all 1.8s cubic-bezier(0.4, 0.0, 0.2, 1.0);
   z-index: 1010;
   
   background: rgba(0, 0, 0, 0.9);
   border: 2px solid ${colors.border};
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 12px;
+  padding: 16px 20px;
   color: white;
   font-family: ${typography.fontFamily.pixel};
-  font-size: ${typography.fontSize.xs};
-  max-width: 200px;
-  line-height: 1.3;
+  font-size: ${typography.fontSize.sm};
+  max-width: 320px;
+  min-height: auto;
+  height: auto;
+  overflow: visible;
+  word-wrap: break-word;
+  white-space: normal;
+  line-height: 1.4;
   
   /* Chat bubble tail */
   &::after {
@@ -388,7 +441,7 @@ const BubbleContainer = styled.div<{ $x: number; $y: number; $phase: string }>`
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    border: 6px solid transparent;
+    border: 8px solid transparent;
     border-top-color: ${colors.border};
   }
   
@@ -398,7 +451,7 @@ const BubbleContainer = styled.div<{ $x: number; $y: number; $phase: string }>`
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    border: 4px solid transparent;
+    border: 6px solid transparent;
     border-top-color: rgba(0, 0, 0, 0.9);
     z-index: 1;
   }
@@ -532,6 +585,28 @@ const DemoButton = styled.button`
   &:hover {
     background: ${colors.highlight};
     transform: scale(1.05);
+  }
+`;
+
+const TutorialIndicator = styled.div`
+  background: rgba(16, 185, 129, 0.9);
+  border: 2px solid #10b981;
+  border-radius: 6px;
+  color: white;
+  padding: 12px 16px;
+  font-family: ${typography.fontFamily.pixel};
+  font-size: ${typography.fontSize.sm};
+  text-align: center;
+  max-width: 200px;
+  line-height: 1.3;
+  
+  &::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #10b981, transparent);
+    margin-bottom: 8px;
   }
 `;
 

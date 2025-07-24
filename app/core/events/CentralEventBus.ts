@@ -40,8 +40,8 @@ class CentralEventBus {
       timestamp: Date.now(),
     };
 
-    // Log event in development
-    if (this.debug) {
+    // Log event in development (filter out excessive mentor content updates)
+    if (this.debug && type !== 'MENTOR_CONTENT_UPDATED') {
       console.log(`[EVENT] ${type} from ${source || 'unknown'}`, payload);
     }
 
