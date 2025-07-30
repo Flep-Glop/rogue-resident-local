@@ -28,7 +28,7 @@ interface RoomArea {
 }
 
 const ROOM_AREAS: RoomArea[] = [
-    { id: 'physics-office', name: 'Physics Office', icon: '/images/temp/Notepad.png', x: 48, y: 37, isoWidth: 2, isoHeight: 2, mentorId: 'garcia', activityType: 'narrative' },
+    { id: 'physics-office', name: 'Physics Office', icon: '/images/temp/Notepad.png', x: 52, y: 91, isoWidth: 2, isoHeight: 2, mentorId: 'quinn', activityType: 'narrative' },
     { id: 'lunch-room', name: 'Hospital Cafeteria', icon: '/images/temp/Cardboard Box.png', x: 46, y: 39, isoWidth: 2, isoHeight: 4.5, mentorId: 'social', activityType: 'social-hub' },
     { id: 'linac-1', name: 'LINAC Room 1',  icon: '/images/temp/Warning Icon.png', x: 59.5, y: 34, isoWidth: 3, isoHeight: 3.8, mentorId: 'garcia', activityType: 'narrative' },
     { id: 'linac-2', name: 'LINAC Room 2', icon: '/images/temp/Red Warning icon.png', x: 62.5, y: 37, isoWidth: 3, isoHeight: 3.8, mentorId: 'jesse', activityType: 'narrative' },
@@ -51,10 +51,7 @@ const AMBIENT_CREATURES = [
     { id: 'bird-3', spriteSheet: '/images/ambient/birds-three.png', frameCount: 4, pathDuration: 35, startX: -850, startY: -650, endX: 950, endY: -350, scale: 1.6, animationSpeed: 0.1, pathType: 'arc', delay: 15000 },
     
     // People (world coordinates, positioned in hospital area)
-    { id: 'garcia-walking', spriteSheet: '/images/ambient/garcia-walking.png', frameCount: 6, pathDuration: 50, startX: -350, startY: -150, endX: -350, endY: -150, scale: 1.5, animationSpeed: 0.1, delay: 0 },
-    { id: 'jesse-walking', spriteSheet: '/images/ambient/jesse-walking.png', frameCount: 6, pathDuration: 45, startX: -770, startY: 70, endX: -770, endY: 70, scale: 1.5, animationSpeed: 0.12, delay: 0 },
-    { id: 'kapoor-walking', spriteSheet: '/images/ambient/kapoor-walking.png', frameCount: 6, pathDuration: 60, startX: 650, startY: 50, endX: 650, endY: 50, scale: 1.5, animationSpeed: 0.08, delay: 0 },
-    { id: 'quinn-walking', spriteSheet: '/images/ambient/quinn-walking.png', frameCount: 6, pathDuration: 55, startX: 750, startY: 100, endX: 750, endY: 100, scale: 1.5, animationSpeed: 0.1, delay: 0 },
+    { id: 'quinn-walking', spriteSheet: '/images/ambient/quinn-walking.png', frameCount: 2, pathDuration: 55, startX: -350, startY: -150, endX: -350, endY: -150, scale: 1.5, animationSpeed: 0.1, delay: 0 },
 
     // Animals (world coordinates)
     { id: 'deer-1', spriteSheet: '/images/ambient/deer.png', frameCount: 4, pathDuration: 60, startX: -850, startY: -250, endX: -800, endY: -250, scale: 1.5, animationSpeed: 0.05, delay: 0 },
@@ -456,19 +453,81 @@ const SITTING_PEOPLE: Array<{
 // Fish system - swimming in pond with gameplay integration for fishing minigame
 const POND_FISH = [
     // Common fish - frequent spawns, easy to catch
-    { id: 'fish-goldfish-1', spriteSheet: '/images/ambient/fish-small-orange.png', frameCount: 3, pathDuration: 25, scale: 0.8, animationSpeed: 0.15, fishType: 'common', rarity: 'common', xpValue: 5, pathType: 'swim' },
-    { id: 'fish-minnow-1', spriteSheet: '/images/ambient/fish-small-silver.png', frameCount: 3, pathDuration: 30, scale: 0.7, animationSpeed: 0.2, fishType: 'common', rarity: 'common', xpValue: 3, pathType: 'swim' },
-    { id: 'fish-goldfish-2', spriteSheet: '/images/ambient/fish-small-orange.png', frameCount: 3, pathDuration: 22, scale: 0.9, animationSpeed: 0.18, fishType: 'common', rarity: 'common', xpValue: 5, pathType: 'swim' },
-    { id: 'fish-minnow-2', spriteSheet: '/images/ambient/fish-small-silver.png', frameCount: 3, pathDuration: 35, scale: 0.6, animationSpeed: 0.25, fishType: 'common', rarity: 'common', xpValue: 3, pathType: 'swim' },
+    { id: 'fish-goldfish-1', spriteSheet: '/images/ambient/fish-small-orange.png', frameCount: 3, pathDuration: 25, scale: 1.0, animationSpeed: 0.15, fishType: 'common', rarity: 'common', xpValue: 5, pathType: 'swim' },
+    { id: 'fish-minnow-1', spriteSheet: '/images/ambient/fish-small-silver.png', frameCount: 3, pathDuration: 30, scale: 1.0, animationSpeed: 0.2, fishType: 'common', rarity: 'common', xpValue: 3, pathType: 'swim' },
+    { id: 'fish-goldfish-2', spriteSheet: '/images/ambient/fish-small-orange.png', frameCount: 3, pathDuration: 22, scale: 1.0, animationSpeed: 0.18, fishType: 'common', rarity: 'common', xpValue: 5, pathType: 'swim' },
+    { id: 'fish-minnow-2', spriteSheet: '/images/ambient/fish-small-silver.png', frameCount: 3, pathDuration: 35, scale: 1.0, animationSpeed: 0.25, fishType: 'common', rarity: 'common', xpValue: 3, pathType: 'swim' },
     
     // Uncommon fish - moderate spawns, medium catch difficulty
-    { id: 'fish-koi-orange', spriteSheet: '/images/ambient/fish-koi-orange.png', frameCount: 4, pathDuration: 40, scale: 1.2, animationSpeed: 0.12, fishType: 'koi', rarity: 'uncommon', xpValue: 15, pathType: 'slow_swim' },
-    { id: 'fish-koi-white', spriteSheet: '/images/ambient/fish-koi-white.png', frameCount: 4, pathDuration: 45, scale: 1.1, animationSpeed: 0.1, fishType: 'koi', rarity: 'uncommon', xpValue: 15, pathType: 'slow_swim' },
+    { id: 'fish-koi-orange', spriteSheet: '/images/ambient/fish-koi-orange.png', frameCount: 4, pathDuration: 40, scale: 1.0, animationSpeed: 0.12, fishType: 'koi', rarity: 'uncommon', xpValue: 15, pathType: 'slow_swim' },
+    { id: 'fish-koi-white', spriteSheet: '/images/ambient/fish-koi-white.png', frameCount: 4, pathDuration: 45, scale: 1.0, animationSpeed: 0.1, fishType: 'koi', rarity: 'uncommon', xpValue: 15, pathType: 'slow_swim' },
     { id: 'fish-bass-1', spriteSheet: '/images/ambient/fish-bass.png', frameCount: 3, pathDuration: 35, scale: 1.0, animationSpeed: 0.14, fishType: 'bass', rarity: 'uncommon', xpValue: 12, pathType: 'swim' },
     
     // Rare fish - infrequent spawns, high catch difficulty
-    { id: 'fish-golden-koi', spriteSheet: '/images/ambient/fish-golden-koi.png', frameCount: 4, pathDuration: 60, scale: 1.5, animationSpeed: 0.08, fishType: 'legendary', rarity: 'rare', xpValue: 50, pathType: 'slow_swim' },
+    { id: 'fish-golden-koi', spriteSheet: '/images/ambient/fish-golden-koi.png', frameCount: 4, pathDuration: 60, scale: 1.0, animationSpeed: 0.08, fishType: 'legendary', rarity: 'rare', xpValue: 50, pathType: 'slow_swim' },
 ];
+
+// Pond polygon boundaries (relative coordinates 0-1 based on pond bounds)
+// Approximates the actual pond shape from the hospital backdrop
+const POND_POLYGON = [
+    { x: -0.1, y: 0.1 },   // Top-left curve
+    { x: 0.1, y: -0.08 },  // Top-left (moved up and left)
+    { x: 0.5, y: 0.12 },   // Top center (moved down)
+    { x: 0.7, y: 0.12 },  // Top-right (moved right)
+    { x: 0.95, y: 0.2 },   // Top-right curve
+    { x: 1.1, y: 0.35 },   // Right center
+    { x: 0.9, y: 0.35 },   // Bottom-right curve
+    { x: 0.75, y: 0.35 },  // Bottom-right
+    { x: 0.5, y: 0.35 },   // Bottom center
+    { x: 0.25, y: 0.35 },  // Bottom-left
+    { x: 0.1, y: 0.35 },   // Bottom-left curve
+    { x: 0.00, y: 0.35 },   // Left center
+];
+
+// Utility function to check if a point is inside the pond polygon
+const isPointInPond = (x: number, y: number, pondBounds: any): boolean => {
+    // Convert world coordinates to relative coordinates (0-1)
+    const relativeX = (x - pondBounds.x) / pondBounds.width + 0.5;
+    const relativeY = (y - pondBounds.y) / pondBounds.height + 0.5;
+    
+    // Point-in-polygon test using ray casting algorithm
+    let inside = false;
+    for (let i = 0, j = POND_POLYGON.length - 1; i < POND_POLYGON.length; j = i++) {
+        const xi = POND_POLYGON[i].x;
+        const yi = POND_POLYGON[i].y;
+        const xj = POND_POLYGON[j].x;
+        const yj = POND_POLYGON[j].y;
+        
+        if (((yi > relativeY) !== (yj > relativeY)) &&
+            (relativeX < (xj - xi) * (relativeY - yi) / (yj - yi) + xi)) {
+            inside = !inside;
+        }
+    }
+    return inside;
+};
+
+// Generate random point within pond polygon
+const getRandomPondPoint = (pondBounds: any): { x: number, y: number } => {
+    let attempts = 0;
+    const maxAttempts = 50; // Prevent infinite loops
+    
+    while (attempts < maxAttempts) {
+        // Generate random point within pond bounds
+        const x = pondBounds.x + (Math.random() - 0.5) * pondBounds.width;
+        const y = pondBounds.y + (Math.random() - 0.5) * pondBounds.height;
+        
+        if (isPointInPond(x, y, pondBounds)) {
+            return { x, y };
+        }
+        attempts++;
+    }
+    
+    // Fallback to pond center if we can't find a valid point
+    return { 
+        x: pondBounds.x, 
+        y: pondBounds.y 
+    };
+};
 
 // TODO: Fish interaction effects for fishing gameplay (NEXT ROUND)
 const FISH_EFFECTS: Array<{
@@ -735,9 +794,13 @@ export default function HospitalBackdrop() {
   const activeFishRef = useRef<PIXI.AnimatedSprite[]>([]);
   const fishSpawnerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Debug grid state management
-  const [showDebugGrid, setShowDebugGrid] = useState(false);
-  const debugGridContainerRef = useRef<PIXI.Container | null>(null);
+      // Debug grid state management
+    const [showDebugGrid, setShowDebugGrid] = useState(false);
+    const debugGridContainerRef = useRef<PIXI.Container | null>(null);
+    
+    // Pond polygon debug state management
+    const [showPondPolygon, setShowPondPolygon] = useState(false);
+    const pondPolygonContainerRef = useRef<PIXI.Container | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -869,10 +932,21 @@ export default function HospitalBackdrop() {
                     const pad = new PIXI.Sprite(padTexture);
                     pad.anchor.set(0.5, 0.5);
                     
-                    // Position distributed across pond area with pixel snapping
+                    // Position using predefined relative coordinates, validated against pond polygon
                     const pondBounds = pondPositionRef.current;
-                    pad.x = Math.floor(pondBounds.x + (padData.relativeX * pondBounds.width * 0.7)); // Pixel-perfect positioning
-                    pad.y = Math.floor(pondBounds.y + (padData.relativeY * pondBounds.height * 0.7)); // Pixel-perfect positioning
+                    let targetX = Math.floor(pondBounds.x + (padData.relativeX * pondBounds.width * 0.7));
+                    let targetY = Math.floor(pondBounds.y + (padData.relativeY * pondBounds.height * 0.7));
+                    
+                    // Check if position is within pond polygon, adjust if necessary
+                    if (!isPointInPond(targetX, targetY, pondBounds)) {
+                        const validPoint = getRandomPondPoint(pondBounds);
+                        targetX = validPoint.x;
+                        targetY = validPoint.y;
+                        console.log(`[LilyPads] Moved ${padData.id} from outside pond to valid position`);
+                    }
+                    
+                    pad.x = targetX;
+                    pad.y = targetY;
                     pad.scale.set(padData.scale * worldScale * 2.0); // Keep 2.0 for visibility
                     pad.rotation = padData.rotation;
                     
@@ -1247,18 +1321,17 @@ export default function HospitalBackdrop() {
                     // centralEventBus.dispatch(GameEventType.FISHING_STARTED, { fishData: selectedFish }, 'FishingSystem');
                 });
                 
-                // Swimming path distributed across pond area (each fish gets its own area)
+                // Swimming path using polygon boundaries for realistic pond positioning
                 const pondBounds = pondPositionRef.current;
-                const pathRadius = Math.min(pondBounds.width, pondBounds.height) * 0.15; // Smaller individual areas
+                const pathRadius = Math.min(pondBounds.width, pondBounds.height) * 0.12; // Smaller areas within pond shape
                 
-                // Generate swimming center point spread across pond, biased toward visible top area
-                const swimAreaX = (Math.random() - 0.5) * 0.8; // -0.4 to 0.4 range
-                const swimAreaY = (Math.random() - 0.7) * 0.6; // Bias toward top: -0.72 to -0.12 range
-                const centerX = pondBounds.x + (swimAreaX * pondBounds.width);
-                const centerY = pondBounds.y + (swimAreaY * pondBounds.height);
+                // Get random point within actual pond polygon
+                const centerPoint = getRandomPondPoint(pondBounds);
+                const centerX = centerPoint.x;
+                const centerY = centerPoint.y;
                 const pathAngle = Math.random() * Math.PI * 2;
                 
-                // Set initial position to swimming area center
+                // Set initial position to valid pond location
                 fish.x = centerX;
                 fish.y = centerY;
                 
@@ -1376,9 +1449,9 @@ export default function HospitalBackdrop() {
                 const baseX = grassSprite.x;
                 const grassSwayTicker = (ticker: PIXI.Ticker) => {
                     const animTime = Date.now();
-                    // Gentler sway for grass - faster frequency, smaller amplitude
-                    const primarySway = Math.sin(animTime * 0.005 + baseX * 0.02) * 0.08;
-                    const microSway = Math.sin(animTime * 0.012 + baseX * 0.03) * 0.03;
+                    // Much gentler sway for grass - slower, more synchronized
+                    const primarySway = Math.sin(animTime * 0.002 + baseX * 0.008) * 0.04;
+                    const microSway = Math.sin(animTime * 0.005 + baseX * 0.012) * 0.015;
                     grassSprite.rotation = primarySway + microSway;
                 };
                 app.ticker.add(grassSwayTicker);
@@ -1536,9 +1609,9 @@ export default function HospitalBackdrop() {
                 const baseX = bush.x;
                 const bushSwayTicker = (ticker: PIXI.Ticker) => {
                     const animTime = Date.now();
-                    // Very gentle sway for bushes
-                    const primarySway = Math.sin(animTime * 0.004 + baseX * 0.015) * 0.05;
-                    const microSway = Math.sin(animTime * 0.01 + baseX * 0.025) * 0.02;
+                    // Ultra gentle sway for bushes - peaceful and immersive
+                    const primarySway = Math.sin(animTime * 0.0018 + baseX * 0.006) * 0.03;
+                    const microSway = Math.sin(animTime * 0.004 + baseX * 0.01) * 0.012;
                     bush.rotation = primarySway + microSway;
                     
                     // Very subtle shadow movement
@@ -1610,9 +1683,9 @@ export default function HospitalBackdrop() {
                 const baseX = envSprite.x;
                 const swayTicker = (ticker: PIXI.Ticker) => {
                     const animTime = Date.now();
-                    // More subtle sway using reduced amplitude
-                    const primarySway = Math.sin(animTime * 0.003 + baseX * 0.01) * 0.06; // Reduced from 0.15
-                    const microSway = Math.sin(animTime * 0.008 + baseX * 0.02) * 0.02; // Reduced from 0.05
+                    // Gentle, immersive tree sway - slow and peaceful
+                    const primarySway = Math.sin(animTime * 0.0015 + baseX * 0.004) * 0.035; // Much slower and smaller
+                    const microSway = Math.sin(animTime * 0.0035 + baseX * 0.008) * 0.012; // Reduced micro movement
                     envSprite.rotation = primarySway + microSway;
                     
                     // Very subtle shadow movement (much less than tree sway)
@@ -2191,6 +2264,23 @@ export default function HospitalBackdrop() {
                         console.log(`[Dev Console] Toggling coordinate grid: ${newState ? 'ON' : 'OFF'}`);
                         setShowDebugGrid(newState);
                     };
+                    
+                    // Add pond polygon debug commands
+                    (window as any).showPondPolygon = () => {
+                        console.log('[Dev Console] Showing pond polygon debug overlay');
+                        setShowPondPolygon(true);
+                    };
+                    
+                    (window as any).hidePondPolygon = () => {
+                        console.log('[Dev Console] Hiding pond polygon debug overlay');
+                        setShowPondPolygon(false);
+                    };
+                    
+                    (window as any).togglePondPolygon = () => {
+                        const newState = !showPondPolygon;
+                        console.log(`[Dev Console] Toggling pond polygon: ${newState ? 'ON' : 'OFF'}`);
+                        setShowPondPolygon(newState);
+                    };
                 }
             };
             addWeatherControls();
@@ -2231,10 +2321,11 @@ export default function HospitalBackdrop() {
                 ripple.animationSpeed = rippleData.animationSpeed;
                 ripple.loop = false; // Play once then fade
                 
-                // Random position within pond bounds
+                // Random position within actual pond polygon
                 const pondBounds = pondPositionRef.current;
-                ripple.x = pondBounds.x + (Math.random() - 0.5) * pondBounds.width;
-                ripple.y = pondBounds.y + (Math.random() - 0.5) * pondBounds.height;
+                const ripplePoint = getRandomPondPoint(pondBounds);
+                ripple.x = ripplePoint.x;
+                ripple.y = ripplePoint.y;
                 ripple.scale.set(rippleData.scale * worldScale);
                 
                 // Additional guard check before adding to stage
@@ -2670,8 +2761,67 @@ export default function HospitalBackdrop() {
             };
             applyTimeOfDayEffects(initialTimeOfDay, 6, initialVisualSettings);
 
-            // === DEBUG GRID SYSTEM ===
-            const createDebugGrid = () => {
+                    // === POND POLYGON DEBUG SYSTEM ===
+        const createPondPolygon = () => {
+            if (pondPolygonContainerRef.current) {
+                app.stage.removeChild(pondPolygonContainerRef.current);
+                pondPolygonContainerRef.current.destroy();
+                pondPolygonContainerRef.current = null;
+            }
+            
+            const polygonContainer = new PIXI.Container();
+            polygonContainer.name = 'PondPolygon';
+            
+            // Create polygon outline
+            const graphics = new PIXI.Graphics();
+            const pondBounds = pondPositionRef.current;
+            
+            // Convert polygon points to world coordinates
+            const worldPoints: number[] = [];
+            POND_POLYGON.forEach(point => {
+                const worldX = pondBounds.x + (point.x - 0.5) * pondBounds.width;
+                const worldY = pondBounds.y + (point.y - 0.5) * pondBounds.height;
+                worldPoints.push(worldX, worldY);
+            });
+            
+            // Draw polygon outline
+            graphics.lineStyle(3, 0x00ff00, 0.8); // Bright green, semi-transparent
+            graphics.drawPolygon(worldPoints);
+            
+            // Add polygon points as markers
+            POND_POLYGON.forEach((point, index) => {
+                const worldX = pondBounds.x + (point.x - 0.5) * pondBounds.width;
+                const worldY = pondBounds.y + (point.y - 0.5) * pondBounds.height;
+                
+                // Draw point marker
+                graphics.beginFill(0xff0000, 0.8); // Red markers
+                graphics.drawCircle(worldX, worldY, 6);
+                graphics.endFill();
+                
+                // Add point label
+                const text = new PIXI.Text(`${index}`, {
+                    fontFamily: 'Arial',
+                    fontSize: 12,
+                    fill: 0xffffff,
+                    stroke: 0x000000,
+                    strokeThickness: 2
+                } as any);
+                text.anchor.set(0.5);
+                text.x = worldX;
+                text.y = worldY - 15;
+                polygonContainer.addChild(text);
+            });
+            
+            polygonContainer.addChild(graphics);
+            polygonContainer.visible = showPondPolygon;
+            app.stage.addChild(polygonContainer);
+            pondPolygonContainerRef.current = polygonContainer;
+            
+            console.log('[HospitalBackdrop] Pond polygon debug overlay created');
+        };
+
+        // === DEBUG GRID SYSTEM ===
+        const createDebugGrid = () => {
                 if (debugGridContainerRef.current) {
                     app.stage.removeChild(debugGridContainerRef.current);
                     debugGridContainerRef.current.destroy();
@@ -2776,8 +2926,11 @@ export default function HospitalBackdrop() {
                 console.log('[HospitalBackdrop] Debug grid created with world coordinate system');
             };
 
-            // Create initial debug grid
-            createDebugGrid();
+                    // Create initial debug grid
+        createDebugGrid();
+        
+        // Create initial pond polygon debug overlay
+        createPondPolygon();
 
             // Update grid visibility when state changes
             const updateGridVisibility = () => {
@@ -2830,13 +2983,19 @@ export default function HospitalBackdrop() {
                 });
                 activeFishRef.current = [];
                 
-                // Clean up debug grid
-                if (debugGridContainerRef.current) {
-                    debugGridContainerRef.current.destroy();
-                    debugGridContainerRef.current = null;
-                }
+                            // Clean up debug grid
+            if (debugGridContainerRef.current) {
+                debugGridContainerRef.current.destroy();
+                debugGridContainerRef.current = null;
+            }
+            
+            // Clean up pond polygon debug overlay
+            if (pondPolygonContainerRef.current) {
+                pondPolygonContainerRef.current.destroy();
+                pondPolygonContainerRef.current = null;
+            }
                 
-                console.log('[HospitalBackdrop] Pond ripple, fish systems, and debug grid cleaned up');
+                console.log('[HospitalBackdrop] Pond ripple, fish systems, debug grid, and pond polygon cleaned up');
             };
 
         }).catch(console.error);
@@ -2950,13 +3109,21 @@ export default function HospitalBackdrop() {
     };
   }, []);
 
-  // Update debug grid visibility when state changes
-  useEffect(() => {
-    if (debugGridContainerRef.current) {
-      debugGridContainerRef.current.visible = showDebugGrid;
-      console.log(`[HospitalBackdrop] Debug grid visibility updated: ${showDebugGrid ? 'VISIBLE' : 'HIDDEN'}`);
-    }
-  }, [showDebugGrid]);
+      // Update debug grid visibility when state changes
+    useEffect(() => {
+        if (debugGridContainerRef.current) {
+            debugGridContainerRef.current.visible = showDebugGrid;
+            console.log(`[HospitalBackdrop] Debug grid visibility updated: ${showDebugGrid ? 'VISIBLE' : 'HIDDEN'}`);
+        }
+    }, [showDebugGrid]);
+
+    // Update pond polygon visibility when state changes
+    useEffect(() => {
+        if (pondPolygonContainerRef.current) {
+            pondPolygonContainerRef.current.visible = showPondPolygon;
+            console.log(`[HospitalBackdrop] Pond polygon visibility updated: ${showPondPolygon ? 'VISIBLE' : 'HIDDEN'}`);
+        }
+    }, [showPondPolygon]);
 
   const handleEndDayClick = () => {
     centralEventBus.dispatch(GameEventType.END_OF_DAY_REACHED, { day: daysPassed }, 'HospitalBackdrop.handleEndDayClick');

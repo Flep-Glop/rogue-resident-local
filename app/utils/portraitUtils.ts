@@ -8,7 +8,7 @@ export type PortraitSize = 'detailed' | 'medium';
 const PORTRAIT_BASE_PATH = '/images/characters/portraits';
 
 export const PORTRAIT_DIMENSIONS = {
-  detailed: { width: 208, height: 300 },
+  detailed: { width: 116, height: 161 }, // True size for 640x360 resolution (half of previous 2x export)
   medium: { width: 45, height: 45 }
 };
 

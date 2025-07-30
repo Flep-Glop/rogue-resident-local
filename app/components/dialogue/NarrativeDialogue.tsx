@@ -16,6 +16,12 @@ import TypewriterText from '@/app/components/ui/TypewriterText';
 import { useTutorialStore } from '@/app/store/tutorialStore';
 import ReactionSystemComponent from '@/app/components/ui/ReactionSystem';
 import AbilityCardFlip from '@/app/components/ui/AbilityCardFlip';
+import { ExpandableDialogContainer, CardContainer } from '@/app/components/ui/PixelContainer';
+
+// === INTERNAL RESOLUTION SYSTEM ===
+// Dialogue uses 640x360 internal coordinates (matching physics office native resolution)
+const DIALOGUE_INTERNAL_WIDTH = 640;
+const DIALOGUE_INTERNAL_HEIGHT = 360;
 
 // Keyframe animations
 const blink = keyframes`
@@ -68,13 +74,22 @@ const parseDialogueText = (text: string): ParsedDialogue => {
 };
 
 const Container = styled.div<{ $roomId?: string }>`
-  width: 100vw;
-  height: 100vh;
-  display: flex;
   position: relative;
+  
+  /* Use 640x360 internal coordinate system - scale entire container to fit viewport */
+  width: ${DIALOGUE_INTERNAL_WIDTH}px;
+  height: ${DIALOGUE_INTERNAL_HEIGHT}px;
+  
+  /* Center and scale container to fit viewport while maintaining aspect ratio */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+  transform: translate(-50%, -50%) scale(var(--dialogue-scale));
+  
   font-family: ${typography.fontFamily.pixel};
   color: ${colors.text};
-  overflow: hidden;
+  overflow: visible; /* Allow portrait to extend beyond dialogue bounds */
   
   /* Dynamic background based on room */
   ${props => {
@@ -83,7 +98,7 @@ const Container = styled.div<{ $roomId?: string }>`
     if (roomConfig.backgroundImage) {
       return `
         background-image: url('${roomConfig.backgroundImage}');
-        background-size: cover;
+        background-size: ${DIALOGUE_INTERNAL_WIDTH}px ${DIALOGUE_INTERNAL_HEIGHT}px; /* Native 640x360 size - no scaling */
         background-position: center;
         background-repeat: no-repeat;
         
@@ -112,40 +127,36 @@ const Container = styled.div<{ $roomId?: string }>`
     `;
   }}
   
-  /* Ensure no scrollbars appear anywhere - comprehensive scrollbar hiding */
-  ::-webkit-scrollbar {
-    display: none;
-  }
+  /* Pixel perfect rendering */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  
+  /* Hide scrollbars */
+  ::-webkit-scrollbar { display: none; }
   -ms-overflow-style: none;
   scrollbar-width: none;
   
-  /* Apply to all child elements as well */
   * {
-    ::-webkit-scrollbar {
-      display: none;
-    }
+    ::-webkit-scrollbar { display: none; }
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
 `;
 
 const CharacterSection = styled.div`
-  flex: 0 0 40%;
+  /* Position at bottom left side for better balance with right-aligned dialogue */
+  position: absolute;
+  bottom: 80px; /* Distance from bottom */
+  left: 80px; /* Fixed distance from left edge */
+  width: 180px; /* Optimized for true 640x360 portrait size (116px + margin) */
+  height: 180px; /* Optimized for true 640x360 portrait size (161px + margin) */
+  
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding: ${spacing.xl};
-  margin-top: -200px; /* Allow character to extend upward beyond section bounds */
-  position: relative;
-  overflow: visible; /* Allow character to extend beyond bounds */
-  z-index: 2; /* Above background overlay, below foreground */
-  
-  /* Hide any potential scrollbars in character section */
-  ::-webkit-scrollbar {
-    display: none;
-  }
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  z-index: 6; /* Above dialogue content */
+  overflow: visible; /* Ensure portrait isn't clipped */
 `;
 
 // New: Foreground layer for depth effect
@@ -179,208 +190,79 @@ const AnimationWrapper = styled.div<{ $animation?: PortraitAnimationType }>`
 `;
 
 const CharacterPortrait = styled.div<{ $roomId?: string }>`
-  width: 600px;
-  height: 600px;
+  /* True size for Quinn detailed portrait - scaled for 640x360 resolution */
+  width: 116px;  /* True Quinn detailed width (half of previous 2x scale) */
+  height: 161px; /* True Quinn detailed height (half of previous 2x scale) */
   position: relative;
-  overflow: visible; /* Allow character to extend beyond portrait bounds */
+  overflow: visible; /* Allow portrait to display fully */
+  flex-shrink: 0; /* Prevent compression */
   
-  /* Enhanced styling for background cohesion */
-  transform: scale(1.4) translate(120px, -20px); /* Reduced upward translation to avoid clipping */
+  /* No transform scaling - portraits rendered at native size for 640x360 */
+  transform: translate(0, 0); /* Remove all scaling transforms */
+  
   filter: 
-    drop-shadow(0 0 20px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 0 15px rgba(0, 0, 0, 0.8)) /* Stronger shadow for better visibility */
     brightness(0.92)
     contrast(1.08)
     ${props => {
       // Room-specific character color adjustments
       switch(props.$roomId) {
         case 'physics-office':
-          return 'hue-rotate(-3deg) saturate(0.96)'; // Cooler, academic tone
+          return 'hue-rotate(-3deg) saturate(0.96)';
         case 'linac-1':
-          return 'hue-rotate(2deg) saturate(1.02)'; // Slightly warmer, clinical
+          return 'hue-rotate(2deg) saturate(1.02)';
         case 'linac-2':
-          return 'hue-rotate(2deg) saturate(1.04)'; // Warmer, technical precision
+          return 'hue-rotate(2deg) saturate(1.04)';
         case 'dosimetry-lab':
-          return 'hue-rotate(-5deg) saturate(0.94)'; // Technical, precise
+          return 'hue-rotate(-5deg) saturate(0.94)';
         case 'simulation-suite':
-          return 'hue-rotate(1deg) saturate(1.00)'; // Neutral, high-tech
+          return 'hue-rotate(1deg) saturate(1.00)';
         default:
           return 'hue-rotate(-3deg) saturate(0.96)';
       }
     }};
   
-  /* Ensure pixel-perfect rendering for all images */
+  /* Pixel perfect rendering */
   img {
-    image-rendering: -moz-crisp-edges;
-    image-rendering: -webkit-crisp-edges;
     image-rendering: pixelated;
-    image-rendering: crisp-edges;
+    -webkit-image-rendering: pixelated; 
+    -moz-image-rendering: crisp-edges;
     -ms-interpolation-mode: nearest-neighbor;
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Ensure full image is visible */
   }
   
-  /* Apply pixel perfect rendering from mixins */
   ${mixins.pixelPerfect}
 `;
 
 const DialogueSection = styled.div`
-  flex: 1;
+  /* Simplified positioning for pixel containers - positioned to the right */
+  position: absolute;
+  right: 40px; /* Fixed distance from right edge */
+  top: 20%; /* Start from top portion of screen */
+  bottom: 20%; /* End before bottom portion */
+  width: 400px; /* Fixed width for consistent layout */
+  max-width: 55vw; /* Responsive max width */
+  
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  padding: ${spacing.xl};
-  padding-bottom: ${spacing.xxl};
-  padding-left: ${spacing.xxl};
-  overflow: hidden;
-  z-index: 5; /* Above foreground layer (z-index: 3) */
+  justify-content: center; /* Center the dialogue vertically */
+  z-index: 5;
   
-  /* Hide scrollbars in dialogue section */
-  ::-webkit-scrollbar {
-    display: none;
-  }
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  /* Overflow containment for pixel containers */
+  overflow: visible;
+  contain: layout style;
 `;
 
-const DialogueBox = styled.div<{ $roomId?: string }>`
-  background: ${colors.background};
-  ${borders.pixelBorder.outer}
-  border-radius: ${spacing.sm};
-  padding: ${spacing.xl};
-  margin-bottom: ${spacing.lg};
-  min-height: 150px;
-  position: relative;
-  box-shadow: 0 8px 0 ${colors.border}, 0 0 0 4px ${colors.border};
-  
-  ${props => props.$roomId === 'physics-office' && `
-    /* Medical chart style for physics office */
-    background: linear-gradient(135deg, 
-      ${colors.background} 0%, 
-      rgba(59, 130, 246, 0.03) 100%
-    );
-    
-    &::before {
-      content: '';
-      position: absolute;
-      top: 8px;
-      right: 12px;
-      width: 40px;
-      height: 40px;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='50' font-size='30' fill='%23ffffff10'%3E∑%3C/text%3E%3C/svg%3E");
-      opacity: 0.1;
-      pointer-events: none;
-    }
-    
-    border-left: 3px solid rgba(59, 130, 246, 0.3);
-  `}
-  
-  ${props => props.$roomId === 'linac-1' && `
-    /* Clinical style for LINAC Room 1 */
-    background: linear-gradient(135deg, 
-      ${colors.background} 0%, 
-      rgba(16, 185, 129, 0.03) 100%
-    );
-    
-    &::before {
-      content: '';
-      position: absolute;
-      top: 8px;
-      right: 12px;
-      width: 40px;
-      height: 40px;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='50' font-size='24' fill='%2310b98115'%3E⚕%3C/text%3E%3C/svg%3E");
-      opacity: 0.2;
-      pointer-events: none;
-    }
-    
-    border-left: 3px solid rgba(16, 185, 129, 0.3);
-  `}
-  
-  ${props => props.$roomId === 'linac-2' && `
-    /* Technical equipment style for LINAC Room 2 */
-    background: linear-gradient(135deg, 
-      ${colors.background} 0%, 
-      rgba(245, 158, 11, 0.04) 100%
-    );
-    
-    &::before {
-      content: '';
-      position: absolute;
-      top: 8px;
-      right: 12px;
-      width: 40px;
-      height: 40px;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='50' font-size='24' fill='%23f59e0b15'%3E⚡%3C/text%3E%3C/svg%3E");
-      opacity: 0.2;
-      pointer-events: none;
-    }
-    
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: 8px;
-      left: 12px;
-      width: 30px;
-      height: 30px;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='50' font-size='20' fill='%23f59e0b10'%3E⚙%3C/text%3E%3C/svg%3E");
-      opacity: 0.15;
-      pointer-events: none;
-    }
-    
-    border-left: 3px solid rgba(245, 158, 11, 0.4);
-    box-shadow: 
-      0 8px 0 ${colors.border}, 
-      0 0 0 4px ${colors.border},
-      inset 0 1px 0 rgba(245, 158, 11, 0.1);
-  `}
-  
-  ${props => props.$roomId === 'dosimetry-lab' && `
-    /* Technical laboratory style for dosimetry lab */
-    background: linear-gradient(135deg, 
-      ${colors.background} 0%, 
-      rgba(236, 72, 153, 0.04) 100%
-    );
-    
-    &::before {
-      content: '';
-      position: absolute;
-      top: 8px;
-      right: 12px;
-      width: 40px;
-      height: 40px;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='50' font-size='26' fill='%23ec489915'%3E⚛%3C/text%3E%3C/svg%3E");
-      opacity: 0.2;
-      pointer-events: none;
-    }
-    
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: 8px;
-      left: 12px;
-      width: 35px;
-      height: 35px;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='50' font-size='22' fill='%23ec489912'%3E📊%3C/text%3E%3C/svg%3E");
-      opacity: 0.15;
-      pointer-events: none;
-    }
-    
-    border-left: 3px solid rgba(236, 72, 153, 0.4);
-    box-shadow: 
-      0 8px 0 ${colors.border}, 
-      0 0 0 4px ${colors.border},
-      inset 0 1px 0 rgba(236, 72, 153, 0.1);
-  `}
-  
-  ${props => props.$roomId === 'simulation-suite' && `
-    /* High-tech style for simulation suite */
-    border-left: 3px solid rgba(245, 158, 11, 0.3);
-  `}
-`;
+
 
 const SpeakerName = styled.div`
   color: ${colors.highlight};
   font-weight: bold;
-  font-size: ${typography.fontSize.lg};
-  margin-bottom: ${spacing.sm};
+  font-size: 20px; /* Reduced from 48px (lg) for more compact speaker name */
+  margin-bottom: 2px; /* Drastically reduced padding below name */
+  margin-top: 0px; /* Pull up to eliminate container padding gap */
   text-shadow: ${typography.textShadow.pixel};
 `;
 
@@ -409,12 +291,13 @@ const StageDirection = styled.div`
 `;
 
 const DialogueText = styled.div<{ $isTyping: boolean }>`
-  font-size: ${typography.fontSize.md};
-  line-height: 1.6;
+  font-family: ${typography.fontFamily.pixel};
+  font-size: 18px; /* Reduced from 24px (xs) for more compact text */
+  line-height: ${typography.lineHeight.tight}; /* Reduced from normal (1.3) to tight (1.1) */
   color: ${colors.text};
-  cursor: pointer;
-  min-height: 60px; // Reduced since stage directions take some space
+  white-space: pre-wrap;
   
+  /* Add cursor animation when typing */
   &::after {
     content: '▋';
     animation: ${blink} 1s infinite;
@@ -427,44 +310,10 @@ const OptionsContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${spacing.sm};
+  margin-top: ${spacing.lg}; /* Add space between question and button */
 `;
 
-const OptionButton = styled.button<{ $disabled?: boolean; $selected?: boolean }>`
-  background: ${props => {
-    if (props.$disabled) return colors.backgroundAlt;
-    if (props.$selected) return colors.highlight;
-    return colors.backgroundAlt;
-  }};
-  ${props => props.$selected ? borders.pixelBorder.active(colors.highlight) : borders.pixelBorder.outer}
-  border-radius: ${spacing.xs};
-  padding: ${spacing.md} ${spacing.lg};
-  color: ${props => {
-    if (props.$disabled) return colors.textDim;
-    if (props.$selected) return colors.background;
-    return colors.text;
-  }};
-  font-family: ${typography.fontFamily.pixel};
-  font-size: ${typography.fontSize.sm};
-  text-align: left;
-  cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
-  transition: all ${animation.duration.fast} ${animation.easing.pixel};
-  opacity: ${props => props.$disabled ? 0.6 : 1};
-  
-  /* Add subtle glow for selected option */
-  box-shadow: ${props => props.$selected && !props.$disabled ? `0 0 8px rgba(132, 90, 245, 0.4)` : 'none'};
-  
-  &:hover {
-    ${props => !props.$disabled && !props.$selected && `
-      ${borders.pixelBorder.active(colors.highlight)}
-      background: ${colors.highlight};
-      color: ${colors.background};
-    `}
-  }
-  
-  &:disabled {
-    cursor: not-allowed;
-  }
-`;
+
 
 const ResourceIndicator = styled.span<{ $type: 'insight' | 'momentum' | 'relationship' }>`
   font-size: ${typography.fontSize.xs};
@@ -502,6 +351,35 @@ const ContinuePrompt = styled.div`
   animation: ${pulse} 2s infinite;
 `;
 
+// Option button content styling (CardContainer handles the border/background)
+const OptionContent = styled.div<{ $selected: boolean; $disabled?: boolean }>`
+  font-family: ${typography.fontFamily.pixel};
+  color: ${props => 
+    props.$disabled 
+      ? colors.textDim
+      : colors.text
+  };
+  font-size: 16px; /* Smaller button text for dialogue options */
+  line-height: 1.4;
+  text-align: center;
+  width: 100%;
+  cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
+  transition: all ${animation.duration.normal} ease;
+  
+  /* Minimal padding for button text - CardContainer already provides 8px padding */
+  padding: 2px 4px;
+  
+  /* Add subtle glow effect for selected state */
+  ${props => props.$selected && !props.$disabled && `
+    text-shadow: 0 0 4px rgba(132, 90, 245, 0.8);
+  `}
+  
+  /* Resource indicators styling */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
 export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: NarrativeDialogueProps) {
   const [initialized, setInitialized] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -509,15 +387,15 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   const [currentCharIndex, setCurrentCharIndex] = useState(0);
   const [currentPortraitAnimation, setCurrentPortraitAnimation] = useState<PortraitAnimationType>('none');
   const [parsedDialogue, setParsedDialogue] = useState<ParsedDialogue>({ stageDirections: [], cleanText: '' });
-  const [selectedOptionIndex, setSelectedOptionIndex] = useState(0); // For arrow key navigation
+  const [typingSpeed, setTypingSpeed] = useState(10); // Default speed (was 30) - much faster
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState(0); // For keyboard nav
   const [activityTriggered, setActivityTriggered] = useState(false); // Prevent multiple activity triggers
-  const typingSpeed = 30; // ms per character
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // Scene navigation for tutorial activities
   const { enterTutorialActivity } = useSceneNavigation();
   
   // Reaction system
-  const containerRef = useRef<HTMLDivElement>(null);
   const { triggerReaction, triggerPortraitAnimation, ReactionSystemComponent } = useReactionSystem(containerRef);
   
   // Dialogue store selectors
@@ -535,6 +413,31 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   const currentNode = getCurrentNode();
   const activeDialogue = getActiveDialogue();
   const availableOptions = getAvailableOptions();
+  
+  // DEBUG: Log dialogue state and check tutorial mode
+  console.log('[NarrativeDialogue] Current state:', {
+    currentNode: currentNode?.id,
+    activeDialogue: activeDialogue?.id,
+    availableOptionsCount: availableOptions.length,
+    availableOptions: availableOptions,
+    isTyping
+  });
+  
+  // DEBUG: Check tutorial state
+  import('@/app/store/tutorialStore').then(({ useTutorialStore }) => {
+    const tutorialStore = useTutorialStore.getState();
+    console.log('[NarrativeDialogue] Tutorial state:', {
+      mode: tutorialStore.mode,
+      currentStep: tutorialStore.currentStep,
+      activeSequence: tutorialStore.activeSequence
+    });
+    
+    // AUTO-START TUTORIAL FOR TESTING - if tutorial not active and we're trying to load tutorial_quinn_intro
+    if (dialogueId === 'tutorial_quinn_intro' && tutorialStore.mode !== 'active_sequence') {
+      console.log('[NarrativeDialogue] Auto-starting tutorial for testing...');
+      tutorialStore.startTutorialSilently('micro_day', 'quinn_intro');
+    }
+  });
   
   // Knowledge store for checking star requirements
   const stars = useKnowledgeStore(state => state.stars);
@@ -561,6 +464,31 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
     // Add more abilities as needed - can reuse the orange back for all cards
   };
   
+  // === DIALOGUE SCALING SYSTEM ===
+  // Calculate scale to fit 640x360 dialogue into viewport while maintaining aspect ratio
+  useEffect(() => {
+    const updateDialogueScale = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      const scaleX = viewportWidth / DIALOGUE_INTERNAL_WIDTH;
+      const scaleY = viewportHeight / DIALOGUE_INTERNAL_HEIGHT;
+      const dialogueScale = Math.min(scaleX, scaleY);
+      
+      // Set CSS custom property for dialogue scaling
+      document.documentElement.style.setProperty('--dialogue-scale', dialogueScale.toString());
+      
+      console.log(`[NarrativeDialogue] Dialogue scale: ${dialogueScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${DIALOGUE_INTERNAL_WIDTH}x${DIALOGUE_INTERNAL_HEIGHT})`);
+    };
+    
+    updateDialogueScale();
+    window.addEventListener('resize', updateDialogueScale);
+    
+    return () => {
+      window.removeEventListener('resize', updateDialogueScale);
+    };
+  }, []);
+
   // Start dialogue when component mounts
   useEffect(() => {
     if (!initialized) {
@@ -571,6 +499,7 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
       const currentActiveDialogue = getActiveDialogue();
       if (currentActiveDialogue?.id === dialogueId) {
         // Dialogue already active, continuing
+        console.log('[NarrativeDialogue] Dialogue already active:', dialogueId);
         setInitialized(true);
       } else {
         console.log('[NarrativeDialogue] Starting new dialogue:', dialogueId);
@@ -579,8 +508,10 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
       }
     }
   }, [dialogueId, initialized, startDialogue, getActiveDialogue]);
+
+
   
-  // Parse dialogue text and type out effect - FIXED: Removed currentCharIndex from dependencies
+  // Parse dialogue text and type out effect
   useEffect(() => {
     if (!currentNode) return;
     
@@ -703,7 +634,7 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
       return;
     }
     
-    // Check if this is a tutorial activity trigger - show overlay first
+    // Check if this is a tutorial activity trigger - launch directly
     if ((option as any).triggersActivity && activeDialogue?.isTutorial) {
       // Prevent multiple triggers of the same activity
       if (activityTriggered) {
@@ -711,57 +642,26 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
         return;
       }
       
-      console.log('[NarrativeDialogue] Tutorial activity triggered, showing preparation overlay');
+      console.log('[NarrativeDialogue] Tutorial activity triggered, launching directly');
       setActivityTriggered(true);
       
-      // Show generic "Ready?" overlay before launching
-      import('@/app/store/tutorialStore').then(({ useTutorialStore }) => {
-        const tutorialStore = useTutorialStore.getState();
-        const mentorId = currentNode?.mentorId || 'garcia';
-        const mentorName = mentorId === 'garcia' ? 'Dr. Garcia' : 
-                          mentorId === 'jesse' ? 'Jesse' : 
-                          mentorId === 'kapoor' ? 'Dr. Kapoor' : 'Dr. Quinn';
-        const activityType = mentorId === 'garcia' ? 'patient case' : 'hands-on work';
-        
-        tutorialStore.showOverlay({
-          id: 'guide_first_activity',
-          type: 'modal',
-          title: 'Ready?',
-          content: `Begin ${activityType} with ${mentorName}.`,
-          dismissable: true,
-          preventSpaceActivation: true
-        });
-      });
+      // Process option and launch activity immediately (no overlay)
+      selectOption(option.id!);
       
-      // Set up listener for when overlay is dismissed to continue with activity
-      const checkOverlayDismissed = () => {
-        import('@/app/store/tutorialStore').then(({ useTutorialStore }) => {
-          const tutorialStore = useTutorialStore.getState();
-          if (!tutorialStore.activeOverlays.some((o: any) => o.id === 'guide_first_activity')) {
-            // Overlay dismissed, now process option and launch activity
-            selectOption(option.id!);
-            
-            // Dynamic activity parameters based on mentor
-            const mentorId = currentNode?.mentorId || 'garcia';
-            if (mentorId === 'garcia') {
-              enterTutorialActivity('Mrs. Patterson', 'garcia', roomId || 'physics-office');
-            } else if (mentorId === 'jesse') {
-              enterTutorialActivity('Bertha (LINAC)', 'jesse', roomId || 'linac-1');
-            } else if (mentorId === 'kapoor') {
-              enterTutorialActivity('Calibration Setup', 'kapoor', roomId || 'dosimetry-lab');
-            } else {
-              // Default to Garcia for other mentors
-              enterTutorialActivity('Mrs. Patterson', 'garcia', roomId || 'physics-office');
-            }
-          } else {
-            // Check again in 100ms
-            setTimeout(checkOverlayDismissed, 100);
-          }
-        });
-      };
-      
-      // Start checking for dismissal
-      setTimeout(checkOverlayDismissed, 100);
+      // Dynamic activity parameters based on mentor
+      const mentorId = currentNode?.mentorId || 'garcia';
+      if (mentorId === 'garcia') {
+        enterTutorialActivity('Mrs. Patterson', 'garcia', roomId || 'physics-office');
+      } else if (mentorId === 'jesse') {
+        enterTutorialActivity('Bertha (LINAC)', 'jesse', roomId || 'linac-1');
+      } else if (mentorId === 'kapoor') {
+        enterTutorialActivity('Calibration Setup', 'kapoor', roomId || 'dosimetry-lab');
+      } else if (mentorId === 'quinn') {
+        enterTutorialActivity('Physics Fundamentals', 'quinn', roomId || 'physics-office');
+      } else {
+        // Default to Garcia for other mentors
+        enterTutorialActivity('Mrs. Patterson', 'garcia', roomId || 'physics-office');
+      }
       return;
     }
     
@@ -837,7 +737,9 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   }
   
   // Get the current mentor
-  const mentor = getMentor(currentNode.mentorId);
+  const mentor = currentNode ? getMentor(currentNode.mentorId) : null;
+  
+
   
   return (
     <Container ref={containerRef} $roomId={roomId} className="no-scrollbar">
@@ -850,7 +752,7 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
                 characterId={mentor.id as CharacterId}
                 size="detailed"
                 alt={mentor.name}
-                scale={2}
+                scale={1.0}
                 pixelated={true}
               />
             </CharacterPortrait>
@@ -860,7 +762,10 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
       
       {/* Dialogue Section */}
       <DialogueSection>
-        <DialogueBox $roomId={roomId} onClick={handleSkipTyping}>
+        <ExpandableDialogContainer 
+          domain="physics"
+          onClick={handleSkipTyping}
+        >
           {mentor && (
             <SpeakerName>{mentor.name}</SpeakerName>
           )}
@@ -882,54 +787,65 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
           {!isTyping && availableOptions.length === 0 && (
             <ContinuePrompt>Click to continue...</ContinuePrompt>
           )}
-        </DialogueBox>
-        
-        {/* Options */}
-        {!isTyping && availableOptions.length > 0 && (
-          <OptionsContainer>
-            {availableOptions.map((option, index) => (
-              <OptionButton
-                key={option.id}
-                onClick={() => handleSelectOption(option)}
-                disabled={isOptionDisabled(option)}
-                $disabled={isOptionDisabled(option)}
-                $selected={index === selectedOptionIndex}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>{option.text}</span>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    {option.insightChange !== undefined && option.insightChange !== 0 && (
-                      <ResourceIndicator $type="insight">
-                        {option.insightChange > 0 ? '+' : ''}{option.insightChange}
-                      </ResourceIndicator>
-                    )}
-                    {option.momentumChange !== undefined && option.momentumChange !== 0 && (
-                      <ResourceIndicator $type="momentum">
-                        {option.momentumChange > 0 ? '+' : ''}{option.momentumChange}
-                      </ResourceIndicator>
-                    )}
-                    {option.relationshipChange !== undefined && option.relationshipChange !== 0 && (
-                      <ResourceIndicator $type="relationship">
-                        {option.relationshipChange > 0 ? '+' : ''}{option.relationshipChange}
-                      </ResourceIndicator>
-                    )}
-                  </div>
-                </div>
-                {isOptionDisabled(option) && (
-                  <div style={{ 
-                    marginTop: spacing.xs, 
-                    fontSize: typography.fontSize.xs, 
-                    color: colors.textDim,
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}>
-                    🔒 Requires knowledge in this area
-                  </div>
-                )}
-              </OptionButton>
-            ))}
-          </OptionsContainer>
-        )}
+
+          {/* Options Section - MOVED INSIDE DialogueSection */}
+          {!isTyping && availableOptions.length > 0 && (
+            <OptionsContainer>
+              {availableOptions.map((option, index) => (
+                <CardContainer
+                  key={option.id}
+                  size="xs"
+                  domain="physics"
+                  isActive={index === selectedOptionIndex}
+                  isDisabled={isOptionDisabled(option)}
+                  onClick={() => handleSelectOption(option)}
+                  style={{ 
+                    cursor: isOptionDisabled(option) ? 'not-allowed' : 'pointer',
+                    filter: isOptionDisabled(option) 
+                      ? 'grayscale(1) opacity(0.6)' 
+                      : index === selectedOptionIndex 
+                        ? 'brightness(1.2) saturate(1.1)' 
+                        : 'none',
+                    overflow: 'visible', /* Allow tooltips to extend beyond bounds */
+                    contain: 'layout style' /* Prevent layout thrashing */
+                  }}
+                >
+                  <OptionContent $selected={index === selectedOptionIndex} $disabled={isOptionDisabled(option)}>
+                    <span>{option.text}</span>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      {option.insightChange !== undefined && option.insightChange !== 0 && (
+                        <ResourceIndicator $type="insight">
+                          {option.insightChange > 0 ? '+' : ''}{option.insightChange}
+                        </ResourceIndicator>
+                      )}
+                      {option.momentumChange !== undefined && option.momentumChange !== 0 && (
+                        <ResourceIndicator $type="momentum">
+                          {option.momentumChange > 0 ? '+' : ''}{option.momentumChange}
+                        </ResourceIndicator>
+                      )}
+                      {option.relationshipChange !== undefined && option.relationshipChange !== 0 && (
+                        <ResourceIndicator $type="relationship">
+                          {option.relationshipChange > 0 ? '+' : ''}{option.relationshipChange}
+                        </ResourceIndicator>
+                      )}
+                    </div>
+                  </OptionContent>
+                  {isOptionDisabled(option) && (
+                    <div style={{ 
+                      marginTop: spacing.xs, 
+                      fontSize: typography.fontSize.xs, 
+                      color: colors.textDim,
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}>
+                      🔒 Requires knowledge in this area
+                    </div>
+                  )}
+                </CardContainer>
+              ))}
+            </OptionsContainer>
+          )}
+        </ExpandableDialogContainer>
       </DialogueSection>
       
       {/* Reaction System for floating symbols */}

@@ -147,7 +147,7 @@ const MentorPortrait: React.FC<{
   })();
 
   // Use expression spritesheet for Garcia if available and requested
-  const hasExpressionSheet = mentorCharacterId === 'garcia' && useExpressions;
+  const hasExpressionSheet = (mentorCharacterId === 'garcia' || mentorCharacterId === 'jesse') && useExpressions;
   
   if (hasExpressionSheet) {
     const expressionCoords = getExpressionCoordinates(expression);
@@ -170,7 +170,9 @@ const MentorPortrait: React.FC<{
         <div style={{
           width: '100%',
           height: '100%',
-          backgroundImage: `url('/images/characters/portraits/garcia-animation.png')`,
+          backgroundImage: mentorCharacterId === 'garcia' 
+            ? `url('/images/characters/portraits/garcia-animation.png')`
+            : `url('/images/characters/portraits/jesse-medium.png')`,
           backgroundRepeat: 'no-repeat',
           backgroundPosition: `-${expressionCoords.x * scale}px 0px`,
           backgroundSize: `${15 * 42 * scale}px ${42 * scale}px`,

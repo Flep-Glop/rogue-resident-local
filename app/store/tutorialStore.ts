@@ -9,40 +9,26 @@ enableMapSet();
 
 // Tutorial sequence definitions
 export type TutorialSequence = 
-  | 'first_day'           // Complete first day onboarding
+  | 'micro_day'           // Focused Quinn micro day experience
   | 'night_phase'         // Knowledge constellation introduction
   | 'mentor_relationships'// Deep mentor interaction tutorial
   | 'advanced_systems';   // Journal cards, special abilities
 
 // Specific tutorial steps within sequences
 export type TutorialStep = 
-  // First Day Tutorial Steps
-  | 'morning_arrival'
-  | 'first_mentor_intro'
-  | 'hospital_tour'
-  | 'first_educational_activity'
-  | 'insight_mechanic_intro'
-  | 'lunch_dialogue'
-  | 'second_mentor_intro'
-  | 'constellation_preview'
-  | 'first_ability_intro'
-  | 'journal_card_explanation'
-  | 'night_phase_transition'
-  | 'quinn_office_meeting'
-  | 'ability_card_introduction'
-  | 'journal_system_explanation'
-  | 'third_mentor_intro'
+  // Micro Day Tutorial Steps
+  | 'quinn_intro'
+  | 'quinn_activity'
+  | 'quinn_followup'
+  | 'night_phase_intro'
+  | 'home_intro'
+  | 'constellation_intro'
+  | 'abilities_desk_intro'
+  | 'day_two_start'
+  | 'quinn_second_meeting'
+  | 'first_ability_use'
   
-  // Night Phase Tutorial Steps
-  | 'observatory_introduction'
-  | 'constellation_interface'
-  | 'star_selection_tutorial'
-  | 'journal_system_intro'
-  | 'card_placement_tutorial'
-  | 'phone_call_system'
-  | 'mentor_night_guidance'
-  
-  // Advanced Tutorial Steps
+  // Placeholder for future implementation
   | 'mentor_relationship_tracking'
   | 'advanced_dialogue_options'
   | 'special_abilities_unlock'
@@ -154,197 +140,49 @@ type TutorialStore = TutorialState & TutorialActions;
 
 // Tutorial step sequences for progress calculation
 const TUTORIAL_SEQUENCES: Record<TutorialSequence, TutorialStep[]> = {
-  first_day: [
-    'morning_arrival',
-    'hospital_tour',
-    'first_mentor_intro',
-    'first_educational_activity',
-    'lunch_dialogue',
-    'second_mentor_intro',
-    'constellation_preview',
-    'first_ability_intro',
-    'insight_mechanic_intro',
-    'journal_card_explanation',
-    'night_phase_transition',
-    'quinn_office_meeting',
-    'ability_card_introduction',
-    'journal_system_explanation',
-    'third_mentor_intro'
+  micro_day: [
+    'quinn_intro',
+    'quinn_activity',
+    'quinn_followup',
+    'night_phase_intro',
+    'home_intro',
+    'constellation_intro',
+    'abilities_desk_intro',
+    'day_two_start',
+    'quinn_second_meeting',
+    'first_ability_use'
   ],
   night_phase: [
-    'observatory_introduction',
-    'constellation_interface',
-    'star_selection_tutorial',
-    'journal_system_intro',
-    'card_placement_tutorial',
-    'phone_call_system',
-    'mentor_night_guidance'
+    // Placeholder for future night phase tutorial steps
   ],
   mentor_relationships: [
-    'mentor_relationship_tracking',
-    'advanced_dialogue_options'
+    // Placeholder for future mentor relationship steps
   ],
   advanced_systems: [
-    'special_abilities_unlock',
-    'boss_encounter_prep'
+    // Placeholder for future advanced system steps
   ]
 };
 
 // Helper function to get step-specific guidance overlays
 function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
   const stepGuidance: Record<TutorialStep, TutorialOverlay | null> = {
-    // First Day Tutorial Steps
-    'morning_arrival': {
-      id: 'guide_morning_arrival',
-      type: 'tooltip',
-      title: 'First Day!',
-      content: 'Meet Dr. Garcia, your first mentor.',
-      position: { x: 200, y: 100 },
-      dismissable: true,
-      autoAdvance: 5
-    },
-    'first_mentor_intro': {
-      id: 'guide_first_mentor',
-      type: 'spotlight',
-      title: 'Dr. Garcia',
-      content: 'Lead oncologist. Focus on patient-centered care.',
-      targetElement: '.mentor-portrait, .dialogue-view',
-      dismissable: true
-    },
-    'hospital_tour': {
-      id: 'guide_hospital_tour',
-      type: 'tooltip',
-      title: 'Navigation',
-      content: 'Click glowing rooms to explore. Each offers unique learning.',
-      position: { x: 300, y: 200 },
-      dismissable: true
-    },
-    'first_educational_activity': null, // Shown manually in NarrativeDialogue when activity triggers
-    'insight_mechanic_intro': {
-      id: 'guide_insight_intro',
-      type: 'modal',
-      title: 'Insight Points',
-      content: 'IP is your learning currency. Earn from activities, unlock stars.',
-      dismissable: true
-    }, // Introduced after first activity for better pacing
-    'lunch_dialogue': null, // Will be shown when returning to hospital map
-    'second_mentor_intro': {
-      id: 'guide_second_mentor',
-      type: 'spotlight',
-      title: 'Dr. Quinn',
-      content: 'Treatment Planning head. Physics expert.',
-      targetElement: '.mentor-portrait, .dialogue-view',
-      dismissable: true
-    },
-    'constellation_preview': null, // Moved to Quinn's office meeting at end of day
-    'first_ability_intro': null, // Moved to Quinn's office meeting at end of day
-    'journal_card_explanation': null, // Moved to Quinn's office meeting at end of day
-    'night_phase_transition': null, // Moved to Quinn's office meeting at end of day
-    'third_mentor_intro': {
-      id: 'guide_third_mentor',
-      type: 'spotlight',
-      title: 'Dr. Kapoor',
-      content: 'Dosimetry expert. Precision-focused.',
-      targetElement: '.mentor-portrait, .dialogue-view',
-      dismissable: true
-    },
+    // Micro Day Tutorial Steps - Clean slate for new implementation
+    'quinn_intro': null,
+    'quinn_activity': null,
+    'quinn_followup': null,
+    'night_phase_intro': null,
+    'home_intro': null,
+    'constellation_intro': null,
+    'abilities_desk_intro': null,
+    'day_two_start': null,
+    'quinn_second_meeting': null,
+    'first_ability_use': null,
 
-    // Night Phase Tutorial Steps
-    'observatory_introduction': {
-      id: 'guide_observatory',
-      type: 'modal',
-      title: 'Your Observatory',
-      content: 'Explore your constellation and organize learning each night.',
-      dismissable: true
-    },
-    'constellation_interface': {
-      id: 'guide_constellation_interface',
-      type: 'tooltip',
-      title: 'Constellation',
-      content: 'Each star is a concept. Click to unlock with SP.',
-      position: { x: 400, y: 200 },
-      dismissable: true
-    },
-    'star_selection_tutorial': {
-      id: 'guide_star_selection',
-      type: 'guided_interaction',
-      title: 'Select a Star',
-      content: 'Click any glowing star. Costs SP from activities.',
-      targetElement: '.knowledge-star, .constellation-star',
-      dismissable: false,
-      actionRequired: { type: 'click', target: '.knowledge-star, .constellation-star' }
-    },
-    'journal_system_intro': {
-      id: 'guide_journal_system',
-      type: 'modal',
-      title: 'Journal',
-      content: 'Store ability cards and insights. Organize strategically.',
-      dismissable: true
-    },
-    'card_placement_tutorial': {
-      id: 'guide_card_placement',
-      type: 'guided_interaction',
-      title: 'Organize Cards',
-      content: 'Place an ability card. Categorize by priority.',
-      targetElement: '.journal-card, .ability-card',
-      dismissable: false,
-      actionRequired: { type: 'click', target: '.journal-card, .ability-card' }
-    },
-    'phone_call_system': {
-      id: 'guide_phone_system',
-      type: 'tooltip',
-      title: 'Mentor Calls',
-      content: 'Mentors call with guidance and insights.',
-      position: { x: 300, y: 100 },
-      dismissable: true,
-      autoAdvance: 4
-    },
-    'mentor_night_guidance': {
-      id: 'guide_mentor_guidance',
-      type: 'modal',
-      title: 'Mentor Support',
-      content: 'Mentors help connect concepts and apply knowledge.',
-      dismissable: true
-    },
-
-    // Advanced Tutorial Steps (minimal for now)
+    // Placeholder for future implementation
     'mentor_relationship_tracking': null,
     'advanced_dialogue_options': null,
     'special_abilities_unlock': null,
-    'boss_encounter_prep': null,
-
-    // Quinn's Office Meeting Tutorial Steps
-    'quinn_office_meeting': {
-      id: 'guide_quinn_office',
-      type: 'tooltip',
-      title: 'Day Wrap-up',
-      content: 'Dr. Quinn has something important to share.',
-      position: { x: 300, y: 150 },
-      dismissable: true
-    },
-    'ability_card_introduction': {
-      id: 'guide_constellation_preview',
-      type: 'modal',
-      title: 'Constellation Preview',
-      content: 'Tonight you\'ll visualize and connect concepts.',
-      dismissable: true
-    },
-    'journal_system_explanation': {
-      id: 'guide_first_ability',
-      type: 'modal',
-      title: 'Your First Card',
-      content: 'Apply this ability in future activities. Organize tonight.',
-      dismissable: true
-    },
-
-    // Night phase transition overlay that will appear after Quinn's office meeting
-    'night_phase_transition': {
-      id: 'guide_night_transition',
-      type: 'modal',
-      title: 'Night Phase',
-      content: 'Day ending. Explore constellation and organize journal.',
-      dismissable: true
-    }
+    'boss_encounter_prep': null
   };
 
   return stepGuidance[step] || null;

@@ -14,6 +14,7 @@ import RoomUIOverlay from '../rooms/RoomUIOverlays';
 import TutorialOverlayManager from '@/app/components/tutorial/TutorialOverlay';
 import { TutorialModeIndicator } from '@/app/components/tutorial/TutorialControls';
 import TutorialActivity from '@/app/components/tutorial/TutorialActivity';
+import QuinnTutorialActivity from '@/app/components/tutorial/QuinnTutorialActivity';
 import TestActivity from '@/app/components/test/TestActivity';
 import GameDevConsole from '@/app/components/debug/GameDevConsole';
 import { DayNightTransition } from '@/app/components/phase/DayNightTransition';
@@ -93,14 +94,23 @@ export default function GameContainer() {
         );
         
       case 'tutorial_activity':
-        return (
-          <TutorialActivity
-            patientName={context.patientName || 'Mrs. Patterson'}
-            mentorId={context.mentorId || 'garcia'}
-            roomId={context.roomId || 'physics-office'}
-            onComplete={handleTutorialActivityComplete}
-          />
-        );
+        // Use QuinnTutorialActivity for Quinn, regular TutorialActivity for others
+        if (context.mentorId === 'quinn') {
+          return (
+            <QuinnTutorialActivity
+              onComplete={handleTutorialActivityComplete}
+            />
+          );
+        } else {
+          return (
+            <TutorialActivity
+              patientName={context.patientName || 'Mrs. Patterson'}
+              mentorId={context.mentorId || 'garcia'}
+              roomId={context.roomId || 'physics-office'}
+              onComplete={handleTutorialActivityComplete}
+            />
+          );
+        }
         
       case 'test_activity':
         return (

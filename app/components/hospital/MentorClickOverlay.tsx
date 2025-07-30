@@ -151,14 +151,14 @@ const ActivityIndicator = styled.div<{ $type: ActivityIndicatorType }>`
 
 const MentorTooltip = styled.div<{ $visible: boolean }>`
   position: absolute;
-  bottom: -45px;
+  bottom: -90px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.9);
   color: white;
-  padding: 10px 14px;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 20px 28px;
+  border-radius: 12px;
+  font-size: 24px;
   font-weight: bold;
   white-space: nowrap;
   pointer-events: none;
@@ -240,7 +240,7 @@ function MentorClickArea({
           {mentorPosition.name}
         </div>
         {activityType && (
-          <div style={{ fontSize: '11px', opacity: 0.9 }}>
+          <div style={{ fontSize: '18px', opacity: 0.9 }}>
             {getContentTypeLabel(activityType)}
           </div>
         )}

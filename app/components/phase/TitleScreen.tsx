@@ -470,9 +470,9 @@ export const TitleScreen: React.FC = () => {
         daysPassed: 0
       });
       
-      // Start tutorial immediately
+      // Start tutorial immediately (silently, without welcome overlay)
       const tutorialStore = useTutorialStore.getState();
-      tutorialStore.startTutorial('first_day');
+      tutorialStore.startTutorialSilently('micro_day', 'quinn_intro');
       
       setPhase(GamePhase.DAY);
     }, 800);

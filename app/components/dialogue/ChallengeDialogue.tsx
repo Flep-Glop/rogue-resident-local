@@ -10,6 +10,16 @@ import { CharacterId, isValidCharacterId } from '@/app/utils/portraitUtils';
 import { colors, spacing, typography, borders, animation, mixins } from '@/app/styles/pixelTheme';
 import { getRoomBackground } from '@/app/utils/roomBackgrounds';
 import { useReactionSystem, getPortraitAnimation, PortraitAnimationType, ReactionSymbolType } from '../ui/ReactionSystem';
+import ReactionSystemComponent from '@/app/components/ui/ReactionSystem';
+import AbilityCardFlip from '@/app/components/ui/AbilityCardFlip';
+import { useSceneNavigation } from '@/app/components/scenes/GameContainer';
+import { ParsedDialogue } from '@/app/types/dialogue';
+import { ExpandableDialogContainer } from '@/app/components/ui/PixelContainer';
+
+// === INTERNAL RESOLUTION SYSTEM ===
+// Dialogue uses 640x360 internal coordinates (matching physics office native resolution)
+const DIALOGUE_INTERNAL_WIDTH = 640;
+const DIALOGUE_INTERNAL_HEIGHT = 360;
 
 // Keyframe animations
 const slideInUp = keyframes`
@@ -63,42 +73,40 @@ interface DialogueHistoryItem {
 }
 
 const Container = styled.div<{ $roomId?: string }>`
-  width: 100vw;
-  height: 100vh;
+  position: relative;
+  
+  /* Use 640x360 internal coordinate system - scale entire container to fit viewport */
+  width: ${DIALOGUE_INTERNAL_WIDTH}px;
+  height: ${DIALOGUE_INTERNAL_HEIGHT}px;
+  
+  /* Center and scale container to fit viewport while maintaining aspect ratio */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+  transform: translate(-50%, -50%) scale(var(--dialogue-scale));
+  
   display: flex;
   flex-direction: column;
   font-family: ${typography.fontFamily.pixel};
   color: ${colors.text};
   overflow: hidden;
-  position: relative;
   
-  /* Clean background without filters - filters will be applied to individual background layers */
-  ${props => {
-    const roomConfig = getRoomBackground(props.$roomId);
-    
-    if (roomConfig.backgroundImage) {
-      return `
-        background: transparent; /* No background - let BackgroundLayer handle it */
-      `;
-    }
-    
-    return `
-      background: transparent; /* Let BackgroundLayer handle gradients too */
-    `;
-  }}
+  /* Clean background without filters - let BackgroundLayer handle backgrounds */
+  background: transparent;
   
-  /* Comprehensive scrollbar hiding */
-  ::-webkit-scrollbar {
-    display: none;
-  }
+  /* Pixel perfect rendering */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  
+  /* Hide scrollbars */
+  ::-webkit-scrollbar { display: none; }
   -ms-overflow-style: none;
   scrollbar-width: none;
   
-  /* Apply to all child elements as well */
   * {
-    ::-webkit-scrollbar {
-      display: none;
-    }
+    ::-webkit-scrollbar { display: none; }
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
@@ -116,7 +124,7 @@ const BackgroundLayer = styled.div<{ $roomId?: string }>`
     if (roomConfig.backgroundImage) {
       return `
         background-image: url('${roomConfig.backgroundImage}');
-        background-size: cover;
+        background-size: ${DIALOGUE_INTERNAL_WIDTH}px ${DIALOGUE_INTERNAL_HEIGHT}px; /* Native 640x360 size - no scaling */
         background-position: center;
         background-repeat: no-repeat;
         background-color: #1a1a2e; /* Fallback color only */
@@ -149,12 +157,13 @@ const FeedContainer = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: ${spacing.lg};
-  gap: ${spacing.md};
+  padding: ${spacing.md};
+  gap: ${spacing.sm};
   overflow-y: hidden;
-  max-height: calc(100vh - 200px);
+  max-height: calc(60vh - 150px); /* Significantly reduced height */
   z-index: 5; /* Above foreground layer (z-index: 3) for challenge mode */
   position: relative;
+  margin-bottom: 180px; /* Make room for Quinn's portrait */
   
   /* Hide scrollbars completely */
   ::-webkit-scrollbar {
@@ -162,6 +171,57 @@ const FeedContainer = styled.div`
   }
   -ms-overflow-style: none;
   scrollbar-width: none;
+`;
+
+// Character Section for Quinn's portrait at bottom of screen
+const CharacterSection = styled.div`
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  height: 180px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 6;
+`;
+
+const CharacterPortrait = styled.div<{ $roomId?: string }>`
+  width: 233px;
+  height: 322px;
+  position: relative;
+  overflow: visible;
+  
+  filter: 
+    drop-shadow(0 0 15px rgba(0, 0, 0, 0.8))
+    brightness(0.92)
+    contrast(1.08)
+    ${props => {
+      switch(props.$roomId) {
+        case 'physics-office':
+          return 'hue-rotate(-3deg) saturate(0.96)';
+        case 'linac-1':
+          return 'hue-rotate(2deg) saturate(1.02)';
+        case 'linac-2':
+          return 'hue-rotate(2deg) saturate(1.04)';
+        case 'dosimetry-lab':
+          return 'hue-rotate(-5deg) saturate(0.94)';
+        case 'simulation-suite':
+          return 'hue-rotate(1deg) saturate(1.00)';
+        default:
+          return 'hue-rotate(-3deg) saturate(0.96)';
+      }
+    }};
+  
+  img {
+    image-rendering: pixelated;
+    -webkit-image-rendering: pixelated; 
+    -moz-image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+  }
+  
+  ${mixins.pixelPerfect}
 `;
 
 const MessageBubble = styled.div<{ $isUser?: boolean; $roomId?: string }>`
@@ -319,10 +379,11 @@ const PortraitContainer = styled.div`
 const OptionsSection = styled.div`
   background: ${colors.background};
   border-top: 2px solid ${colors.border};
-  padding: ${spacing.lg};
-  min-height: 120px;
+  padding: ${spacing.md};
+  min-height: 80px; /* Reduced from 120px */
   z-index: 5; /* Above foreground layer (z-index: 3) for challenge mode */
   position: relative;
+  margin-bottom: 160px; /* Make room for Quinn's portrait */
 `;
 
 // New: Foreground layer for depth effect  
@@ -599,19 +660,46 @@ const MomentumBonus = styled.div<{ $visible: boolean; $level: number }>`
 
 export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: ChallengeDialogueProps) {
   const [initialized, setInitialized] = useState(false);
-  const [dialogueHistory, setDialogueHistory] = useState<DialogueHistoryItem[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [showReaction, setShowReaction] = useState<'positive' | 'negative' | 'neutral' | null>(null);
-  const [selectedOptionIndex, setSelectedOptionIndex] = useState(0); // For arrow key navigation
+  const [typedText, setTypedText] = useState('');
+  const [currentCharIndex, setCurrentCharIndex] = useState(0);
+  const [currentPortraitAnimation, setCurrentPortraitAnimation] = useState<PortraitAnimationType>('none');
+  const [parsedDialogue, setParsedDialogue] = useState<ParsedDialogue>({ stageDirections: [], cleanText: '' });
+  const [selectedOptionIndex, setSelectedOptionIndex] = useState(0);
+  const [activityTriggered, setActivityTriggered] = useState(false);
+  const typingSpeed = 30;
   
-  // Enhanced resource tracking for sprite displays
-  const [currentInsight, setCurrentInsight] = useState(50); // Start with 50 insight
-  const [currentMomentum, setCurrentMomentum] = useState(1); // Start with 1 momentum
-  const maxMomentum = 3;
+  // Scene navigation for challenge activities
+  const { enterChallenge } = useSceneNavigation();
   
   // Reaction system
   const containerRef = useRef<HTMLDivElement>(null);
   const { triggerReaction, triggerPortraitAnimation, ReactionSystemComponent } = useReactionSystem(containerRef);
+
+  // === DIALOGUE SCALING SYSTEM ===
+  // Calculate scale to fit 640x360 dialogue into viewport while maintaining aspect ratio
+  useEffect(() => {
+    const updateDialogueScale = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      const scaleX = viewportWidth / DIALOGUE_INTERNAL_WIDTH;
+      const scaleY = viewportHeight / DIALOGUE_INTERNAL_HEIGHT;
+      const dialogueScale = Math.min(scaleX, scaleY);
+      
+      // Set CSS custom property for dialogue scaling
+      document.documentElement.style.setProperty('--dialogue-scale', dialogueScale.toString());
+      
+      console.log(`[ChallengeDialogue] Dialogue scale: ${dialogueScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${DIALOGUE_INTERNAL_WIDTH}x${DIALOGUE_INTERNAL_HEIGHT})`);
+    };
+    
+    updateDialogueScale();
+    window.addEventListener('resize', updateDialogueScale);
+    
+    return () => {
+      window.removeEventListener('resize', updateDialogueScale);
+    };
+  }, []);
   
   // Dialogue store selectors
   const {
@@ -860,9 +948,20 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
               )}
               
               <MessageContent>
-                <MessageBubble $isUser={message.isPlayer} $roomId={roomId}>
+                <ExpandableDialogContainer 
+                  domain={roomId?.includes('physics') ? 'physics' : 
+                         roomId?.includes('dosimetry') ? 'dosimetry' :
+                         roomId?.includes('linac') ? 'linac' : 'planning'}
+                  isActive={!message.isPlayer}
+                  style={{
+                    background: message.isPlayer ? colors.highlight : 'transparent',
+                    color: message.isPlayer ? colors.background : colors.text,
+                    fontSize: typography.fontSize.sm,
+                    marginBottom: spacing.sm
+                  }}
+                >
                   {message.text}
-                </MessageBubble>
+                </ExpandableDialogContainer>
                 <MessageMeta>
                   <span>{message.isPlayer ? 'You' : mentor?.name}</span>
                   <span>•</span>
@@ -946,6 +1045,21 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
           </OptionsContainer>
         </OptionsSection>
       )}
+      
+      {/* Current Mentor Portrait at Bottom of Screen */}
+      <CharacterSection>
+        <CharacterPortrait $roomId={roomId}>
+          {currentNode?.mentorId && isValidCharacterId(currentNode.mentorId) && (
+            <PortraitImage
+              characterId={currentNode.mentorId as CharacterId}
+              size="detailed"
+              alt={getMentor(currentNode.mentorId)?.name || 'Mentor'}
+              scale={1.0}
+              pixelated={true}
+            />
+          )}
+        </CharacterPortrait>
+      </CharacterSection>
       
       {/* Reaction System for floating symbols */}
       <ReactionSystemComponent />

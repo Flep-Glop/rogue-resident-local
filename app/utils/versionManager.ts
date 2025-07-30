@@ -18,14 +18,37 @@ export interface ChangelogEntry {
 
 // Current version info - update this when releasing new versions
 export const CURRENT_VERSION: VersionInfo = {
-  version: "0.6.0-dev",
-  buildDate: "2025-07-24",
+  version: "0.7.0-dev",
+  buildDate: "2025-07-30",
   environment: "development",
-  commitHash: "437db3b" // Latest commit from git log
+  commitHash: "93d1fc1" // Latest commit from git log
 };
 
 // Changelog entries - add new entries at the top
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: "v0.7.0-dev",
+    date: "2025-07-30",
+    type: "minor",
+    highlights: [
+      "Complete Quinn micro-day tutorial experience",
+      "Revolutionary 9-slice pixel container system",
+      "1:1 insight animation with 66% asset reduction",
+      "Production-ready Phase 1 vertical slice"
+    ],
+    changes: [
+      "Implemented complete Quinn tutorial flow from physics office introduction to post-activity dialogue",
+      "Breakthrough PixelContainer 9-slice system replacing CSS styling with authentic pixel art containers",
+      "Revolutionary 1:1 insight animation system with direct frame-to-insight mapping and 66% sprite size reduction",
+      "Innovative momentum flicker animation with preview frames and dramatic timing for enhanced engagement", 
+      "Streamlined tutorial flow from 5 clicks to 1 click to reach learning content",
+      "Complete UI migration to pixel container architecture across dialogue and activity systems",
+      "Environmental polish with optimized vegetation animations and pond polygon boundary system",
+      "Fixed critical text visibility issues in 9-slice containers and established production-ready architecture",
+      "Unified visual interface with integrated insight/momentum bars and theme-based typography consistency",
+      "Asset optimization including Quinn sprite reduction and environmental animation refinements"
+    ]
+  },
   {
     version: "v0.6.0-dev",
     date: "2025-07-24",

@@ -120,28 +120,24 @@ export const MENTOR_TIME_SCHEDULE: Record<TimeOfDay, Record<string, {
   available: boolean;
 }>> = {
   dawn: {
-    'garcia': { roomId: 'physics-office', worldX: -400, worldY: -200, available: true },
     'jesse': { roomId: 'linac-1', worldX: -820, worldY: 20, available: false },
     'kapoor': { roomId: 'dosimetry-lab', worldX: 600, worldY: 0, available: false },
-    'quinn': { roomId: 'physics-office', worldX: -350, worldY: -150, available: false }
+    'quinn': { roomId: 'physics-office', worldX: -350, worldY: -145, available: true }
   },
   day: {
-    'garcia': { roomId: 'physics-office', worldX: -400, worldY: -200, available: false }, // Lunch break
     'jesse': { roomId: 'linac-1', worldX: -820, worldY: 20, available: false },
     'kapoor': { roomId: 'dosimetry-lab', worldX: 600, worldY: 0, available: false },
     'quinn': { roomId: 'lunch-room', worldX: -300, worldY: 100, available: true } // Available for lunch dialogue
   },
   evening: {
-    'garcia': { roomId: 'physics-office', worldX: -400, worldY: -200, available: false },
     'jesse': { roomId: 'linac-1', worldX: -820, worldY: 20, available: true }, // Available for afternoon tutorial
     'kapoor': { roomId: 'dosimetry-lab', worldX: 600, worldY: 0, available: false },
-    'quinn': { roomId: 'physics-office', worldX: -350, worldY: -150, available: false }
+    'quinn': { roomId: 'physics-office', worldX: -350, worldY: -145, available: false }
   },
   night: {
-    'garcia': { roomId: 'physics-office', worldX: -400, worldY: -200, available: false },
     'jesse': { roomId: 'linac-1', worldX: -820, worldY: 20, available: false },
     'kapoor': { roomId: 'dosimetry-lab', worldX: 600, worldY: 0, available: false },
-    'quinn': { roomId: 'physics-office', worldX: -350, worldY: -150, available: true } // Available for final meeting
+    'quinn': { roomId: 'physics-office', worldX: -350, worldY: -145, available: true } // Available for final meeting
   }
 };
 
@@ -169,7 +165,7 @@ class TutorialTimeProgressionManager {
 
     // Listen for tutorial step completions
     centralEventBus.subscribe(GameEventType.TUTORIAL_STEP_COMPLETED, (event) => {
-      const completedStep = event.payload.step;
+      const completedStep = event.payload?.step as string;
       this.handleTutorialStepCompletion(completedStep);
     });
 

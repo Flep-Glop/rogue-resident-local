@@ -235,6 +235,8 @@ const ContentWrapper = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100%; /* Ensure content wrapper fills the container */
+  /* No padding - Container already applies SIZE_CONFIG padding */
 `;
 
 // Expandable container using 9-slice technique for typewriter containers
@@ -245,20 +247,24 @@ const ExpandableContainer = styled.div<{
   $isDisabled?: boolean;
 }>`
   position: relative;
-  display: flex;
-  flex-direction: column;
+  /* REMOVED FLEX PROPERTIES - This container is now only for the border-image */
   ${mixins.pixelPerfect}
   
-  /* 9-slice border-image setup */
+  /* Background fill for container */
+  background-image: url('${({ $variant }) => CONTAINER_ASSETS[$variant]?.background}');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  
+  /* 9-slice border-image setup - FIXED: Removed 'fill' keyword to prevent text invisibility */
   border-image: url('${({ $variant }) => CONTAINER_ASSETS[$variant]?.nineslice}') 
-                ${({ $variant }) => NINESLICE_CONFIG[$variant]?.slice} fill;
+                ${({ $variant }) => NINESLICE_CONFIG[$variant]?.slice};
   border-width: ${({ $variant }) => NINESLICE_CONFIG[$variant]?.borderWidth};
   border-style: solid;
   
   /* Natural expansion for typewriter effect */
   min-height: ${({ $variant }) => NINESLICE_CONFIG[$variant]?.minHeight};
   width: 100%;
-  padding: 1rem;
+  /* REMOVED PADDING - Now applied to ContentWrapper */
   
   /* State-based styling */
   filter: ${({ $isDisabled, $isActive, $domain }) => {
@@ -281,13 +287,15 @@ const ExpandableContainer = styled.div<{
   image-rendering: -webkit-crisp-edges;
 `;
 
-// Expandable content wrapper - simpler since border-image handles the styling
+// Expandable content wrapper - ensures content appears above border-image
 const ExpandableContentWrapper = styled.div`
   position: relative;
-  z-index: 1;
+  z-index: 2; /* Higher z-index to ensure content appears above border-image */
   flex: 1;
   display: flex;
   flex-direction: column;
+  /* FIXED: Removed hardcoded 1rem padding to respect SIZE_CONFIG system */
+  color: ${colors.text};
 `;
 
 // Special effect overlays for active states

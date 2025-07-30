@@ -1,22 +1,24 @@
-# Modern pixel art game positioning and sprite management
+# Pixel Art Implementation Guide
+## Web-Based Games with PixiJS v8
 
-Pixel art games with 320x180 internal resolution increasingly use **hybrid positioning systems** that maintain sub-pixel precision for logic while snapping to integer coordinates for rendering, combining smooth gameplay with crisp visuals. The most successful implementations, including Celeste and Dead Cells, demonstrate that separating logical positioning from visual rendering enables both fluid movement and pixel-perfect aesthetics. Modern web frameworks like Next.js require client-side rendering with specialized libraries like PixiJS v8, which provides built-in pixel art support through `roundPixels` and nearest neighbor filtering.
+### **Core Implementation Pattern**
+Modern pixel art games use **hybrid positioning**: float coordinates for logic, integer coordinates for rendering.
 
-## Grid versus precise positioning: A solved problem
+```typescript
+// World logic: Smooth subpixel movement
+character.worldX = 45.7;  
+character.worldY = 23.3;
 
-The traditional debate between fixed grid and precise positioning has evolved into sophisticated hybrid approaches. **Sub-pixel positioning with pixel-perfect rendering** has emerged as the dominant pattern, where games maintain float coordinates internally but snap to integer positions for display. Games store logical positions as floating-point values, enabling smooth physics and frame-rate independent movement, then apply `floor(position)` operations during the render phase to maintain pixel alignment.
+// Rendering: Snap to pixels for crisp visuals
+sprite.x = Math.floor(character.worldX);  
+sprite.y = Math.floor(character.worldY);
+sprite.texture.source.scaleMode = 'nearest';
+```
 
-Celeste exemplifies this approach through its "layer sliding" technique. The game renders objects at pixel-perfect integer coordinates on a 320x180 canvas, then positions this canvas at sub-pixel precision using the higher screen resolution. This dual-resolution strategy enables smooth camera movement without sacrificing sprite clarity. The formula `gameScale * ((float2)camera.position - (int2)camera.position - BLEED_SIZE / 2)` calculates the precise offset, requiring a slightly oversized canvas to accommodate sub-pixel shifts.
-
-Fixed grid positioning remains relevant only for specific genres like puzzle games or turn-based strategies where movement naturally aligns to tiles. The performance advantages of integer coordinates—lower CPU overhead and simpler collision detection—rarely justify the animation limitations in action-oriented games. Modern engines handle float operations efficiently, making the computational cost negligible compared to the gameplay benefits.
-
-## Sprite scaling demands shader sophistication
-
-Maintaining pixel art aesthetics across diverse screen resolutions requires more than simple nearest neighbor filtering. **Advanced shader techniques** now enable high-quality non-integer scaling through hybrid approaches that apply bilinear filtering only at texel boundaries while preserving sharp edges elsewhere. The Cole Cecil method calculates `interpolationAmount = clamp(locationWithinTexel / texelsPerPixel, 0, .5) + clamp((locationWithinTexel - 1) / texelsPerPixel + .5, 0, .5)` to determine when filtering should occur.
-
-Resolution-independent filtering using `fwidth()` functions has become the modern standard for automatic scaling adaptation. These shaders calculate pixel derivatives to adjust filtering thresholds dynamically, ensuring consistent visual quality regardless of zoom level or display resolution. The CSantos method applies `alpha = 0.7 * fwidth(pixels)` for automatic threshold detection, eliminating the need for manual tuning across different screen sizes.
-
-Texture atlas organization follows strict guidelines to prevent bleeding artifacts. **Sprites require 2-pixel padding** minimum between elements, with edge pixels extended into the padding area for seamless tiling. Modern tools like TexturePacker and Aseprite automate this process, generating optimized atlases with proper spacing. Unity's Sprite Atlas and similar engine features handle packing automatically while maintaining these critical padding requirements.
+### **Sprite Scaling & Filtering**
+- **Nearest neighbor filtering** for pixel-perfect scaling
+- **2-pixel padding** minimum between atlas sprites
+- **Power-of-two dimensions** for GPU optimization (max 4096x4096)
 
 ## Web implementation requires architectural decisions
 

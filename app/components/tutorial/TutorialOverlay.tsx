@@ -168,8 +168,8 @@ const OverlayContent = styled.div<{
 `;
 
 const OverlayTitle = styled.h3<{ $type: TutorialOverlayType }>`
-  margin: 0 0 8px 0;
-  font-size: ${({ $type }) => $type === 'modal' ? '20px' : '16px'};
+  margin: 0 0 16px 0; /* Increased bottom margin */
+  font-size: ${({ $type }) => $type === 'modal' ? '48px' : '40px'}; /* Increased font size */
   font-weight: bold;
   color: ${({ $type }) => {
     switch ($type) {
@@ -239,14 +239,14 @@ function parseContentWithHighlights(content: string, overlayType: TutorialOverla
 
 const OverlayContent2 = styled.p<{ $type: TutorialOverlayType }>`
   margin: 0;
-  font-size: ${({ $type }) => $type === 'modal' ? '16px' : '14px'};
+  font-size: ${({ $type }) => $type === 'modal' ? '32px' : '28px'}; /* Increased font size */
   color: ${({ $type }) => $type === 'guided_interaction' ? '#FFFFFF' : '#E2E8F0'};
-  line-height: 1.4;
+  line-height: 1.6; /* Increased line height */
 `;
 
 const DismissButton = styled.button<{ $type: TutorialOverlayType }>`
-  margin-top: 12px;
-  padding: 8px 16px;
+  margin-top: 24px; /* Increased top margin */
+  padding: 12px 24px; /* Increased padding */
   border: none;
   border-radius: 6px;
   background: ${({ $type }) => {

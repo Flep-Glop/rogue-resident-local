@@ -118,5 +118,6 @@ export const SPRITE_SHEETS = {
   expressions: {
     garcia: '/images/characters/portraits/garcia-animation.png', // 15 expressions, 42x42 each
     jesse: '/images/characters/portraits/jesse-medium.png' // 15 expressions, 42x42 each (user uploaded sprite sheet to replace static image)
+    // quinn uses single static frame - no sprite sheet
   }
 }; 

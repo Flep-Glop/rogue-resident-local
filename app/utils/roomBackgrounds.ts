@@ -11,7 +11,7 @@ export interface RoomBackgroundConfig {
 // Room background configurations
 export const ROOM_BACKGROUNDS: Record<string, RoomBackgroundConfig> = {
   'physics-office': {
-    backgroundImage: '/images/hospital/backgrounds/physics-office-background.png',
+    backgroundImage: '/images/hospital/backgrounds/physics-office-blur.png',
     foregroundImage: '/images/hospital/backgrounds/physics-office-foreground.png',
     fallbackGradient: 'linear-gradient(135deg, #3B82F6 0%, #60A5FA 50%, #1e1b4b 100%)',
     atmosphere: {

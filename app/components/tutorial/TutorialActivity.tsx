@@ -1333,7 +1333,7 @@ export default function TutorialActivity({ patientName, mentorId, roomId, onComp
         left: 0,
         width: '100vw',
         height: '100vh',
-        backgroundImage: `url('/images/hospital/backgrounds/physics-office-background.png')`,
+        backgroundImage: `url('/images/hospital/backgrounds/physics-office-blur.png')`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',

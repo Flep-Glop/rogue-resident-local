@@ -57,7 +57,7 @@ export const MENTOR_POSITIONS = getCurrentMentorPositions();
 
 // Room to mentor mapping (for determining which mentor is in which room)
 export const ROOM_TO_MENTOR: Record<string, string[]> = {
-  'physics-office': ['garcia', 'quinn'],
+  'physics-office': ['quinn'],
   'linac-1': ['jesse'],
   'linac-2': [],
   'dosimetry-lab': ['kapoor'],
@@ -68,12 +68,6 @@ export const ROOM_TO_MENTOR: Record<string, string[]> = {
 // Future: Mentor schedules throughout the day
 // This would enable mentors to move between rooms based on time
 export const MENTOR_SCHEDULES: Record<string, MentorScheduleEntry[]> = {
-  'garcia': [
-    { time: 8, worldX: -400, worldY: -200, roomId: 'physics-office' },
-    { time: 12, worldX: -300, worldY: -100, roomId: 'linac-1' }, // Moves for lunch supervision
-    { time: 14, worldX: -400, worldY: -200, roomId: 'physics-office' }, // Back to office
-    { time: 17, worldX: -400, worldY: -200, roomId: 'physics-office' }  // End of day
-  ],
   'jesse': [
     { time: 8, worldX: -820, worldY: 20, roomId: 'linac-1' },
     { time: 12, worldX: -820, worldY: 20, roomId: 'linac-1' }, // Stays at equipment
@@ -85,9 +79,9 @@ export const MENTOR_SCHEDULES: Record<string, MentorScheduleEntry[]> = {
     { time: 17, worldX: 600, worldY: 0, roomId: 'dosimetry-lab' }
   ],
   'quinn': [
-    { time: 8, worldX: 700, worldY: 50, roomId: 'physics-office' },
-    { time: 12, worldX: 700, worldY: 50, roomId: 'physics-office' },
-    { time: 17, worldX: 700, worldY: 50, roomId: 'physics-office' }
+    { time: 8, worldX: -300, worldY: -100, roomId: 'physics-office' },
+    { time: 12, worldX: -300, worldY: -100, roomId: 'physics-office' },
+    { time: 17, worldX: -300, worldY: -100, roomId: 'physics-office' }
   ]
 };
 
