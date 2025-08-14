@@ -22,8 +22,9 @@ export type TutorialStep =
   | 'quinn_followup'
   | 'night_phase_intro'
   | 'home_intro'
-  | 'constellation_intro'
   | 'abilities_desk_intro'
+  | 'constellation_available'
+  | 'constellation_intro'
   | 'day_two_start'
   | 'quinn_second_meeting'
   | 'first_ability_use'
@@ -146,8 +147,9 @@ const TUTORIAL_SEQUENCES: Record<TutorialSequence, TutorialStep[]> = {
     'quinn_followup',
     'night_phase_intro',
     'home_intro',
-    'constellation_intro',
     'abilities_desk_intro',
+    'constellation_available',
+    'constellation_intro',
     'day_two_start',
     'quinn_second_meeting',
     'first_ability_use'
@@ -165,6 +167,9 @@ const TUTORIAL_SEQUENCES: Record<TutorialSequence, TutorialStep[]> = {
 
 // Helper function to get step-specific guidance overlays
 function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
+  // Generate unique ID for each overlay to prevent React key collisions
+  const uniqueId = (baseId: string) => `${baseId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
   const stepGuidance: Record<TutorialStep, TutorialOverlay | null> = {
     // Micro Day Tutorial Steps - Clean slate for new implementation
     'quinn_intro': null,
@@ -172,8 +177,21 @@ function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
     'quinn_followup': null,
     'night_phase_intro': null,
     'home_intro': null,
-    'constellation_intro': null,
-    'abilities_desk_intro': null,
+    'abilities_desk_intro': {
+      id: uniqueId('abilities_desk_intro_overlay'),
+      type: 'modal',
+      title: 'Ability Management & Progress Review',
+      content: 'This is your ability management desk! Here you can see your daily progress, earned star points, and preview upcoming ability purchases. Check your achievements and prepare for tomorrow!',
+      dismissable: true
+    },
+    'constellation_available': null, // Passive step - telescope is now available but no auto-trigger
+    'constellation_intro': {
+      id: uniqueId('constellation_intro_overlay'),
+      type: 'modal',
+      title: 'Knowledge Observatory',
+      content: 'Welcome to your personal observatory! Here you can view the knowledge you\'ve discovered today in the form of constellations.',
+      dismissable: true
+    },
     'day_two_start': null,
     'quinn_second_meeting': null,
     'first_ability_use': null,
@@ -358,11 +376,15 @@ export const useTutorialStore = create<TutorialStore>()(
     // Overlay management
     showOverlay: (overlay: TutorialOverlay) => {
       set(state => {
-        // Remove any existing overlay with same id
+        // Remove any existing overlay with same id to prevent duplicates
         state.activeOverlays = state.activeOverlays.filter(o => o.id !== overlay.id);
         
-        // Add new overlay
-        state.activeOverlays.push(overlay);
+        // Add new overlay with unique timestamp to ensure uniqueness
+        const uniqueOverlay = {
+          ...overlay,
+          id: `${overlay.id}_${Date.now()}` // Make ID unique to prevent React key conflicts
+        };
+        state.activeOverlays.push(uniqueOverlay);
       });
     },
 

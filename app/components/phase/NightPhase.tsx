@@ -11,6 +11,7 @@ import { DomainColors, KnowledgeStar, KnowledgeDomain } from '@/app/types';
 import pixelTheme, { colors, spacing, typography, shadows, borders } from '@/app/styles/pixelTheme';
 import Image from 'next/image';
 import { components } from '@/app/styles/pixelTheme';
+import { TooltipContainer } from '@/app/components/ui/PixelContainer';
 
 const NightPhaseContainer = styled.div`
   min-height: 100vh;
@@ -108,35 +109,26 @@ const D3Container = styled.div`
   position: relative;
 `;
 
-const StarTooltip = styled.div<{ $x: number; $y: number; $visible: boolean }>`
+// Star tooltip using modern pixel container system (viewport coordinates)
+const StarTooltipWrapper = styled.div<{ $x: number; $y: number; $visible: boolean }>`
   position: absolute;
   top: ${props => props.$y}px;
   left: ${props => props.$x}px;
   transform: translate(-50%, -100%);
-  background-color: rgba(16, 20, 34, 0.95);
-  padding: ${spacing.xs};
-  border-radius: 4px;
-  border: ${borders.medium};
   z-index: 10;
-  font-family: ${typography.fontFamily.pixel};
-  font-size: ${typography.fontSize.xs};
   min-width: 130px;
   max-width: 180px;
   pointer-events: none;
-  opacity: ${props => props.$visible ? 1 : 0};
-  transition: opacity 0.15s;
-  box-shadow: ${shadows.sm};
   
-  &::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    margin-left: -4px;
-    border-width: 4px;
-    border-style: solid;
-    border-color: ${colors.backgroundAlt} transparent transparent transparent;
-  }
+  /* Modern animation with gentle easing */
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => 
+    props.$visible 
+      ? 'translate(-50%, -100%) scale(1)' 
+      : 'translate(-50%, -100%) scale(0.95)'
+  };
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 `;
 
 const TooltipTitle = styled.h4<{ $domainColor: string }>`
@@ -669,23 +661,28 @@ export const NightPhase: React.FC = () => {
               selectedStarId={selectedStar?.id}
             />
             
-            {/* Star tooltip - only shown on hover, not for selected stars */}
+            {/* Star tooltip - Modern Pixel Container */}
             {hoveredStar && (
-              <StarTooltip 
+              <StarTooltipWrapper 
                 $x={tooltipPosition.x}
                 $y={tooltipPosition.y}
                 $visible={!!hoveredStar}
               >
-                <TooltipTitle 
-                  $domainColor={DomainColors[hoveredStar.domain || KnowledgeDomain.TREATMENT_PLANNING]}
+                <TooltipContainer 
+                  domain={hoveredStar.domain || 'physics'} 
+                  size="sm"
                 >
-                  {hoveredStar.name || ''}
-                </TooltipTitle>
-                
-                <TooltipStatus $unlocked={hoveredStar.unlocked || false}>
-                  {hoveredStar.unlocked ? 'Unlocked' : `SP Cost: ${hoveredStar.spCost}`}
-                </TooltipStatus>
-              </StarTooltip>
+                  <TooltipTitle 
+                    $domainColor={DomainColors[hoveredStar.domain || KnowledgeDomain.TREATMENT_PLANNING]}
+                  >
+                    {hoveredStar.name || ''}
+                  </TooltipTitle>
+                  
+                  <TooltipStatus $unlocked={hoveredStar.unlocked || false}>
+                    {hoveredStar.unlocked ? 'Unlocked' : `SP Cost: ${hoveredStar.spCost}`}
+                  </TooltipStatus>
+                </TooltipContainer>
+              </StarTooltipWrapper>
             )}
           </D3Container>
           

@@ -13,7 +13,9 @@ export type ContainerVariant =
   | 'modal'           // For modal dialogs
   | 'question'        // For question containers
   | 'resource'        // For resource displays
-  | 'ability';        // For ability cards
+  | 'ability'         // For ability cards
+  | 'answer'          // For answer option buttons
+  | 'toast';          // For small notifications and brief popups
 
 // Container size presets
 export type ContainerSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -82,6 +84,17 @@ const CONTAINER_ASSETS = {
     border: '/images/ui/containers/ability-border.png',
     glow: '/images/ui/containers/ability-glow.png',
     nineslice: '/images/ui/containers/ability-9slice.png'
+  },
+  answer: {
+    background: '/images/ui/containers/answer-bg.png',  // Optional fallback
+    border: '/images/ui/containers/answer-border.png',  // Optional fallback  
+    corners: '/images/ui/containers/answer-corners.png', // Optional fallback
+    nineslice: '/images/ui/containers/answer-9slice.png' // Primary asset for expandable system
+  },
+  toast: {
+    background: '/images/ui/containers/tooltip-bg.png',  // Fallback to tooltip
+    border: '/images/ui/containers/tooltip-border.png',  // Fallback to tooltip
+    nineslice: '/images/ui/containers/toast-9slice.png'  // Primary asset for toast notifications
   }
 };
 
@@ -126,6 +139,16 @@ const NINESLICE_CONFIG = {
     slice: '15 20 15 20',
     borderWidth: '15px 20px 15px 20px',
     minHeight: '50px'
+  },
+  answer: {
+    slice: '10 10 10 10',         // Compact 10px borders all around
+    borderWidth: '10px 10px 10px 10px',
+    minHeight: '35px'             // Perfect for single line, auto-expands for more
+  },
+  toast: {
+    slice: '6 8 6 8',            // Adjusted for 60×20 asset (proportional borders)
+    borderWidth: '6px 8px 6px 8px',
+    minHeight: '20px'             // Native height matching 60×20 asset
   }
 };
 
@@ -136,6 +159,15 @@ const SIZE_CONFIG = {
   md: { padding: spacing.md, minHeight: '64px' },
   lg: { padding: spacing.lg, minHeight: '96px' },
   xl: { padding: spacing.xl, minHeight: '128px' }
+};
+
+// Toast-specific size override (minimal padding for compact notifications)
+const TOAST_SIZE_CONFIG = {
+  xs: { padding: spacing.xxs, minHeight: '20px' },  // 4px padding, native 20px height
+  sm: { padding: spacing.xxs, minHeight: '20px' },  // Keep minimal for all toast sizes
+  md: { padding: spacing.xs, minHeight: '24px' },   // Slightly larger for multi-line
+  lg: { padding: spacing.xs, minHeight: '28px' },
+  xl: { padding: spacing.sm, minHeight: '32px' }
 };
 
 // Domain color mapping
@@ -160,9 +192,13 @@ const Container = styled.div<{
   flex-direction: column;
   ${mixins.pixelPerfect}
   
-  /* Size configuration */
-  padding: ${({ $size }) => SIZE_CONFIG[$size].padding};
-  min-height: ${({ $size }) => SIZE_CONFIG[$size].minHeight};
+  /* Size configuration - use toast-specific sizing for toast variant */
+  padding: ${({ $size, $variant }) => 
+    $variant === 'toast' ? TOAST_SIZE_CONFIG[$size].padding : SIZE_CONFIG[$size].padding
+  };
+  min-height: ${({ $size, $variant }) => 
+    $variant === 'toast' ? TOAST_SIZE_CONFIG[$size].minHeight : SIZE_CONFIG[$size].minHeight
+  };
   
   /* Background layer */
   background-image: url('${({ $variant }) => CONTAINER_ASSETS[$variant]?.background}');
@@ -212,7 +248,7 @@ const Container = styled.div<{
     left: 0;
     right: 0;
     bottom: 0;
-    background-image: url('${({ $variant }) => CONTAINER_ASSETS[$variant]?.corners || ''}');
+    background-image: url('${({ $variant }) => (CONTAINER_ASSETS[$variant] as any)?.corners || ''}');
     background-size: 100% 100%;
     background-repeat: no-repeat;
     pointer-events: none;
@@ -414,6 +450,10 @@ export const AbilityContainer: React.FC<Omit<PixelContainerProps, 'variant'>> = 
   <PixelContainer variant="ability" {...props} />
 );
 
+export const AnswerContainer: React.FC<Omit<PixelContainerProps, 'variant'>> = (props) => (
+  <PixelContainer variant="answer" {...props} />
+);
+
 // Expandable container wrappers for typewriter content
 export const ExpandableDialogContainer: React.FC<Omit<PixelContainerProps, 'variant' | 'expandable'>> = (props) => (
   <PixelContainer variant="dialog" expandable {...props} />
@@ -425,6 +465,20 @@ export const ExpandableQuestionContainer: React.FC<Omit<PixelContainerProps, 'va
 
 export const ExpandableCardContainer: React.FC<Omit<PixelContainerProps, 'variant' | 'expandable'>> = (props) => (
   <PixelContainer variant="card" expandable {...props} />
+);
+
+export const ExpandableAnswerContainer: React.FC<Omit<PixelContainerProps, 'variant' | 'expandable'>> = (props) => (
+  <PixelContainer variant="answer" expandable {...props} />
+);
+
+// Tooltip container for popups and overlays
+export const TooltipContainer: React.FC<Omit<PixelContainerProps, 'variant'>> = (props) => (
+  <PixelContainer variant="tooltip" {...props} />
+);
+
+// Toast container for small notifications (uses 9-slice for pixel art borders)
+export const ToastContainer: React.FC<Omit<PixelContainerProps, 'variant' | 'expandable'>> = (props) => (
+  <PixelContainer variant="toast" expandable {...props} />
 );
 
 export default PixelContainer; 

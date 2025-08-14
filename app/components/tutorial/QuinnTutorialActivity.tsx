@@ -7,13 +7,13 @@ import { useGameStore } from '@/app/store/gameStore';
 import { useSceneStore } from '@/app/store/sceneStore';
 import { useTutorialStore } from '@/app/store/tutorialStore';
 import { MentorId } from '@/app/types';
-import { getPortraitPath } from '@/app/utils/portraitUtils';
+
 import { getPortraitCoordinates, getMediumPortraitSrc, getExpressionCoordinates, SPRITE_SHEETS, ExpressionType } from '@/app/utils/spriteMap';
 import { colors, spacing, borders, typography, animation } from '@/app/styles/pixelTheme';
 import TypewriterText from '@/app/components/ui/TypewriterText';
-import { ExpandableQuestionContainer, CardContainer } from '@/app/components/ui/PixelContainer';
+import { ExpandableQuestionContainer, CardContainer, ExpandableAnswerContainer, ToastContainer } from '@/app/components/ui/PixelContainer';
 
-// Quinn's Conceptual Physics Questions - Adapted from Jesse's beam basics
+// Quinn's Beam Basics Questions - Simplified from Jesse's original beam basics for first-time players
 interface Question {
   id: string;
   text: string;
@@ -22,145 +22,144 @@ interface Question {
   momentumPath: 'always' | 'low' | 'medium' | 'high';
 }
 
-// Quinn's Physics Fundamentals Questions
+// Quinn's Beam Basics Questions - Simplified for first-time player experience
 const QUINN_QUESTIONS: Question[] = [
   // Opening Sequence (Always Shown)
   {
-    id: 'q1-physics-foundation',
-    text: '"Let\'s start with the theoretical foundation. In radiation therapy, what fundamental interaction allows us to deposit energy in tissue?"',
+    id: 'q1-beam-delivery',
+    text: '"Let\'s start with the basics. How do we deliver radiation treatment to patients?"',
     options: [
-      { text: 'Photoelectric effect and Compton scattering', isCorrect: true, feedback: 'Precisely! These quantum mechanical interactions are the foundation of everything we do.' },
-      { text: 'Nuclear fusion reactions', isCorrect: false, feedback: 'Not quite - we\'re working with electromagnetic radiation, not nuclear reactions.' },
-      { text: 'Chemical bond formation', isCorrect: false, feedback: 'Think more fundamentally - we\'re dealing with photon-matter interactions.' }
+      { text: 'Linear accelerator', isCorrect: true, feedback: 'Exactly! The linear accelerator is our main tool for delivering precise radiation treatments.' },
+      { text: 'CT scanner', isCorrect: false, feedback: 'CT scanners are for imaging - we need something that can deliver therapeutic radiation.' },
+      { text: 'MRI machine', isCorrect: false, feedback: 'MRI uses magnetic fields for imaging, not radiation therapy.' }
     ],
     timeLimit: 8,
     momentumPath: 'always'
   },
   {
-    id: 'q2-energy-principle',
-    text: '"Consider the underlying physics: higher energy photons interact with matter differently. What\'s the key conceptual difference?"',
+    id: 'q2-beam-penetration',
+    text: '"Here\'s an important concept: Higher energy beams penetrate..."',
     options: [
-      { text: 'Higher energy penetrates deeper with different interaction probabilities', isCorrect: true, feedback: 'Excellent! You\'re grasping the energy-dependent interaction cross-sections.' },
-      { text: 'Higher energy always deposits more dose', isCorrect: false, feedback: 'Think about the physics - energy and dose deposition aren\'t directly proportional.' },
-      { text: 'Energy doesn\'t affect penetration', isCorrect: false, feedback: 'The physics tells us otherwise - energy significantly affects attenuation.' }
+      { text: 'Deeper into tissue', isCorrect: true, feedback: 'Perfect! Higher energy means better penetration - crucial for treating deep tumors.' },
+      { text: 'Less deep into tissue', isCorrect: false, feedback: 'Actually, it\'s the opposite - higher energy penetrates deeper.' },
+      { text: 'Same depth regardless', isCorrect: false, feedback: 'Energy definitely affects how deep the beam can reach.' }
     ],
     timeLimit: 8,
     momentumPath: 'always'
   },
   
-  // Low Momentum Path (Building Conceptual Foundation)
+  // Low Momentum Path (Basic Safety)
   {
-    id: 'q3a-safety-principles',
-    text: '"From a physics perspective, what\'s the fundamental principle behind radiation protection?"',
+    id: 'q3a-radiation-safety',
+    text: '"Safety first! A door says \'Radiation On\' in big red letters. You should..."',
     options: [
-      { text: 'Distance reduces exposure via inverse square law', isCorrect: true, feedback: 'Exactly! The inverse square law is a beautiful example of how physics protects us.' },
-      { text: 'Radiation always travels in straight lines', isCorrect: false, feedback: 'Consider the mathematical relationship between distance and intensity.' },
-      { text: 'Shielding works by reflection', isCorrect: false, feedback: 'Think about the underlying interaction physics rather than reflection.' }
+      { text: 'Stay out', isCorrect: true, feedback: 'Absolutely right! Those warning signs are there to protect us.' },
+      { text: 'Go in anyway', isCorrect: false, feedback: 'Never ignore radiation warning signs - safety always comes first!' },
+      { text: 'Knock first', isCorrect: false, feedback: 'When radiation is on, the area is off-limits. No exceptions!' }
     ],
     timeLimit: 6,
     momentumPath: 'low'
   },
   {
-    id: 'q4a-basic-attenuation',
-    text: '"Here\'s an elegant concept: exponential attenuation. What does this mathematical relationship tell us?"',
+    id: 'q4a-shielding-basics',
+    text: '"Lead blocks radiation, right?"',
     options: [
-      { text: 'Intensity decreases exponentially with material thickness', isCorrect: true, feedback: 'Beautiful! The exponential function perfectly describes photon attenuation.' },
-      { text: 'Intensity increases with thickness', isCorrect: false, feedback: 'The mathematics shows the opposite relationship.' },
-      { text: 'Intensity remains constant', isCorrect: false, feedback: 'Consider what happens as photons travel through matter.' }
+      { text: 'True', isCorrect: true, feedback: 'Correct! Lead is excellent at stopping radiation - that\'s why we use it for shielding.' },
+      { text: 'False', isCorrect: false, feedback: 'Actually, lead is one of our best materials for radiation shielding.' }
     ],
     timeLimit: 6,
     momentumPath: 'low'
   },
   
-  // Medium Momentum Path (Connecting Concepts)
+  // Medium Momentum Path (Quality & Energy)
   {
-    id: 'q3b-beam-quality',
-    text: '"Consider beam quality - a fascinating concept. What does higher beam quality indicate about the photon spectrum?"',
+    id: 'q3b-daily-qa',
+    text: '"Daily quality checks ensure our radiation beam has the..."',
     options: [
-      { text: 'Higher average photon energy and better penetration', isCorrect: true, feedback: 'Precisely! Beam quality elegantly characterizes the entire energy spectrum.' },
-      { text: 'Lower photon energy', isCorrect: false, feedback: 'Think about what "quality" means in terms of penetrating ability.' },
-      { text: 'Uniform photon energy', isCorrect: false, feedback: 'Medical beams are polyenergetic - consider the average energy concept.' }
+      { text: 'Right intensity', isCorrect: true, feedback: 'Exactly! We check beam intensity daily to ensure consistent, safe treatments.' },
+      { text: 'Right color', isCorrect: false, feedback: 'Radiation doesn\'t have color - we measure energy and intensity instead.' },
+      { text: 'Right sound', isCorrect: false, feedback: 'Sound isn\'t what we\'re concerned about with radiation beams.' }
     ],
     timeLimit: 8,
     momentumPath: 'medium'
   },
   {
-    id: 'q4b-dose-calculation',
-    text: '"Here\'s where theory meets practice: dose calculation. What\'s the fundamental relationship we\'re computing?"',
+    id: 'q4b-surface-treatment',
+    text: '"Patient\'s got a surface tumor. Better to use..."',
     options: [
-      { text: 'Energy deposited per unit mass of tissue', isCorrect: true, feedback: 'Excellent! That\'s the elegant definition of absorbed dose.' },
-      { text: 'Total energy in the beam', isCorrect: false, feedback: 'Consider what we specifically want to know about the tissue.' },
-      { text: 'Photon count per second', isCorrect: false, feedback: 'Think about the biological effect - it\'s about energy deposition.' }
+      { text: 'Lower energy (less penetration)', isCorrect: true, feedback: 'Smart choice! For surface tumors, lower energy keeps the dose where we want it.' },
+      { text: 'Higher energy (more penetration)', isCorrect: false, feedback: 'Higher energy would go too deep for a surface tumor.' },
+      { text: 'No energy (no treatment)', isCorrect: false, feedback: 'We definitely need to treat the tumor - just with the right energy!' }
     ],
     timeLimit: 8,
     momentumPath: 'medium'
   },
   
-  // High Momentum Path (Advanced Connections)
+  // High Momentum Path (Clinical Application)
   {
-    id: 'q3c-monte-carlo',
-    text: '"Now for something intellectually stimulating: Monte Carlo methods. What fundamental physics principle makes this computational approach so powerful?"',
+    id: 'q3c-deep-treatment',
+    text: '"Patient needs a chest treatment. Better to use higher energy or lower energy for deeper tumors?"',
     options: [
-      { text: 'Statistical modeling of individual photon interactions', isCorrect: true, feedback: 'Brilliant! You understand how we harness probability theory to model quantum interactions.' },
-      { text: 'Deterministic calculation of beam paths', isCorrect: false, feedback: 'Think about the quantum mechanical nature of photon interactions.' },
-      { text: 'Simple geometric projections', isCorrect: false, feedback: 'Monte Carlo is far more sophisticated - it models the stochastic nature of interactions.' }
+      { text: 'Higher energy (penetrates deeper)', isCorrect: true, feedback: 'Excellent! For deep chest tumors, we need higher energy to reach the target effectively.' },
+      { text: 'Lower energy (stays at surface)', isCorrect: false, feedback: 'Lower energy won\'t reach deep enough for chest tumors.' },
+      { text: 'Doesn\'t matter', isCorrect: false, feedback: 'Energy selection is crucial for effective treatment delivery!' }
     ],
     timeLimit: 10,
     momentumPath: 'high'
   },
   {
-    id: 'q4c-optimization-theory',
-    text: '"Consider the mathematical beauty of treatment planning: we\'re solving a multi-objective optimization problem. What are we fundamentally trying to achieve?"',
+    id: 'q4c-room-shielding',
+    text: '"Treatment rooms have thick concrete walls because..."',
     options: [
-      { text: 'Maximize dose to target while minimizing dose to normal tissue', isCorrect: true, feedback: 'Exactly! That\'s the elegant mathematical framework underlying all treatment planning.' },
-      { text: 'Deliver equal dose everywhere', isCorrect: false, feedback: 'Think about the clinical objectives - we want dose discrimination.' },
-      { text: 'Minimize treatment time only', isCorrect: false, feedback: 'Consider the biological objectives, not just logistical ones.' }
+      { text: 'Radiation shielding', isCorrect: true, feedback: 'Exactly! Those thick walls protect everyone outside the treatment room.' },
+      { text: 'Sound dampening', isCorrect: false, feedback: 'While they might reduce sound, the main purpose is radiation protection.' },
+      { text: 'Temperature control', isCorrect: false, feedback: 'Temperature isn\'t the concern - it\'s all about radiation safety.' }
     ],
     timeLimit: 10,
     momentumPath: 'high'
   },
   
-  // Final Questions (Always Shown - Questions 9-12)
+  // Final Questions (Always Shown)
   {
     id: 'q9-dose-units',
-    text: '"Let\'s verify understanding of fundamental units. The Gray - an elegant unit - quantifies what physical quantity?"',
+    text: '"We measure radiation dose in..."',
     options: [
-      { text: 'Absorbed dose (energy per unit mass)', isCorrect: true, feedback: 'Perfect! The Gray elegantly connects energy deposition to biological effect.' },
-      { text: 'Activity (decay rate)', isCorrect: false, feedback: 'That would be Becquerels - think about what we measure in tissue.' },
-      { text: 'Exposure (ionization in air)', isCorrect: false, feedback: 'Consider what quantity is most relevant for biological effects.' }
+      { text: 'Gray (Gy)', isCorrect: true, feedback: 'Perfect! Gray is our standard unit for measuring absorbed radiation dose.' },
+      { text: 'Pounds (lbs)', isCorrect: false, feedback: 'Pounds measure weight - we need a radiation-specific unit.' },
+      { text: 'Degrees (°C)', isCorrect: false, feedback: 'Degrees measure temperature - radiation dose has its own unit.' }
     ],
     timeLimit: 6,
     momentumPath: 'always'
   },
   {
-    id: 'q10-safety-systems',
-    text: '"From a systems theory perspective, interlocks are fascinating. What fundamental principle do they embody?"',
+    id: 'q10-interlock-safety',
+    text: '"You\'re setting up a treatment and notice the door interlock light is flickering. What\'s your call?"',
     options: [
-      { text: 'Fail-safe design - systems default to safe states', isCorrect: true, feedback: 'Exactly! Fail-safe engineering is a beautiful application of systems theory to safety.' },
-      { text: 'Maximum speed operation', isCorrect: false, feedback: 'Consider the priority of safety over efficiency in critical systems.' },
-      { text: 'Manual override capability', isCorrect: false, feedback: 'Think about what happens when systems encounter unexpected states.' }
+      { text: 'Stop and check the interlock system', isCorrect: true, feedback: 'Absolutely right! Never ignore safety system warnings - investigate first.' },
+      { text: 'Continue if patient is waiting', isCorrect: false, feedback: 'Patient safety requires working safety systems - always check issues first.' },
+      { text: 'Just ignore the flickering', isCorrect: false, feedback: 'Safety systems are critical - never ignore potential malfunctions!' }
     ],
     timeLimit: 8,
     momentumPath: 'always'
   },
   {
-    id: 'q11-photon-production',
-    text: '"At the heart of our linac lies elegant physics. What fundamental process creates our therapeutic X-rays?"',
+    id: 'q11-xray-target',
+    text: '"The part that actually makes the X-rays is called the..."',
     options: [
-      { text: 'Bremsstrahlung radiation from electron deceleration', isCorrect: true, feedback: 'Beautiful! The classical electromagnetic theory of accelerated charges producing radiation.' },
-      { text: 'Nuclear decay processes', isCorrect: false, feedback: 'Think about the electron beam interactions, not nuclear processes.' },
-      { text: 'Chemical reactions', isCorrect: false, feedback: 'Consider the electromagnetic nature of X-ray production.' }
+      { text: 'Target', isCorrect: true, feedback: 'Correct! The target is where electrons hit to produce our therapeutic X-rays.' },
+      { text: 'Couch', isCorrect: false, feedback: 'The couch holds the patient - the target creates the X-rays.' },
+      { text: 'Computer', isCorrect: false, feedback: 'Computers control things, but the target is where X-rays are made.' }
     ],
     timeLimit: 8,
     momentumPath: 'always'
   },
   {
-    id: 'q12-future-concepts',
-    text: '"The beauty of physics is how concepts interconnect. What theoretical area would you like to explore next?"',
+    id: 'q12-future-learning',
+    text: '"Next time you\'re here, what would you like to dive deeper into?"',
     options: [
-      { text: 'Advanced dose algorithms and their mathematical foundations', isCorrect: true, feedback: 'Fascinating choice! The mathematics behind modern algorithms are truly elegant.' },
-      { text: 'Radiobiological modeling and tumor control probability', isCorrect: true, feedback: 'Excellent! The interface between physics and biology is where the real magic happens.' },
-      { text: 'Machine learning applications in treatment planning optimization', isCorrect: true, feedback: 'Brilliant! AI is revolutionizing how we approach optimization theory.' }
+      { text: 'Daily QA procedures', isCorrect: true, feedback: 'Great choice! Quality assurance is essential for safe, effective treatments.' },
+      { text: 'Advanced troubleshooting', isCorrect: true, feedback: 'Excellent! Problem-solving skills are invaluable in radiation therapy.' },
+      { text: 'Treatment planning integration', isCorrect: true, feedback: 'Perfect! Understanding how planning connects to delivery is key.' }
     ],
     timeLimit: 10,
     momentumPath: 'always'
@@ -206,381 +205,276 @@ const getMomentumLevel = (momentum: number): 'low' | 'medium' | 'high' => {
   return 'high';
 };
 
-// UI Coordinate System - True pixel perfect positioning (no scaling)
+// === CANVAS SCALING SYSTEM === 
+// Tutorial uses 640×360 internal coordinates (matching architecture standard)
+const TUTORIAL_INTERNAL_WIDTH = 640;
+const TUTORIAL_INTERNAL_HEIGHT = 360;
+
+// Canvas-appropriate typography scale for 640×360 coordinate system
+const CanvasFonts = {
+  xs: '8px',   // For small tooltips and labels
+  sm: '10px',  // For secondary text and values
+  md: '12px',  // For primary content text
+  lg: '14px',  // For headings and important text
+  xl: '16px'   // For major headings (rarely used in UI)
+};
+
 const UICoordinates = {
-  mentor: {
-    top: 380,       // Moved down from top
-    left: 450,      // Moved right from left edge
-    size: 80,      // 80px portrait size (much smaller)
-    offsetX: 0,    // No offset needed
-    offsetY: 0     // No offset needed
-  },
   abilityBar: {
-    right: 280,     // Nudged further left for better positioning
-    gap: 24,       // Increased gap for stacked layout
-    padding: '16px 24px', // More padding for larger container
-    scale: 1.5,    // Smaller bar scale
-    containerHeight: 240, // Increased height for stacked bars
-    offsetX: 0,    // No offset needed
-    offsetY: 0     // No offset needed
-  },
-  insightBar: {
-    offsetX: 0,   // Move insight bar to the left
-    offsetY: -120 // Raise the insight bar higher
-  },
-  momentumBar: {
-    offsetX: 0,   // Move momentum bar to the left
-    offsetY: -30    // Move momentum bar up/down
+    right: 60,      // Moved further right (reduced from 88)
+    gap: 4,         // Spacing in internal coordinates
+    padding: '6px 8px', // Padding in internal coordinates
   }
 };
 
-// Styled components - True pixel perfect, no scaling
+// Canvas Scaling System Container - follows NarrativeDialogue pattern
 const Container = styled.div`
-  position: relative;
-  width: 100%;
-  height: 100vh;
+  /* Use 640×360 internal coordinate system - scale entire container to fit viewport */
+  width: ${TUTORIAL_INTERNAL_WIDTH}px;
+  height: ${TUTORIAL_INTERNAL_HEIGHT}px;
+  
+  /* Center and scale container to fit viewport while maintaining aspect ratio */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+  transform: translate(-50%, -50%) scale(var(--tutorial-scale));
+  
+  /* Background uses native asset dimensions within 640×360 canvas */
   background-image: 
     linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)),
     url('/images/hospital/backgrounds/physics-office-blur.png');
-  background-size: cover;
+  background-size: ${TUTORIAL_INTERNAL_WIDTH}px ${TUTORIAL_INTERNAL_HEIGHT}px; /* Native canvas size */
   background-position: center;
   background-repeat: no-repeat;
+  
   font-family: ${typography.fontFamily.pixel};
   color: ${colors.text};
-  overflow: hidden;
+  overflow: visible; /* Allow combo meter and other elements to extend outside */
   
   /* Pixel perfect rendering */
   image-rendering: pixelated;
   -webkit-image-rendering: pixelated;
   -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
 `;
 
 const ContentArea = styled.div`
   position: absolute;
   top: 50%;
-  left: 50%;
+  left: 45%; /* Shifted left from 50% to make more room for ability bar */
   transform: translate(-50%, -50%);
-  width: 600px; /* Fixed compact width */
-  max-width: 90%;
+  width: 320px; /* Reduced width to give more room for ability bars */
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px; /* Smaller gap */
+  gap: 6px; /* Scaled gap */
   z-index: 10;
+  overflow: visible; /* Allow combo meter to extend outside */
 `;
 
 // QuestionContainer now uses PixelContainer with 9-slice for authentic pixel art
 const QuestionContainerWrapper = styled.div`
   width: 100%;
   text-align: center;
+  position: relative; /* Enable absolute positioning for independent combo meter */
   
-  /* Prevent visual effects from causing layout shifts */
-  overflow: hidden;
+  /* Allow combo sprite to extend outside without being clipped */
+  overflow: visible;
   contain: layout style;
+`;
+
+// Quinn emblem for story book layout - positioned absolutely to control text flow precisely
+const QuinnEmblem = styled.img`
+  /* NATIVE ASSET DIMENSIONS - 64×64px for perfect pixel density */
+  width: 64px;
+  height: 64px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  
+  /* Pixel perfect rendering */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  
+  /* Ensure proper visibility and contrast */
+  opacity: 1.0;
+  filter: contrast(1.1) brightness(1.0);
+  
+  /* Prevent layout shifts */
+  flex-shrink: 0;
+  z-index: 1;
 `;
 
 const QuestionText = styled.div`
   font-family: ${typography.fontFamily.pixel};
   color: ${colors.text};
-  font-size: 14px; /* Much smaller text */
+  font-size: ${CanvasFonts.md}; /* Standard content text size for canvas */
   line-height: 1.2; /* Tighter line height */
-  margin-bottom: 12px; /* Less margin */
+  margin-bottom: 8px; /* Scaled margin for internal coordinates */
   text-align: left;
+  position: relative; /* Enable absolute positioning for emblem */
+  
+  /* Text starts at top line but indented to clear the emblem */
+  padding-left: 72px; /* 64px emblem + 8px margin */
+  min-height: 64px; /* Ensure container is at least as tall as emblem */
 `;
 
 const OptionsContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px; /* Smaller gap */
-  margin-top: 12px; /* Less margin */
+  gap: 4px; /* Scaled gap for 640×360 canvas */
+  margin-top: 6px; /* Scaled margin for internal coordinates */
   
   /* Prevent scrollbar flicker from text-shadow effects */
   overflow: hidden;
   contain: layout style; /* Prevent layout shifts from visual effects */
-  padding: 0 4px; /* Small padding to contain glow effects */
+  padding: 0 2px; /* Scaled padding to contain glow effects */
 `;
 
-// Option button content styling (CardContainer handles the border/background)
-const OptionContent = styled.div<{ $selected: boolean; $showFeedback: boolean; $isCorrect?: boolean }>`
-  font-family: ${typography.fontFamily.pixel};
-  color: ${props => 
-    props.$showFeedback 
-      ? (props.$isCorrect ? '#4caf50' : '#f44336')
-      : colors.text
-  };
-  font-size: 30px;
-  line-height: 1.4;
-  text-align: left;
-  width: 100%;
-  cursor: ${props => props.$showFeedback ? 'default' : 'pointer'};
-  transition: all ${animation.duration.normal} ease;
+// Typography override wrapper - maintains PNG assets while fixing canvas scaling
+const CanvasTypographyOverride = styled.div`
+  /* Override any inherited theme typography for canvas compatibility */
+  font-size: ${CanvasFonts.md} !important;
+  line-height: 1.4 !important;
   
-  /* Minimal padding for button text - CardContainer already provides 8px padding */
-  padding: 2px 4px;
-  
-  /* Add subtle glow effect for selected state - reduced blur to prevent overflow */
-  ${props => props.$selected && !props.$showFeedback && `
-    text-shadow: 0 0 4px rgba(63, 81, 181, 0.8);
-  `}
-  
-  /* Add success/error glow for feedback - reduced blur to prevent overflow */
-  ${props => props.$showFeedback && `
-    text-shadow: 0 0 4px ${props.$isCorrect ? 'rgba(76, 175, 80, 0.8)' : 'rgba(244, 67, 54, 0.8)'};
-  `}
-`;
-
-const FeedbackText = styled.div<{ $isCorrect: boolean }>`
-  font-family: ${typography.fontFamily.pixel};
-  color: ${props => props.$isCorrect ? '#4caf50' : '#f44336'};
-  font-size: 11px; /* Smaller feedback text */
-  line-height: 1.3;
-  margin-top: 8px;
-  padding: 8px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  text-align: left;
-`;
-
-// Compact portrait container
-const PortraitContainer = styled.div`
-  position: fixed;
-  top: ${UICoordinates.mentor.top}px;
-  left: ${UICoordinates.mentor.left}px;
-  width: ${UICoordinates.mentor.size}px;
-  height: ${UICoordinates.mentor.size}px;
-  border-radius: 50%;
-  border: 2px solid #3d5a80; /* Thinner border */
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-`;
-
-// Smaller portrait image
-const MentorPortrait = styled.img`
-  width: 76px; /* Much smaller */
-  height: 76px;
-  image-rendering: pixelated;
-  object-fit: contain;
-`;
-
-// Insight and Momentum Bar System - Now vertical on the right side
-
-const MeterContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px; /* Smaller gap */
-  cursor: pointer;
-  transition: transform 0.2s ease;
-  overflow: visible; /* Allow tooltips to extend outside */
-  height: 100%; /* Ensure consistent height */
-  justify-content: flex-end; /* Align bars to bottom of container */
-  transform: translate(${UICoordinates.momentumBar.offsetX}px, ${UICoordinates.momentumBar.offsetY}px);
-  
-  &:hover {
-    transform: translate(${UICoordinates.momentumBar.offsetX}px, ${UICoordinates.momentumBar.offsetY}px) scale(1.05);
+  /* Ensure all child elements inherit canvas-appropriate sizing */
+  * {
+    font-size: inherit !important;
+    line-height: inherit !important;
   }
 `;
 
-// Compact insight bar container
-const InsightBarContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px; /* Smaller gap */
-  cursor: pointer;
-  transition: transform 0.2s ease;
-  overflow: visible;
-  height: 100%;
-  justify-content: flex-end;
-  transform: translate(${UICoordinates.insightBar.offsetX}px, ${UICoordinates.insightBar.offsetY}px);
-  
-  &:hover {
-    transform: translate(${UICoordinates.insightBar.offsetX}px, ${UICoordinates.insightBar.offsetY}px) scale(1.05);
-  }
-`;
 
-// Simple 1:1 insight bar system (101 frames: 0-100 insight)
-const InsightBarDynamic = styled.img<{ $frameIndex: number; $isAnimating: boolean }>`
-  width: 32px;
-  height: 157px;
-  object-fit: none;
-  object-position: ${props => props.$frameIndex * -32}px bottom; /* 101 frames at 32px each = 3232px total width */
-  image-rendering: pixelated;
-  transform: scale(${UICoordinates.abilityBar.scale});
-  transform-origin: center;
-  
-  transition: ${props => props.$isAnimating ? 'none' : 'filter 0.2s ease'};
-  filter: ${props => {
-    if (props.$isAnimating) {
-      return 'brightness(1.2) saturate(1.3) drop-shadow(0 0 6px rgba(132, 90, 245, 0.6))';
-    }
-    return props.$frameIndex >= 80 ? 'brightness(1.1) saturate(1.2)' : 'brightness(0.9)';
-  }};
-  
-  .hover-target:hover & {
-    filter: brightness(1.1) saturate(1.2) drop-shadow(0 0 8px rgba(132, 90, 245, 0.4));
-  }
-`;
 
-// Dynamic momentum bar with flicker animation system
-const MomentumBarHorizontal = styled.img<{ $frameIndex: number; $isFlickering: boolean }>`
-  width: 32px; /* Updated for bigger sprite frames */
-  height: 108px; /* Updated to match new sprite height */
-  object-fit: none;
-  object-position: ${props => props.$frameIndex * -32}px 0px; /* Frame mapping for flicker system */
-  image-rendering: pixelated;
-  transform: scale(${UICoordinates.abilityBar.scale}); /* Scale down the bigger sprite */
-  transform-origin: center;
-  
-  transition: ${props => props.$isFlickering ? 'none' : 'filter 0.2s ease'};
-  
-  filter: ${props => {
-    if (props.$isFlickering) {
-      return 'brightness(1.3) saturate(1.4) drop-shadow(0 0 4px rgba(255, 165, 0, 0.6))';
-    }
-    // Solid momentum levels: frame mapping is momentum * 2
-    const momentumLevel = Math.floor(props.$frameIndex / 2);
-    if (momentumLevel >= 7) return 'brightness(1.15) saturate(1.2)';
-    if (momentumLevel >= 4) return 'brightness(1.1) saturate(1.1)';
-    if (momentumLevel >= 1) return 'brightness(1.05) saturate(1.05)';
-    return 'brightness(0.9)';
-  }};
-  
-  &:hover {
-    filter: brightness(1.2) saturate(1.2);
-  }
-`;
+// Portrait system removed - now using emblem inside question container for story book layout
 
-const MeterValue = styled.div`
-  font-family: ${typography.fontFamily.pixel};
-  font-size: 10px; /* Much smaller text */
-  color: ${colors.text};
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-  font-weight: bold;
-  margin-top: 2px; /* Less margin */
-  white-space: nowrap;
-`;
+// Old momentum and insight bar components removed - now using combo sprite overlay
 
-const SimpleTooltip = styled.div<{ $visible: boolean; $index: number }>`
-  position: fixed;
-  top: 30%;
-  right: 120px; /* Adjusted for compact layout */
-  transform: translateY(-50%);
-  background: rgba(15, 23, 42, 0.95);
-  border: 1px solid rgba(132, 90, 245, 0.6);
-  border-radius: 4px; /* Smaller radius */
-  padding: 6px 8px; /* Compact padding */
-  font-family: ${typography.fontFamily.pixel};
-  font-size: 10px; /* Smaller text */
-  color: ${colors.text};
-  opacity: ${props => props.$visible ? 1 : 0};
-  pointer-events: none;
-  z-index: 1010;
-  max-width: 120px; /* Smaller max width */
-  text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); /* Smaller shadow */
-  white-space: nowrap;
+
+
+// Ability bar background image - uses IMG element for proper canvas scaling
+const AbilityBarBackground = styled.img`
+  /* NATIVE ASSET DIMENSIONS - 90×240px for perfect pixel density */
+  width: 90px;
+  height: 240px;
+  position: absolute;
+  top: 0;
+  left: 0;
   
-  &::after {
-    content: '';
-    position: absolute;
-    left: 100%;
-    top: 50%;
-    transform: translateY(-50%);
-    border: 4px solid transparent; /* Smaller arrow */
-    border-left-color: rgba(132, 90, 245, 0.6);
-  }
-`;
-
-const SummaryContainer = styled.div`
-  background: rgba(20, 30, 50, 0.95);
-  border: 2px solid #3d5a80;
-  border-radius: 8px; /* Smaller radius */
-  padding: 20px; /* Compact padding */
-  width: 100%;
-  max-width: 600px; /* Smaller max width */
-  text-align: center;
-  font-family: ${typography.fontFamily.pixel};
-  color: ${colors.text};
-  font-size: 14px; /* Smaller text */
-`;
-
-// Pixelated ability bar container
-const AbilitiesBarContainer = styled.div`
-  position: fixed;
-  top: 50%;
-  right: ${UICoordinates.abilityBar.right}px;
-  transform: translateY(-50%);
-  width: 220px;
-  height: 450px;
-  background-image: url('/images/ui/containers/ability-panel-container.png');
-  background-size: 220px 450px;
-  background-repeat: no-repeat;
-  background-position: center;
+  /* Pixel perfect rendering */
   image-rendering: pixelated;
   -webkit-image-rendering: pixelated;
   -moz-image-rendering: crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+  
+  /* Ensure proper visibility and contrast */
+  opacity: 1.0;
+  filter: contrast(1.1) brightness(1.0);
+  
+  pointer-events: none; /* Allow clicks through to content */
+  z-index: 1;
+`;
+
+// Ability bar container - positioned using internal coordinates 
+const AbilitiesBarContainer = styled.div`
+  position: absolute;
+  top: 50%;
+  right: ${UICoordinates.abilityBar.right}px;
+  transform: translateY(-50%);
+  
+  /* NATIVE ASSET DIMENSIONS - 90×240px for perfect pixel density */
+  width: 90px;  
+  height: 240px; 
+  
+  /* Layout for content within container */
   display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center; /* Center vertically instead of flex-end */
   gap: ${UICoordinates.abilityBar.gap}px;
-  padding: 20px 16px;
+  padding: ${UICoordinates.abilityBar.padding};
+  padding-bottom: 15px; /* Add extra bottom padding to nudge slots up */
   z-index: 100;
-  overflow: visible;
+  overflow: visible; /* Allow slots to be visible */
 `;
 
 const AbilitySlot = styled.div<{ $isPlaceholder?: boolean }>`
   position: relative;
-  width: 96px; /* 3x bigger ability slots */
-  height: 96px;
-  background: ${props => props.$isPlaceholder ? 'rgba(60, 60, 60, 0.3)' : 'rgba(63, 81, 181, 0.4)'};
-  border: 3px solid ${props => props.$isPlaceholder ? '#555' : '#3f51b5'}; /* Thicker border for larger slot */
-  border-radius: 12px; /* Larger radius for bigger slot */
+  /* NATIVE ASSET DIMENSIONS - 58×58px for perfect pixel density */
+  width: 58px;
+  height: 58px;
+  
+  /* Layout */
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: ${props => props.$isPlaceholder ? 'not-allowed' : 'pointer'};
   transition: all 0.3s ease;
-  opacity: ${props => props.$isPlaceholder ? 0.4 : 1};
+  opacity: ${props => props.$isPlaceholder ? 0.7 : 1};
   overflow: visible;
+  z-index: 2; /* Above ability panel background */
 
   &:hover {
     ${props => props.$isPlaceholder && `
-      background: rgba(60, 60, 60, 0.5);
-      border-color: #666;
+      opacity: 0.9;
+      transform: scale(1.05);
     `}
   }
+`;
+
+// Ability slot background - IMG element following architecture guidelines
+const AbilitySlotBackground = styled.img`
+  /* NATIVE ASSET DIMENSIONS - 58×58px for perfect pixel density */
+  width: 58px;
+  height: 58px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  
+  /* Ensure visibility */
+  opacity: 1;
+  visibility: visible;
+  display: block;
+  
+  /* Pixel perfect rendering following architecture standards */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  
+  pointer-events: none; /* Allow clicks through to slot */
+  z-index: 2; /* Above ability panel background (z:1) */
 `;
 
 const AbilityIcon = styled.div`
   font-family: ${typography.fontFamily.pixel};
   color: ${colors.textDim};
-  font-size: 36px; /* 3x bigger icon text */
+  font-size: ${CanvasFonts.lg}; /* Heading size for important icons */
   font-weight: bold;
+  position: relative;
+  z-index: 3; /* Above background image (z:2) */
 `;
 
 const AbilityTooltip = styled.div<{ $visible: boolean }>`
   position: absolute;
-  left: -140px; /* Adjusted for bigger ability slots */
+  left: -50px; /* Properly scaled for 40px ability slots */
   top: 50%;
   transform: translateY(-50%);
   background: rgba(0, 0, 0, 0.9);
   font-family: ${typography.fontFamily.pixel};
   color: ${colors.text};
-  font-size: 12px; /* Slightly bigger tooltip text for larger slots */
+  font-size: ${CanvasFonts.xs}; /* Small text size for tooltips */
   line-height: 1.2;
-  padding: 6px 8px; /* More padding for readability */
-  border-radius: 4px; /* Slightly larger radius */
+  padding: 2px 4px; /* Properly scaled padding */
+  border-radius: 2px; /* Properly scaled radius */
   white-space: nowrap;
   visibility: ${props => props.$visible ? 'visible' : 'hidden'};
   opacity: ${props => props.$visible ? 1 : 0};
   transition: all ${animation.duration.fast} ease;
-  z-index: 1015;
+  z-index: 1020; /* Above all other elements */
   pointer-events: none;
   
   &::after {
@@ -600,7 +494,7 @@ const ResourceDisplay = styled.div`
   gap: 6px; /* Smaller gap */
   font-family: ${typography.fontFamily.pixel};
   color: ${colors.textDim};
-  font-size: 10px; /* Smaller text */
+  font-size: ${CanvasFonts.sm}; /* Secondary text size */
   margin-right: 8px; /* Less margin */
   padding-right: 8px; /* Less padding */
   border-right: 1px solid #3d5a80;
@@ -610,8 +504,228 @@ const ResourceValue = styled.span`
   font-family: ${typography.fontFamily.pixel};
   color: ${colors.text};
   font-weight: bold;
-  font-size: 10px; /* Smaller text */
+  font-size: ${CanvasFonts.sm}; /* Secondary text size */
 `;
+
+// Mastery popup component using modern pixel container system
+const MasteryPopupContainer = styled.div<{ $visible: boolean; $level: number }>`
+  position: absolute;
+  top: 53px; /* Canvas coordinate positioning - shifted up 4px from star bar */
+  left: 50px; /* Canvas coordinate positioning - avoid book icon overlap */
+  z-index: 1000;
+  
+  /* Modern pixel container animation */
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible ? 'translateY(0)' : 'translateY(-10px)'};
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Ensure proper visibility and overflow */
+  pointer-events: ${props => props.$visible ? 'auto' : 'none'};
+  overflow: visible;
+`;
+
+// Content wrapper for mastery notification
+const MasteryContent = styled.div<{ $level: number }>`
+  color: ${props => 
+    props.$level === 1 ? colors.textDim :
+    props.$level === 2 ? colors.active :
+    colors.highlight
+  };
+  display: flex;
+  align-items: center;
+  gap: 4px; /* Canvas scaled spacing */
+  
+  &::before {
+    content: '+';
+    font-weight: bold;
+    font-size: inherit;
+  }
+`;
+
+// Star bar component - positioned at top left using canvas coordinates
+const StarBarContainer = styled.div`
+  position: absolute;
+  top: 10px; /* Internal coordinate positioning - matches MasteryCounterContainer */
+  left: 10px; /* Internal coordinate positioning - small margin from edge */
+  z-index: 1050; /* Above most other elements */
+`;
+
+// Book icon - positioned under star bar using canvas coordinates
+const BookIconContainer = styled.div`
+  position: absolute;
+  top: 40px; /* Below star bar (10px + 40px height + 5px margin) */
+  left: 22px; /* Aligned with star bar left edge */
+  z-index: 1050; /* Above most other elements */
+`;
+
+const BookIconImage = styled.img`
+  /* NATIVE ASSET DIMENSIONS - 22×22px for perfect pixel density */
+  width: 22px;
+  height: 22px;
+  
+  /* Pixel perfect rendering */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  
+  /* Ensure proper visibility */
+  opacity: 1.0;
+  filter: contrast(1.1) brightness(1.0);
+`;
+
+// Star bar animation - 81 frames sprite sheet (single row) with in-place fill animation
+const StarBarImage = styled.div<{ $starLevel: number }>`
+  /* NATIVE ASSET DIMENSIONS - 146×40px for perfect pixel density */
+  width: 146px;
+  height: 40px;
+  position: relative;
+  
+  /* Base star bar image (empty/full frame for reference) */
+  background-image: url('/images/ui/star-bar.png');
+  background-size: ${81 * 146}px 40px; /* 81 frames * 146px width each */
+  background-repeat: no-repeat;
+  background-position: 0px 0px; /* Always show first frame as base */
+  
+  /* Pixel perfect rendering */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  
+  /* Progressive fill overlay */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 146px;
+    height: 40px;
+    
+    /* Show the filled frame */
+    background-image: url('/images/ui/star-bar.png');
+    background-size: ${81 * 146}px 40px;
+    background-repeat: no-repeat;
+    background-position: ${props => {
+      // Show the fully filled frame (frame 80)
+      return `${80 * -146}px 0px`;
+    }};
+    
+    /* Clip to show progress from left to right */
+    clip-path: ${props => {
+      const progressPercent = Math.min(100, Math.max(0, props.$starLevel));
+      return `inset(0 ${100 - progressPercent}% 0 0)`;
+    }};
+    
+    /* Smooth animation transitions */
+    transition: clip-path 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Match parent rendering */
+    image-rendering: pixelated;
+    -webkit-image-rendering: pixelated;
+    -moz-image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+  }
+  
+  /* Ensure proper visibility */
+  opacity: 1.0;
+  filter: contrast(1.1) brightness(1.0);
+`;
+
+// Momentum-Insight combo - overlaid positioning (single 54x155 composite)
+const MomentumInsightComboContainer = styled.div`
+  position: fixed; /* Position relative to viewport, not parent container */
+  top: 50%; /* Center vertically on screen */
+  right: -25px; /* Position from right edge of screen */
+  transform: translateY(-50%); /* Center vertically */
+  z-index: 1060; /* Above question container */
+  pointer-events: none; /* Allow clicks to pass through */
+  
+  /* Container dimensions match single sprite - both overlay into one */
+  width: 54px; /* Single sprite width - both bars composite into this */
+  height: 155px;
+  /* Removed conflicting position: relative - child sprites use absolute positioning within this fixed container */
+`;
+
+// Momentum bar sprite - discrete frame animation (overlaid positioning)
+const MomentumBarSprite = styled.div<{ $momentumLevel: number }>`
+  position: absolute; /* Overlay positioning */
+  top: 0;
+  left: 0;
+  width: 54px; /* Full native width */
+  height: 155px;
+  
+  /* Discrete frame animation - no smooth transitions for momentum */
+  background-image: url('/images/ui/momentum-combo.png');
+  background-size: 594px 155px;
+  background-repeat: no-repeat;
+  background-position: ${props => {
+    // Use integer momentum level directly for discrete frames (0-10)
+    const momentumFrame = Math.min(10, Math.floor(props.$momentumLevel));
+    return `${momentumFrame * -54}px 0px`;
+  }};
+  
+  /* Pixel perfect rendering */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+`;
+
+// Insight bar sprite - full 54px width (native dimensions) - traditional in-place fill animation (overlaid positioning)
+const InsightBarSprite = styled.div<{ $insightLevel: number }>`
+  position: absolute; /* Overlay positioning */
+  top: 0;
+  left: 0;
+  width: 54px; /* Full native width */
+  height: 155px;
+  
+  /* Base sprite (empty state - frame 0) */
+  background-image: url('/images/ui/insight-combo.png');
+  background-size: 4374px 155px;
+  background-position: 0px 0px; /* Always show frame 0 (empty) as base */
+  background-repeat: no-repeat;
+  
+  /* Pixel perfect rendering */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  
+  /* Fill overlay using ::after pseudo-element */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 54px;
+    height: 155px;
+    
+    /* Full sprite (filled state - frame 80) */
+    background-image: url('/images/ui/insight-combo.png');
+    background-size: 4374px 155px;
+    background-position: ${80 * -54}px 0px; /* Frame 80 (fully filled) */
+    background-repeat: no-repeat;
+    
+    /* Progressive reveal based on insight level */
+    clip-path: ${props => {
+      const progressPercent = Math.min(100, (props.$insightLevel / 100) * 100);
+      return `inset(${100 - progressPercent}% 0 0 0)`; /* Reveal from bottom to top */
+    }};
+    
+    /* Pixel perfect rendering */
+    image-rendering: pixelated;
+    -webkit-image-rendering: pixelated;
+    -moz-image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+    
+    /* Smooth fill animation */
+    transition: clip-path 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+`;
+
+
 
 interface QuinnTutorialActivityProps {
   onComplete?: () => void;
@@ -622,6 +736,31 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
   const { playerName } = useGameStore();
   const { completeStep } = useTutorialStore();
   
+  // === TUTORIAL SCALING SYSTEM ===
+  // Calculate scale to fit 640×360 tutorial into viewport while maintaining aspect ratio
+  useEffect(() => {
+    const updateTutorialScale = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      const scaleX = viewportWidth / TUTORIAL_INTERNAL_WIDTH;
+      const scaleY = viewportHeight / TUTORIAL_INTERNAL_HEIGHT;
+      const tutorialScale = Math.min(scaleX, scaleY);
+      
+      // Set CSS custom property for tutorial scaling
+      document.documentElement.style.setProperty('--tutorial-scale', tutorialScale.toString());
+      
+      console.log(`[QuinnTutorialActivity] Tutorial scale: ${tutorialScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${TUTORIAL_INTERNAL_WIDTH}x${TUTORIAL_INTERNAL_HEIGHT})`);
+    };
+    
+    updateTutorialScale();
+    window.addEventListener('resize', updateTutorialScale);
+    
+    return () => {
+      window.removeEventListener('resize', updateTutorialScale);
+    };
+  }, []);
+  
   // Activity phase state - skip intro, start directly with questions
   const [activityPhase, setActivityPhase] = useState<'intro' | 'questions' | 'summary'>('questions');
   
@@ -629,107 +768,21 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentMomentum, setCurrentMomentum] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
+
   const [questionsCompleted, setQuestionsCompleted] = useState(0);
   const [totalInsightGained, setTotalInsightGained] = useState(0);
+  
+  // NEW: Mastery tracking system
+  const [totalMasteryGained, setTotalMasteryGained] = useState(0);
+  const [showMasteryPopup, setShowMasteryPopup] = useState(false);
+  const [lastMasteryGain, setLastMasteryGain] = useState(0);
+  const [masteryAnimating, setMasteryAnimating] = useState(false);
   
   // Placeholder abilities state
   const [hoveredAbility, setHoveredAbility] = useState<number | null>(null);
   
-  // Simple 1:1 insight bar animation states
-  const [insightAnimating, setInsightAnimating] = useState(false);
-  const [currentInsightFrame, setCurrentInsightFrame] = useState(0);
-  const [hoveredMeter, setHoveredMeter] = useState<number | null>(null);
-  
-  // Track insight animation progression
-  const [animationStartInsight, setAnimationStartInsight] = useState(0);
-  const [animationTargetInsight, setAnimationTargetInsight] = useState(0);
-  
-  // Momentum flicker animation states
-  const [momentumFlickering, setMomentumFlickering] = useState(false);
-  const [currentMomentumFrame, setCurrentMomentumFrame] = useState(0);
-  const [flickerStartMomentum, setFlickerStartMomentum] = useState(0);
-  const [flickerTargetMomentum, setFlickerTargetMomentum] = useState(0);
-  
-  // Simple 1:1 insight animation effect
-  useEffect(() => {
-    if (insightAnimating) {
-      const startInsight = animationStartInsight;
-      const targetInsight = animationTargetInsight;
-      const totalFrames = Math.abs(targetInsight - startInsight);
-      let currentFrame = 0;
-      
-      console.log(`🎬 1:1 INSIGHT ANIMATION: Starting ${startInsight} → ${targetInsight} (${totalFrames} frames)`);
-      
-      const animationInterval = setInterval(() => {
-        const progress = currentFrame / totalFrames;
-        const currentInsight = Math.round(startInsight + (targetInsight - startInsight) * progress);
-        setCurrentInsightFrame(currentInsight);
-        
-        console.log(`🎬 Frame ${currentFrame}/${totalFrames}: Insight ${currentInsight}/100`);
-        currentFrame++;
-        
-        if (currentFrame > totalFrames) {
-          setInsightAnimating(false);
-          setCurrentInsightFrame(targetInsight);
-          clearInterval(animationInterval);
-          console.log(`✅ 1:1 ANIMATION COMPLETE: Final insight ${targetInsight}/100`);
-        }
-      }, 40); // 40ms per frame for smooth animation (25 FPS)
-      
-      return () => clearInterval(animationInterval);
-    }
-  }, [insightAnimating, animationStartInsight, animationTargetInsight]);
-  
-  // Initialize current frame to match actual insight
-  useEffect(() => {
-    if (!insightAnimating) {
-      setCurrentInsightFrame(insight);
-    }
-  }, [insight, insightAnimating]);
-  
-  // Momentum flicker animation effect
-  useEffect(() => {
-    if (momentumFlickering) {
-      const startMomentum = flickerStartMomentum;
-      const targetMomentum = flickerTargetMomentum;
-      const startFrame = startMomentum * 2; // Solid frame for current momentum
-      const previewFrame = startFrame + 1; // Preview frame for next momentum
-      const landingFrame = targetMomentum * 2; // Final solid frame
-      
-      console.log(`🔥 MOMENTUM FLICKER: ${startMomentum} → ${targetMomentum} (frames: ${startFrame}↔${previewFrame} → ${landingFrame})`);
-      
-      let step = 0;
-      const animationInterval = setInterval(() => {
-        if (step < 6) {
-          // Flicker phase: alternate between current and preview frames
-          const isPreviewFrame = step % 2 === 1;
-          setCurrentMomentumFrame(isPreviewFrame ? previewFrame : startFrame);
-          console.log(`🔥 Flicker step ${step}: Frame ${isPreviewFrame ? previewFrame : startFrame}`);
-        } else if (step < 9) {
-          // Linger phase: show preview frame
-          setCurrentMomentumFrame(previewFrame);
-          console.log(`🔥 Linger step ${step}: Frame ${previewFrame}`);
-        } else {
-          // Landing phase: show final solid frame
-          setCurrentMomentumFrame(landingFrame);
-          setMomentumFlickering(false);
-          clearInterval(animationInterval);
-          console.log(`✅ MOMENTUM COMPLETE: Landed on frame ${landingFrame} (momentum ${targetMomentum})`);
-        }
-        step++;
-      }, 120); // 120ms per step for dramatic flicker timing
-      
-      return () => clearInterval(animationInterval);
-    }
-  }, [momentumFlickering, flickerStartMomentum, flickerTargetMomentum]);
-  
-  // Initialize momentum frame to match current momentum
-  useEffect(() => {
-    if (!momentumFlickering) {
-      setCurrentMomentumFrame(currentMomentum * 2); // Solid frame mapping
-    }
-  }, [currentMomentum, momentumFlickering]);
+  // Momentum and insight animations removed - now using static combo sprite overlay  
+  // Individual bar state variables no longer needed
   
   // Get momentum level for visual effects
   const getMomentumLevel = (momentum: number): 'low' | 'medium' | 'high' => {
@@ -744,7 +797,7 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
     
     // Opening sequence (always shown)
     questions.push(...QUINN_QUESTIONS.filter(q => 
-      q.id === 'q1-physics-foundation' || q.id === 'q2-energy-principle'
+      q.id === 'q1-beam-delivery' || q.id === 'q2-beam-penetration'
     ));
     
     // Momentum-based questions
@@ -753,22 +806,22 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
     
     if (momentumLevel === 'low') {
       momentumQuestions = QUINN_QUESTIONS.filter(q => 
-        q.id === 'q3a-safety-principles' || q.id === 'q4a-basic-attenuation'
+        q.id === 'q3a-radiation-safety' || q.id === 'q4a-shielding-basics'
       );
     } else if (momentumLevel === 'medium') {
       momentumQuestions = QUINN_QUESTIONS.filter(q => 
-        q.id === 'q3b-beam-quality' || q.id === 'q4b-dose-calculation'
+        q.id === 'q3b-daily-qa' || q.id === 'q4b-surface-treatment'
       );
     } else {
       momentumQuestions = QUINN_QUESTIONS.filter(q => 
-        q.id === 'q3c-monte-carlo' || q.id === 'q4c-optimization-theory'
+        q.id === 'q3c-deep-treatment' || q.id === 'q4c-room-shielding'
       );
     }
     questions.push(...momentumQuestions);
     
     // Final questions (always shown)
     questions.push(...QUINN_QUESTIONS.filter(q => 
-      ['q9-dose-units', 'q10-safety-systems', 'q11-photon-production', 'q12-future-concepts'].includes(q.id)
+      ['q9-dose-units', 'q10-interlock-safety', 'q11-xray-target', 'q12-future-learning'].includes(q.id)
     ));
     
     return questions;
@@ -779,79 +832,85 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
   
   // Handle answer selection
   const handleAnswerSelect = (optionIndex: number) => {
-    if (showFeedback) return;
-    
     setSelectedOption(optionIndex);
-    setShowFeedback(true);
     
     const isCorrect = currentQuestion.options[optionIndex].isCorrect;
     
     if (isCorrect) {
-      // Trigger momentum flicker animation before updating
+      // Update momentum 
       const newMomentum = Math.min(10, currentMomentum + 1);
-      if (newMomentum !== currentMomentum) {
-        setFlickerStartMomentum(currentMomentum);
-        setFlickerTargetMomentum(newMomentum);
-        setMomentumFlickering(true);
-        console.log(`🔥 MOMENTUM GAIN: Triggering flicker ${currentMomentum} → ${newMomentum}`);
-      } else {
-        console.log(`🔄 MOMENTUM MAXED: Already at maximum (${currentMomentum}/10)`);
-      }
       setCurrentMomentum(newMomentum);
+      console.log(`🔥 MOMENTUM GAIN: ${currentMomentum} → ${newMomentum}`);
       
       // Add insight points
       const insightGain = 8 + Math.floor(currentMomentum / 2); // 8-13 points based on momentum
-      const newInsightTotal = Math.min(100, insight + insightGain); // Cap at 100
       useResourceStore.getState().updateInsight(insightGain);
       setTotalInsightGained(prev => prev + insightGain);
+      console.log(`🎬 Insight gain: +${insightGain} → ${insight + insightGain}`);
       
-      // Trigger 1:1 insight animation (always animate any gain)
-      if (insightGain > 0) {
-        setAnimationStartInsight(insight);
-        setAnimationTargetInsight(newInsightTotal);
-        setInsightAnimating(true);
-        console.log(`🎬 1:1 INSIGHT ANIMATION: Triggered ${insight} → ${newInsightTotal} (+${insightGain} points)`);
-      }
+      // NEW: Calculate mastery gain based on momentum level (use NEW momentum level)
+      const finalMomentumLevel = getMomentumLevel(newMomentum);
+      const masteryGain = finalMomentumLevel === 'low' ? 1 : 
+                         finalMomentumLevel === 'medium' ? 2 : 3;
+      
+      console.log(`📚 MASTERY: ${finalMomentumLevel} momentum = +${masteryGain} Beam Physics`);
+      
+      // Update mastery with animation
+      setLastMasteryGain(masteryGain);
+      setShowMasteryPopup(true);
+      setMasteryAnimating(true);
+      
+      // Clear animations
+      setTimeout(() => {
+        setMasteryAnimating(false);
+      }, 600);
+      setTimeout(() => {
+        setShowMasteryPopup(false);
+      }, 1500);
+      
+      setTotalMasteryGained(prev => {
+        const newTotal = prev + masteryGain;
+        console.log(`📊 Total Mastery: ${prev} → ${newTotal} (+${masteryGain})`);
+        return newTotal;
+      });
     } else {
-      // Handle momentum loss with flicker animation too
+      // Handle momentum loss
       const newMomentum = Math.max(0, currentMomentum - 1);
-      if (newMomentum !== currentMomentum) {
-        setFlickerStartMomentum(currentMomentum);
-        setFlickerTargetMomentum(newMomentum);
-        setMomentumFlickering(true);
-        console.log(`🔥 MOMENTUM LOSS: Triggering flicker ${currentMomentum} → ${newMomentum}`);
-      } else {
-        console.log(`🔄 MOMENTUM BOTTOMED: Already at minimum (${currentMomentum}/10)`);
-      }
       setCurrentMomentum(newMomentum);
+      console.log(`🔥 MOMENTUM LOSS: ${currentMomentum} → ${newMomentum}`);
     }
     
     setQuestionsCompleted(prev => prev + 1);
     
-    // Auto-advance after feedback
+    // Auto-advance to next question immediately
     setTimeout(() => {
       setSelectedOption(null);
-      setShowFeedback(false);
       
       if (currentQuestionIndex < currentQuestions.length - 1) {
         setCurrentQuestionIndex(prev => prev + 1);
       } else {
         setActivityPhase('summary');
       }
-    }, 3000);
+    }, 1000); // Shortened delay from 3000ms to 1000ms for faster progression
   };
   
-  // Memoized question text
+  // Memoized question text with story book emblem layout
   const memoizedQuestionText = useMemo(() => {
     if (activityPhase === 'questions' && currentQuestion) {
       return (
         <QuestionText>
+          {/* Quinn emblem floated to top left for story book text wrapping */}
+          <QuinnEmblem 
+            src="/images/characters/portraits/quinn-medium-emblem.png" 
+            alt="Dr. Quinn"
+          />
           <TypewriterText
             key={`question-${currentQuestion.id}-${currentQuestionIndex}`}
             text={currentQuestion.text}
             speed={25}
             onComplete={() => {}}
             style={{
+              fontSize: CanvasFonts.lg, // Increased from md (12px) to lg (14px) for better readability
               lineHeight: typography.lineHeight.tight // Override TypewriterText's default 1.6
             }}
           />
@@ -879,10 +938,10 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
             <QuestionContainerWrapper>
               <ExpandableQuestionContainer domain="physics">
                 <h2 style={{ color: '#e8f4f8', marginBottom: '20px' }}>
-                  Physics Questions
+                  Beam Basics
                 </h2>
                 <p style={{ color: '#98b4c7', fontSize: '16px', lineHeight: '1.6' }}>
-                  "Answer some physics questions to learn the basics."
+                  "Let's start with some essential radiation therapy basics."
                 </p>
                 <button
                   onClick={handleStartQuestions}
@@ -908,42 +967,37 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
         return (
           <ContentArea>
             <QuestionContainerWrapper>
-              <ExpandableQuestionContainer domain="physics">
+              <ExpandableQuestionContainer domain="physics" style={{ position: 'relative' }}>
                 {memoizedQuestionText}
                 <OptionsContainer>
                   {currentQuestion?.options.map((option, index) => (
-                    <CardContainer
+                    <ExpandableAnswerContainer
                       key={index}
-                      size="xs"
                       domain="physics"
                       isActive={selectedOption === index}
                       isHovered={false}
                       onClick={() => handleAnswerSelect(index)}
                       style={{ 
-                        cursor: showFeedback ? 'default' : 'pointer',
-                        filter: showFeedback 
-                          ? (option.isCorrect ? 'hue-rotate(120deg) saturate(1.2)' : 'hue-rotate(0deg) saturate(1.5) brightness(0.8)')
-                          : selectedOption === index 
-                            ? 'brightness(1.2) saturate(1.1)' 
-                            : 'none'
+                        cursor: 'pointer',
+                        filter: selectedOption === index 
+                          ? 'brightness(1.2) saturate(1.1)' 
+                          : 'none'
                       }}
                     >
-                      <OptionContent
-                        $selected={selectedOption === index}
-                        $showFeedback={showFeedback}
-                        $isCorrect={showFeedback ? option.isCorrect : undefined}
-                      >
+                      <CanvasTypographyOverride>
                         {option.text}
-                      </OptionContent>
-                    </CardContainer>
+                      </CanvasTypographyOverride>
+                    </ExpandableAnswerContainer>
                   ))}
                 </OptionsContainer>
-                {showFeedback && selectedOption !== null && (
-                  <FeedbackText $isCorrect={currentQuestion.options[selectedOption].isCorrect}>
-                    {currentQuestion.options[selectedOption].feedback}
-                  </FeedbackText>
-                )}
+
               </ExpandableQuestionContainer>
+              
+              {/* Momentum-Insight combo sprite - side-by-side positioning */}
+              <MomentumInsightComboContainer>
+                <MomentumBarSprite $momentumLevel={currentMomentum} />
+                <InsightBarSprite $insightLevel={insight} />
+              </MomentumInsightComboContainer>
             </QuestionContainerWrapper>
           </ContentArea>
         );
@@ -951,41 +1005,56 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
       case 'summary':
         return (
           <ContentArea>
-            <SummaryContainer>
-              <h2 style={{ marginBottom: '20px' }}>Theoretical Exploration Complete</h2>
-              <p style={{ fontSize: '16px', lineHeight: '1.6', marginBottom: '20px' }}>
-                "Excellent work, {playerName}! You've explored the fundamental physics principles 
-                that make radiation therapy possible. The way you grasped these conceptual connections 
-                was truly elegant."
-              </p>
-              <div style={{ margin: '20px 0', padding: '20px', background: 'rgba(63, 81, 181, 0.2)', borderRadius: '10px' }}>
-                <strong>Session Results:</strong><br/>
-                Questions Completed: {questionsCompleted}<br/>
-                Final Momentum: {currentMomentum}/10<br/>
-                Insight Gained: {totalInsightGained} points<br/>
-                {currentMomentum >= 7 ? 'Outstanding theoretical mastery!' : 
-                 currentMomentum >= 4 ? 'Solid conceptual understanding!' : 
-                 'Good foundation building!'}
-              </div>
-              <p style={{ fontSize: '16px', color: '#98b4c7', marginBottom: '20px' }}>
-                "These fundamental concepts are the building blocks for everything we'll explore together. 
-                The beauty of physics is how these principles interconnect to create our therapeutic capabilities."
-              </p>
-              <button
-                onClick={handleComplete}
-                style={{
-                  background: 'rgba(76, 175, 80, 0.8)',
-                  border: '2px solid #4caf50',
-                  color: '#e8f4f8',
-                  padding: '15px 30px',
-                  borderRadius: '10px',
-                  fontSize: '16px',
-                  cursor: 'pointer'
-                }}
-              >
-                Continue to Next Phase
-              </button>
-            </SummaryContainer>
+            <QuestionContainerWrapper>
+              <ExpandableQuestionContainer domain="physics">
+                <CanvasTypographyOverride>
+                  {/* Title Section */}
+                  <div style={{ 
+                    textAlign: 'center',
+                    marginBottom: '20px'
+                  }}>
+                    <div style={{ 
+                      fontSize: CanvasFonts.lg,
+                      fontFamily: typography.fontFamily.pixel,
+                      color: '#4caf50',
+                      fontWeight: 'bold',
+                      textShadow: '0 0 6px rgba(76, 175, 80, 0.6)',
+                      marginBottom: '8px'
+                    }}>
+                      ★ BEAM BASICS COMPLETE ★
+                    </div>
+                    <div style={{ 
+                      fontSize: CanvasFonts.md,
+                      color: '#FFD700', 
+                      fontWeight: 'bold',
+                      fontFamily: typography.fontFamily.pixel
+                    }}>
+                      +{totalMasteryGained} Beam Physics Mastery!
+                    </div>
+                  </div>
+                  
+                  {/* Continue Button using ExpandableAnswerContainer */}
+                  <div style={{ textAlign: 'center' }}>
+                    <ExpandableAnswerContainer
+                      domain="physics"
+                      isActive={true}
+                      isHovered={false}
+                      onClick={handleComplete}
+                      style={{ 
+                        cursor: 'pointer',
+                        display: 'inline-block',
+                        filter: 'hue-rotate(120deg) saturate(1.3) brightness(1.2)',
+                        maxWidth: '280px'
+                      }}
+                    >
+                      <CanvasTypographyOverride>
+                        🚀 CONTINUE TO NEXT PHASE
+                      </CanvasTypographyOverride>
+                    </ExpandableAnswerContainer>
+                  </div>
+                </CanvasTypographyOverride>
+              </ExpandableQuestionContainer>
+            </QuestionContainerWrapper>
           </ContentArea>
         );
         
@@ -998,86 +1067,77 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
      const renderPlaceholderAbilities = () => {
        if (activityPhase === 'intro') return null;
        
-       return (
-         <AbilitiesBarContainer>
-           {/* Section 1: Bars stacked vertically (insight above momentum) */}
-           <div style={{ 
-             display: 'flex', 
-             flexDirection: 'column', 
-             gap: '12px', /* Vertical gap between stacked bars */
-             alignItems: 'center',
-             height: '240px', /* Increased height for stacked layout */
-             justifyContent: 'flex-end',
-             overflow: 'visible' /* Allow tooltips to extend outside */
-           }}>
-                         <InsightBarContainer 
-              className="hover-target"
-              onMouseEnter={() => setHoveredMeter(-1)}
-              onMouseLeave={() => setHoveredMeter(null)}
+             return (
+        <AbilitiesBarContainer>
+          {/* Background image as IMG element for proper canvas scaling */}
+          <AbilityBarBackground 
+            src="/images/ui/containers/ability-panel-container.png"
+            alt="Ability bar background"
+          />
+          
+          {/* Ability slots stacked vertically - IMG elements for proper PNG rendering */}
+          {[1, 2, 3].map((slotNumber) => (
+            <AbilitySlot
+              key={slotNumber}
+              $isPlaceholder={true}
+              onMouseEnter={() => setHoveredAbility(slotNumber)}
+              onMouseLeave={() => setHoveredAbility(null)}
             >
-              <InsightBarDynamic 
-                src="/images/ui/insight-bar-static.png" 
-                alt="Insight bar (1:1 mapping)"
-                $frameIndex={currentInsightFrame}
-                $isAnimating={insightAnimating}
+              {/* Background PNG as IMG element for proper canvas scaling */}
+              <AbilitySlotBackground 
+                src="/images/ui/containers/ability-slot.png"
+                alt={`Ability slot ${slotNumber} background`}
               />
-              <MeterValue>{insight}/100</MeterValue>
-            </InsightBarContainer>
-             
-             <MeterContainer 
-               onMouseEnter={() => setHoveredMeter(-2)}
-               onMouseLeave={() => setHoveredMeter(null)}
-             >
-               <MomentumBarHorizontal
-                 src="/images/ui/momentum-bar.png"
-                 alt="Momentum bar (flicker system)"
-                 $frameIndex={currentMomentumFrame}
-                 $isFlickering={momentumFlickering}
-               />
-               <MeterValue>{currentMomentum}/10</MeterValue>
-             </MeterContainer>
-           </div>
+              <AbilityIcon>?</AbilityIcon>
+              <AbilityTooltip $visible={hoveredAbility === slotNumber}>
+                <CanvasTypographyOverride>
+                  Ability Slot {slotNumber} - Check back tomorrow!
+                </CanvasTypographyOverride>
+              </AbilityTooltip>
+            </AbilitySlot>
+          ))}
            
-           {/* Section 2: Ability slots stacked */}
-           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-             {[1, 2, 3, 4].map((slotNumber) => (
-               <AbilitySlot
-                 key={slotNumber}
-                 $isPlaceholder={true}
-                 onMouseEnter={() => setHoveredAbility(slotNumber)}
-                 onMouseLeave={() => setHoveredAbility(null)}
-               >
-                 <AbilityIcon>?</AbilityIcon>
-                 <AbilityTooltip $visible={hoveredAbility === slotNumber}>
-                   Ability Slot {slotNumber} - Check back tomorrow!
-                 </AbilityTooltip>
-               </AbilitySlot>
-             ))}
-           </div>
-           
-           {/* Tooltips */}
-           {hoveredMeter !== null && (
-             <SimpleTooltip 
-               $visible={true}
-               $index={hoveredMeter}
-             >
-               {hoveredMeter === -1 && `Learning progress points`}
-               {hoveredMeter === -2 && `Question flow state`}
-             </SimpleTooltip>
-           )}
+          {/* Tooltips removed - momentum/insight now on question box overlay */}
          </AbilitiesBarContainer>
        );
      };
      
-     return (
-       <Container>
-         {/* Fixed mentor portrait in top left */}
-         <PortraitContainer>
-           <MentorPortrait src={getPortraitPath('quinn', 'medium')} alt="Dr. Quinn" />
-         </PortraitContainer>
-         
-         {renderContent()}
-         {renderPlaceholderAbilities()}
-       </Container>
-     );
-   } 
+         return (
+      <Container>
+        {/* Star bar - positioned at top left using canvas coordinates */}
+        <StarBarContainer>
+          <StarBarImage 
+            $starLevel={insight} // Use insight progress for testing animation (0-100)
+          />
+        </StarBarContainer>
+        
+        {/* Book icon - positioned under star bar using canvas coordinates */}
+        <BookIconContainer>
+          <BookIconImage 
+            src="/images/journal/book-icon.png"
+            alt="Journal/Book icon"
+          />
+        </BookIconContainer>
+        
+        {/* Quinn emblem now integrated within question container for story book layout */}
+        {renderContent()}
+        {renderPlaceholderAbilities()}
+        
+
+
+        {/* Mastery Gain Popup - Modern Pixel Container with Debug Borders */}
+        <MasteryPopupContainer 
+          $visible={showMasteryPopup}
+          $level={lastMasteryGain}
+        >
+          <ToastContainer domain="physics" size="xs">
+            <CanvasTypographyOverride style={{ fontSize: CanvasFonts.xs }}>
+              <MasteryContent $level={lastMasteryGain}>
+                {lastMasteryGain} Beam Physics
+              </MasteryContent>
+            </CanvasTypographyOverride>
+          </ToastContainer>
+        </MasteryPopupContainer>
+      </Container>
+    );
+  } 

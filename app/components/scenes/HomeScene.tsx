@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useSceneStore } from '@/app/store/sceneStore';
+import { useTutorialStore } from '@/app/store/tutorialStore';
+import { useTutorialOverlays } from '@/app/components/tutorial/TutorialOverlay';
 import AbilityCardInterface from './AbilityCardInterface';
 
 // Add debug mode toggle - set to true to see clickboxes
@@ -105,6 +107,11 @@ export default function HomeScene() {
   const { transitionToScene } = useSceneStore();
   const [hoveredArea, setHoveredArea] = useState<HoveredArea | null>(null);
   const [showAbilityInterface, setShowAbilityInterface] = useState(false);
+  
+  // Tutorial integration
+  const currentStep = useTutorialStore(state => state.currentStep);
+  const completeStep = useTutorialStore(state => state.completeStep);
+  const { showTooltip } = useTutorialOverlays();
 
   const handleBedClick = () => {
     console.log('[HomeScene] Bed clicked - transitioning to hospital');
@@ -138,6 +145,40 @@ export default function HomeScene() {
     setHoveredArea(null);
   };
 
+  // Tutorial: First-time home visit guidance (prevent multiple executions)
+  const hasProcessedRef = useRef(false);
+  
+  useEffect(() => {
+    if (currentStep === 'night_phase_intro' && !hasProcessedRef.current) {
+      // First time arriving home - advance to home_intro step
+      console.log('[HomeScene] First-time home visit detected, advancing tutorial');
+      hasProcessedRef.current = true;
+      completeStep('night_phase_intro');
+    }
+  }, [currentStep, completeStep]);
+
+  // Tutorial: Enhanced click handlers for guidance
+  const handleDeskClickWithTutorial = () => {
+    console.log('[HomeScene] Desk clicked');
+    if (currentStep === 'home_intro') {
+      // Complete home_intro and advance to abilities_desk_intro
+      completeStep('home_intro');
+    } else if (currentStep === 'abilities_desk_intro') {
+      // Tutorial step will be completed inside AbilityCardInterface
+      console.log('[HomeScene] Abilities desk intro step - opening interface');
+    }
+    setShowAbilityInterface(true);
+  };
+
+  const handleLadderClickWithTutorial = () => {
+    console.log('[HomeScene] Ladder clicked - going up to observatory');
+    if (currentStep === 'home_intro') {
+      // First complete home intro, then go to constellation
+      completeStep('home_intro');
+    }
+    transitionToScene('observatory');
+  };
+
   return (
     <HomeContainer>
       <HomeImageContainer>
@@ -168,7 +209,7 @@ export default function HomeScene() {
             width: '25%',
             height: '30%'
           }}
-          onClick={handleDeskClick}
+          onClick={currentStep === 'home_intro' || currentStep === 'abilities_desk_intro' ? handleDeskClickWithTutorial : handleDeskClick}
           onMouseEnter={(e) => handleAreaHover('Desk', e)}
           onMouseLeave={handleAreaLeave}
         >
@@ -185,7 +226,7 @@ export default function HomeScene() {
             width: '10%',
             height: '86%'
           }}
-          onClick={handleLadderClick}
+          onClick={currentStep === 'home_intro' ? handleLadderClickWithTutorial : handleLadderClick}
           onMouseEnter={(e) => handleAreaHover('Ladder', e)}
           onMouseLeave={handleAreaLeave}
         >

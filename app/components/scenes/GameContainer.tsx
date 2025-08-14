@@ -7,8 +7,7 @@ import HospitalBackdrop from '@/app/components/hospital/HospitalBackdrop';
 import { SceneNarrativeDialogue, SceneChallengeDialogue } from '@/app/components/scenes/SceneDialogueAdapters';
 import TransitionScreen from '@/app/components/ui/TransitionScreen';
 import ConstellationView from '@/app/components/knowledge/ConstellationView';
-import HomeScene from '@/app/components/scenes/HomeScene';
-import ObservatoryScene from '@/app/components/scenes/ObservatoryScene';
+import CombinedHomeScene from '@/app/components/scenes/CombinedHomeScene';
 import LunchRoomScene from '@/app/components/scenes/LunchRoomScene';
 import RoomUIOverlay from '../rooms/RoomUIOverlays';
 import TutorialOverlayManager from '@/app/components/tutorial/TutorialOverlay';
@@ -126,10 +125,11 @@ export default function GameContainer() {
         );
         
       case 'home':
-        return <HomeScene />;
+        return <CombinedHomeScene />;
         
       case 'observatory':
-        return <ObservatoryScene />;
+        // Legacy support: redirect to combined home scene
+        return <CombinedHomeScene />;
         
       case 'constellation':
         return <ConstellationView />;
@@ -192,7 +192,7 @@ export function useSceneNavigation() {
     // Quick navigation helpers
     goToConstellation: () => useSceneStore.getState().transitionToScene('constellation'),
     goToHome: () => useSceneStore.getState().transitionToScene('home'),
-    goToObservatory: () => useSceneStore.getState().transitionToScene('observatory'),
+    goToObservatory: () => useSceneStore.getState().transitionToScene('home'), // Legacy: redirects to combined home
     
     // Activity shortcuts
     startNarrativeWithGarcia: (dialogueId?: string) => enterNarrative('garcia', dialogueId),

@@ -13,6 +13,7 @@ import { Day1SceneId } from '@/app/types/day1';
 import { colors, typography } from '@/app/styles/pixelTheme';
 import { ChangelogPopup } from '@/app/components/ui/ChangelogPopup';
 import { getCurrentVersionString, hasRecentUpdates } from '@/app/utils/versionManager';
+import GameDevConsole from '@/app/components/debug/GameDevConsole';
 
 // Styled components for the container and UI elements
 const FullScreenContainer = styled.div`
@@ -38,6 +39,28 @@ const PixiContainer = styled.div`
   left: 0;
 `;
 
+// Vignette overlay similar to telescope view in ConstellationView
+const TitleVignette = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+  background: radial-gradient(
+    circle at center,
+    transparent 0%,
+    transparent 0%,
+    rgba(0, 0, 0, 0.0) 45%,
+    rgba(0, 0, 0, 0.1) 55%,
+    rgba(0, 0, 0, 0.1) 65%,
+    rgba(0, 0, 0, 0.2) 75%,
+    rgba(0, 0, 0, 0.3) 85%,
+    rgba(0, 0, 0, 0.4) 95%
+  );
+`;
+
 const UIOverlay = styled.div`
   position: absolute;
   top: 0;
@@ -50,6 +73,36 @@ const UIOverlay = styled.div`
   flex-direction: column;
   justify-content: center;
   align-items: center;
+`;
+
+// What's New button positioned above the vignette
+const WhatsNewButton = styled.button`
+  position: absolute;
+  top: 60px;
+  right: 140px;
+  width: 178px; /* 89px sprite width * 2x scale */
+  height: 36px; /* 18px sprite height * 2x scale */
+  background-image: url('/images/title/whats-new-button.png');
+  background-size: 356px 36px; /* Full sprite sheet size scaled by 2x (178*2, 18*2) */
+  background-position: 0 0; /* Show first frame */
+  background-repeat: no-repeat;
+  border: none;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 101; /* Above vignette */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  transition: transform 0.1s ease;
+
+  &:hover {
+    transform: scale(1.05);
+    background-position: -178px 0; /* Show second frame (-89px * 2x scale) */
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
 `;
 
 const GameVersion = styled.div`
@@ -107,7 +160,7 @@ export const TitleScreen: React.FC = () => {
         let titleSprite: PIXI.Sprite | null = null;
         let playButtonSprite: PIXI.Sprite | null = null;
         let testButtonSprite: PIXI.Sprite | null = null;
-        let whatsNewButtonSprite: PIXI.Sprite | null = null;
+
         let scrollSpeed = 0.2; // Much slower scroll for smoother effect
 
         // Load textures and create sprites
@@ -118,10 +171,10 @@ export const TitleScreen: React.FC = () => {
             const titleTexture = await PIXI.Assets.load('/images/title/title-sprite.png');
             const playButtonTexture = await PIXI.Assets.load('/images/title/play-button.png');
             const testButtonTexture = await PIXI.Assets.load('/images/title/test-button.png');
-            const whatsNewButtonTexture = await PIXI.Assets.load('/images/title/whats-new-button.png');
+
 
             // Set pixel-perfect rendering for all textures
-            [backgroundTexture, titleTexture, playButtonTexture, testButtonTexture, whatsNewButtonTexture].forEach(texture => {
+            [backgroundTexture, titleTexture, playButtonTexture, testButtonTexture].forEach(texture => {
               texture.source.scaleMode = 'nearest'; // Pixel-perfect scaling
             });
 
@@ -258,43 +311,7 @@ export const TitleScreen: React.FC = () => {
             
             app.stage.addChild(testButtonSprite);
 
-            // Create what's new button sprite (178x18 sprite sheet) - positioned in top right
-            whatsNewButtonSprite = createButtonSprite(
-              whatsNewButtonTexture, 
-              app.screen.width - 120, // Position from right edge
-              60, // Position from top
-              1.5 // Much larger than before
-            );
-            
-            // Add hover and click effects
-            whatsNewButtonSprite.on('pointerover', () => {
-              // Subtle hover effect - just slight scale increase
-              whatsNewButtonSprite!.scale.set((whatsNewButtonSprite as any).baseScale * 1.05);
-            });
-            whatsNewButtonSprite.on('pointerout', () => {
-              // Return to normal state
-              whatsNewButtonSprite!.texture = (whatsNewButtonSprite as any).normalTexture;
-              whatsNewButtonSprite!.scale.set((whatsNewButtonSprite as any).baseScale);
-            });
-            whatsNewButtonSprite.on('pointerdown', () => {
-              // Button press animation: switch to frame 2 and scale down
-              whatsNewButtonSprite!.texture = (whatsNewButtonSprite as any).hoverTexture;
-              whatsNewButtonSprite!.scale.set((whatsNewButtonSprite as any).baseScale * 0.98);
-            });
-            whatsNewButtonSprite.on('pointerup', () => {
-              // Animate back to normal after a short delay
-              setTimeout(() => {
-                whatsNewButtonSprite!.texture = (whatsNewButtonSprite as any).normalTexture;
-                whatsNewButtonSprite!.scale.set((whatsNewButtonSprite as any).baseScale * 1.05); // Back to hover state
-              }, 100);
-              
-              // Trigger action after animation
-              setTimeout(() => {
-                setShowChangelog(true);
-              }, 150);
-            });
-            
-            app.stage.addChild(whatsNewButtonSprite);
+
 
             setIsLoaded(true);
           } catch (error) {
@@ -404,10 +421,7 @@ export const TitleScreen: React.FC = () => {
               testButtonSprite.x = app.screen.width / 2;
               testButtonSprite.y = app.screen.height * 0.7; // Updated position
             }
-            if (whatsNewButtonSprite) {
-              whatsNewButtonSprite.x = app.screen.width - 120;
-              whatsNewButtonSprite.y = 60;
-            }
+
             if (backgroundSprite) {
               backgroundSprite.width = app.screen.width;
               backgroundSprite.height = app.screen.height;
@@ -561,11 +575,20 @@ export const TitleScreen: React.FC = () => {
           </GameVersion>
         </UIOverlay>
         
+        {/* What's New button positioned above vignette */}
+        <WhatsNewButton onClick={() => setShowChangelog(true)} />
+        
+        {/* Vignette overlay - appears on top of everything except changelog */}
+        <TitleVignette />
+        
         {/* Changelog popup */}
         <ChangelogPopup 
           isOpen={showChangelog} 
           onClose={() => setShowChangelog(false)} 
         />
+        
+        {/* Debug Console - always available */}
+        <GameDevConsole />
       </FullScreenContainer>
     </>
   );

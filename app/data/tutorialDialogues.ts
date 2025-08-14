@@ -39,25 +39,27 @@ export const tutorialDialogues: Record<string, Dialogue> = {
       'quinn_reflection': {
         id: 'quinn_reflection',
         mentorId: 'quinn',
-        text: `"Nice work! You've learned the basics."`,
+        text: `"Excellent work on those physics fundamentals! You've shown real understanding. Take this **journal** - it will track your discoveries and help you remember key concepts."`,
         options: [
           {
-            id: 'continue_to_wrap_up',
-            text: 'Thanks!',
-            nextNodeId: 'quinn_day_conclusion'
+            id: 'accept_journal',
+            text: 'Thank you, this will be helpful!',
+            nextNodeId: 'quinn_day_conclusion',
+            journalReward: true // Custom property for triggering journal gift
           }
         ]
       },
       'quinn_day_conclusion': {
         id: 'quinn_day_conclusion',
         mentorId: 'quinn',
-        text: `"Go home and rest. Tomorrow we'll build on what you learned today."`,
+        text: `"Now you're equipped for the journey ahead. Go home, explore your new tools, and rest up. Tomorrow we'll build on what you learned today."`,
         options: [
           {
             id: 'end_micro_day',
-            text: 'See you tomorrow!',
+            text: 'See you tomorrow, Dr. Quinn!',
             nextNodeId: undefined,
-            tutorialStepCompletion: 'quinn_followup'
+            tutorialStepCompletion: 'quinn_followup',
+            triggersEndOfDay: true // Trigger night phase transition
           }
         ]
       }

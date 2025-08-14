@@ -215,10 +215,16 @@ export interface DialogueOption {
   // Day 1 specific properties
   isNameInput?: boolean;
   triggersActivity?: boolean;
+  triggersEndOfDay?: boolean;        // Triggers end of day transition to night phase
   
   // Tutorial system support
   tutorialStepCompletion?: string;  // Tutorial step ID to complete when this option is chosen
   receivesAbility?: string;         // Ability ID to receive when this option is chosen
+  
+  // Quinn's reward sequence properties
+  starPointReward?: number;         // Number of star points to award
+  journalReward?: boolean;          // Whether to give journal access
+  abilityCardReward?: string;       // Ability card ID to award
 }
 
 // Relationship tracking for mentors

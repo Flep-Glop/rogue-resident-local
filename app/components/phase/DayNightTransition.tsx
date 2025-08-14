@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useGameStore } from '@/app/store/gameStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { useResourceStore } from '@/app/store/resourceStore';
+import { useTutorialStore } from '@/app/store/tutorialStore';
 import { GamePhase } from '@/app/types';
 import { PhaseManager } from '@/app/core/phase/PhaseManager';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
@@ -103,6 +104,15 @@ export const DayNightTransition: React.FC = () => {
         // Navigate directly to home scene while screen is black
         const { setSceneDirectly } = useSceneStore.getState();
         setSceneDirectly('home');
+        
+        // Start the home tutorial sequence if in micro_day tutorial
+        const tutorialStore = useTutorialStore.getState();
+        if (tutorialStore.activeSequence === 'micro_day' && tutorialStore.currentStep === 'quinn_followup') {
+          console.log('[DayNightTransition] Starting night phase tutorial sequence');
+          setTimeout(() => {
+            tutorialStore.completeStep('quinn_followup');
+          }, 1000); // Small delay to let home scene load
+        }
         
         console.log('[DayNightTransition] Scene changed to home at animation midpoint');
       }, 1500); // 1.5 seconds = midpoint of 3-second animation

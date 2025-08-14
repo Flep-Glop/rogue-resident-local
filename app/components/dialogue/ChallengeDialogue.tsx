@@ -14,7 +14,7 @@ import ReactionSystemComponent from '@/app/components/ui/ReactionSystem';
 import AbilityCardFlip from '@/app/components/ui/AbilityCardFlip';
 import { useSceneNavigation } from '@/app/components/scenes/GameContainer';
 import { ParsedDialogue } from '@/app/types/dialogue';
-import { ExpandableDialogContainer } from '@/app/components/ui/PixelContainer';
+import { ExpandableQuestionContainer } from '@/app/components/ui/PixelContainer';
 
 // === INTERNAL RESOLUTION SYSTEM ===
 // Dialogue uses 640x360 internal coordinates (matching physics office native resolution)
@@ -948,7 +948,7 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
               )}
               
               <MessageContent>
-                <ExpandableDialogContainer 
+                <ExpandableQuestionContainer 
                   domain={roomId?.includes('physics') ? 'physics' : 
                          roomId?.includes('dosimetry') ? 'dosimetry' :
                          roomId?.includes('linac') ? 'linac' : 'planning'}
@@ -961,7 +961,7 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
                   }}
                 >
                   {message.text}
-                </ExpandableDialogContainer>
+                </ExpandableQuestionContainer>
                 <MessageMeta>
                   <span>{message.isPlayer ? 'You' : mentor?.name}</span>
                   <span>•</span>

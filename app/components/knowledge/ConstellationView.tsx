@@ -6,6 +6,7 @@ import * as PIXI from 'pixi.js';
 import { useSceneStore } from '@/app/store/sceneStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { useGameStore } from '@/app/store/gameStore';
+import { useTutorialStore } from '@/app/store/tutorialStore';
 import { colors, spacing, typography } from '@/app/styles/pixelTheme';
 import { DomainColors, KnowledgeDomain } from '@/app/types';
 
@@ -522,12 +523,28 @@ const AllConstellations: React.FC<{
 
 export default function ConstellationView() {
   const { returnToPrevious } = useSceneStore();
+  
+  // Tutorial integration
+  const currentStep = useTutorialStore(state => state.currentStep);
+  const completeStep = useTutorialStore(state => state.completeStep);
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   const pixiAppRef = useRef<PIXI.Application | null>(null);
   
   // Get data from stores
   const starsObject = useKnowledgeStore(state => state.stars);
   
+  // Tutorial: First-time observatory visit
+  useEffect(() => {
+    if (currentStep === 'constellation_intro') {
+      console.log('[ConstellationView] First-time observatory visit detected, tutorial guidance');
+      // Tutorial overlay will be shown automatically by tutorial store
+      // Complete the step after a brief delay to let user see the experience
+      setTimeout(() => {
+        completeStep('constellation_intro');
+      }, 3000);
+    }
+  }, [currentStep, completeStep]);
+
   // Initialize knowledge store with debugging defaults if empty
   useEffect(() => {
     const initializeIfEmpty = async () => {

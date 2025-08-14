@@ -365,7 +365,7 @@ const ConsoleHeader = styled.div`
 const ConsoleTitle = styled.h2`
   margin: 0;
   color: #3B82F6;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: bold;
 `;
 
@@ -385,7 +385,7 @@ const ControlSection = styled.div`
 
 const SectionTitle = styled.h4`
   color: #E2E8F0;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: bold;
   text-transform: uppercase;
   margin: 0 0 6px 0;
@@ -411,7 +411,7 @@ const CompactButton = styled.button<{ $variant?: 'primary' | 'success' | 'warnin
   border-radius: 4px;
   padding: 4px 6px;
   margin-bottom: 3px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -436,7 +436,7 @@ const CompactButton = styled.button<{ $variant?: 'primary' | 'success' | 'warnin
 const StatusBar = styled.div`
   display: flex;
   gap: 12px;
-  font-size: 10px;
+  font-size: 12px;
   color: #94A3B8;
 `;
 
@@ -566,6 +566,70 @@ const GameDevConsole: React.FC = () => {
       console.log('🔄 Resetting all stores');
       useTutorialStore.getState().resetTutorialProgress();
       useDialogueStore.getState().endDialogue();
+    },
+
+    skipToQuinnNight: () => {
+      console.log('🌙 Skipping to Quinn\'s final dialogue (triggers night phase)');
+      const dialogueStore = useDialogueStore.getState();
+      const sceneStore = useSceneStore.getState();
+      const tutorialStore = useTutorialStore.getState();
+      
+      // Set up micro day tutorial if not already active
+      tutorialStore.startTutorialSilently('micro_day', 'quinn_followup');
+      
+      // Start the dialogue normally
+      dialogueStore.startDialogue('tutorial_quinn_intro');
+      
+      // Then manually set the current node to the final dialogue
+      setTimeout(() => {
+        // Access the store directly to set the specific node
+        useDialogueStore.setState({
+          currentNodeId: 'quinn_day_conclusion',
+          dialogueHistory: [
+            { nodeId: 'tutorial_quinn_intro', selectedOptionId: null },
+            { nodeId: 'quinn_day_conclusion', selectedOptionId: null }
+          ]
+        });
+        console.log('🗣️ Jumped directly to Quinn\'s final dialogue - click "See you tomorrow!" to trigger night phase');
+      }, 100);
+      
+      sceneStore.transitionToScene('narrative', {
+        mentorId: 'quinn',
+        dialogueId: 'tutorial_quinn_intro',
+        roomId: 'physics-office'
+      });
+    },
+
+    skipToQuinnRewards: () => {
+      console.log('🎁 Skipping to Quinn\'s reward sequence (after tutorial activity)');
+      const dialogueStore = useDialogueStore.getState();
+      const sceneStore = useSceneStore.getState();
+      const tutorialStore = useTutorialStore.getState();
+      
+      // Set up micro day tutorial if not already active
+      tutorialStore.startTutorialSilently('micro_day', 'quinn_activity');
+      
+      // Start the dialogue normally
+      dialogueStore.startDialogue('tutorial_quinn_intro');
+      
+      // Then manually set the current node to the reward sequence start
+      setTimeout(() => {
+        // Access the store directly to set the specific node
+        useDialogueStore.setState({
+          currentNodeId: 'quinn_reflection',
+          dialogueHistory: [
+            { nodeId: 'tutorial_quinn_intro', selectedOptionId: null },
+            { nodeId: 'quinn_reflection', selectedOptionId: null }
+          ]
+        });
+        console.log('🎁 Jumped directly to Quinn\'s reward sequence - experience the star point, journal, and card rewards!');
+      }, 100);
+      
+      sceneStore.transitionToScene('narrative', {
+        mentorId: 'quinn',
+        dialogueId: 'tutorial_quinn_intro',
+        roomId: 'physics-office'
+      });
     },
 
     // Time Lighting Tests  
@@ -813,7 +877,7 @@ const GameDevConsole: React.FC = () => {
               </StatusItem>
             )}
           </StatusBar>
-          <div style={{ color: '#94A3B8', fontSize: '10px' }}>
+          <div style={{ color: '#94A3B8', fontSize: '12px' }}>
             F2 • ESC
           </div>
         </ConsoleHeader>
@@ -839,6 +903,12 @@ const GameDevConsole: React.FC = () => {
             </CompactButton>
             <CompactButton $variant="warning" onClick={quickActions.freeRoam}>
               🔓 Free Roam
+            </CompactButton>
+            <CompactButton $variant="success" onClick={quickActions.skipToQuinnRewards}>
+              🎁 Quinn Rewards
+            </CompactButton>
+            <CompactButton $variant="success" onClick={quickActions.skipToQuinnNight}>
+              🌙 Skip to Quinn Night
             </CompactButton>
             <CompactButton $variant="danger" onClick={quickActions.resetAll}>
               🔄 Reset All

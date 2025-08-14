@@ -16,12 +16,34 @@ import TypewriterText from '@/app/components/ui/TypewriterText';
 import { useTutorialStore } from '@/app/store/tutorialStore';
 import ReactionSystemComponent from '@/app/components/ui/ReactionSystem';
 import AbilityCardFlip from '@/app/components/ui/AbilityCardFlip';
-import { ExpandableDialogContainer, CardContainer } from '@/app/components/ui/PixelContainer';
+import { ExpandableQuestionContainer, ExpandableAnswerContainer, PixelContainer, ToastContainer } from '@/app/components/ui/PixelContainer';
 
 // === INTERNAL RESOLUTION SYSTEM ===
 // Dialogue uses 640x360 internal coordinates (matching physics office native resolution)
 const DIALOGUE_INTERNAL_WIDTH = 640;
 const DIALOGUE_INTERNAL_HEIGHT = 360;
+
+// Canvas-appropriate typography scale for 640×360 coordinate system (following QuinnTutorialActivity pattern)
+const CanvasFonts = {
+  xs: '10px',  // For small tooltips and labels (increased from 8px)
+  sm: '12px',  // For secondary text and values (increased from 10px)
+  md: '18px',  // For primary content text (increased from 16px)
+  lg: '18px',  // For headings and important text (increased from 14px)
+  xl: '20px'   // For major headings (increased from 16px)
+};
+
+// Typography override wrapper for PixelContainer compatibility with canvas scaling
+const CanvasTypographyOverride = styled.div`
+  /* Override theme typography for canvas scaling compatibility */
+  font-size: ${CanvasFonts.md} !important;
+  line-height: 1.4 !important;
+  
+  /* Ensure all child elements inherit canvas-appropriate sizing */
+  * {
+    font-size: inherit !important;
+    line-height: inherit !important;
+  }
+`;
 
 // Keyframe animations
 const blink = keyframes`
@@ -71,6 +93,45 @@ const parseDialogueText = (text: string): ParsedDialogue => {
     .replace(/\n\s*\n/g, '\n\n'); // Normalize double line breaks
   
   return { stageDirections, cleanText };
+};
+
+// Styled components for highlighted reward text
+const HighlightedText = styled.span<{ $type: 'star' | 'journal' | 'card' }>`
+  color: ${props => 
+    props.$type === 'star' ? '#FFD700' :     // Gold
+    props.$type === 'journal' ? '#22C55E' :  // Green  
+    '#845AF5'                                // Purple
+  };
+  font-weight: bold;
+  text-shadow: 0 0 8px ${props => 
+    props.$type === 'star' ? 'rgba(255, 215, 0, 0.5)' :
+    props.$type === 'journal' ? 'rgba(34, 197, 94, 0.5)' :
+    'rgba(132, 90, 245, 0.5)'
+  };
+`;
+
+// Function to render text with **bold** formatting as colored highlights
+const renderFormattedText = (text: string) => {
+  // Split text on **word** pattern and process each part
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      const content = part.slice(2, -2); // Remove ** markers
+      
+      // Determine color based on content
+      let type: 'star' | 'journal' | 'card' = 'star';
+      if (content.toLowerCase().includes('journal')) type = 'journal';
+      else if (content.toLowerCase().includes('focus') || content.toLowerCase().includes('card')) type = 'card';
+      
+      return (
+        <HighlightedText key={index} $type={type}>
+          {content}
+        </HighlightedText>
+      );
+    }
+    return part;
+  });
 };
 
 const Container = styled.div<{ $roomId?: string }>`
@@ -147,10 +208,10 @@ const Container = styled.div<{ $roomId?: string }>`
 const CharacterSection = styled.div`
   /* Position at bottom left side for better balance with right-aligned dialogue */
   position: absolute;
-  bottom: 80px; /* Distance from bottom */
-  left: 80px; /* Fixed distance from left edge */
-  width: 180px; /* Optimized for true 640x360 portrait size (116px + margin) */
-  height: 180px; /* Optimized for true 640x360 portrait size (161px + margin) */
+  bottom: 55px; /* Distance from bottom */
+  left: 50px; /* Fixed distance from left edge (moved left from 89px) */
+  width: 180px; /* Optimized for native portrait size (111px + margin + title width) */
+  height: 180px; /* Optimized for native portrait size (160px + title + margin) */
   
   display: flex;
   align-items: flex-end;
@@ -190,18 +251,38 @@ const AnimationWrapper = styled.div<{ $animation?: PortraitAnimationType }>`
 `;
 
 const CharacterPortrait = styled.div<{ $roomId?: string }>`
-  /* True size for Quinn detailed portrait - scaled for 640x360 resolution */
-  width: 116px;  /* True Quinn detailed width (half of previous 2x scale) */
-  height: 161px; /* True Quinn detailed height (half of previous 2x scale) */
+  /* Container optimized for Quinn's native dimensions with space for title */
+  width: 147px;  /* Max of Quinn portrait (113px) and title (147px) for proper centering */
+  height: 179px; /* Quinn portrait (161px) + title (26px) + gap (-8px) */
   position: relative;
-  overflow: visible; /* Allow portrait to display fully */
+  overflow: visible; /* Allow portrait and title to display fully */
   flex-shrink: 0; /* Prevent compression */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
   
-  /* No transform scaling - portraits rendered at native size for 640x360 */
-  transform: translate(0, 0); /* Remove all scaling transforms */
+  /* Container for positioning - no direct styling on images */
+  /* Images handle their own pixel perfect rendering */
   
+  ${mixins.pixelPerfect}
+`;
+
+// Quinn detailed portrait - direct IMG approach following architecture guidelines
+const QuinnDetailedPortrait = styled.img<{ $roomId?: string }>`
+  /* NATIVE ASSET DIMENSIONS - 113×161px for perfect pixel density */
+  width: 113px;
+  height: 161px;
+  
+  /* Pixel perfect rendering following architecture standards */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  
+  /* Visual enhancement with room-specific adjustments */
   filter: 
-    drop-shadow(0 0 15px rgba(0, 0, 0, 0.8)) /* Stronger shadow for better visibility */
+    drop-shadow(0 0 15px rgba(0, 0, 0, 0.8))
     brightness(0.92)
     contrast(1.08)
     ${props => {
@@ -222,24 +303,44 @@ const CharacterPortrait = styled.div<{ $roomId?: string }>`
       }
     }};
   
-  /* Pixel perfect rendering */
-  img {
-    image-rendering: pixelated;
-    -webkit-image-rendering: pixelated; 
-    -moz-image-rendering: crisp-edges;
-    -ms-interpolation-mode: nearest-neighbor;
-    width: 100%;
-    height: 100%;
-    object-fit: contain; /* Ensure full image is visible */
-  }
+  /* Positioning and layout */
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
   
-  ${mixins.pixelPerfect}
+  /* Ensure proper layering */
+  z-index: 6;
+`;
+
+// Quinn title sprite - positioned beneath portrait following PNG asset integration guidelines
+const QuinnTitle = styled.img`
+  /* NATIVE ASSET DIMENSIONS - 147×26px for perfect pixel density */
+  width: 147px;
+  height: 26px;
+  
+  /* Positioning beneath portrait in flex layout */
+  margin-top: -8px; /* Negative margin to move title closer to portrait */
+  
+  /* Pixel perfect rendering following architecture standards */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  
+  /* Visual enhancement matching portrait style */
+  filter: 
+    drop-shadow(0 0 8px rgba(0, 0, 0, 0.6))
+    brightness(0.95)
+    contrast(1.05);
+  
+  /* Ensure proper layering */
+  z-index: 7; /* Above portrait (z:6) */
 `;
 
 const DialogueSection = styled.div`
   /* Simplified positioning for pixel containers - positioned to the right */
   position: absolute;
-  right: 40px; /* Fixed distance from right edge */
+  right: 70px; /* Fixed distance from right edge (moved left from 40px) */
   top: 20%; /* Start from top portion of screen */
   bottom: 20%; /* End before bottom portion */
   width: 400px; /* Fixed width for consistent layout */
@@ -260,7 +361,7 @@ const DialogueSection = styled.div`
 const SpeakerName = styled.div`
   color: ${colors.highlight};
   font-weight: bold;
-  font-size: 20px; /* Reduced from 48px (lg) for more compact speaker name */
+  font-size: ${CanvasFonts.lg}; /* Canvas-scaled speaker name */
   margin-bottom: 2px; /* Drastically reduced padding below name */
   margin-top: 0px; /* Pull up to eliminate container padding gap */
   text-shadow: ${typography.textShadow.pixel};
@@ -292,7 +393,7 @@ const StageDirection = styled.div`
 
 const DialogueText = styled.div<{ $isTyping: boolean }>`
   font-family: ${typography.fontFamily.pixel};
-  font-size: 18px; /* Reduced from 24px (xs) for more compact text */
+  font-size: ${CanvasFonts.md}; /* Canvas-scaled dialogue text */
   line-height: ${typography.lineHeight.tight}; /* Reduced from normal (1.3) to tight (1.1) */
   color: ${colors.text};
   white-space: pre-wrap;
@@ -351,7 +452,7 @@ const ContinuePrompt = styled.div`
   animation: ${pulse} 2s infinite;
 `;
 
-// Option button content styling (CardContainer handles the border/background)
+// Option button content styling (ExpandableAnswerContainer handles the border/background)
 const OptionContent = styled.div<{ $selected: boolean; $disabled?: boolean }>`
   font-family: ${typography.fontFamily.pixel};
   color: ${props => 
@@ -359,14 +460,14 @@ const OptionContent = styled.div<{ $selected: boolean; $disabled?: boolean }>`
       ? colors.textDim
       : colors.text
   };
-  font-size: 16px; /* Smaller button text for dialogue options */
+  font-size: ${CanvasFonts.md}; /* Canvas-scaled button text for dialogue options */
   line-height: 1.4;
   text-align: center;
   width: 100%;
   cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
   transition: all ${animation.duration.normal} ease;
   
-  /* Minimal padding for button text - CardContainer already provides 8px padding */
+  /* Minimal padding for button text - ExpandableAnswerContainer already provides 8px padding */
   padding: 2px 4px;
   
   /* Add subtle glow effect for selected state */
@@ -380,6 +481,102 @@ const OptionContent = styled.div<{ $selected: boolean; $disabled?: boolean }>`
   justify-content: space-between;
 `;
 
+// Wrapper for positioned pixel container notification with gentle fade transitions
+const RewardNotificationWrapper = styled.div<{ $visible: boolean; $type: 'star' | 'journal' | 'card' }>`
+  position: absolute; /* Use absolute positioning within 640×360 canvas */
+  top: 30px; /* Internal coordinate positioning - upper area */
+  left: 160px; /* Internal coordinate positioning - left-center area */
+  transform: translateX(-50%); /* Center the notification */
+  
+  /* Gentle fade animation and states */
+  opacity: ${props => props.$visible ? 1.0 : 0};
+  transform: ${props => props.$visible 
+    ? 'translateX(-50%) translateY(0px)' 
+    : 'translateX(-50%) translateY(-20px)'
+  };
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1500;
+  
+  /* Size constraints for modern containers */
+  min-width: ${props => props.$type === 'card' ? '160px' : '200px'};
+  max-width: ${props => props.$type === 'card' ? '180px' : '240px'};
+`;
+
+// Book icon component for journal notifications
+const BookIcon = styled.img`
+  /* NATIVE ASSET DIMENSIONS - 22×22px for perfect pixel density */
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  
+  /* Pixel perfect rendering */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  
+  /* Subtle glow effect for notifications */
+  filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.5));
+  flex-shrink: 0;
+`;
+
+// Modern notification content with canvas typography
+const NotificationContent = styled.div<{ $type: 'star' | 'journal' | 'card' }>`
+  color: ${colors.text};
+  font-family: ${typography.fontFamily.pixel};
+  font-size: ${CanvasFonts.sm}; /* Canvas-scaled typography */
+  font-weight: normal;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.4;
+  
+  /* Star emoji for star notifications only */
+  ${props => props.$type === 'star' && `
+    &::before {
+      content: '⭐ ';
+      font-size: 1rem;
+      margin-right: ${spacing.xs};
+    }
+  `}
+`;
+
+// Card sprite notification for ability card rewards
+const CardSpriteNotification = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  
+  .card-image {
+    width: 60px;
+    height: 90px;
+    background-image: url('/images/journal/fast-learner.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    image-rendering: pixelated;
+    
+    /* Add a subtle glow effect */
+    filter: drop-shadow(0 0 8px rgba(132, 90, 245, 0.6));
+    animation: cardGlow 2s ease-in-out infinite alternate;
+  }
+  
+  .card-text {
+    color: ${colors.text};
+    font-family: ${typography.fontFamily.pixel};
+    font-size: ${typography.fontSize.xs};
+    text-align: center;
+    font-weight: bold;
+  }
+  
+  @keyframes cardGlow {
+    0% { filter: drop-shadow(0 0 8px rgba(132, 90, 245, 0.4)); }
+    100% { filter: drop-shadow(0 0 12px rgba(132, 90, 245, 0.8)); }
+  }
+`;
+
 export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: NarrativeDialogueProps) {
   const [initialized, setInitialized] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -391,6 +588,13 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(0); // For keyboard nav
   const [activityTriggered, setActivityTriggered] = useState(false); // Prevent multiple activity triggers
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Reward notification state
+  const [rewardNotification, setRewardNotification] = useState<{
+    type: 'star' | 'journal' | 'card';
+    message: string;
+    visible: boolean;
+  } | null>(null);
   
   // Scene navigation for tutorial activities
   const { enterTutorialActivity } = useSceneNavigation();
@@ -413,31 +617,6 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
   const currentNode = getCurrentNode();
   const activeDialogue = getActiveDialogue();
   const availableOptions = getAvailableOptions();
-  
-  // DEBUG: Log dialogue state and check tutorial mode
-  console.log('[NarrativeDialogue] Current state:', {
-    currentNode: currentNode?.id,
-    activeDialogue: activeDialogue?.id,
-    availableOptionsCount: availableOptions.length,
-    availableOptions: availableOptions,
-    isTyping
-  });
-  
-  // DEBUG: Check tutorial state
-  import('@/app/store/tutorialStore').then(({ useTutorialStore }) => {
-    const tutorialStore = useTutorialStore.getState();
-    console.log('[NarrativeDialogue] Tutorial state:', {
-      mode: tutorialStore.mode,
-      currentStep: tutorialStore.currentStep,
-      activeSequence: tutorialStore.activeSequence
-    });
-    
-    // AUTO-START TUTORIAL FOR TESTING - if tutorial not active and we're trying to load tutorial_quinn_intro
-    if (dialogueId === 'tutorial_quinn_intro' && tutorialStore.mode !== 'active_sequence') {
-      console.log('[NarrativeDialogue] Auto-starting tutorial for testing...');
-      tutorialStore.startTutorialSilently('micro_day', 'quinn_intro');
-    }
-  });
   
   // Knowledge store for checking star requirements
   const stars = useKnowledgeStore(state => state.stars);
@@ -488,6 +667,19 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
       window.removeEventListener('resize', updateDialogueScale);
     };
   }, []);
+
+  // Auto-start tutorial for testing (one-time setup)
+  useEffect(() => {
+    if (dialogueId === 'tutorial_quinn_intro') {
+      import('@/app/store/tutorialStore').then(({ useTutorialStore }) => {
+        const tutorialStore = useTutorialStore.getState();
+        if (tutorialStore.mode !== 'active_sequence') {
+          console.log('[NarrativeDialogue] Auto-starting tutorial for testing...');
+          tutorialStore.startTutorialSilently('micro_day', 'quinn_intro');
+        }
+      });
+    }
+  }, [dialogueId]); // Only run when dialogueId changes
 
   // Start dialogue when component mounts
   useEffect(() => {
@@ -668,6 +860,30 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
     // Regular dialogue option handling - SINGLE selectOption call
     selectOption(option.id);
     
+    // Handle Quinn's reward notifications
+    if ((option as any).starPointReward) {
+      setRewardNotification({
+        type: 'star',
+        message: `Star Point Earned!\n+${(option as any).starPointReward} Star Point`,
+        visible: true
+      });
+      setTimeout(() => setRewardNotification(null), 3000);
+    } else if ((option as any).journalReward) {
+      setRewardNotification({
+        type: 'journal',
+        message: 'Journal Received!',
+        visible: true
+      });
+      setTimeout(() => setRewardNotification(null), 3000);
+    } else if ((option as any).abilityCardReward) {
+      setRewardNotification({
+        type: 'card',
+        message: 'Ability Card Earned!\nBeginner\'s Focus',
+        visible: true
+      });
+      setTimeout(() => setRewardNotification(null), 3000);
+    }
+    
     // Trigger reaction based on option effects
     let reactionType: ReactionSymbolType = '!';
     let animationType: PortraitAnimationType = 'nod';
@@ -748,13 +964,29 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
         {mentor && isValidCharacterId(mentor.id) && (
           <AnimationWrapper $animation={currentPortraitAnimation}>
             <CharacterPortrait $roomId={roomId}>
-              <PortraitImage
-                characterId={mentor.id as CharacterId}
-                size="detailed"
-                alt={mentor.name}
-                scale={1.0}
-                pixelated={true}
-              />
+              {/* Direct IMG approach for Quinn following architecture guidelines */}
+              {mentor.id === 'quinn' ? (
+                <>
+                  <QuinnDetailedPortrait 
+                    src="/images/characters/portraits/quinn-detailed.png"
+                    alt={mentor.name}
+                    $roomId={roomId}
+                  />
+                  <QuinnTitle 
+                    src="/images/ui/containers/quinn-title.png"
+                    alt="Dr. Quinn"
+                  />
+                </>
+              ) : (
+                /* Fallback to PortraitImage for other mentors until their assets are updated */
+                <PortraitImage
+                  characterId={mentor.id as CharacterId}
+                  size="detailed"
+                  alt={mentor.name}
+                  scale={1.0}
+                  pixelated={true}
+                />
+              )}
             </CharacterPortrait>
           </AnimationWrapper>
         )}
@@ -762,28 +994,28 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
       
       {/* Dialogue Section */}
       <DialogueSection>
-        <ExpandableDialogContainer 
+        <ExpandableQuestionContainer 
           domain="physics"
           onClick={handleSkipTyping}
         >
-          {mentor && (
-            <SpeakerName>{mentor.name}</SpeakerName>
-          )}
-          
-          {/* Stage Directions */}
-          {parsedDialogue.stageDirections.length > 0 && (
-            <StageDirectionContainer>
-              {parsedDialogue.stageDirections.map((direction, index) => (
-                <StageDirection key={index}>
-                  {direction}
-                </StageDirection>
-              ))}
-            </StageDirectionContainer>
-          )}
-          
-          <DialogueText $isTyping={isTyping}>
-            {typedText}
-          </DialogueText>
+          <CanvasTypographyOverride>
+            {/* Speaker name removed - now shown via separate title sprite */}
+            
+            {/* Stage Directions */}
+            {parsedDialogue.stageDirections.length > 0 && (
+              <StageDirectionContainer>
+                {parsedDialogue.stageDirections.map((direction, index) => (
+                  <StageDirection key={index}>
+                    {direction}
+                  </StageDirection>
+                ))}
+              </StageDirectionContainer>
+            )}
+            
+            <DialogueText $isTyping={isTyping}>
+              {isTyping ? typedText : renderFormattedText(typedText)}
+            </DialogueText>
+          </CanvasTypographyOverride>
           {!isTyping && availableOptions.length === 0 && (
             <ContinuePrompt>Click to continue...</ContinuePrompt>
           )}
@@ -792,9 +1024,8 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
           {!isTyping && availableOptions.length > 0 && (
             <OptionsContainer>
               {availableOptions.map((option, index) => (
-                <CardContainer
+                <ExpandableAnswerContainer
                   key={option.id}
-                  size="xs"
                   domain="physics"
                   isActive={index === selectedOptionIndex}
                   isDisabled={isOptionDisabled(option)}
@@ -810,42 +1041,46 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
                     contain: 'layout style' /* Prevent layout thrashing */
                   }}
                 >
-                  <OptionContent $selected={index === selectedOptionIndex} $disabled={isOptionDisabled(option)}>
-                    <span>{option.text}</span>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      {option.insightChange !== undefined && option.insightChange !== 0 && (
-                        <ResourceIndicator $type="insight">
-                          {option.insightChange > 0 ? '+' : ''}{option.insightChange}
-                        </ResourceIndicator>
-                      )}
-                      {option.momentumChange !== undefined && option.momentumChange !== 0 && (
-                        <ResourceIndicator $type="momentum">
-                          {option.momentumChange > 0 ? '+' : ''}{option.momentumChange}
-                        </ResourceIndicator>
-                      )}
-                      {option.relationshipChange !== undefined && option.relationshipChange !== 0 && (
-                        <ResourceIndicator $type="relationship">
-                          {option.relationshipChange > 0 ? '+' : ''}{option.relationshipChange}
-                        </ResourceIndicator>
-                      )}
-                    </div>
-                  </OptionContent>
+                  <CanvasTypographyOverride>
+                    <OptionContent $selected={index === selectedOptionIndex} $disabled={isOptionDisabled(option)}>
+                      <span>{option.text}</span>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        {option.insightChange !== undefined && option.insightChange !== 0 && (
+                          <ResourceIndicator $type="insight">
+                            {option.insightChange > 0 ? '+' : ''}{option.insightChange}
+                          </ResourceIndicator>
+                        )}
+                        {option.momentumChange !== undefined && option.momentumChange !== 0 && (
+                          <ResourceIndicator $type="momentum">
+                            {option.momentumChange > 0 ? '+' : ''}{option.momentumChange}
+                          </ResourceIndicator>
+                        )}
+                        {option.relationshipChange !== undefined && option.relationshipChange !== 0 && (
+                          <ResourceIndicator $type="relationship">
+                            {option.relationshipChange > 0 ? '+' : ''}{option.relationshipChange}
+                          </ResourceIndicator>
+                        )}
+                      </div>
+                    </OptionContent>
+                  </CanvasTypographyOverride>
                   {isOptionDisabled(option) && (
-                    <div style={{ 
-                      marginTop: spacing.xs, 
-                      fontSize: typography.fontSize.xs, 
-                      color: colors.textDim,
-                      display: 'flex',
-                      alignItems: 'center'
-                    }}>
-                      🔒 Requires knowledge in this area
-                    </div>
+                    <CanvasTypographyOverride>
+                      <div style={{ 
+                        marginTop: spacing.xs, 
+                        fontSize: CanvasFonts.xs, 
+                        color: colors.textDim,
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        🔒 Requires knowledge in this area
+                      </div>
+                    </CanvasTypographyOverride>
                   )}
-                </CardContainer>
+                </ExpandableAnswerContainer>
               ))}
             </OptionsContainer>
           )}
-        </ExpandableDialogContainer>
+        </ExpandableQuestionContainer>
       </DialogueSection>
       
       {/* Reaction System for floating symbols */}
@@ -865,6 +1100,50 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
           onFlipComplete={handleCardFlipComplete}
           onCardComplete={handleCardComplete}
         />
+      )}
+      
+      {/* Reward Notification */}
+      {rewardNotification && (
+        <RewardNotificationWrapper 
+          $visible={rewardNotification.visible} 
+          $type={rewardNotification.type}
+        >
+          {rewardNotification.type === 'journal' ? (
+            // Use compact ToastContainer for journal notifications
+            <ToastContainer domain="dosimetry" size="xs">
+              <CanvasTypographyOverride style={{ fontSize: CanvasFonts.xs }}>
+                <NotificationContent $type={rewardNotification.type}>
+                  <BookIcon 
+                    src="/images/journal/book-icon.png" 
+                    alt="Journal" 
+                  />
+                  {rewardNotification.message}
+                </NotificationContent>
+              </CanvasTypographyOverride>
+            </ToastContainer>
+          ) : (
+            // Use regular ExpandableQuestionContainer for other notifications
+            <ExpandableQuestionContainer
+              domain={
+                rewardNotification.type === 'star' ? 'planning' :
+                'physics'
+              }
+            >
+              <CanvasTypographyOverride>
+                {rewardNotification.type === 'card' ? (
+                  <CardSpriteNotification>
+                    <div className="card-image" />
+                    <div className="card-text">Fast Learner</div>
+                  </CardSpriteNotification>
+                ) : (
+                  <NotificationContent $type={rewardNotification.type}>
+                    {rewardNotification.message}
+                  </NotificationContent>
+                )}
+              </CanvasTypographyOverride>
+            </ExpandableQuestionContainer>
+          )}
+        </RewardNotificationWrapper>
       )}
     </Container>
   );

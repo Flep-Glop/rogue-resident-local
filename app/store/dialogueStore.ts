@@ -212,6 +212,33 @@ export const useDialogueStore = create<DialogueState>((set, get) => ({
       );
     }
     
+    // Handle Quinn's reward sequence
+    if ((selectedOption as any).starPointReward) {
+      console.log(`⭐ [REWARD] Awarding ${(selectedOption as any).starPointReward} star point(s)`);
+      import('../store/resourceStore').then(({ useResourceStore }) => {
+        const resourceStore = useResourceStore.getState();
+        resourceStore.updateStarPoints((selectedOption as any).starPointReward, 'quinn_reward');
+      });
+    }
+    
+    if ((selectedOption as any).journalReward) {
+      console.log(`📔 [REWARD] Granting journal access`);
+      import('../store/journalStore').then(({ useJournalStore }) => {
+        const journalStore = useJournalStore.getState();
+        journalStore.addMentorEntry(
+          'quinn',
+          'Journal Received',
+          'Dr. Quinn has given me this journal to track my learning journey. I can use it to record discoveries, review concepts, and monitor my progress through the physics curriculum.'
+        );
+      });
+    }
+    
+    if ((selectedOption as any).abilityCardReward) {
+      console.log(`🃏 [REWARD] Granting ability card: ${(selectedOption as any).abilityCardReward}`);
+      // For now, just log - we'll implement the visual later
+      // TODO: Add to player's ability collection and show visual feedback
+    }
+    
     // Handle tutorial step completion
     if (selectedOption.tutorialStepCompletion) {
       console.log(`[TUTORIAL] ${selectedOption.tutorialStepCompletion}`);
@@ -228,6 +255,26 @@ export const useDialogueStore = create<DialogueState>((set, get) => ({
       console.log(`🎁 [TUTORIAL TRIGGER] Dialogue option grants ability: "${selectedOption.receivesAbility}"`);
       // TODO: Implement ability system integration
       console.log(`Received ability: ${selectedOption.receivesAbility}`);
+    }
+    
+    // Handle end of day trigger
+    if ((selectedOption as any).triggersEndOfDay) {
+      console.log(`🌙 [DIALOGUE] Option triggers end of day transition`);
+      
+      // Import necessary modules to trigger transition
+      import('../core/phase/PhaseManager').then(({ PhaseManager }) => {
+        import('../store/gameStore').then(({ useGameStore }) => {
+          import('../store/resourceStore').then(({ useResourceStore }) => {
+            const gameStore = useGameStore.getState();
+            const resourceStore = useResourceStore.getState();
+            const daysPassed = gameStore.daysPassed || 0;
+            const currentInsight = resourceStore.insight || 0;
+            
+            console.log(`🌙 [DIALOGUE] Triggering night phase transition - Day ${daysPassed}, Insight: ${currentInsight}`);
+            PhaseManager.transitionToNightPhase(daysPassed, currentInsight);
+          });
+        });
+      });
     }
     
     // Update dialogue history

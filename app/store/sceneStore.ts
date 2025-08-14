@@ -8,8 +8,8 @@ export type GameScene =
   | 'challenge'          // Challenge dialogue/activities
   | 'tutorial_activity'  // Tutorial-specific activities (simplified)
   | 'test_activity'      // Test activity for core gameplay development
-  | 'home'               // Player's home (ground floor)
-  | 'observatory'        // Player's observatory (upstairs)
+  | 'home'               // Player's combined home and observatory view
+  | 'observatory'        // Legacy: redirects to home (combined view)
   | 'constellation'      // Knowledge constellation view
   | 'lunch-room'         // Hospital social hub with chat bubbles
   | 'transition';        // Loading/transition state

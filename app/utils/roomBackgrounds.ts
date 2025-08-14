@@ -12,7 +12,7 @@ export interface RoomBackgroundConfig {
 export const ROOM_BACKGROUNDS: Record<string, RoomBackgroundConfig> = {
   'physics-office': {
     backgroundImage: '/images/hospital/backgrounds/physics-office-blur.png',
-    foregroundImage: '/images/hospital/backgrounds/physics-office-foreground.png',
+    // Removed foregroundImage reference - file doesn't exist
     fallbackGradient: 'linear-gradient(135deg, #3B82F6 0%, #60A5FA 50%, #1e1b4b 100%)',
     atmosphere: {
       overlay: 'radial-gradient(circle at 30% 40%, rgba(59, 130, 246, 0.1) 0%, transparent 60%)',

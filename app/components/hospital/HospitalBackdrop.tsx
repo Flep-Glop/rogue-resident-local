@@ -736,6 +736,25 @@ const EndDayButton = styled.button`
   }
 `;
 
+// Subtle vignette overlay to gently focus attention toward the center
+const HospitalVignette = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 40%,
+    rgba(0, 0, 0, 0.1) 70%,
+    rgba(0, 0, 0, 0.25) 90%,
+    rgba(0, 0, 0, 0.4) 100%
+  );
+  pointer-events: none;
+  z-index: 50;
+`;
+
 /**
  * Renders the hospital backdrop using PixiJS.
  * This component sets up a PixiJS application, loads the main hospital asset,
@@ -751,7 +770,7 @@ export default function HospitalBackdrop() {
   const tutorialStore = useTutorialStore();
   const isTutorialActive = tutorialStore.mode === 'active_sequence';
   const currentTutorialStep = tutorialStore.currentStep;
-  const showEndDayButton = tutorialStore.completedSteps.has('night_phase_transition');
+  const showEndDayButton = tutorialStore.completedSteps.has('night_phase_intro');
 
         
 
@@ -3169,6 +3188,9 @@ export default function HospitalBackdrop() {
   return (
     <HospitalContainer>
       <PixiCanvasContainer ref={pixiContainerRef} />
+      
+      {/* Subtle vignette to focus attention toward center */}
+      <HospitalVignette />
       
       {/* Mentor Click Overlay - positioned over PixiJS sprites */}
       <MentorClickOverlay onMentorClick={handleMentorClick} />
