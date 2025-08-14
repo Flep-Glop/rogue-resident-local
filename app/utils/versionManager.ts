@@ -18,14 +18,36 @@ export interface ChangelogEntry {
 
 // Current version info - update this when releasing new versions
 export const CURRENT_VERSION: VersionInfo = {
-  version: "0.7.0-dev",
-  buildDate: "2025-07-30",
+  version: "0.8.0-dev",
+  buildDate: "2025-08-14",
   environment: "development",
-  commitHash: "93d1fc1" // Latest commit from git log
+  commitHash: "35e494a" // Latest commit from git log
 };
 
 // Changelog entries - add new entries at the top
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: "v0.8.0-dev",
+    date: "2025-08-14",
+    type: "minor",
+    highlights: [
+      "Canvas-based 640×360 internal coordinate system",
+      "Pixel-perfect NarrativeDialogue with room backgrounds",
+      "Modernized QuinnTutorialActivity with combo sprite overlays",
+      "Enhanced HomeScene with visual feedback and tooltips"
+    ],
+    changes: [
+      "Implemented 640×360 canvas scaling system for consistent pixel art rendering across all viewports",
+      "Redesigned NarrativeDialogue.tsx with room-specific backgrounds and enhanced portrait positioning",
+      "Enhanced QuinnTutorialActivity.tsx with modern pixel containers and combo sprite system",
+      "Updated HomeScene.tsx with improved click areas and visual feedback",
+      "Added comprehensive pixel asset collection: portraits, UI containers, backgrounds, and sprites",
+      "Implemented modern 9-slice pixel container system with native asset dimensions",
+      "Restructured documentation with new ARCHITECTURE.md, PATTERNS.md, and SPRITES.md guides",
+      "Enhanced typography and scaling systems for pixel-perfect rendering",
+      "Improved visual consistency across dialogue, tutorial, and navigation interfaces"
+    ]
+  },
   {
     version: "v0.7.0-dev",
     date: "2025-07-30",
