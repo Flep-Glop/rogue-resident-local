@@ -155,52 +155,81 @@ export const TitleScreen: React.FC = () => {
         pixiAppRef.current = app;
         containerElement.appendChild(app.canvas);
 
-        // Texture and sprite containers
-        let backgroundSprite: PIXI.TilingSprite | null = null;
+        // Sprite containers
+        let backgroundSprite: PIXI.Sprite | null = null;
         let titleSprite: PIXI.Sprite | null = null;
         let playButtonSprite: PIXI.Sprite | null = null;
-        let testButtonSprite: PIXI.Sprite | null = null;
-
-        let scrollSpeed = 0.2; // Much slower scroll for smoother effect
+        let settingsButtonSprite: PIXI.Sprite | null = null;
 
         // Load textures and create sprites
         const loadAssets = async () => {
           try {
-            // Load all textures
-            const backgroundTexture = await PIXI.Assets.load('/images/title/title-background.png');
-            const titleTexture = await PIXI.Assets.load('/images/title/title-sprite.png');
+            // Load all textures - background + 4 cloud layers + UI elements
+            const backgroundTexture = await PIXI.Assets.load('/images/title/title-screen-background.png');
+            const cloudLayer1Texture = await PIXI.Assets.load('/images/title/title-screen-cloud-1.png');
+            const cloudLayer2Texture = await PIXI.Assets.load('/images/title/title-screen-cloud-2.png');
+            const cloudLayer3Texture = await PIXI.Assets.load('/images/title/title-screen-cloud-3.png');
+            const cloudLayer4Texture = await PIXI.Assets.load('/images/title/title-screen-cloud-4.png');
+            const titleTexture = await PIXI.Assets.load('/images/title/title-screen-title.png');
             const playButtonTexture = await PIXI.Assets.load('/images/title/play-button.png');
-            const testButtonTexture = await PIXI.Assets.load('/images/title/test-button.png');
-
+            const settingsButtonTexture = await PIXI.Assets.load('/images/title/test-button.png'); // Will be updated to settings sprite later
 
             // Set pixel-perfect rendering for all textures
-            [backgroundTexture, titleTexture, playButtonTexture, testButtonTexture].forEach(texture => {
+            [backgroundTexture, cloudLayer1Texture, cloudLayer2Texture, cloudLayer3Texture, cloudLayer4Texture, titleTexture, playButtonTexture, settingsButtonTexture].forEach(texture => {
               texture.source.scaleMode = 'nearest'; // Pixel-perfect scaling
             });
 
-            // Create scrolling background (3400x360, show 640x360 viewport)
-            backgroundSprite = new PIXI.TilingSprite(backgroundTexture, app.screen.width, app.screen.height);
-            backgroundSprite.tileScale.set(
-              app.screen.width / 640,  // Scale to fit screen width
-              app.screen.height / 360  // Scale to fit screen height
-            );
-            // Darken the background by 60%
-            backgroundSprite.tint = 0x666666; // 40% brightness (60% darker)
+            // Calculate scale factor to fit 640x360 coordinate system to screen
+            const scaleX = app.screen.width / 640;
+            const scaleY = app.screen.height / 360;
+            const uniformScale = Math.min(scaleX, scaleY);
+
+            // Create static background and cloud layers (all 640x360) with proper z-ordering
+            // Z-order: background (back) → cloud-1 → cloud-2 → cloud-3 → cloud-4 (front) → UI
+            
+            backgroundSprite = new PIXI.Sprite(backgroundTexture);
+            backgroundSprite.scale.set(uniformScale);
+            backgroundSprite.x = (app.screen.width - 640 * uniformScale) / 2;
+            backgroundSprite.y = (app.screen.height - 360 * uniformScale) / 2;
             app.stage.addChild(backgroundSprite);
 
-            // Create title sprite (246x90)
+            const cloudSprite1 = new PIXI.Sprite(cloudLayer1Texture);
+            cloudSprite1.scale.set(uniformScale);
+            cloudSprite1.x = (app.screen.width - 640 * uniformScale) / 2;
+            cloudSprite1.y = (app.screen.height - 360 * uniformScale) / 2;
+            app.stage.addChild(cloudSprite1);
+
+            const cloudSprite2 = new PIXI.Sprite(cloudLayer2Texture);
+            cloudSprite2.scale.set(uniformScale);
+            cloudSprite2.x = (app.screen.width - 640 * uniformScale) / 2;
+            cloudSprite2.y = (app.screen.height - 360 * uniformScale) / 2;
+            app.stage.addChild(cloudSprite2);
+
+            const cloudSprite3 = new PIXI.Sprite(cloudLayer3Texture);
+            cloudSprite3.scale.set(uniformScale);
+            cloudSprite3.x = (app.screen.width - 640 * uniformScale) / 2;
+            cloudSprite3.y = (app.screen.height - 360 * uniformScale) / 2;
+            app.stage.addChild(cloudSprite3);
+
+            const cloudSprite4 = new PIXI.Sprite(cloudLayer4Texture);
+            cloudSprite4.scale.set(uniformScale);
+            cloudSprite4.x = (app.screen.width - 640 * uniformScale) / 2;
+            cloudSprite4.y = (app.screen.height - 360 * uniformScale) / 2;
+            app.stage.addChild(cloudSprite4);
+
+            // Create title sprite (242x85) using 640x360 coordinate system
             titleSprite = new PIXI.Sprite(titleTexture);
             titleSprite.anchor.set(0.5);
-            titleSprite.x = app.screen.width / 2;
-            titleSprite.y = app.screen.height * 0.3; // Position in upper third
-            
-            // Scale title sprite appropriately for screen size
-            const titleScale = Math.min(app.screen.width / 800, app.screen.height / 600) * 1.5;
-            titleSprite.scale.set(titleScale);
+            // Position using 640x360 coordinates, then scale to screen
+            const titleWorldX = 320; // Center of 640px width
+            const titleWorldY = 138; // Upper third of 360px height (30% of 360 = 108)
+            titleSprite.x = (app.screen.width - 640 * uniformScale) / 2 + titleWorldX * uniformScale;
+            titleSprite.y = (app.screen.height - 360 * uniformScale) / 2 + titleWorldY * uniformScale;
+            titleSprite.scale.set(uniformScale);
             app.stage.addChild(titleSprite);
 
-            // Helper function to create button sprite from sprite sheet (178x18, 2 frames)
-            const createButtonSprite = (texture: PIXI.Texture, x: number, y: number, scaleMultiplier: number = 1) => {
+            // Helper function to create button sprite from sprite sheet (178x18, 2 frames) using 640x360 coordinates
+            const createButtonSprite = (texture: PIXI.Texture, worldX: number, worldY: number, scaleMultiplier: number = 1) => {
               // Create texture for normal state (first frame: 0-88 pixels)
               const normalTexture = new PIXI.Texture({
                 source: texture.source,
@@ -218,11 +247,13 @@ export const TitleScreen: React.FC = () => {
               
               const sprite = new PIXI.Sprite(normalTexture);
               sprite.anchor.set(0.5);
-              sprite.x = x;
-              sprite.y = y;
               
-              // Scale button appropriately
-              const buttonScale = Math.min(app.screen.width / 1200, app.screen.height / 800) * scaleMultiplier;
+              // Convert 640x360 world coordinates to screen coordinates
+              sprite.x = (app.screen.width - 640 * uniformScale) / 2 + worldX * uniformScale;
+              sprite.y = (app.screen.height - 360 * uniformScale) / 2 + worldY * uniformScale;
+              
+              // Use uniform scale with multiplier
+              const buttonScale = uniformScale * scaleMultiplier;
               sprite.scale.set(buttonScale);
               sprite.interactive = true;
               sprite.cursor = 'pointer';
@@ -235,12 +266,12 @@ export const TitleScreen: React.FC = () => {
               return sprite;
             };
 
-            // Create play button sprite (178x18 sprite sheet)
+            // Create play button sprite (178x18 sprite sheet) using 640x360 coordinates
             playButtonSprite = createButtonSprite(
               playButtonTexture, 
-              app.screen.width / 2, 
-              app.screen.height * 0.55,
-              2.5 // Much larger than before
+              320, // Center of 640px width
+              198, // 55% of 360px height (0.55 * 360 = 198)
+              1.0 // Normal scale - no extra multiplier needed
             );
             
             // Add hover and click effects
@@ -273,43 +304,43 @@ export const TitleScreen: React.FC = () => {
             
             app.stage.addChild(playButtonSprite);
 
-            // Create test button sprite (178x18 sprite sheet) - moved up
-            testButtonSprite = createButtonSprite(
-              testButtonTexture, 
-              app.screen.width / 2, 
-              app.screen.height * 0.62, // Moved up from 0.75 to 0.7
-              2.0 // Much larger than before
+            // Create settings button sprite (178x18 sprite sheet) using 640x360 coordinates
+            settingsButtonSprite = createButtonSprite(
+              settingsButtonTexture, 
+              320, // Center of 640px width
+              223, // 62% of 360px height (0.62 * 360 = 223)
+              1.0 // Normal scale - no extra multiplier needed
             );
             
             // Add hover and click effects
-            testButtonSprite.on('pointerover', () => {
+            settingsButtonSprite.on('pointerover', () => {
               // Subtle hover effect - just slight scale increase
-              testButtonSprite!.scale.set((testButtonSprite as any).baseScale * 1.05);
+              settingsButtonSprite!.scale.set((settingsButtonSprite as any).baseScale * 1.05);
             });
-            testButtonSprite.on('pointerout', () => {
+            settingsButtonSprite.on('pointerout', () => {
               // Return to normal state
-              testButtonSprite!.texture = (testButtonSprite as any).normalTexture;
-              testButtonSprite!.scale.set((testButtonSprite as any).baseScale);
+              settingsButtonSprite!.texture = (settingsButtonSprite as any).normalTexture;
+              settingsButtonSprite!.scale.set((settingsButtonSprite as any).baseScale);
             });
-            testButtonSprite.on('pointerdown', () => {
+            settingsButtonSprite.on('pointerdown', () => {
               // Button press animation: switch to frame 2 and scale down
-              testButtonSprite!.texture = (testButtonSprite as any).hoverTexture;
-              testButtonSprite!.scale.set((testButtonSprite as any).baseScale * 0.98);
+              settingsButtonSprite!.texture = (settingsButtonSprite as any).hoverTexture;
+              settingsButtonSprite!.scale.set((settingsButtonSprite as any).baseScale * 0.98);
             });
-            testButtonSprite.on('pointerup', () => {
+            settingsButtonSprite.on('pointerup', () => {
               // Animate back to normal after a short delay
               setTimeout(() => {
-                testButtonSprite!.texture = (testButtonSprite as any).normalTexture;
-                testButtonSprite!.scale.set((testButtonSprite as any).baseScale * 1.05); // Back to hover state
+                settingsButtonSprite!.texture = (settingsButtonSprite as any).normalTexture;
+                settingsButtonSprite!.scale.set((settingsButtonSprite as any).baseScale * 1.05); // Back to hover state
               }, 100);
               
               // Trigger action after animation
               setTimeout(() => {
-                handleLoadDev();
+                handleOpenSettings();
               }, 150);
             });
             
-            app.stage.addChild(testButtonSprite);
+            app.stage.addChild(settingsButtonSprite);
 
 
 
@@ -364,44 +395,29 @@ export const TitleScreen: React.FC = () => {
           playButton.on('pointerdown', handleStartGame);
           app.stage.addChild(playButton);
 
-          // Fallback test button
-          const testButton = new PIXI.Graphics();
-          testButton.roundRect(-80, -20, 160, 40, 6);
-          testButton.fill(0x4158D0);
-          testButton.x = app.screen.width / 2;
-          testButton.y = app.screen.height * 0.75;
-          testButton.interactive = true;
-          testButton.cursor = 'pointer';
+          // Fallback settings button
+          const settingsButton = new PIXI.Graphics();
+          settingsButton.roundRect(-80, -20, 160, 40, 6);
+          settingsButton.fill(0x4158D0);
+          settingsButton.x = app.screen.width / 2;
+          settingsButton.y = app.screen.height * 0.75;
+          settingsButton.interactive = true;
+          settingsButton.cursor = 'pointer';
           
-          const testText = new PIXI.Text('Test Activity', {
+          const settingsText = new PIXI.Text('Settings', {
             fontFamily: 'Arial',
             fontSize: 20,
             fill: '#FFFFFF',
             align: 'center',
           });
-          testText.anchor.set(0.5);
-          testButton.addChild(testText);
+          settingsText.anchor.set(0.5);
+          settingsButton.addChild(settingsText);
           
-          testButton.on('pointerdown', handleLoadDev);
-          app.stage.addChild(testButton);
+          settingsButton.on('pointerdown', handleOpenSettings);
+          app.stage.addChild(settingsButton);
         };
 
-        // Animation loop for scrolling background
-        const animationLoop = () => {
-          if (backgroundSprite) {
-            // Slowly scroll the background horizontally
-            backgroundSprite.tilePosition.x -= scrollSpeed;
-            
-            // Reset position when we've scrolled through the entire background
-            // Background is 3400px wide, viewport is 640px, so reset at -(3400-640) = -2760
-            if (backgroundSprite.tilePosition.x <= -2760) {
-              backgroundSprite.tilePosition.x = 0;
-            }
-          }
-        };
-
-        // Add to ticker for smooth animation
-        app.ticker.add(animationLoop);
+        // No animation loop needed for static sky layers
 
         // Handle window resize
         const handleResize = () => {
@@ -417,18 +433,18 @@ export const TitleScreen: React.FC = () => {
               playButtonSprite.x = app.screen.width / 2;
               playButtonSprite.y = app.screen.height * 0.6;
             }
-            if (testButtonSprite) {
-              testButtonSprite.x = app.screen.width / 2;
-              testButtonSprite.y = app.screen.height * 0.7; // Updated position
+            if (settingsButtonSprite) {
+              settingsButtonSprite.x = app.screen.width / 2;
+              settingsButtonSprite.y = app.screen.height * 0.7; // Updated position
             }
 
             if (backgroundSprite) {
-              backgroundSprite.width = app.screen.width;
-              backgroundSprite.height = app.screen.height;
-              backgroundSprite.tileScale.set(
-                app.screen.width / 640,
-                app.screen.height / 360
-              );
+              const scaleX = app.screen.width / 640;
+              const scaleY = app.screen.height / 360;
+              const uniformScale = Math.min(scaleX, scaleY);
+              backgroundSprite.scale.set(uniformScale);
+              backgroundSprite.x = (app.screen.width - 640 * uniformScale) / 2;
+              backgroundSprite.y = (app.screen.height - 360 * uniformScale) / 2;
             }
           }
         };
@@ -442,7 +458,6 @@ export const TitleScreen: React.FC = () => {
         return () => {
           window.removeEventListener('resize', handleResize);
           if (app) {
-            app.ticker.remove(animationLoop);
             if (pixiContainerRef.current && app.canvas) {
               pixiContainerRef.current.removeChild(app.canvas);
             }
@@ -492,54 +507,9 @@ export const TitleScreen: React.FC = () => {
     }, 800);
   };
 
-  const handleLoadDev = () => {
-    if (startingGame || loadingDev) return;
-    
-    setLoadingDev(true);
-    
-    setTimeout(() => {
-      // Initialize game state for dev mode
-      const gameStore = useGameStore.getState();
-      const newTime = gameStore.timeManager.resetToStartOfDay();
-      useGameStore.setState({ 
-        currentTime: newTime,
-        daysPassed: 0
-      });
-      
-      // Set up test activity environment
-      setPlayerName("TEST_PLAYER");
-      setDifficulty(Difficulty.STANDARD);
-      
-      // Set up test resources
-      const resourceStore = useResourceStore.getState();
-      useResourceStore.setState({
-        insight: 75,
-        momentum: 0,
-        starPoints: 20
-      });
-      
-      // Disable tutorial for test mode
-      const tutorialStore = useTutorialStore.getState();
-      tutorialStore.disableTutorialMode();
-      
-      console.log('🧪 Test Activity Environment Loaded:', {
-        insight: 75,
-        momentum: 0,
-        starPoints: 20,
-        playerName: 'TEST_PLAYER'
-      });
-      
-      // Go to DAY phase and then to test activity
-      setPhase(GamePhase.DAY);
-      
-      setTimeout(() => {
-        const sceneStore = useSceneStore.getState();
-        sceneStore.transitionToScene('test_activity', {
-          mentorId: 'jesse',
-          skipIntro: true  // Skip intro and go directly to questions
-        });
-      }, 100);
-    }, 500);
+  const handleOpenSettings = () => {
+    // Settings functionality will be implemented later
+    console.log('⚙️ Settings button clicked - functionality coming soon!');
   };
 
   return (

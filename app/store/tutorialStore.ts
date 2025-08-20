@@ -177,21 +177,9 @@ function getStepGuidanceOverlay(step: TutorialStep): TutorialOverlay | null {
     'quinn_followup': null,
     'night_phase_intro': null,
     'home_intro': null,
-    'abilities_desk_intro': {
-      id: uniqueId('abilities_desk_intro_overlay'),
-      type: 'modal',
-      title: 'Ability Management & Progress Review',
-      content: 'This is your ability management desk! Here you can see your daily progress, earned star points, and preview upcoming ability purchases. Check your achievements and prepare for tomorrow!',
-      dismissable: true
-    },
+    'abilities_desk_intro': null, // Removed antiquated popup
     'constellation_available': null, // Passive step - telescope is now available but no auto-trigger
-    'constellation_intro': {
-      id: uniqueId('constellation_intro_overlay'),
-      type: 'modal',
-      title: 'Knowledge Observatory',
-      content: 'Welcome to your personal observatory! Here you can view the knowledge you\'ve discovered today in the form of constellations.',
-      dismissable: true
-    },
+    'constellation_intro': null, // Removed antiquated popup
     'day_two_start': null,
     'quinn_second_meeting': null,
     'first_ability_use': null,

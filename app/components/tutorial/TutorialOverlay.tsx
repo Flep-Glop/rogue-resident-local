@@ -429,7 +429,7 @@ const SpotlightTarget: React.FC<{ targetSelector: string }> = ({ targetSelector 
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
   useEffect(() => {
-    console.log(`🔍 [TUTORIAL RENDER] Setting up spotlight target: ${targetSelector}`);
+    // Setting up spotlight target: ${targetSelector}
     
     const updatePosition = () => {
       const element = document.querySelector(targetSelector);
@@ -449,7 +449,7 @@ const SpotlightTarget: React.FC<{ targetSelector: string }> = ({ targetSelector 
     window.addEventListener('scroll', updatePosition);
     
     return () => {
-      console.log(`🧹 [TUTORIAL RENDER] Cleaning up spotlight target: ${targetSelector}`);
+      // Cleaning up spotlight target: ${targetSelector}
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition);
     };

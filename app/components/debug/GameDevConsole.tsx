@@ -8,6 +8,7 @@ import { useDialogueStore } from '@/app/store/dialogueStore';
 import { useGameStore } from '@/app/store/gameStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { useResourceStore } from '@/app/store/resourceStore';
+import { useAbilityStore } from '@/app/store/abilityStore';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
 import { GameEventType } from '@/app/types';
 
@@ -337,10 +338,10 @@ const GAME_SCENARIOS: GameScenario[] = [
 // Compact console container - much smaller!
 const ConsoleContainer = styled.div<{ $isOpen: boolean }>`
   position: fixed;
-  top: ${({ $isOpen }) => $isOpen ? '0' : '-35vh'};
+  top: ${({ $isOpen }) => $isOpen ? '0' : '-100vh'};
   left: 0;
   right: 0;
-  height: 30vh;
+  height: 100vh; /* Significantly increased from 45vh for full button visibility */
   background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96));
   border-bottom: 2px solid #3B82F6;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
@@ -372,9 +373,9 @@ const ConsoleTitle = styled.h2`
 const ConsoleContent = styled.div`
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
-  gap: 12px;
-  padding: 12px 16px;
+  grid-template-columns: 1fr 1fr 1fr 1fr; /* 4 columns for better readability */
+  gap: 20px; /* Even more gap for better spacing */
+  padding: 20px 24px; /* Increased padding for more breathing room */
   overflow-y: auto;
 `;
 
@@ -393,7 +394,7 @@ const SectionTitle = styled.h4`
   border-bottom: 1px solid rgba(226, 232, 240, 0.2);
 `;
 
-const CompactButton = styled.button<{ $variant?: 'primary' | 'success' | 'warning' | 'danger' | 'weather' | 'ripple' | 'grid' }>`
+const CompactButton = styled.button<{ $variant?: 'primary' | 'success' | 'warning' | 'danger' | 'weather' | 'ripple' | 'grid' | 'info' }>`
   background: ${({ $variant }) => {
     switch ($variant) {
       case 'primary': return '#3B82F6';
@@ -403,25 +404,27 @@ const CompactButton = styled.button<{ $variant?: 'primary' | 'success' | 'warnin
       case 'weather': return '#8B5CF6';
       case 'ripple': return '#06B6D4';
       case 'grid': return '#EC4899';
+      case 'info': return '#0EA5E9'; /* Added info variant for Report Card button */
       default: return '#475569';
     }
   }};
   color: white;
   border: none;
-  border-radius: 4px;
-  padding: 4px 6px;
-  margin-bottom: 3px;
-  font-size: 12px;
+  border-radius: 6px; /* Slightly more rounded */
+  padding: 10px 14px; /* Even more padding for better clickability */
+  margin-bottom: 8px; /* Increased margin for better vertical spacing */
+  font-size: 13px; /* Slightly larger font */
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-height: 32px; /* Ensure consistent button height */
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); /* Enhanced shadow */
     opacity: 0.9;
   }
 
@@ -630,6 +633,54 @@ const GameDevConsole: React.FC = () => {
         dialogueId: 'tutorial_quinn_intro',
         roomId: 'physics-office'
       });
+    },
+
+    skipToReportCard: () => {
+      console.log('📊 Skipping directly to Quinn Report Card screen');
+      const sceneStore = useSceneStore.getState();
+      const tutorialStore = useTutorialStore.getState();
+      
+      // Set up micro day tutorial if not already active
+      tutorialStore.startTutorialSilently('micro_day', 'quinn_activity');
+      
+      // Navigate to Quinn tutorial activity with special debug flag
+      sceneStore.transitionToScene('tutorial_activity', {
+        mentorId: 'quinn',
+        debugReportCard: true // Special flag to trigger report card immediately
+      });
+      
+      console.log('📊 Navigated to Quinn Tutorial with debug report card mode - should show report card immediately!');
+    },
+
+    skipToNightSceneReady: () => {
+      console.log('🌙 Setting up night scene with star unlocked and Fast Learner equipped');
+      const sceneStore = useSceneStore.getState();
+      const tutorialStore = useTutorialStore.getState();
+      const resourceStore = useResourceStore.getState();
+      const abilityStore = useAbilityStore.getState();
+      
+      // Complete tutorial steps to reach night phase
+      tutorialStore.startTutorialSilently('micro_day', 'constellation_intro');
+      tutorialStore.completeStep('quinn_intro');
+      tutorialStore.completeStep('quinn_activity');
+      tutorialStore.completeStep('quinn_followup');
+      tutorialStore.completeStep('night_phase_intro');
+      tutorialStore.completeStep('home_intro');
+      tutorialStore.completeStep('abilities_desk_intro');
+      tutorialStore.completeStep('constellation_available');
+      tutorialStore.completeStep('constellation_intro');
+      
+      // Give some star points and unlock the star
+      resourceStore.updateStarPoints(5);
+      
+      // Unlock and equip Fast Learner ability
+      abilityStore.unlockCard('fast_learner');
+      abilityStore.equipCard('fast_learner', 0);
+      
+      // Navigate to home scene 
+      sceneStore.transitionToScene('home');
+      
+      console.log('🌙 Night scene ready! Star unlocked, Fast Learner equipped, ready to test bed click for Day 2!');
     },
 
     // Time Lighting Tests  
@@ -907,8 +958,14 @@ const GameDevConsole: React.FC = () => {
             <CompactButton $variant="success" onClick={quickActions.skipToQuinnRewards}>
               🎁 Quinn Rewards
             </CompactButton>
+            <CompactButton $variant="info" onClick={quickActions.skipToReportCard}>
+              📊 Report Card
+            </CompactButton>
             <CompactButton $variant="success" onClick={quickActions.skipToQuinnNight}>
               🌙 Skip to Quinn Night
+            </CompactButton>
+            <CompactButton $variant="primary" onClick={quickActions.skipToNightSceneReady}>
+              🛏️ Night Scene Ready
             </CompactButton>
             <CompactButton $variant="danger" onClick={quickActions.resetAll}>
               🔄 Reset All

@@ -4,12 +4,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import styled, { css } from 'styled-components';
 import { useSceneStore } from '@/app/store/sceneStore';
+import { useGameStore } from '@/app/store/gameStore';
+import { useAbilityStore } from '@/app/store/abilityStore';
 import { useTutorialStore } from '@/app/store/tutorialStore';
 import { useTutorialOverlays } from '@/app/components/tutorial/TutorialOverlay';
 
 import AbilityCardInterface from './AbilityCardInterface';
 import ParallaxRenderer from './ParallaxRenderer';
 import { ToastContainer, ExpandableQuestionContainer, ExpandableAnswerContainer } from '@/app/components/ui/PixelContainer';
+import StarDetailModal from '@/app/components/ui/StarDetailModal';
 
 // === JUMBO SCREEN SYSTEM ===
 const HOME_INTERNAL_WIDTH = 640;
@@ -49,7 +52,7 @@ const WelcomeTypographyOverride = styled.div`
 `;
 
 // Star notification wrapper (positioned within canvas coordinates)
-const StarNotificationWrapper = styled.div<{ $visible: boolean; $type: 'discovery' | 'growth' | 'mastery' }>`
+const StarNotificationWrapper = styled.div<{ $visible: boolean; $type: 'discovery' | 'growth' | 'mastery' | 'card' }>`
   position: absolute;
   top: 30px;  // Canvas coordinate positioning
   left: 50%;
@@ -84,7 +87,7 @@ const WelcomeToastWrapper = styled.div<{ $visible: boolean }>`
 `;
 
 // Star icon for notifications
-const StarIcon = styled.div<{ $type: 'discovery' | 'growth' | 'mastery' }>`
+const StarIcon = styled.div<{ $type: 'discovery' | 'growth' | 'mastery' | 'card' }>`
   display: inline-block;
   margin-right: 6px;
   font-size: 12px;
@@ -93,6 +96,7 @@ const StarIcon = styled.div<{ $type: 'discovery' | 'growth' | 'mastery' }>`
     content: '${props => 
       props.$type === 'discovery' ? '⭐' :
       props.$type === 'growth' ? '🌟' :
+      props.$type === 'card' ? '🃏' :
       '✨'
     }';
   }
@@ -139,7 +143,7 @@ const JumboViewport = styled.div`
   left: 50%;
   transform-origin: center;
   transform: translate(-50%, -50%) scale(var(--home-scale));
-  overflow: hidden;
+  overflow: visible; /* Allow exclamation marks to extend beyond viewport */
   image-rendering: pixelated;
 `;
 
@@ -148,9 +152,11 @@ const TutorialStar = styled.div<{ $frame: number; $isHovered: boolean }>`
   position: absolute;
   width: 12px;
   height: 12px;
+  background-color: transparent; /* Transparent background - star sprite loads correctly */
   background-image: url('/images/home/tutorial-star.png');
   background-size: 120px 12px; /* 10 frames × 12px = 120px width */
   background-position: ${props => (props.$frame - 1) * -12}px 0px; /* Frame 1-10 navigation */
+  background-repeat: no-repeat;
   image-rendering: pixelated;
   cursor: ${props => (props.$frame >= 1 && props.$frame <= 4) || props.$frame >= 8 ? 'pointer' : 'default'}; /* Clickable during ping pong (1-4) and unlocked states (8+) */
   z-index: 200; /* Above all parallax layers */
@@ -232,6 +238,7 @@ const ScrollingContent = styled.div<{ $scrollPosition: number }>`
   transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   image-rendering: pixelated;
   z-index: 12; /* Ensure it's above the parallax renderer */
+  overflow: visible; /* Allow exclamation marks and effects to extend outside container */
 `;
 
 // The static foreground part of the scene
@@ -251,23 +258,24 @@ const ClickableArea = styled.div<{ $isHovered: boolean; $debugColor?: string }>`
   position: absolute;
   cursor: pointer;
   z-index: 100; /* Above all background layers */
-  background: ${({ $isHovered, $debugColor }) => {
+  overflow: visible; /* Allow glow effects to extend outside the box */
+  background: ${({ $debugColor }) => {
     if (DEBUG_CLICKBOXES) {
       return $debugColor || 'rgba(255, 0, 0, 0.3)';
     }
-    return $isHovered ? 'rgba(255, 255, 255, 0.2)' : 'transparent';
+    return 'transparent'; /* Always transparent for invisible clickboxes */
   }};
-  border: ${({ $isHovered, $debugColor }) => {
+  border: ${({ $debugColor }) => {
     if (DEBUG_CLICKBOXES) {
       return `2px solid ${$debugColor?.replace('0.3', '0.8') || 'rgba(255, 0, 0, 0.8)'}`;
     }
-    return $isHovered ? '2px solid rgba(255, 255, 255, 0.5)' : '2px solid transparent';
+    return '2px solid transparent'; /* Always transparent border */
   }};
   transition: all 0.3s ease;
   
   &:hover {
-    background: ${({ $debugColor }) => DEBUG_CLICKBOXES ? $debugColor?.replace('0.3', '0.5') : 'rgba(255, 255, 255, 0.2)'};
-    border: ${({ $debugColor }) => DEBUG_CLICKBOXES ? `2px solid ${$debugColor?.replace('0.3', '1')}` : '2px solid rgba(255, 255, 255, 0.5)'};
+    background: ${({ $debugColor }) => DEBUG_CLICKBOXES ? $debugColor?.replace('0.3', '0.5') : 'transparent'};
+    border: ${({ $debugColor }) => DEBUG_CLICKBOXES ? `2px solid ${$debugColor?.replace('0.3', '1')}` : '2px solid transparent'};
   }
 `;
 
@@ -285,52 +293,102 @@ const DebugLabel = styled.div`
   z-index: 5;
 `;
 
-// Tutorial Star moved to ParallaxRenderer for consistent visibility during transitions
-
-const Tooltip = styled.div<{ x: number; y: number; $visible: boolean }>`
+// High-resolution navigation arrow that appears on hover
+const NavigationArrow = styled.div<{ $direction: 'up' | 'down'; $visible: boolean }>`
   position: absolute;
-  left: ${({ x }) => x}px;
-  top: ${({ y }) => y - 40}px;
-  background: rgba(15, 23, 42, 0.95);
-  color: #E2E8F0;
-  border: 2px solid rgba(124, 58, 237, 0.8);
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-family: 'AsepriteFont', monospace;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 48px; /* Larger for higher resolution */
+  font-weight: 300; /* Lighter weight for gentler appearance */
+  color: rgba(255, 255, 255, 0.4); /* Much more transparent */
+  text-shadow: 
+    0 0 8px rgba(255, 255, 255, 0.3),
+    0 0 16px rgba(255, 255, 255, 0.2),
+    0 0 24px rgba(255, 255, 255, 0.15),
+    0 0 32px rgba(255, 255, 255, 0.1); /* Extended gentle glow */
   pointer-events: none;
-  z-index: 200; /* Above clickable areas */
-  transform: translateX(-50%);
-  opacity: ${({ $visible }) => $visible ? 1 : 0};
-  transition: opacity 0.3s ease;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  max-width: 300px;
-  text-align: center;
+  z-index: 101;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.4s ease; /* Slightly slower fade for gentleness */
+  
+  &::before {
+    content: '${props => props.$direction === 'up' ? '⬆' : '⬇'}'; /* Higher resolution Unicode arrows */
+    display: block;
+    line-height: 1;
+  }
+`;
+
+// Exclamation mark indicator for interactive elements - subtle and smaller
+const ExclamationIndicator = styled.div<{ $size: 'small' | 'large'; $visible: boolean }>`
+  position: absolute;
+  width: ${props => props.$size === 'small' ? '8px' : '10px'};
+  height: ${props => props.$size === 'small' ? '8px' : '10px'};
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  border: 1px solid #FFFFFF;
+  border-radius: 50%;
+  z-index: 201; /* Above star */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 0.9 : 0}; /* Slightly less opaque */
+  transform: ${props => props.$visible ? 'scale(1)' : 'scale(0.5)'};
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  
+  /* Gentler pulsing animation */
+  animation: ${props => props.$visible ? 'exclamationPulse 3s ease-in-out infinite' : 'none'};
+  
+  /* Smaller CSS-based exclamation mark */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: ${props => props.$size === 'small' ? '1px' : '1.5px'};
+    height: ${props => props.$size === 'small' ? '4px' : '5px'};
+    background: #000;
+    border-radius: 0.5px;
+  }
   
   &::after {
     content: '';
     position: absolute;
-    top: 100%;
+    bottom: ${props => props.$size === 'small' ? '1.5px' : '2px'};
     left: 50%;
-    margin-left: -5px;
-    border-width: 5px;
-    border-style: solid;
-    border-color: rgba(124, 58, 237, 0.8) transparent transparent transparent;
+    transform: translateX(-50%);
+    width: ${props => props.$size === 'small' ? '1px' : '1.5px'};
+    height: ${props => props.$size === 'small' ? '1px' : '1.5px'};
+    background: #000;
+    border-radius: 50%;
+  }
+  
+  @keyframes exclamationPulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); /* Reduced intensity */
+    }
+    50% {
+      transform: scale(1.05); /* Less dramatic scaling */
+      box-shadow: 0 0 0 3px rgba(255, 215, 0, 0); /* Smaller glow */
+    }
   }
 `;
 
-interface HoveredArea {
-  name: string;
-  x: number;
-  y: number;
-}
+// Tutorial Star moved to ParallaxRenderer for consistent visibility during transitions
+
+// Removed antiquated Tooltip component - was causing UI obstruction
+
+// Removed HoveredArea interface - no longer needed without tooltips
 
 
 export default function CombinedHomeScene() {
   const { transitionToScene } = useSceneStore();
-  const [hoveredArea, setHoveredArea] = useState<HoveredArea | null>(null);
+  const { daysPassed, incrementDay } = useGameStore();
+  const { unlockCard, getUnlockedCards, getEquippedCards } = useAbilityStore();
+  // Removed hoveredArea state - no longer needed without tooltips
   const [showAbilityInterface, setShowAbilityInterface] = useState(false);
+  const [showStarDetail, setShowStarDetail] = useState(false);
   
   // Jumbo screen scroll state
   const [scrollPosition, setScrollPosition] = useState(-(JUMBO_ASSET_HEIGHT - HOME_INTERNAL_HEIGHT)); // Start at bottom (home view)
@@ -345,7 +403,7 @@ export default function CombinedHomeScene() {
   
   // Star notification state
   const [starNotification, setStarNotification] = useState<{
-    type: 'discovery' | 'growth' | 'mastery';
+    type: 'discovery' | 'growth' | 'mastery' | 'card';
     message: string;
     visible: boolean;
   } | null>(null);
@@ -353,12 +411,39 @@ export default function CombinedHomeScene() {
   // Tutorial integration
   const currentStep = useTutorialStore(state => state.currentStep);
   const completeStep = useTutorialStore(state => state.completeStep);
-  const { showSpotlight, dismissAllOverlays } = useTutorialOverlays();
+  const { dismissAllOverlays } = useTutorialOverlays();
 
   // Welcome panel state
   const [welcomeToastVisible, setWelcomeToastVisible] = useState(false);
   const [welcomeShown, setWelcomeShown] = useState(false);
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+  
+  // Navigation arrow hover states
+  const [upperBandHovered, setUpperBandHovered] = useState(false);
+  const [skyBandHovered, setSkyBandHovered] = useState(false);
+  
+  // Exclamation mark tracking states
+  const [starNeverClicked, setStarNeverClicked] = useState(true); // Track if star has never been clicked
+  const [hasUnequippedCards, setHasUnequippedCards] = useState(false); // Track if user has unlocked but unequipped cards
+  
+  // Track unequipped cards for exclamation indicators - robust checking
+  useEffect(() => {
+    const checkCardState = () => {
+      const unlockedCards = getUnlockedCards();
+      const equippedCards = getEquippedCards();
+      const hasUnequipped = unlockedCards.length > equippedCards.length;
+      // Card state tracking working correctly
+      setHasUnequippedCards(hasUnequipped);
+    };
+    
+    // Check immediately
+    checkCardState();
+    
+    // Also check periodically to catch state changes
+    const interval = setInterval(checkCardState, 1000);
+    
+    return () => clearInterval(interval);
+  }, [getUnlockedCards, getEquippedCards, starUnlocked]); // Added starUnlocked as dependency
   
   // === HOME SCALING SYSTEM ===
   // Calculate scale to fit 640x360 home into viewport while maintaining aspect ratio
@@ -376,7 +461,7 @@ export default function CombinedHomeScene() {
       // Set CSS custom property for home scaling
       document.documentElement.style.setProperty('--home-scale', homeScale.toString());
       
-      console.log(`[CombinedHomeScene] Home scale: ${homeScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${HOME_INTERNAL_WIDTH}x${HOME_INTERNAL_HEIGHT})`);
+      // Scale calculation: ${homeScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${HOME_INTERNAL_WIDTH}x${HOME_INTERNAL_HEIGHT})
     };
     
     // Debounced resize handler to prevent rapid scale updates
@@ -395,7 +480,18 @@ export default function CombinedHomeScene() {
   }, []);
 
   const handleBedClick = () => {
-    console.log('[CombinedHomeScene] Bed clicked - transitioning to hospital');
+    console.log(`[CombinedHomeScene] Bed clicked - advancing to day ${daysPassed + 1}`);
+    
+    // Advance to next day
+    incrementDay();
+    
+    // If this is day 2, unlock the fast learner ability (if not already unlocked)
+    if (daysPassed === 0) { // Will be 1 after incrementDay
+      console.log('[CombinedHomeScene] Day 2 beginning - unlocking Fast Learner ability');
+      unlockCard('fast_learner');
+    }
+    
+    // Transition to hospital for the new day
     transitionToScene('hospital');
   };
 
@@ -406,6 +502,45 @@ export default function CombinedHomeScene() {
 
   const handleCloseAbilityInterface = () => {
     setShowAbilityInterface(false);
+  };
+
+  const handleCloseStarDetail = () => {
+    setShowStarDetail(false);
+  };
+
+  const handleStarUnlock = (newFrame: number) => {
+    // Sync the zoomed-out star with the modal unlock
+    setTutorialStarFrame(newFrame);
+    setStarUnlocked(true);
+    
+    // Stop any running shimmer animation
+    if (pingPongIntervalRef.current) {
+      console.log('[CombinedHomeScene] 🛑 Stopping shimmer animation due to unlock');
+      clearInterval(pingPongIntervalRef.current);
+      pingPongIntervalRef.current = null;
+    }
+    setIsPingPongActive(false);
+    
+    console.log('[CombinedHomeScene] Star unlocked from modal, syncing to frame:', newFrame);
+  };
+
+  const handleCardUnlock = (cardName: string) => {
+    console.log(`[CombinedHomeScene] Card unlocked: ${cardName}`);
+    setStarNotification({
+      type: 'card',
+      message: `${cardName} Card Unlocked!`,
+      visible: true
+    });
+    
+    // Auto-hide notification after 3 seconds
+    setTimeout(() => {
+      setStarNotification(prev => prev ? { ...prev, visible: false } : null);
+    }, 3000);
+    
+    // Clear notification completely after fade out
+    setTimeout(() => {
+      setStarNotification(null);
+    }, 3600);
   };
 
   // Scroll functions for jumbo screen navigation
@@ -437,24 +572,7 @@ export default function CombinedHomeScene() {
     scrollToHome();
   };
 
-  const handleAreaHover = (area: string, event: React.MouseEvent) => {
-    if (area === 'Telescope') {
-      console.log(`[CombinedHomeScene] 🔭 Telescope hover detected! Tutorial step: ${currentStep}, guided step: ${guidedTourStep}`);
-    }
-    const rect = event.currentTarget.getBoundingClientRect();
-    setHoveredArea({
-      name: area,
-      x: rect.left + rect.width / 2,
-      y: rect.top
-    });
-  };
-
-  const handleAreaLeave = () => {
-    if (hoveredArea?.name === 'Telescope') {
-      console.log(`[CombinedHomeScene] 🔭 Left telescope area`);
-    }
-    setHoveredArea(null);
-  };
+  // Removed hover handlers - no longer needed without tooltips
 
   // Tutorial: First-time home visit guidance (prevent multiple executions)
   const hasProcessedRef = useRef(false);
@@ -477,17 +595,17 @@ export default function CombinedHomeScene() {
         // Simple loop: 1 → 2 → 3 → 4 → 1 → repeat
         let currentFrame = 1;
         
-        console.log('[CombinedHomeScene] 🎬 Creating interval for star animation');
+        // Creating star animation interval
         pingPongIntervalRef.current = setInterval(() => {
           currentFrame++;
           if (currentFrame > 4) {
             currentFrame = 1; // Loop back to start
           }
-          console.log('[CombinedHomeScene] 🌟 Loop frame:', currentFrame, 'Background position should be:', (currentFrame - 1) * -12, 'px');
+          // Star frame: ${currentFrame} (position: ${(currentFrame - 1) * -12}px)
           setTutorialStarFrame(currentFrame);
         }, 400); // 400ms per frame for clear progression
         
-        console.log('[CombinedHomeScene] 🎬 Interval created with ID:', pingPongIntervalRef.current);
+        // Interval created with ID: ${pingPongIntervalRef.current}
       }
     }
   }, [currentStep, isPingPongActive, isRevealAnimating, starUnlocked]); // Depend on starUnlocked instead of tutorialStarFrame
@@ -496,15 +614,14 @@ export default function CombinedHomeScene() {
   useEffect(() => {
     return () => {
       if (pingPongIntervalRef.current) {
-        console.log('[CombinedHomeScene] 🧹 Cleaning up star animation interval');
+        // Cleaning up star animation interval
         clearInterval(pingPongIntervalRef.current);
         pingPongIntervalRef.current = null;
       }
     };
   }, []);
   
-  // Guided tour state
-  const [guidedTourStep, setGuidedTourStep] = useState<'welcome' | 'desk' | 'telescope' | 'bed' | 'complete'>('welcome');
+  // Simplified tutorial state (no complex guided tour)
   const shownSpotlightsRef = useRef(new Set<string>());
   
   // Debug: Track tutorial step changes with deduplication
@@ -512,10 +629,10 @@ export default function CombinedHomeScene() {
   useEffect(() => {
     if (currentStep && currentStep !== lastLoggedStep.current) {
       console.log(`[CombinedHomeScene] 📚 Tutorial step changed to: ${currentStep}`);
-      console.log(`[CombinedHomeScene] 📚 State: currentView=${currentView}, guidedTourStep=${guidedTourStep}, scrollPosition=${scrollPosition}`);
+      console.log(`[CombinedHomeScene] 📚 State: currentView=${currentView}, scrollPosition=${scrollPosition}`);
       lastLoggedStep.current = currentStep;
     }
-  }, [currentStep, currentView, guidedTourStep, scrollPosition]);
+  }, [currentStep, currentView, scrollPosition]);
   
   // Single-source tutorial progression - prevent multiple triggers
   const tutorialProcessingRef = useRef(false);
@@ -565,85 +682,25 @@ export default function CombinedHomeScene() {
     };
   }, [currentStep]); // guidedTourStep intentionally excluded to prevent retriggering
 
-  // After welcome is dismissed, show telescope spotlight (no auto timer)
-  const spotlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  useEffect(() => {
-    if (
-      currentStep === 'home_intro' &&
-      hasShownWelcomeRef.current &&
-      guidedTourStep === 'welcome' &&
-      welcomeShown &&
-      welcomeDismissed
-    ) {
-      // Clear any existing timeout
-      if (spotlightTimeoutRef.current) {
-        clearTimeout(spotlightTimeoutRef.current);
-      }
-      
-      spotlightTimeoutRef.current = setTimeout(() => {
-        // First dismiss any existing overlays to ensure clean state
-        dismissAllOverlays();
-        setTimeout(() => {
-          showSpotlight(
-            'View the Stars',
-            'Click the telescope to explore your constellation and see what you\'ve discovered today!',
-            '[data-testid="home-telescope-area"]',
-            { dismissable: false }
-          );
-          setGuidedTourStep('telescope');
-        }, 300);
-      }, 200);
-      
-      // Cleanup timeout if component unmounts or dependencies change
-      return () => {
-        if (spotlightTimeoutRef.current) {
-          clearTimeout(spotlightTimeoutRef.current);
-        }
-      };
-    }
-  }, [currentStep, guidedTourStep, dismissAllOverlays, showSpotlight, welcomeShown, welcomeDismissed]);
+  // Tutorial overlay removed - users can explore freely after welcome panel
 
   // Note: Simplified guided tour - we now go directly to telescope after welcome modal
   // The telescope spotlight is shown in the welcome modal timeout effect above
   // No need for complex multi-step guided tour sequence
 
-  // Tutorial: Enhanced click handlers for guidance
+  // Simplified desk click handler
   const handleDeskClickWithTutorial = () => {
-    if (currentStep === 'home_intro' && guidedTourStep === 'desk') {
-      // Guided tour: advance to telescope step
-      dismissAllOverlays();
-      setGuidedTourStep('telescope');
-      handleDeskClick();
-    } else if (currentStep === 'home_intro') {
-      // Regular home intro click
-      handleDeskClick();
-    } else if (currentStep === 'abilities_desk_intro') {
-      // Enhanced desk interaction
-      handleDeskClick();
-    } else {
-      handleDeskClick();
-    }
+    handleDeskClick();
   };
 
+  // Simplified telescope click handler
   const handleTelescopeClickWithTutorial = () => {
-    console.log(`[CombinedHomeScene] 🔭 Telescope clicked! currentStep=${currentStep}, guidedTourStep=${guidedTourStep}, currentView=${currentView}`);
+    console.log(`[CombinedHomeScene] 🔭 Telescope clicked! currentStep=${currentStep}, currentView=${currentView}`);
     
-    if (currentStep === 'home_intro' && guidedTourStep === 'telescope') {
-      // Modified: First scroll to sky view for tutorial
+    if (currentStep === 'home_intro') {
+      // First time tutorial - scroll to sky view and advance tutorial
       console.log('[CombinedHomeScene] Telescope clicked during home_intro - scrolling to sky view');
       dismissAllOverlays();
-      
-      // Scroll to sky view and advance tutorial
-      handleTelescopeClick();
-      
-      // After scroll animation, advance tutorial
-      setTimeout(() => {
-        const { skipToStep } = useTutorialStore.getState();
-        skipToStep('constellation_intro');
-      }, 800); // Wait for scroll animation to complete
-    } else if (currentStep === 'home_intro') {
-      // Regular home intro click - scroll to sky view first
-      console.log('[CombinedHomeScene] Telescope clicked during home_intro - scrolling to sky view');
       handleTelescopeClick();
       
       // After scroll animation, advance tutorial
@@ -652,36 +709,29 @@ export default function CombinedHomeScene() {
         skipToStep('constellation_intro');
       }, 800);
     } else if (currentStep === 'constellation_available') {
-      // User is ready for constellation tutorial - advance step and use telescope behavior
+      // User is ready for constellation tutorial
       console.log('[CombinedHomeScene] Telescope clicked during constellation_available');
       completeStep('constellation_available');
       handleTelescopeClick();
-    } else if (currentStep === 'constellation_intro') {
-      // Already in constellation tutorial - use normal telescope behavior
-      console.log('[CombinedHomeScene] Telescope clicked during constellation_intro');
-      handleTelescopeClick();
     } else {
-      // Default behavior for other states
-      console.log(`[CombinedHomeScene] Telescope clicked - default behavior (step: ${currentStep})`);
+      // Default behavior for all other states
       handleTelescopeClick();
     }
   };
 
+  // Simplified bed click handler
   const handleBedClickWithTutorial = () => {
-    if (currentStep === 'home_intro' && guidedTourStep === 'bed') {
-      // Guided tour: complete home intro
+    if (currentStep === 'home_intro') {
+      // Complete home intro tutorial and advance day
       dismissAllOverlays();
-      setGuidedTourStep('complete');
       completeStep('home_intro');
-      handleBedClick();
-    } else {
-      handleBedClick();
     }
+    handleBedClick();
   };
 
   // Tutorial star interaction handlers
   const handleStarClick = () => {
-    console.log('[CombinedHomeScene] ⭐ Star clicked! Current frame:', tutorialStarFrame, 'isPingPong:', isPingPongActive);
+    console.log('[CombinedHomeScene] ⭐ Star clicked! Opening star detail modal');
     
     // Don't allow clicks during reveal animation
     if (isRevealAnimating) {
@@ -689,61 +739,11 @@ export default function CombinedHomeScene() {
       return;
     }
     
-    // If loop is active (frames 1-4), stop it and go directly to unlocked state
-    if (isPingPongActive && tutorialStarFrame >= 1 && tutorialStarFrame <= 4) {
-      console.log('[CombinedHomeScene] ⭐ Stopping loop, unlocking star!');
-      
-      // Stop loop animation
-      if (pingPongIntervalRef.current) {
-        console.log('[CombinedHomeScene] 🛑 Clearing interval with ID:', pingPongIntervalRef.current);
-        clearInterval(pingPongIntervalRef.current);
-        pingPongIntervalRef.current = null;
-      }
-      setIsPingPongActive(false);
-      setStarUnlocked(true); // Mark star as unlocked to prevent loop restart
-      
-      // Go directly to unlocked state (frame 8)
-      setTutorialStarFrame(8);
-      console.log('[CombinedHomeScene] ⭐ Star unlocked!');
-      
-      // Show toast notification instead of modal
-      setStarNotification({
-        type: 'discovery',
-        message: 'Polaris Discovered!',
-        visible: true
-      });
-      setTimeout(() => setStarNotification(null), 3000);
-      
-      return;
-    }
+    // Mark star as clicked (removes exclamation mark)
+    setStarNeverClicked(false);
     
-    if (tutorialStarFrame === 8) {
-      // First click after unlock: unlocked -> growth
-      setTutorialStarFrame(9);
-      setStarNotification({
-        type: 'growth',
-        message: 'Star Growing!',
-        visible: true
-      });
-      setTimeout(() => setStarNotification(null), 3000);
-    } else if (tutorialStarFrame === 9) {
-      // Second click: growth -> mastery
-      setTutorialStarFrame(10);
-      setStarNotification({
-        type: 'mastery',
-        message: 'Star Mastered!',
-        visible: true
-      });
-      setTimeout(() => setStarNotification(null), 3000);
-    } else if (tutorialStarFrame === 10) {
-      // Already mastered - show info
-      setStarNotification({
-        type: 'mastery',
-        message: 'Polaris - The North Star',
-        visible: true
-      });
-      setTimeout(() => setStarNotification(null), 3000);
-    }
+    // Simply open the star detail modal - all unlock logic handled by modal button
+    setShowStarDetail(true);
   };
 
   const handleStarHover = () => {
@@ -774,74 +774,120 @@ export default function CombinedHomeScene() {
             onMouseEnter={handleStarHover}
             onMouseLeave={handleStarLeave}
           />
+          {/* Small exclamation for shimmering star (frames 1-4) if never clicked */}
+          <ExclamationIndicator 
+            $size="small" 
+            $visible={starNeverClicked && tutorialStarFrame >= 1 && tutorialStarFrame <= 4}
+            style={{
+              left: '328px', // 320px (star) + 8px offset
+              top: '72px'    // 80px (star) - 8px offset  
+            }}
+          />
+
           <ForegroundLayer />
           
           {/* === HOME VIEW CLICKABLE AREAS === */}
           {currentView === 'home' && (
             <>
+              {/* Upper band - Sky view navigation */}
+              <ClickableArea
+                data-testid="home-upper-band"
+                $isHovered={upperBandHovered}
+                $debugColor="rgba(0, 255, 0, 0.3)"
+                style={{ left: '0px', top: '220px', width: '640px', height: '180px' }}
+                onClick={handleTelescopeClickWithTutorial}
+                onMouseEnter={() => setUpperBandHovered(true)}
+                onMouseLeave={() => setUpperBandHovered(false)}
+              >
+                <NavigationArrow $direction="up" $visible={upperBandHovered} />
+              </ClickableArea>
+              {DEBUG_CLICKBOXES && <DebugLabel style={{ top: '220px', left: '2px' }}>UPPER: Sky View</DebugLabel>}
+
               {/* Bed area */}
               <ClickableArea
                 data-testid="home-bed-area"
-                $isHovered={hoveredArea?.name === 'Bed'}
+                $isHovered={false}
                 style={{ left: '460px', top: '525px', width: '160px', height: '54px' }}
                 onClick={handleBedClickWithTutorial}
-                onMouseEnter={(e) => handleAreaHover('Bed', e)}
-                onMouseLeave={handleAreaLeave}
+              />
+              
+              {/* Exclamation mark on bed when player has equipped cards (ready to advance) */}
+              <ExclamationIndicator 
+                $size="large" 
+                $visible={!hasUnequippedCards && getEquippedCards().length > 0}
+                style={{
+                  left: '615px', // Right edge of bed area
+                  top: '520px'   // Slightly above bed area
+                }}
               />
 
               {/* Desk area */}
               <ClickableArea
                 data-testid="home-desk-area"
-                $isHovered={hoveredArea?.name === 'Desk'}
+                $isHovered={false}
                 style={{ left: '5px', top: '510px', width: '120px', height: '72px' }}
                 onClick={handleDeskClickWithTutorial}
-                onMouseEnter={(e) => handleAreaHover('Desk', e)}
-                onMouseLeave={handleAreaLeave}
               />
-
-              {/* Telescope area */}
-              <ClickableArea
-                data-testid="home-telescope-area"
-                $isHovered={hoveredArea?.name === 'Telescope'}
-                style={{ left: '195px', top: '279px', width: '70px', height: '120px' }}
-                onClick={handleTelescopeClickWithTutorial}
-                onMouseEnter={(e) => handleAreaHover('Telescope', e)}
-                onMouseLeave={handleAreaLeave}
+              
+              {/* Exclamation mark on desk when cards need equipping */}
+              <ExclamationIndicator 
+                $size="large" 
+                $visible={hasUnequippedCards}
+                style={{
+                  left: '120px', // Right edge of desk area
+                  top: '505px'    // Slightly above desk area
+                }}
               />
+              {/* Debug info */}
+              {DEBUG_CLICKBOXES && (
+                <>
+                  <div style={{
+                    position: 'absolute',
+                    left: '125px',
+                    top: '490px',
+                    color: 'white',
+                    fontSize: '8px',
+                    background: 'rgba(0,0,0,0.8)',
+                    padding: '2px'
+                  }}>
+                    Desk: {hasUnequippedCards ? 'SHOW' : 'HIDE'}
+                  </div>
+                  <div style={{
+                    position: 'absolute',
+                    left: '620px',
+                    top: '505px',
+                    color: 'white',
+                    fontSize: '8px',
+                    background: 'rgba(0,0,0,0.8)',
+                    padding: '2px'
+                  }}>
+                    Bed: {(!hasUnequippedCards && getEquippedCards().length > 0) ? 'SHOW' : 'HIDE'}
+                  </div>
+                </>
+              )}
             </>
           )}
 
           {/* === SKY VIEW CLICKABLE AREAS === */}
           {currentView === 'sky' && (
             <>
-              {/* Ladder area - only way to navigate back from sky view */}
+              {/* Full height band - Return to home view */}
               <ClickableArea
-                data-testid="sky-ladder-area"
-                $isHovered={hoveredArea?.name === 'Ladder'}
-                style={{ left: '290px', top: '280px', width: '60px', height: '80px' }}
+                data-testid="sky-return-band"
+                $isHovered={skyBandHovered}
+                $debugColor="rgba(255, 255, 0, 0.3)"
+                style={{ left: '0px', top: '260px', width: '640px', height: '100px' }}
                 onClick={handleLadderClick}
-                onMouseEnter={(e) => handleAreaHover('Ladder', e)}
-                onMouseLeave={handleAreaLeave}
-              />
-
-              {/* Tutorial Star moved to ParallaxRenderer for consistent visibility */}
-              {/* Telescope navigation removed - sky view is for stargazing only */}
+                onMouseEnter={() => setSkyBandHovered(true)}
+                onMouseLeave={() => setSkyBandHovered(false)}
+              >
+                <NavigationArrow $direction="down" $visible={skyBandHovered} />
+              </ClickableArea>
+              {DEBUG_CLICKBOXES && <DebugLabel style={{ top: '260px', left: '2px' }}>FULL: Return Home</DebugLabel>}
             </>
           )}
 
-          {/* Tooltip */}
-          {hoveredArea && (
-            <Tooltip
-              x={hoveredArea.x}
-              y={hoveredArea.y}
-              $visible={!!hoveredArea}
-            >
-              {hoveredArea.name === 'Bed' && 'Click here to start a new day'}
-              {hoveredArea.name === 'Desk' && 'Manage your abilities'}
-              {hoveredArea.name === 'Telescope' && 'View the night sky'}
-              {hoveredArea.name === 'Ladder' && 'Go back down'}
-            </Tooltip>
-          )}
+          {/* Removed antiquated tooltip system - was obstructing interface */}
         </ScrollingContent>
         
         {/* Star Notification - positioned within canvas coordinates */}
@@ -885,6 +931,17 @@ export default function CombinedHomeScene() {
             </WelcomeTypographyOverride>
           </ExpandableQuestionContainer>
         </WelcomePanelWrapper>
+
+        {/* Star Detail Modal - Rendered within the 640×360 coordinate system */}
+        {showStarDetail && (
+          <StarDetailModal 
+            onClose={handleCloseStarDetail}
+            starFrame={tutorialStarFrame}
+            isUnlocked={starUnlocked}
+            onStarUnlock={handleStarUnlock}
+            onCardUnlock={handleCardUnlock}
+          />
+        )}
       </JumboViewport>
 
 
@@ -895,6 +952,8 @@ export default function CombinedHomeScene() {
         />,
         document.body
       )}
+
+
     </>
   );
 }

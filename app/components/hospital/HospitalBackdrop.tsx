@@ -712,29 +712,7 @@ const PixiCanvasContainer = styled.div`
   left: 0;
 `;
 
-const EndDayButton = styled.button`
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 1rem 2rem;
-  background-color: #4f46e5; // indigo-600
-  color: white;
-  border: 2px solid #a5b4fc; // indigo-300
-  border-radius: 0.5rem;
-  font-family: inherit; // Use the pixel font from parent
-  font-size: 1.25rem;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease-in-out;
-  z-index: 100;
-
-  &:hover {
-    background-color: #6366f1; // indigo-500
-    transform: translateX(-50%) translateY(-2px);
-  }
-`;
+// Removed EndDayButton - no longer used
 
 // Subtle vignette overlay to gently focus attention toward the center
 const HospitalVignette = styled.div`
@@ -763,14 +741,14 @@ const HospitalVignette = styled.div`
 export default function HospitalBackdrop() {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
-  const { enterNarrative, enterChallenge } = useSceneNavigation();
+  const { enterNarrative, enterChallenge, enterTutorialActivity } = useSceneNavigation();
   const daysPassed = useGameStore(state => state.daysPassed);
   
   // Get tutorial state
   const tutorialStore = useTutorialStore();
   const isTutorialActive = tutorialStore.mode === 'active_sequence';
   const currentTutorialStep = tutorialStore.currentStep;
-  const showEndDayButton = tutorialStore.completedSteps.has('night_phase_intro');
+  // Removed antiquated End Day button - no longer needed
 
         
 
@@ -848,7 +826,7 @@ export default function HospitalBackdrop() {
         const scaleY = app.screen.height / WORLD_HEIGHT;
         const worldScale = Math.min(scaleX, scaleY) * 1;
         
-        console.log(`[HospitalBackdrop] Scale: ${worldScale.toFixed(2)}`);
+        // Scale: ${worldScale.toFixed(2)}
 
         // Define all assets that need to be loaded
         const allAssets = [
@@ -961,7 +939,7 @@ export default function HospitalBackdrop() {
                         const validPoint = getRandomPondPoint(pondBounds);
                         targetX = validPoint.x;
                         targetY = validPoint.y;
-                        console.log(`[LilyPads] Moved ${padData.id} from outside pond to valid position`);
+                        // Moved ${padData.id} from outside pond to valid position
                     }
                     
                     pad.x = targetX;
@@ -1275,7 +1253,7 @@ export default function HospitalBackdrop() {
             //     app.stage.addChild(person);
             //     console.log(`[HospitalBackdrop] Sitting person ${personData.id} positioned on bench ${personData.benchId}`);
             // });
-            console.log('[HospitalBackdrop] Sitting people system ready for next round assets');
+            // Sitting people system ready for next round assets
 
             // === FISH SYSTEM (SWIMMING IN POND WITH RARITY-BASED SPAWNING) ===
             
@@ -1771,6 +1749,13 @@ export default function HospitalBackdrop() {
                     roomGraphic.on('click', () => {
                         // Capture room reference to avoid TypeScript narrowing issues
                         const currentRoom = room;
+                        
+                        // Priority 0: Day 2+ Quinn narrative intro
+                        if (currentRoom.mentorId === 'quinn' && currentRoom.id === 'physics-office' && daysPassed >= 1) {
+                            console.log(`[HospitalBackdrop] Day ${daysPassed + 1} Quinn room click - starting with narrative intro`);
+                            enterNarrative(currentRoom.mentorId, 'day2_quinn_intro', currentRoom.id);
+                            return;
+                        }
                         
                         let dialogueId = `${currentRoom.id}-intro`;
                         if(isTutorialActive) {
@@ -2836,7 +2821,7 @@ export default function HospitalBackdrop() {
             app.stage.addChild(polygonContainer);
             pondPolygonContainerRef.current = polygonContainer;
             
-            console.log('[HospitalBackdrop] Pond polygon debug overlay created');
+            // Pond polygon debug overlay created
         };
 
         // === DEBUG GRID SYSTEM ===
@@ -2942,7 +2927,7 @@ export default function HospitalBackdrop() {
                 app.stage.addChild(gridContainer);
                 debugGridContainerRef.current = gridContainer;
                 
-                console.log('[HospitalBackdrop] Debug grid created with world coordinate system');
+                // Debug grid created with world coordinate system
             };
 
                     // Create initial debug grid
@@ -3144,9 +3129,7 @@ export default function HospitalBackdrop() {
         }
     }, [showPondPolygon]);
 
-  const handleEndDayClick = () => {
-    centralEventBus.dispatch(GameEventType.END_OF_DAY_REACHED, { day: daysPassed }, 'HospitalBackdrop.handleEndDayClick');
-  };
+  // Removed handleEndDayClick - End Day button no longer used
 
   // Get hovered room data for tooltip
 
@@ -3159,6 +3142,13 @@ export default function HospitalBackdrop() {
     const roomData = ROOM_AREAS.find(room => room.id === roomId);
     if (!roomData) {
       console.warn(`[HospitalBackdrop] No room data found for: ${roomId}`);
+      return;
+    }
+
+    // Priority 0: Day 2+ Quinn narrative intro
+    if (mentorId === 'quinn' && roomId === 'physics-office' && daysPassed >= 1) {
+      console.log(`[HospitalBackdrop] Day ${daysPassed + 1} Quinn - starting with narrative intro`);
+      enterNarrative(mentorId, 'day2_quinn_intro', roomId);
       return;
     }
 
@@ -3195,11 +3185,7 @@ export default function HospitalBackdrop() {
       {/* Mentor Click Overlay - positioned over PixiJS sprites */}
       <MentorClickOverlay onMentorClick={handleMentorClick} />
       
-      {showEndDayButton && (
-        <EndDayButton onClick={handleEndDayClick}>
-          End Day {daysPassed + 1}
-        </EndDayButton>
-      )}
+      {/* Removed antiquated End Day button */}
 
     </HospitalContainer>
   );

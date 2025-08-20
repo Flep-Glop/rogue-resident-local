@@ -657,7 +657,7 @@ export default function NarrativeDialogue({ dialogueId, onComplete, roomId }: Na
       // Set CSS custom property for dialogue scaling
       document.documentElement.style.setProperty('--dialogue-scale', dialogueScale.toString());
       
-      console.log(`[NarrativeDialogue] Dialogue scale: ${dialogueScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${DIALOGUE_INTERNAL_WIDTH}x${DIALOGUE_INTERNAL_HEIGHT})`);
+      // Scale calculation: ${dialogueScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${DIALOGUE_INTERNAL_WIDTH}x${DIALOGUE_INTERNAL_HEIGHT})
     };
     
     updateDialogueScale();

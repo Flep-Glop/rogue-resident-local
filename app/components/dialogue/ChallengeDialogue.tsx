@@ -690,7 +690,7 @@ export default function ChallengeDialogue({ dialogueId, onComplete, roomId }: Ch
       // Set CSS custom property for dialogue scaling
       document.documentElement.style.setProperty('--dialogue-scale', dialogueScale.toString());
       
-      console.log(`[ChallengeDialogue] Dialogue scale: ${dialogueScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${DIALOGUE_INTERNAL_WIDTH}x${DIALOGUE_INTERNAL_HEIGHT})`);
+      // Scale calculation: ${dialogueScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${DIALOGUE_INTERNAL_WIDTH}x${DIALOGUE_INTERNAL_HEIGHT})
     };
     
     updateDialogueScale();

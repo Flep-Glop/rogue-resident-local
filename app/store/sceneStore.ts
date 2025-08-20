@@ -22,6 +22,7 @@ export interface SceneContext {
   dialogueId?: string;
   patientName?: string;  // For tutorial activities
   skipIntro?: boolean;   // For test activities to skip intro phase
+  debugReportCard?: boolean; // For debug mode to skip directly to report card
   previousScene?: GameScene;
   transitionData?: any;
 }

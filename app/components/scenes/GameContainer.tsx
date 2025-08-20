@@ -3,6 +3,7 @@
 import React, { useCallback } from 'react';
 import { useSceneStore, sceneSelectors, GameScene } from '@/app/store/sceneStore';
 import { useDialogueStore } from '@/app/store/dialogueStore';
+import { useGameStore } from '@/app/store/gameStore';
 import HospitalBackdrop from '@/app/components/hospital/HospitalBackdrop';
 import { SceneNarrativeDialogue, SceneChallengeDialogue } from '@/app/components/scenes/SceneDialogueAdapters';
 import TransitionScreen from '@/app/components/ui/TransitionScreen';
@@ -14,7 +15,8 @@ import TutorialOverlayManager from '@/app/components/tutorial/TutorialOverlay';
 import { TutorialModeIndicator } from '@/app/components/tutorial/TutorialControls';
 import TutorialActivity from '@/app/components/tutorial/TutorialActivity';
 import QuinnTutorialActivity from '@/app/components/tutorial/QuinnTutorialActivity';
-import TestActivity from '@/app/components/test/TestActivity';
+import Day2QuinnActivity from '@/app/components/tutorial/Day2QuinnActivity';
+
 import GameDevConsole from '@/app/components/debug/GameDevConsole';
 import { DayNightTransition } from '@/app/components/phase/DayNightTransition';
 
@@ -23,6 +25,7 @@ export default function GameContainer() {
   const currentScene = useSceneStore(sceneSelectors.getCurrentScene);
   const isTransitioning = useSceneStore(sceneSelectors.getIsTransitioning);
   const context = useSceneStore(sceneSelectors.getContext);
+  const { daysPassed } = useGameStore();
   
   // Stabilize the tutorial activity completion callback - MUST be before any conditional returns
   const handleTutorialActivityComplete = useCallback(() => {
@@ -93,13 +96,24 @@ export default function GameContainer() {
         );
         
       case 'tutorial_activity':
-        // Use QuinnTutorialActivity for Quinn, regular TutorialActivity for others
+        // Use different Quinn activities based on day, regular TutorialActivity for others
         if (context.mentorId === 'quinn') {
-          return (
-            <QuinnTutorialActivity
-              onComplete={handleTutorialActivityComplete}
-            />
-          );
+          // Day 2+ uses advanced Quinn activity
+          if (daysPassed >= 1) {
+            return (
+              <Day2QuinnActivity
+                onComplete={handleTutorialActivityComplete}
+              />
+            );
+          } else {
+            // Day 1 uses original Quinn tutorial
+            return (
+              <QuinnTutorialActivity
+                onComplete={handleTutorialActivityComplete}
+                debugReportCard={context.debugReportCard}
+              />
+            );
+          }
         } else {
           return (
             <TutorialActivity
@@ -112,17 +126,9 @@ export default function GameContainer() {
         }
         
       case 'test_activity':
-        return (
-          <TestActivity
-            mentorId={context.mentorId || 'jesse'}
-            skipIntro={context.skipIntro || false}
-            onComplete={() => {
-              console.log('[GameContainer] Test activity completed, returning to hospital');
-              const { transitionToScene } = useSceneStore.getState();
-              transitionToScene('hospital');
-            }}
-          />
-        );
+        // Test activity has been removed - redirect to hospital
+        console.warn('[GameContainer] test_activity scene no longer exists, redirecting to hospital');
+        return <HospitalBackdrop />;
         
       case 'home':
         return <CombinedHomeScene />;

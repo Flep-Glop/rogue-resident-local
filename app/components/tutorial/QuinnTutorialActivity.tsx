@@ -551,29 +551,7 @@ const StarBarContainer = styled.div`
   z-index: 1050; /* Above most other elements */
 `;
 
-// Book icon - positioned under star bar using canvas coordinates
-const BookIconContainer = styled.div`
-  position: absolute;
-  top: 40px; /* Below star bar (10px + 40px height + 5px margin) */
-  left: 22px; /* Aligned with star bar left edge */
-  z-index: 1050; /* Above most other elements */
-`;
 
-const BookIconImage = styled.img`
-  /* NATIVE ASSET DIMENSIONS - 22×22px for perfect pixel density */
-  width: 22px;
-  height: 22px;
-  
-  /* Pixel perfect rendering */
-  image-rendering: pixelated;
-  -webkit-image-rendering: pixelated;
-  -moz-image-rendering: crisp-edges;
-  -ms-interpolation-mode: nearest-neighbor;
-  
-  /* Ensure proper visibility */
-  opacity: 1.0;
-  filter: contrast(1.1) brightness(1.0);
-`;
 
 // Star bar animation - 81 frames sprite sheet (single row) with in-place fill animation
 const StarBarImage = styled.div<{ $starLevel: number }>`
@@ -633,19 +611,197 @@ const StarBarImage = styled.div<{ $starLevel: number }>`
   filter: contrast(1.1) brightness(1.0);
 `;
 
+// === REWARD SEQUENCE COMPONENTS ===
+
+// Animated star bar for reward sequence - simplified version accepting the delay
+const RewardStarBarImage = styled.div<{ $starLevel: number; $isAnimating: boolean; $showStarPop: boolean }>`
+  /* NATIVE ASSET DIMENSIONS - 146×40px for perfect pixel density */
+  width: 146px;
+  height: 40px;
+  
+  /* Base star bar image (empty frame) */
+  background-image: url('/images/ui/star-bar.png');
+  background-size: ${81 * 146}px 40px; /* 81 frames * 146px width each */
+  background-repeat: no-repeat;
+  background-position: 0px 0px; /* Empty frame as base */
+  
+  /* Pixel perfect rendering */
+  image-rendering: pixelated;
+  -webkit-image-rendering: pixelated;
+  -moz-image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
+  
+  /* Star pop effect */
+  transform: ${props => props.$showStarPop ? 'scale(1.15)' : 'scale(1)'};
+  filter: ${props => props.$showStarPop ? 'brightness(1.4) drop-shadow(0 0 12px #FFD700)' : 'contrast(1.1) brightness(1.0)'};
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              filter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Fill overlay using ::after pseudo-element */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('/images/ui/star-bar.png');
+    background-size: ${81 * 146}px 40px;
+    background-repeat: no-repeat;
+    background-position: ${80 * -146}px 0px; /* Fully filled frame */
+    
+    /* Progressive fill using clip-path */
+    clip-path: inset(0 ${props => 100 - props.$starLevel}% 0 0);
+    transition: clip-path 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Match parent rendering */
+    image-rendering: pixelated;
+    -webkit-image-rendering: pixelated;
+    -moz-image-rendering: crisp-edges;
+    -ms-interpolation-mode: nearest-neighbor;
+  }
+`;
+
+// Compact question result indicator for reward sequence - much smaller format
+const QuestionResultIndicator = styled.div<{ $isVisible: boolean; $isCorrect: boolean; $animationDelay: number }>`
+  display: inline-block;
+  padding: 2px 4px; /* Much smaller padding */
+  margin: 1px 1px; /* Even tighter margin for closer spacing */
+  
+  font-family: ${typography.fontFamily.pixel};
+  font-size: 8px; /* Even smaller than CanvasFonts.xs */
+  line-height: 1.0;
+  
+  background: ${props => props.$isCorrect ? 'rgba(76, 175, 80, 0.3)' : 'rgba(244, 67, 54, 0.3)'};
+  border: 1px solid ${props => props.$isCorrect ? 'rgba(76, 175, 80, 0.6)' : 'rgba(244, 67, 54, 0.6)'};
+  border-radius: 2px; /* Smaller radius */
+  
+  color: ${props => props.$isCorrect ? '#4CAF50' : '#FF5722'};
+  font-weight: bold;
+  
+  /* Animation entrance */
+  opacity: ${props => props.$isVisible ? 1 : 0};
+  transform: ${props => props.$isVisible ? 'scale(1)' : 'scale(0.5)'};
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition-delay: ${props => props.$animationDelay}s;
+`;
+
+// Star formation effect overlay
+const StarFormationEffect = styled.div<{ $isActive: boolean }>`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 1100;
+  
+  /* Burst effect */
+  &::before {
+    content: '★';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    
+    font-size: 32px; /* Large star */
+    color: #FFD700;
+    text-shadow: 0 0 20px #FFD700, 0 0 40px #FFD700;
+    
+    /* Pop animation */
+    opacity: ${props => props.$isActive ? 1 : 0};
+    transform: ${props => props.$isActive ? 'translate(-50%, -50%) scale(1.5)' : 'translate(-50%, -50%) scale(0.5)'};
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy easing */
+  }
+  
+  /* Radiating particles effect */
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.3) 0%, transparent 70%);
+    
+    opacity: ${props => props.$isActive ? 1 : 0};
+    transform: ${props => props.$isActive ? 'translate(-50%, -50%) scale(1.8)' : 'translate(-50%, -50%) scale(0.2)'};
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+`;
+
+// Pulsing text animation for calculating progress
+const PulsingText = styled.div<{ $isVisible: boolean; $isAnimating: boolean }>`
+  font-size: ${typography.fontSize.sm};
+  color: ${colors.textDim};
+  font-family: ${typography.fontFamily.pixel};
+  text-align: center;
+  
+  opacity: ${props => props.$isVisible ? (props.$isAnimating ? 1 : 0) : 0};
+  animation: ${props => props.$isAnimating ? 'pulse 2s ease-in-out infinite' : 'none'};
+  transition: opacity 0.5s ease-out;
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+`;
+
+// Reward sequence container - centered positioning with narrower width
+const RewardSequenceContainer = styled.div<{ $isVisible: boolean }>`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  
+  width: 360px; /* Narrower width - reduced from 480px */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px; /* Canvas scaled spacing */
+  
+  opacity: ${props => props.$isVisible ? 1 : 0};
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  z-index: 1000; /* Above other elements */
+`;
+
+// Question results list - horizontal layout (left to right)
+const QuestionResultsList = styled.div`
+  width: 100%;
+  max-width: 480px; /* Wider for horizontal layout */
+  display: flex;
+  flex-wrap: wrap; /* Allow wrapping if needed */
+  gap: 4px; /* Reduced from 8px for tighter spacing */
+  justify-content: center;
+  padding: 12px;
+  
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  min-height: 48px; /* Slightly taller for single row */
+`;
+
 // Momentum-Insight combo - overlaid positioning (single 54x155 composite)
-const MomentumInsightComboContainer = styled.div`
+const MomentumInsightComboContainer = styled.div<{ $isHighlighted?: boolean }>`
   position: fixed; /* Position relative to viewport, not parent container */
   top: 50%; /* Center vertically on screen */
   right: -25px; /* Position from right edge of screen */
   transform: translateY(-50%); /* Center vertically */
-  z-index: 1060; /* Above question container */
+  z-index: ${props => props.$isHighlighted ? 1075 : 1060}; /* Much higher when highlighted to appear above backdrop (1065) */
   pointer-events: none; /* Allow clicks to pass through */
   
   /* Container dimensions match single sprite - both overlay into one */
   width: 54px; /* Single sprite width - both bars composite into this */
   height: 155px;
-  /* Removed conflicting position: relative - child sprites use absolute positioning within this fixed container */
+  
+  /* Break out of backdrop-filter context when highlighted */
+  ${props => props.$isHighlighted && `
+    isolation: isolate;
+    filter: brightness(1.2) drop-shadow(0 0 12px rgba(255, 215, 0, 0.8));
+  `}
 `;
 
 // Momentum bar sprite - discrete frame animation (overlaid positioning)
@@ -725,13 +881,117 @@ const InsightBarSprite = styled.div<{ $insightLevel: number }>`
   }
 `;
 
+// === TUTORIAL OVERLAY SYSTEM ===
+// Dark overlay with cutout for meter area
+const TutorialOverlayBackdrop = styled.div<{ $isVisible: boolean }>`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1065; /* Above normal UI but below highlighted elements */
+  
+  /* Simple dark overlay - meters render separately above this */
+  background: rgba(0, 0, 0, 0.8);
+  
+  /* Animation */
+  opacity: ${props => props.$isVisible ? 1 : 0};
+  visibility: ${props => props.$isVisible ? 'visible' : 'hidden'};
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Allow clicks only when visible */
+  pointer-events: ${props => props.$isVisible ? 'all' : 'none'};
+`;
 
+// Tutorial explanation modal - centered on screen
+const TutorialExplanationModal = styled.div<{ $isVisible: boolean }>`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1080; /* Above backdrop */
+  
+  /* Clean modal styling - no border or background */
+  padding: 32px 40px;
+  max-width: 500px;
+  width: 90%;
+  
+  /* Smooth fade-in animation */
+  opacity: ${props => props.$isVisible ? 1 : 0};
+  transform: ${props => props.$isVisible ? 'translate(-50%, -50%)' : 'translate(-50%, -50%)'};
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Typography */
+  font-family: ${typography.fontFamily.pixel};
+  color: ${colors.text};
+  text-align: center;
+`;
+
+// Tutorial modal title
+const TutorialModalTitle = styled.h3`
+  margin: 0 0 20px 0;
+  font-size: 48px; /* Very large for clear visibility */
+  font-weight: bold;
+  color: #FFD700;
+  line-height: 1.2;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+`;
+
+// Tutorial modal content
+const TutorialModalContent = styled.div`
+  font-size: 24px; /* Very large for clear readability */
+  line-height: 1.4;
+  color: ${colors.text};
+  margin-bottom: 24px;
+  text-align: left;
+  
+  /* Highlight important terms */
+  strong {
+    color: #FFD700;
+    font-weight: bold;
+  }
+  
+  /* System term styling */
+  .system-term {
+    color: #4CAF50;
+    font-weight: bold;
+    text-shadow: 0 0 2px rgba(76, 175, 80, 0.4);
+  }
+`;
+
+// Continue button for tutorial modal
+const TutorialContinueButton = styled.button`
+  background: linear-gradient(135deg, #4CAF50, #45A049);
+  border: 2px solid #4CAF50;
+  border-radius: 8px;
+  color: white;
+  font-family: ${typography.fontFamily.pixel};
+  font-size: 20px; /* Large button text */
+  font-weight: bold;
+  padding: 16px 32px; /* Larger padding too */
+  cursor: pointer;
+  
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: linear-gradient(135deg, #45A049, #4CAF50);
+    border-color: #45A049;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+`;
 
 interface QuinnTutorialActivityProps {
   onComplete?: () => void;
+  debugReportCard?: boolean; // Debug flag to skip directly to report card
 }
 
-export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActivityProps) {
+export default function QuinnTutorialActivity({ onComplete, debugReportCard }: QuinnTutorialActivityProps) {
   const { insight, momentum: resourceMomentum } = useResourceStore();
   const { playerName } = useGameStore();
   const { completeStep } = useTutorialStore();
@@ -750,7 +1010,7 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
       // Set CSS custom property for tutorial scaling
       document.documentElement.style.setProperty('--tutorial-scale', tutorialScale.toString());
       
-      console.log(`[QuinnTutorialActivity] Tutorial scale: ${tutorialScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${TUTORIAL_INTERNAL_WIDTH}x${TUTORIAL_INTERNAL_HEIGHT})`);
+      // Scale calculation: ${tutorialScale.toFixed(3)} (${viewportWidth}x${viewportHeight} → ${TUTORIAL_INTERNAL_WIDTH}x${TUTORIAL_INTERNAL_HEIGHT})
     };
     
     updateTutorialScale();
@@ -768,6 +1028,11 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentMomentum, setCurrentMomentum] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  
+  // Tutorial overlay states
+  const [showTutorialOverlay, setShowTutorialOverlay] = useState(false);
+  const [tutorialOverlayType, setTutorialOverlayType] = useState<'momentum_insight' | null>(null);
+  const [hasShownMomentumInsightTutorial, setHasShownMomentumInsightTutorial] = useState(false);
 
   const [questionsCompleted, setQuestionsCompleted] = useState(0);
   const [totalInsightGained, setTotalInsightGained] = useState(0);
@@ -777,6 +1042,23 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
   const [showMasteryPopup, setShowMasteryPopup] = useState(false);
   const [lastMasteryGain, setLastMasteryGain] = useState(0);
   const [masteryAnimating, setMasteryAnimating] = useState(false);
+
+  // NEW: Question performance tracking for reward sequence
+  interface QuestionResult {
+    questionId: string;
+    questionText: string;
+    isCorrect: boolean;
+    pointsContributed: number;
+    momentumLevel: 'low' | 'medium' | 'high';
+  }
+  const [questionResults, setQuestionResults] = useState<QuestionResult[]>([]);
+  
+  // Reward sequence states
+  const [showRewardSequence, setShowRewardSequence] = useState(false);
+  const [rewardAnimationStage, setRewardAnimationStage] = useState<'waiting' | 'showing-results' | 'filling' | 'star-pop' | 'overflow' | 'complete'>('waiting');
+  const [animatedStarProgress, setAnimatedStarProgress] = useState(0);
+  const [visibleQuestionResults, setVisibleQuestionResults] = useState(0);
+  const [rewardSessionId] = useState(() => Date.now()); // Unique ID for this reward session
   
   // Placeholder abilities state
   const [hoveredAbility, setHoveredAbility] = useState<number | null>(null);
@@ -791,14 +1073,110 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
     return 'high';
   };
   
-  // Get questions based on momentum
-  const getAvailableQuestions = (): Question[] => {
+  // === REWARD SEQUENCE ANIMATION LOGIC ===
+  // Simplified async/await pattern (following TutorialActivity.tsx approach)
+  useEffect(() => {
+    if (!showRewardSequence) return;
+    
+    // Capture questionResults at the start to avoid dependency issues
+    const currentQuestionResults = questionResults;
+    
+    const runRewardSequence = async () => {
+      const totalStarPoints = currentQuestionResults.reduce((sum, result) => sum + result.pointsContributed, 0);
+      const overflowPoints = Math.max(0, totalStarPoints - 100);
+      
+      console.log(`🌟 New Reward Sequence: ${totalStarPoints} total points, overflow: ${overflowPoints}`);
+      
+      // PHASE 1: Show all question results quickly (horizontal layout)
+      setRewardAnimationStage('showing-results');
+      setAnimatedStarProgress(0); // Keep star bar empty
+      
+      // Show all results at once with quick staggered animation
+      for (let i = 0; i < currentQuestionResults.length; i++) {
+        setVisibleQuestionResults(i + 1);
+        await new Promise(resolve => setTimeout(resolve, 150)); // Quick display
+      }
+      
+      // Brief pause after all results are shown
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // PHASE 2: Animate star bar fill (single smooth animation)
+      setRewardAnimationStage('filling');
+      const finalProgress = Math.min(100, (totalStarPoints / 100) * 100);
+      
+      console.log(`🎯 Star bar animating to: ${finalProgress.toFixed(1)}%`);
+      setAnimatedStarProgress(finalProgress);
+      
+      // Wait for star bar animation to complete
+      await new Promise(resolve => setTimeout(resolve, 1200)); // Longer for smooth fill
+      
+      // PHASE 3: Star formation if needed
+      if (finalProgress >= 100) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setRewardAnimationStage('star-pop');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Show overflow if any
+        if (overflowPoints > 0) {
+          setAnimatedStarProgress((overflowPoints / 100) * 100);
+          setRewardAnimationStage('overflow');
+        } else {
+          setRewardAnimationStage('complete');
+        }
+      } else {
+        setRewardAnimationStage('complete');
+      }
+    };
+    
+    runRewardSequence();
+    
+  }, [showRewardSequence]); // Only depend on showRewardSequence to avoid race conditions
+  
+  // Debug mode: automatically show report card with mock data
+  useEffect(() => {
+    if (debugReportCard && !showRewardSequence) {
+      console.log('🔧 Debug mode: Creating mock question results for report card');
+      
+      // Set activity phase to summary for proper rendering
+      setActivityPhase('summary');
+      
+      // Create mock question results with varied performance
+      const mockResults: QuestionResult[] = [
+        { questionId: 'q1-beam-delivery', questionText: 'Beam delivery basics', isCorrect: true, pointsContributed: 15, momentumLevel: 'high' },
+        { questionId: 'q2-beam-penetration', questionText: 'Beam penetration depth', isCorrect: true, pointsContributed: 15, momentumLevel: 'high' },
+        { questionId: 'q3-dose-calculation', questionText: 'Dose calculation', isCorrect: false, pointsContributed: 0, momentumLevel: 'medium' },
+        { questionId: 'q4-treatment-planning', questionText: 'Treatment planning', isCorrect: true, pointsContributed: 10, momentumLevel: 'medium' },
+        { questionId: 'q5-safety-protocols', questionText: 'Safety protocols', isCorrect: true, pointsContributed: 10, momentumLevel: 'medium' },
+        { questionId: 'q6-quality-assurance', questionText: 'Quality assurance', isCorrect: true, pointsContributed: 15, momentumLevel: 'high' },
+        { questionId: 'q7-patient-setup', questionText: 'Patient setup', isCorrect: true, pointsContributed: 15, momentumLevel: 'high' },
+        { questionId: 'q8-imaging-guidance', questionText: 'Imaging guidance', isCorrect: true, pointsContributed: 15, momentumLevel: 'high' }
+      ];
+      
+      setQuestionResults(mockResults);
+      
+      // Show report card after brief delay
+      setTimeout(() => {
+        setShowRewardSequence(true);
+        console.log('🔧 Debug report card activated with mock results');
+      }, 500);
+    }
+  }, [debugReportCard, showRewardSequence]);
+  
+  // Get questions based on momentum - memoized to prevent duplicate key issues
+  const getAvailableQuestions = useMemo((): Question[] => {
     const questions: Question[] = [];
+    const usedIds = new Set<string>(); // Track used IDs to prevent duplicates
     
     // Opening sequence (always shown)
-    questions.push(...QUINN_QUESTIONS.filter(q => 
+    const openingQuestions = QUINN_QUESTIONS.filter(q => 
       q.id === 'q1-beam-delivery' || q.id === 'q2-beam-penetration'
-    ));
+    );
+    openingQuestions.forEach(q => {
+      if (!usedIds.has(q.id)) {
+        questions.push(q);
+        usedIds.add(q.id);
+      }
+    });
     
     // Momentum-based questions
     const momentumLevel = getMomentumLevel(currentMomentum);
@@ -817,17 +1195,36 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
         q.id === 'q3c-deep-treatment' || q.id === 'q4c-room-shielding'
       );
     }
-    questions.push(...momentumQuestions);
+    momentumQuestions.forEach(q => {
+      if (!usedIds.has(q.id)) {
+        questions.push(q);
+        usedIds.add(q.id);
+      }
+    });
     
     // Final questions (always shown)
-    questions.push(...QUINN_QUESTIONS.filter(q => 
+    const finalQuestions = QUINN_QUESTIONS.filter(q => 
       ['q9-dose-units', 'q10-interlock-safety', 'q11-xray-target', 'q12-future-learning'].includes(q.id)
-    ));
+    );
+    finalQuestions.forEach(q => {
+      if (!usedIds.has(q.id)) {
+        questions.push(q);
+        usedIds.add(q.id);
+      }
+    });
+    
+    // Questions selected (${questions.length}): ${questions.map(q => q.id).join(', ')}
+    
+    // Debug: Check for duplicates
+    const uniqueIds = new Set(questions.map(q => q.id));
+    if (uniqueIds.size !== questions.length) {
+      console.warn(`⚠️ Duplicate question IDs detected! Expected ${questions.length}, got ${uniqueIds.size} unique`);
+    }
     
     return questions;
-  };
+  }, [currentMomentum]); // Only regenerate when momentum changes
   
-  const currentQuestions = getAvailableQuestions();
+  const currentQuestions = getAvailableQuestions;
   const currentQuestion = currentQuestions[currentQuestionIndex];
   
   // Handle answer selection
@@ -835,10 +1232,12 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
     setSelectedOption(optionIndex);
     
     const isCorrect = currentQuestion.options[optionIndex].isCorrect;
+    let newMomentum = currentMomentum;
+    let starPointsContributed = 0;
     
     if (isCorrect) {
       // Update momentum 
-      const newMomentum = Math.min(10, currentMomentum + 1);
+      newMomentum = Math.min(10, currentMomentum + 1);
       setCurrentMomentum(newMomentum);
       console.log(`🔥 MOMENTUM GAIN: ${currentMomentum} → ${newMomentum}`);
       
@@ -853,7 +1252,11 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
       const masteryGain = finalMomentumLevel === 'low' ? 1 : 
                          finalMomentumLevel === 'medium' ? 2 : 3;
       
-      console.log(`📚 MASTERY: ${finalMomentumLevel} momentum = +${masteryGain} Beam Physics`);
+      // Calculate star points contribution (used in reward sequence)
+      starPointsContributed = finalMomentumLevel === 'low' ? 10 : 
+                             finalMomentumLevel === 'medium' ? 15 : 20;
+      
+      console.log(`📚 MASTERY: ${finalMomentumLevel} momentum = +${masteryGain} Beam Physics, +${starPointsContributed} star points`);
       
       // Update mastery with animation
       setLastMasteryGain(masteryGain);
@@ -873,12 +1276,33 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
         console.log(`📊 Total Mastery: ${prev} → ${newTotal} (+${masteryGain})`);
         return newTotal;
       });
+      
+      // Trigger tutorial overlay after first correct answer
+      if (!hasShownMomentumInsightTutorial && currentQuestionIndex === 0) {
+        console.log('🎓 [TUTORIAL] Triggering momentum/insight explanation after first correct answer');
+        setTimeout(() => {
+          setTutorialOverlayType('momentum_insight');
+          setShowTutorialOverlay(true);
+          setHasShownMomentumInsightTutorial(true);
+        }, 800); // Reduced from 2000ms - trigger shortly after mastery popup
+      }
     } else {
       // Handle momentum loss
-      const newMomentum = Math.max(0, currentMomentum - 1);
+      newMomentum = Math.max(0, currentMomentum - 1);
       setCurrentMomentum(newMomentum);
-      console.log(`🔥 MOMENTUM LOSS: ${currentMomentum} → ${newMomentum}`);
+      starPointsContributed = 2; // Small consolation points for incorrect answers
+      console.log(`🔥 MOMENTUM LOSS: ${currentMomentum} → ${newMomentum}, +${starPointsContributed} star points`);
     }
+    
+    // Track this question's result for reward sequence
+    const questionResult: QuestionResult = {
+      questionId: currentQuestion.id,
+      questionText: currentQuestion.text.replace(/"/g, ''), // Clean up quotes
+      isCorrect,
+      pointsContributed: starPointsContributed,
+      momentumLevel: getMomentumLevel(newMomentum)
+    };
+    setQuestionResults(prev => [...prev, questionResult]);
     
     setQuestionsCompleted(prev => prev + 1);
     
@@ -889,7 +1313,12 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
       if (currentQuestionIndex < currentQuestions.length - 1) {
         setCurrentQuestionIndex(prev => prev + 1);
       } else {
+        // Transition to reward sequence instead of simple summary
         setActivityPhase('summary');
+        // Ensure stage is ready to animate before the effect runs
+        setRewardAnimationStage('filling');
+        setAnimatedStarProgress(0);
+        setShowRewardSequence(true);
       }
     }, 1000); // Shortened delay from 3000ms to 1000ms for faster progression
   };
@@ -927,6 +1356,29 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
   const handleComplete = () => {
     completeStep('quinn_activity');
     onComplete?.();
+  };
+  
+  // Handle tutorial overlay dismiss
+  const handleTutorialOverlayDismiss = () => {
+    setShowTutorialOverlay(false);
+    setTutorialOverlayType(null);
+  };
+  
+  // Render tutorial overlay content based on type
+  const renderTutorialOverlayContent = () => {
+    switch (tutorialOverlayType) {
+      case 'momentum_insight':
+        return {
+          title: "Your Learning Progress",
+          content: (
+            <>
+              Great job on your first correct answer! You're now earning two key resources: <strong>Momentum</strong> <span className="system-term">(Red Bar)</span> shows your confidence level and unlocks more challenging questions with bigger rewards. <strong>Insight</strong> <span className="system-term">(Blue Bar)</span> represents your accumulated knowledge points that you can use to unlock special abilities and deepen your understanding. Watch these meters grow as you answer correctly - they're your path to mastery!
+            </>
+          )
+        };
+      default:
+        return { title: "Tutorial", content: "Tutorial information" };
+    }
   };
   
   // Render different phases
@@ -993,8 +1445,13 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
 
               </ExpandableQuestionContainer>
               
-              {/* Momentum-Insight combo sprite - side-by-side positioning */}
-              <MomentumInsightComboContainer>
+              {/* Momentum-Insight combo sprite - hidden during tutorial overlay */}
+              <MomentumInsightComboContainer 
+                $isHighlighted={false}
+                style={{ 
+                  visibility: showTutorialOverlay && tutorialOverlayType === 'momentum_insight' ? 'hidden' : 'visible'
+                }}
+              >
                 <MomentumBarSprite $momentumLevel={currentMomentum} />
                 <InsightBarSprite $insightLevel={insight} />
               </MomentumInsightComboContainer>
@@ -1004,58 +1461,165 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
         
       case 'summary':
         return (
-          <ContentArea>
-            <QuestionContainerWrapper>
-              <ExpandableQuestionContainer domain="physics">
-                <CanvasTypographyOverride>
-                  {/* Title Section */}
-                  <div style={{ 
-                    textAlign: 'center',
-                    marginBottom: '20px'
-                  }}>
+          <>
+            {/* Original simple summary for non-reward mode */}
+            {!showRewardSequence && (
+              <ContentArea>
+                <QuestionContainerWrapper>
+                  <ExpandableQuestionContainer domain="physics">
+                    <CanvasTypographyOverride>
+                      {/* Title Section */}
+                      <div style={{ 
+                        textAlign: 'center',
+                        marginBottom: '20px'
+                      }}>
+                        <div style={{ 
+                          fontSize: CanvasFonts.lg,
+                          fontFamily: typography.fontFamily.pixel,
+                          color: '#4caf50',
+                          fontWeight: 'bold',
+                          textShadow: '0 0 6px rgba(76, 175, 80, 0.6)',
+                          marginBottom: '8px'
+                        }}>
+                          ★ BEAM BASICS COMPLETE ★
+                        </div>
+                        <div style={{ 
+                          fontSize: CanvasFonts.md,
+                          color: '#FFD700', 
+                          fontWeight: 'bold',
+                          fontFamily: typography.fontFamily.pixel
+                        }}>
+                          +{totalMasteryGained} Beam Physics Mastery!
+                        </div>
+                      </div>
+                      
+                      {/* Continue Button using ExpandableAnswerContainer */}
+                      <div style={{ textAlign: 'center' }}>
+                        <ExpandableAnswerContainer
+                          domain="physics"
+                          isActive={true}
+                          isHovered={false}
+                          onClick={handleComplete}
+                          style={{ 
+                            cursor: 'pointer',
+                            display: 'inline-block',
+                            filter: 'hue-rotate(120deg) saturate(1.3) brightness(1.2)',
+                            maxWidth: '280px'
+                          }}
+                        >
+                          <CanvasTypographyOverride>
+                            🚀 CONTINUE TO NEXT PHASE
+                          </CanvasTypographyOverride>
+                        </ExpandableAnswerContainer>
+                      </div>
+                    </CanvasTypographyOverride>
+                  </ExpandableQuestionContainer>
+                </QuestionContainerWrapper>
+              </ContentArea>
+            )}
+            
+            {/* NEW: Dramatic Reward Sequence */}
+            {showRewardSequence && (
+              <RewardSequenceContainer $isVisible={showRewardSequence}>
+                <ExpandableQuestionContainer domain="physics" style={{ position: 'relative' }}>
+                  <CanvasTypographyOverride>
+                    {/* Title */}
+                    {/* Report Card Title */}
                     <div style={{ 
-                      fontSize: CanvasFonts.lg,
-                      fontFamily: typography.fontFamily.pixel,
-                      color: '#4caf50',
-                      fontWeight: 'bold',
-                      textShadow: '0 0 6px rgba(76, 175, 80, 0.6)',
-                      marginBottom: '8px'
+                      textAlign: 'center',
+                      marginBottom: '20px'
                     }}>
-                      ★ BEAM BASICS COMPLETE ★
+                      <div style={{ 
+                        fontSize: typography.fontSize.xxl, // Much larger font (72px)
+                        fontFamily: typography.fontFamily.pixel,
+                        color: colors.text, // Standard text color (light)
+                        fontWeight: 'normal',
+                        textShadow: typography.textShadow.pixel, // Standard pixel text shadow
+                        marginBottom: '12px'
+                      }}>
+                        Report Card
+                      </div>
                     </div>
+                    
+                    {/* Center Star Bar */}
                     <div style={{ 
-                      fontSize: CanvasFonts.md,
-                      color: '#FFD700', 
-                      fontWeight: 'bold',
-                      fontFamily: typography.fontFamily.pixel
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      marginBottom: '16px',
+                      position: 'relative'
                     }}>
-                      +{totalMasteryGained} Beam Physics Mastery!
+                      <div style={{ 
+                        position: 'relative',
+                        marginBottom: '6px' // Reduced from 12px to move text closer to star bar
+                      }}>
+                        <RewardStarBarImage 
+                          $starLevel={animatedStarProgress}
+                          $isAnimating={rewardAnimationStage === 'filling'}
+                          $showStarPop={rewardAnimationStage === 'star-pop'}
+                        />
+                        
+                        {/* Star Formation Effect */}
+                        <StarFormationEffect $isActive={rewardAnimationStage === 'star-pop'} />
+                      </div>
+                      
+                      {/* Calculating Progress Text - Pulsing under star bar */}
+                      <PulsingText 
+                        $isVisible={rewardAnimationStage === 'showing-results' || rewardAnimationStage === 'filling'}
+                        $isAnimating={rewardAnimationStage === 'showing-results'}
+                      >
+                        Calculating your progress...
+                      </PulsingText>
                     </div>
-                  </div>
-                  
-                  {/* Continue Button using ExpandableAnswerContainer */}
-                  <div style={{ textAlign: 'center' }}>
-                    <ExpandableAnswerContainer
-                      domain="physics"
-                      isActive={true}
-                      isHovered={false}
-                      onClick={handleComplete}
-                      style={{ 
-                        cursor: 'pointer',
-                        display: 'inline-block',
-                        filter: 'hue-rotate(120deg) saturate(1.3) brightness(1.2)',
-                        maxWidth: '280px'
-                      }}
-                    >
-                      <CanvasTypographyOverride>
-                        🚀 CONTINUE TO NEXT PHASE
-                      </CanvasTypographyOverride>
-                    </ExpandableAnswerContainer>
-                  </div>
-                </CanvasTypographyOverride>
-              </ExpandableQuestionContainer>
-            </QuestionContainerWrapper>
-          </ContentArea>
+                    
+                    {/* Question Results Breakdown - Horizontal Layout (Left to Right) */}
+                    {questionResults.length > 0 && (
+                      <QuestionResultsList>
+                        {questionResults.slice(0, visibleQuestionResults).map((result, index) => {
+                          const uniqueKey = `reward-${rewardSessionId}-${result.questionId}-${index}`;
+                          const displayText = result.isCorrect ? `${index + 1}. +${result.pointsContributed}` : `${index + 1}. ×`;
+                          return (
+                            <QuestionResultIndicator
+                              key={uniqueKey}
+                              $isVisible={index < visibleQuestionResults}
+                              $isCorrect={result.isCorrect}
+                              $animationDelay={index * 0.05} // Faster staggered animation
+                            >
+                              {displayText}
+                            </QuestionResultIndicator>
+                          );
+                        })}
+                      </QuestionResultsList>
+                    )}
+                    
+                    {/* Continue Button - shown when animation completes */}
+                    {(rewardAnimationStage === 'complete' || rewardAnimationStage === 'overflow') && (
+                      <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                        <ExpandableAnswerContainer
+                          domain="physics"
+                          isActive={true}
+                          isHovered={false}
+                          onClick={handleComplete}
+                          style={{ 
+                            cursor: 'pointer',
+                            display: 'inline-block',
+                            maxWidth: '280px',
+                            boxShadow: 'none', // Remove any glow effects
+                            border: '1px solid rgba(255, 255, 255, 0.2)', // Simple border instead of glow
+                            filter: 'none' // Remove any filter effects
+                          }}
+                        >
+                          <CanvasTypographyOverride>
+                            Continue
+                          </CanvasTypographyOverride>
+                        </ExpandableAnswerContainer>
+                      </div>
+                    )}
+                  </CanvasTypographyOverride>
+                </ExpandableQuestionContainer>
+              </RewardSequenceContainer>
+            )}
+          </>
         );
         
                default:
@@ -1102,29 +1666,24 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
        );
      };
      
-         return (
+  // Debug mode: Show report card immediately
+  if (debugReportCard && showRewardSequence) {
+    return (
       <Container>
-        {/* Star bar - positioned at top left using canvas coordinates */}
-        <StarBarContainer>
-          <StarBarImage 
-            $starLevel={insight} // Use insight progress for testing animation (0-100)
-          />
-        </StarBarContainer>
-        
-        {/* Book icon - positioned under star bar using canvas coordinates */}
-        <BookIconContainer>
-          <BookIconImage 
-            src="/images/journal/book-icon.png"
-            alt="Journal/Book icon"
-          />
-        </BookIconContainer>
+        {renderContent()}
+      </Container>
+    );
+  }
+
+  return (
+      <>
+      <Container>
+        {/* Star bar removed from main activity - now only shown in reward sequence */}
         
         {/* Quinn emblem now integrated within question container for story book layout */}
         {renderContent()}
         {renderPlaceholderAbilities()}
         
-
-
         {/* Mastery Gain Popup - Modern Pixel Container with Debug Borders */}
         <MasteryPopupContainer 
           $visible={showMasteryPopup}
@@ -1138,6 +1697,60 @@ export default function QuinnTutorialActivity({ onComplete }: QuinnTutorialActiv
             </CanvasTypographyOverride>
           </ToastContainer>
         </MasteryPopupContainer>
+        
       </Container>
+      
+      {/* Tutorial Overlay System - Backdrop + separate highlighted meters */}
+      {showTutorialOverlay && (
+        <>
+          <TutorialOverlayBackdrop $isVisible={showTutorialOverlay} />
+          
+          {/* Highlighted meters rendered outside Container - with proper scaling */}
+          {tutorialOverlayType === 'momentum_insight' && (
+            <div style={{
+              position: 'fixed',
+              top: '50%',
+              right: '500px',
+              transform: 'translateY(-50%) scale(var(--tutorial-scale))',
+              transformOrigin: 'center',
+              zIndex: 1075,
+              pointerEvents: 'none',
+              width: '54px',
+              height: '155px',
+              filter: 'brightness(1.3) drop-shadow(0 0 15px rgba(255, 215, 0, 0.9))',
+              imageRendering: 'pixelated'
+            } as React.CSSProperties}>
+              <div style={{ 
+                position: 'absolute', 
+                top: 0, 
+                left: 0, 
+                width: '54px', 
+                height: '155px'
+              }}>
+                <MomentumBarSprite $momentumLevel={currentMomentum} />
+                <InsightBarSprite $insightLevel={insight} />
+              </div>
+            </div>
+          )}
+          
+          <TutorialExplanationModal $isVisible={showTutorialOverlay}>
+            {(() => {
+              const overlayContent = renderTutorialOverlayContent();
+              return (
+                <>
+                  <TutorialModalTitle>{overlayContent.title}</TutorialModalTitle>
+                  <TutorialModalContent>
+                    {overlayContent.content}
+                  </TutorialModalContent>
+                  <TutorialContinueButton onClick={handleTutorialOverlayDismiss}>
+                    Got it!
+                  </TutorialContinueButton>
+                </>
+              );
+            })()}
+          </TutorialExplanationModal>
+        </>
+      )}
+      </>
     );
-  } 
+  }

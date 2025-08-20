@@ -64,6 +64,48 @@ export const tutorialDialogues: Record<string, Dialogue> = {
         ]
       }
     }
+  },
+
+  /**
+   * Day 2 Quinn's physics office introduction - advanced concepts
+   */
+  'day2_quinn_intro': {
+    id: 'day2_quinn_intro',
+    title: 'Day 2 with Dr. Quinn',
+    description: 'Second day encounter with Quinn for advanced physics',
+    startNodeId: 'quinn_day2_welcome',
+    domain: 'treatment_planning',
+    difficulty: 2,
+    mode: DialogueMode.NARRATIVE,
+    isTutorial: true,
+    nodes: {
+      'quinn_day2_welcome': {
+        id: 'quinn_day2_welcome',
+        mentorId: 'quinn',
+        text: `"Good morning! I see you've got the Fast Learner ability equipped - excellent choice. Let me explain how it works."`,
+        options: [
+          {
+            id: 'explain_fast_learner',
+            text: 'How does Fast Learner work?',
+            nextNodeId: 'quinn_fast_learner_explanation'
+          }
+        ]
+      },
+      'quinn_fast_learner_explanation': {
+        id: 'quinn_fast_learner_explanation',
+        mentorId: 'quinn',
+        text: `"Fast Learner costs **25 insight** to activate. Click the ability icon, then your **next correct answer gives double momentum**. Whether you get it right or wrong, the ability deactivates - no refunds!"`,
+        options: [
+          {
+            id: 'ready_for_activity',
+            text: 'Got it! Let\'s start the questions.',
+            nextNodeId: undefined,
+            triggersActivity: true,
+            tutorialStepCompletion: 'day_two_start'
+          }
+        ]
+      }
+    }
   }
   
 };
