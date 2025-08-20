@@ -18,14 +18,37 @@ export interface ChangelogEntry {
 
 // Current version info - update this when releasing new versions
 export const CURRENT_VERSION: VersionInfo = {
-  version: "0.8.0-dev",
-  buildDate: "2025-08-14",
+  version: "0.9.0-dev",
+  buildDate: "2025-08-20",
   environment: "development",
-  commitHash: "35e494a" // Latest commit from git log
+  commitHash: "b005f8b" // Latest commit from git log
 };
 
 // Changelog entries - add new entries at the top
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: "v0.9.0-dev",
+    date: "2025-08-20",
+    type: "minor",
+    highlights: [
+      "Day 2 progression with Fast Learner ability",
+      "Interactive star unlocking system",
+      "Tutorial overlays with selective highlighting",
+      "Major codebase cleanup (31 files removed)"
+    ],
+    changes: [
+      "Added Day 2 Quinn progression with Fast Learner click-to-activate ability system",
+      "Implemented star modal interface with unlock mechanics and ability card rewards",
+      "Created comprehensive tutorial overlay system with selective UI highlighting",
+      "Added exclamation mark guidance system for star → desk → bed progression flow",
+      "Enhanced journal interaction with hover tooltips and card management",
+      "Converted title screen to static cloud layering system with new visual assets",
+      "Fixed multiple UI timing and animation issues across star bars and modals",
+      "Comprehensive codebase cleanup removing 31 antiquated files and reducing console spam",
+      "Improved ability store with auto-equip mechanics and visual state feedback",
+      "Enhanced Quinn tutorial activity with reward sequences and momentum chain mechanics"
+    ]
+  },
   {
     version: "v0.8.0-dev",
     date: "2025-08-14",
