@@ -20,14 +20,14 @@ Place your title screen sprite files in this directory with the following names:
    - Third cloud layer
    - Static layer positioned over cloud-2
 
-5. **title-screen-cloud-4.png** (640x360)
-   - Fourth cloud layer (closest to front)
+5. **title-screen-purple-abyss.png** (640x360)
+   - Purple abyss layer (closest to front)
    - Static layer positioned over cloud-3
 
-6. **title-screen-title.png** (242x85)
-   - The main "ROGUE RESIDENT" title logo
-   - Will be positioned in the upper third of the screen
-   - Will be scaled appropriately for different screen sizes
+6. **title-screen-title.png** (640x360)
+   - The main title overlay layer (same size as background for compositing)
+   - Fades in over the background and cloud layers
+   - Will be scaled uniformly with all other layers
 
 7. **play-button.png** (178x18 sprite sheet)
    - Row of 2 sprites: [normal state][hover state]
@@ -56,9 +56,10 @@ Place your title screen sprite files in this directory with the following names:
 - Frame switching happens automatically on hover/interaction
 - Buttons also scale slightly (10% larger on hover, 5% smaller on click)
 - All background layers are static (no scrolling animation)
+- Purple abyss layer is static (visible from start, no animation)
 - Uses 640x360 coordinate system with uniform scaling to fit viewport
-- Title sprite updated to 242x85 dimensions
-- Z-ordering: background → cloud-1 → cloud-2 → cloud-3 → cloud-4 → UI elements
+- Title sprite is 640x360 (same as background) for proper compositing
+- Z-ordering: background → cloud-1 → cloud-2 → cloud-3 → purple-abyss → title → UI elements
 - All sprites should be in PNG format for transparency support
 
 ## Fallback Behavior:
