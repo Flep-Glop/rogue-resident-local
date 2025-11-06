@@ -699,6 +699,14 @@
 
 ---
 
+## Entry #088
+**Focus:** Major version deployment following VERSION_MANAGEMENT.md best practices - v1.0.0 release on rescoped-rogue branch
+**Smooth:** Pre-deployment checklist executed systematically (git status → local build → version bump → push), rescoped-rogue branch already had 3 well-organized commits from previous work (core systems, assets, cleanup) creating clean foundation, npm run version:major automated package.json and versionManager.ts updates with proper changelog entry, local build passed cleanly with no compilation errors (Next.js 15.3.1, 5 static pages generated), git push created new remote branch with tracking configured automatically, 4 total commits followed logical grouping (core → assets → cleanup → version) matching documentation guidance
+**Friction:** Initial build attempt hit EPERM sandbox permission error requiring retry with 'all' permissions, branch name rescoped-rogue already existed locally (previously created) but was exactly where we wanted to be, version bump from 0.8.0 → 1.0.0 marked complete educational rescope as major milestone
+**Insight:** VERSION_MANAGEMENT.md systematic approach prevents deployment issues documented in Entry #211 - checking git status first reveals scope (91 files: 36 modified, 26 deleted, 30 new), building locally catches errors before deployment, organizing commits logically (core/assets/cleanup) creates reviewable history. Pre-existing organized commits indicate previous good practices - when returning to branch, verify commit state before assuming work needed. Major version bumps (v1.0.0) appropriate for complete scope pivots even if not "production ready" - dev suffix (-dev) communicates ongoing development while milestone number reflects architectural significance. Automated version scripts (npm run version:major) eliminate manual coordination errors between package.json and versionManager.ts. Branch naming should reflect actual scope (rescoped-rogue) rather than exploratory naming (action-game-pivot) - clarity in branch names aids team communication and PR review. GitHub PR link automatically provided after push enables immediate review workflow. Following deployment checklist step-by-step (even when tedious) catches issues that would cause production failures - skip steps at your own risk.
+
+---
+
 <!-- 
 TEMPLATE FOR NEW ENTRIES:
 
@@ -745,6 +753,9 @@ GUIDELINES:
 - [ ] Polar coordinate animation systems (Entry #060) → ARCHITECTURE.md
 - [ ] Spatial navigation algorithm with dot product (Entry #061) → PATTERNS.md
 - [ ] Dynamic position-based navigation (Entry #061) → ARCHITECTURE.md
+- [ ] Version deployment checklist prevents production issues (Entry #088) → VERSION_MANAGEMENT.md
+- [ ] Pre-existing commit organization verification pattern (Entry #088) → PATTERNS.md
+- [ ] Branch naming for scope clarity (Entry #088) → PATTERNS.md
 
 ## WHEN TO WIPE THIS LOG
 - After ~20-30 entries
