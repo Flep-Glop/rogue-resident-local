@@ -1,8 +1,6 @@
 import { useDialogueStore } from '../store/dialogueStore';
 import { DialogueOption, DialogueMode } from '@/app/types';
 
-// Add Day 1 import
-import { day1Dialogues } from './day1Dialogues';
 // Add Tutorial dialogues import
 import { tutorialDialogues } from './tutorialDialogues';
 
@@ -392,10 +390,6 @@ export const initializeDialogueStore = () => {
     dialogueStore.addDialogue(dialogue);
   });
   
-  // Add Day 1 dialogues
-  Object.values(day1Dialogues).forEach(dialogue => {
-    dialogueStore.addDialogue(dialogue);
-  });
   
   // Add Tutorial dialogues
   Object.values(tutorialDialogues).forEach(dialogue => {

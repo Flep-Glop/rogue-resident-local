@@ -4,18 +4,14 @@ import React, { useCallback } from 'react';
 import { useSceneStore, sceneSelectors, GameScene } from '@/app/store/sceneStore';
 import { useDialogueStore } from '@/app/store/dialogueStore';
 import { useGameStore } from '@/app/store/gameStore';
-import HospitalBackdrop from '@/app/components/hospital/HospitalBackdrop';
 import { SceneNarrativeDialogue, SceneChallengeDialogue } from '@/app/components/scenes/SceneDialogueAdapters';
 import TransitionScreen from '@/app/components/ui/TransitionScreen';
 import ConstellationView from '@/app/components/knowledge/ConstellationView';
 import CombinedHomeScene from '@/app/components/scenes/CombinedHomeScene';
-import LunchRoomScene from '@/app/components/scenes/LunchRoomScene';
-import RoomUIOverlay from '../rooms/RoomUIOverlays';
 import TutorialOverlayManager from '@/app/components/tutorial/TutorialOverlay';
 import { TutorialModeIndicator } from '@/app/components/tutorial/TutorialControls';
 import TutorialActivity from '@/app/components/tutorial/TutorialActivity';
 import QuinnTutorialActivity from '@/app/components/tutorial/QuinnTutorialActivity';
-import Day2QuinnActivity from '@/app/components/tutorial/Day2QuinnActivity';
 
 import GameDevConsole from '@/app/components/debug/GameDevConsole';
 import { DayNightTransition } from '@/app/components/phase/DayNightTransition';
@@ -75,7 +71,7 @@ export default function GameContainer() {
   const renderScene = () => {
     switch (currentScene) {
       case 'hospital':
-        return <HospitalBackdrop />;
+        return <CombinedHomeScene />;
         
       case 'narrative':
         return (
@@ -96,24 +92,14 @@ export default function GameContainer() {
         );
         
       case 'tutorial_activity':
-        // Use different Quinn activities based on day, regular TutorialActivity for others
+        // Use Quinn tutorial activity or regular tutorial activity
         if (context.mentorId === 'quinn') {
-          // Day 2+ uses advanced Quinn activity
-          if (daysPassed >= 1) {
-            return (
-              <Day2QuinnActivity
-                onComplete={handleTutorialActivityComplete}
-              />
-            );
-          } else {
-            // Day 1 uses original Quinn tutorial
-            return (
-              <QuinnTutorialActivity
-                onComplete={handleTutorialActivityComplete}
-                debugReportCard={context.debugReportCard}
-              />
-            );
-          }
+          return (
+            <QuinnTutorialActivity
+              onComplete={handleTutorialActivityComplete}
+              debugReportCard={context.debugReportCard}
+            />
+          );
         } else {
           return (
             <TutorialActivity
@@ -126,9 +112,9 @@ export default function GameContainer() {
         }
         
       case 'test_activity':
-        // Test activity has been removed - redirect to hospital
-        console.warn('[GameContainer] test_activity scene no longer exists, redirecting to hospital');
-        return <HospitalBackdrop />;
+        // Test activity has been removed - redirect to home
+        console.warn('[GameContainer] test_activity scene no longer exists, redirecting to home');
+        return <CombinedHomeScene />;
         
       case 'home':
         return <CombinedHomeScene />;
@@ -140,13 +126,11 @@ export default function GameContainer() {
       case 'constellation':
         return <ConstellationView />;
         
-      case 'lunch-room':
-        return <LunchRoomScene />;
         
       default:
-        // Fallback to hospital if unknown scene
-        console.warn(`Unknown scene: ${currentScene}, falling back to hospital`);
-        return <HospitalBackdrop />;
+        // Fallback to home if unknown scene
+        console.warn(`Unknown scene: ${currentScene}, falling back to home`);
+        return <CombinedHomeScene />;
     }
   };
   

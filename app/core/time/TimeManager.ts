@@ -1,7 +1,7 @@
 import { TimeBlock } from "@/app/types";
 
 /**
- * Manages game time during the Day Phase
+ * Manages game time and activity scheduling
  * Handles time blocks, advancements, and time-based availability
  */
 export class TimeManager {
@@ -51,7 +51,7 @@ export class TimeManager {
   }
   
   /**
-   * Check if the day has ended
+   * Check if the time period has ended
    */
   public isDayEnded(): boolean;
   public isDayEnded(time?: TimeBlock): boolean {
@@ -65,7 +65,7 @@ export class TimeManager {
   }
   
   /**
-   * Reset time to start of day
+   * Reset time to start of time period
    */
   public resetToStartOfDay(): TimeBlock {
     this.currentTime = {
@@ -113,7 +113,7 @@ export class TimeManager {
   }
   
   /**
-   * Check if an activity can fit in the remaining day time
+   * Check if an activity can fit in the remaining time
    */
   public canActivityFitInDay(durationMinutes: number): boolean {
     const endTime = this.calculateEndTime(this.currentTime, durationMinutes);

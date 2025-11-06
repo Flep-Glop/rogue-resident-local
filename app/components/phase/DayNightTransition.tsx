@@ -23,7 +23,7 @@ interface GameEvent {
 
 export const DayNightTransition: React.FC = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [transitionDirection, setTransitionDirection] = useState<'to-night' | 'to-day'>('to-night');
+  const [transitionDirection, setTransitionDirection] = useState<'to-night'>('to-night');
 
 
   const [isAnimating, setIsAnimating] = useState(false);
@@ -64,23 +64,6 @@ export const DayNightTransition: React.FC = () => {
     };
   }, []);
   
-  // Subscribe to day start event
-  useEffect(() => {
-    const handleDayStart = (event: GameEvent) => {
-      if (!event.payload) return;
-      
-      // Add insight bonus from active stars
-      if (event.payload.insightBonus && event.payload.insightBonus > 0) {
-        addInsight(event.payload.insightBonus, 'active_stars_bonus');
-      }
-    };
-    
-    const unsubscribe = centralEventBus.subscribe(GameEventType.DAY_PHASE_STARTED, handleDayStart);
-    
-    return () => {
-      unsubscribe();
-    };
-  }, [addInsight]);
   
   const handleAnimationComplete = useCallback(() => {
     setIsAnimating(false);

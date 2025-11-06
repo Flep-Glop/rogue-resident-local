@@ -894,25 +894,7 @@ const GameDevConsole: React.FC = () => {
 
   return (
     <>
-      {/* Console Toggle Button - Always visible in dev */}
-      <div
-        style={{
-          position: 'fixed',
-          top: '20px',
-          right: '30px',
-          zIndex: 10000,
-          fontSize: '24px',
-          cursor: 'pointer',
-          opacity: 0.7,
-          transition: 'opacity 0.3s ease'
-        }}
-        onClick={() => setIsOpen(!isOpen)}
-        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-        title="Dev Console (F2)"
-      >
-        🎮
-      </div>
+      {/* Console Toggle Button removed - use F2 to open */}
 
       {/* Compact Console */}
       <ConsoleContainer $isOpen={isOpen}>

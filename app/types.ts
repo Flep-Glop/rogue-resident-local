@@ -1,7 +1,5 @@
 export enum GamePhase {
   TITLE = 'TITLE',
-  PROLOGUE = 'PROLOGUE',
-  DAY = 'DAY',
   NIGHT = 'NIGHT',
 }
 
@@ -66,8 +64,6 @@ export enum Season {
 }
 
 export interface Resources {
-  momentum: number;
-  insight: number;
   starPoints: number;
   relationships?: MentorRelationships;
 }
@@ -100,7 +96,6 @@ export interface ActivityOption {
 
 export enum GameEventType {
   // Phase transitions
-  DAY_PHASE_STARTED = 'DAY_PHASE_STARTED',
   NIGHT_PHASE_STARTED = 'NIGHT_PHASE_STARTED',
   
   // Time events
@@ -108,20 +103,8 @@ export enum GameEventType {
   END_OF_DAY_REACHED = 'END_OF_DAY_REACHED',
   
   // Resource events
-  MOMENTUM_GAINED = 'MOMENTUM_GAINED',
-  MOMENTUM_RESET = 'MOMENTUM_RESET',
-  MOMENTUM_LEVEL_REACHED = 'MOMENTUM_LEVEL_REACHED',
-  MOMENTUM_CHANGED = 'MOMENTUM_CHANGED',
-  INSIGHT_GAINED = 'INSIGHT_GAINED',
-  INSIGHT_SPENT = 'INSIGHT_SPENT',
-  INSIGHT_CONVERTED = 'INSIGHT_CONVERTED',
   STAR_POINTS_GAINED = 'STAR_POINTS_GAINED',
   STAR_POINTS_SPENT = 'STAR_POINTS_SPENT',
-  
-  // Boast events
-  BOAST_ACTIVATED = 'BOAST_ACTIVATED',
-  BOAST_SUCCEEDED = 'BOAST_SUCCEEDED',
-  BOAST_FAILED = 'BOAST_FAILED',
   
   // Tangent event
   TANGENT_USED = 'TANGENT_USED',
@@ -212,8 +195,6 @@ export interface DialogueOption {
   id?: string;
   nextNodeId?: string;
   requiredStarId?: string;
-  insightChange?: number;
-  momentumChange?: number;
   relationshipChange?: number;
   discoversConceptId?: string;
   

@@ -6,8 +6,6 @@ import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { useActivityStore } from '@/app/store/activityStore';
 import { useResourceStore } from '@/app/store/resourceStore';
 
-// Import Day 1 types
-import { Day1SceneId } from '@/app/types/day1';
 
 // State interface for the game store
 interface GameState {
@@ -19,9 +17,9 @@ interface GameState {
   seenLocations: Set<LocationId>;
   
   // Day 1 state
-  day1CurrentScene: Day1SceneId;
-  day1CompletedScenes: Set<Day1SceneId>;
-  setDay1Scene: (sceneId: Day1SceneId) => void;
+  day1CurrentScene: string;
+  day1CompletedScenes: Set<string>;
+  setDay1Scene: (sceneId: string) => void;
   
   // Time management
   timeManager: TimeManager;
@@ -34,6 +32,12 @@ interface GameState {
   // Phase tracking
   hasVisitedNightPhase: boolean;
   setHasVisitedNightPhase: (visited: boolean) => void;
+  
+  // Constellation cutscene tracking
+  hasCompletedFirstActivity: boolean;
+  hasSeenConstellationCutscene: boolean;
+  setHasCompletedFirstActivity: (completed: boolean) => void;
+  setHasSeenConstellationCutscene: (seen: boolean) => void;
   
   // Actions
   setPhase: (phase: GamePhase) => void;
@@ -82,9 +86,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   playerName: '',
   
   // Initialize Day 1 state
-  day1CurrentScene: Day1SceneId.PROLOGUE_INTRO,
-  day1CompletedScenes: new Set<Day1SceneId>(),
-  setDay1Scene: (sceneId: Day1SceneId) => {
+  day1CurrentScene: 'ARRIVAL',
+  day1CompletedScenes: new Set<string>(),
+  setDay1Scene: (sceneId: string) => {
     console.log(`[GameStore] Setting Day 1 scene to: ${sceneId}`);
     set({ day1CurrentScene: sceneId });
   },
@@ -96,6 +100,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Initialize phase tracking
   hasVisitedNightPhase: false,
   setHasVisitedNightPhase: (visited: boolean) => set({ hasVisitedNightPhase: visited }),
+  
+  // Initialize constellation cutscene tracking
+  hasCompletedFirstActivity: false,
+  hasSeenConstellationCutscene: false,
+  setHasCompletedFirstActivity: (completed: boolean) => set({ hasCompletedFirstActivity: completed }),
+  setHasSeenConstellationCutscene: (seen: boolean) => set({ hasSeenConstellationCutscene: seen }),
   
   // Initialize relationships (insight, momentum, starPoints are now in resourceStore)
   relationships: {
@@ -114,27 +124,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     console.log(`[GameStore] Phase change: ${currentPhase} → ${phase}`);
     
     set({ currentPhase: phase });
-    if (phase === GamePhase.DAY) {
-      centralEventBus.dispatch(GameEventType.DAY_PHASE_STARTED, { day: get().daysPassed + 1 }, 'gameStore.setPhase');
-    } else if (phase === GamePhase.NIGHT) {
+    if (phase === GamePhase.NIGHT) {
       centralEventBus.dispatch(GameEventType.NIGHT_PHASE_STARTED, { day: get().daysPassed }, 'gameStore.setPhase');
     }
   },
   setSeason: (season: Season) => set({ currentSeason: season }),
   incrementDay: () => {
     set((state) => ({ daysPassed: state.daysPassed + 1 }));
-    centralEventBus.dispatch(GameEventType.DAY_PHASE_STARTED, { day: get().daysPassed + 1 }, 'gameStore.incrementDay');
   },
   advanceTime: (minutes: number) => {
     const { timeManager } = get();
     const newTime = timeManager.advanceTime(minutes);
     set({ currentTime: newTime });
     centralEventBus.dispatch(GameEventType.TIME_ADVANCED, { hour: newTime.hour, minute: newTime.minute, minutes: minutes }, 'gameStore.advanceTime');
-    if (timeManager.isDayEnded()) {
-      set({ currentPhase: GamePhase.NIGHT });
-      centralEventBus.dispatch(GameEventType.END_OF_DAY_REACHED, { day: get().daysPassed }, 'gameStore.advanceTime');
-      centralEventBus.dispatch(GameEventType.NIGHT_PHASE_STARTED, { day: get().daysPassed }, 'gameStore.advanceTime');
-    }
   },
   
   resetDay: () => {
@@ -142,25 +144,24 @@ export const useGameStore = create<GameState>((set, get) => ({
     const newTime = timeManager.resetToStartOfDay();
     const knowledgeStore = useKnowledgeStore.getState();
     const insightBonus = knowledgeStore.getInsightBonus();
-    
-    get().convertInsightToSP(); // This will use resourceStore for insight
-    
+
+    get().convertInsightToSP();
+
     const resourceStore = useResourceStore.getState();
     resourceStore.resetMomentum('gameStore.resetDay');
-    resourceStore.updateInsight(0 - resourceStore.insight, 'gameStore.resetDay.clear'); // Clear existing insight
+    resourceStore.updateInsight(0 - resourceStore.insight, 'gameStore.resetDay.clear');
     if (insightBonus > 0) {
       resourceStore.updateInsight(insightBonus, 'active stars bonus');
     }
-    
-    set({ 
+
+    set({
       currentTime: newTime,
-      currentPhase: GamePhase.DAY,
-      // No local resources.momentum or resources.insight to set here anymore
+      currentPhase: GamePhase.NIGHT
     });
-    
+
     set((state) => ({ daysPassed: state.daysPassed + 1 }));
-    centralEventBus.dispatch(GameEventType.DAY_PHASE_STARTED, { day: get().daysPassed + 1 }, 'gameStore.resetDay');
-    
+    centralEventBus.dispatch(GameEventType.NIGHT_PHASE_STARTED, { day: get().daysPassed }, 'gameStore.resetDay');
+
     setTimeout(() => {
       try {
         const activityStore = useActivityStore.getState();

@@ -3,54 +3,32 @@ import { centralEventBus } from '../events/CentralEventBus';
 import { GameEventType } from '@/app/types';
 
 /**
- * Manages transitions between Day and Night phases
+ * Manages Night phase transitions and game cycles
  */
 export class PhaseManager {
   /**
-   * Transition from Day Phase to Night Phase
-   * Handles end-of-day cleanup and Night Phase initialization
+   * Transition to Night Phase (home scene)
+   * Handles cleanup and Night Phase initialization
    */
   public static transitionToNightPhase(dayNumber: number, insightRemaining: number) {
     // Track the transition
     centralEventBus.dispatch(
       GameEventType.END_OF_DAY_REACHED,
-      { 
+      {
         day: dayNumber,
         insightRemaining
       },
       'PhaseManager.transitionToNightPhase'
     );
-    
+
     // Start Night Phase
     centralEventBus.dispatch(
       GameEventType.NIGHT_PHASE_STARTED,
       { day: dayNumber },
       'PhaseManager.transitionToNightPhase'
     );
-    
+
     return GamePhase.NIGHT;
-  }
-  
-  /**
-   * Transition from Night Phase to Day Phase
-   * Handles start-of-day initialization
-   */
-  public static transitionToDayPhase(dayNumber: number, activeStarCount: number) {
-    // Calculate start-of-day insight bonus
-    const insightBonus = activeStarCount; // +1 insight per active star
-    
-    // Start Day Phase
-    centralEventBus.dispatch(
-      GameEventType.DAY_PHASE_STARTED,
-      { 
-        day: dayNumber,
-        activeStarCount,
-        insightBonus 
-      },
-      'PhaseManager.transitionToDayPhase'
-    );
-    
-    return GamePhase.DAY;
   }
   
   /**
