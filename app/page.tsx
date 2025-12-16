@@ -3,8 +3,6 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
 import styled from 'styled-components';
 import { TitleScreen } from './components/phase/TitleScreen';
-import { Prologue } from './components/phase/Prologue';
-import { DayPhase } from './components/phase/DayPhase';
 import { NightPhase } from './components/phase/NightPhase';
 import { useGameStore } from './store/gameStore';
 import { GamePhase } from './types';
@@ -62,10 +60,6 @@ const Game: React.FC = () => {
   switch (displayPhase) {
     case GamePhase.TITLE:
       return <TitleScreen />;
-    case GamePhase.PROLOGUE:
-      return <Prologue />;
-    case GamePhase.DAY:
-      return <DayPhase />;
     case GamePhase.NIGHT:
       return <NightPhase />;
     default:

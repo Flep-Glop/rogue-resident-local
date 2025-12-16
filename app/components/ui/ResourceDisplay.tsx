@@ -3,8 +3,6 @@
 import React from 'react';
 import styled from 'styled-components';
 import { useResourceStore } from '@/app/store/resourceStore';
-import MomentumIndicator from './MomentumIndicator';
-import InsightIndicator from './InsightIndicator';
 import { colors, spacing, mixins } from '@/app/styles/pixelTheme';
 
 const ResourceContainer = styled.div`
@@ -41,11 +39,9 @@ const StarPointsValue = styled.span`
 
 export function ResourceDisplay() {
   const { starPoints } = useResourceStore();
-  
+
   return (
     <ResourceContainer>
-      <MomentumIndicator />
-      <InsightIndicator />
       <StarPointsDisplay>
         <StarPointsLabel>Star Points</StarPointsLabel>
         <StarPointsValue>✨ {starPoints}</StarPointsValue>

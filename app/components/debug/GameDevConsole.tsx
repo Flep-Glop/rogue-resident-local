@@ -3,1106 +3,155 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useSceneStore } from '@/app/store/sceneStore';
-import { useTutorialStore } from '@/app/store/tutorialStore';
-import { useDialogueStore } from '@/app/store/dialogueStore';
 import { useGameStore } from '@/app/store/gameStore';
-import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { useResourceStore } from '@/app/store/resourceStore';
-import { useAbilityStore } from '@/app/store/abilityStore';
-import { centralEventBus } from '@/app/core/events/CentralEventBus';
-import { GameEventType } from '@/app/types';
 
-// Game development scenarios - the core of testing different parts of your game
-export interface GameScenario {
-  id: string;
-  name: string;
-  description: string;
-  category: 'tutorial' | 'gameplay' | 'dialogue' | 'boss' | 'constellation' | 'custom';
-  setup: () => void;
-  teardown?: () => void;
-  requiredStores?: string[];
-}
+// Simplified debug console - press F2 to toggle
+// Most scenarios removed during cleanup - see CLEANUP_PLAN.md
 
-// Pre-defined scenarios for different testing needs
-const GAME_SCENARIOS: GameScenario[] = [
-  // First Day Hospital Progression Scenarios
-  {
-    id: 'hospital_fresh_day',
-    name: 'Fresh Day - Start',
-    description: 'Clean start of first day tutorial with Dr. Garcia',
-    category: 'tutorial',
-    setup: () => {
-      const tutorialStore = useTutorialStore.getState();
-      const sceneStore = useSceneStore.getState();
-      const dialogueStore = useDialogueStore.getState();
-      
-      // Reset everything to fresh state
-      tutorialStore.resetTutorialProgress();
-      dialogueStore.endDialogue();
-      
-      // Start tutorial at beginning (silently - no popup)
-      tutorialStore.startTutorialSilently('first_day', 'morning_arrival');
-      
-      // Go to hospital view
-      sceneStore.transitionToScene('hospital');
-      
-      // Clear any overlays that might have been triggered
-      tutorialStore.dismissAllOverlays();
-      
-      console.log('🌅 Fresh day started - all rooms available, tutorial active');
-    }
-  },
-  {
-    id: 'hospital_before_lunch',
-    name: 'Before Lunch',
-    description: 'Hospital view right before lunch scene with Garcia activity completed',
-    category: 'tutorial',
-    setup: () => {
-      const tutorialStore = useTutorialStore.getState();
-      const sceneStore = useSceneStore.getState();
-      const dialogueStore = useDialogueStore.getState();
-      
-      // Reset and set up tutorial state
-      tutorialStore.resetTutorialProgress();
-      dialogueStore.endDialogue();
-      
-      // Complete initial steps up to lunch (silently - no popup)
-      tutorialStore.startTutorialSilently('first_day', 'morning_arrival');
-      tutorialStore.completeStep('morning_arrival');
-      tutorialStore.completeStep('hospital_tour');
-      tutorialStore.completeStep('first_mentor_intro');
-      tutorialStore.completeStep('first_educational_activity');
-      
-      // Set current step to lunch dialogue
-      tutorialStore.skipToStep('lunch_dialogue');
-      
-      // Go to hospital view
-      sceneStore.transitionToScene('hospital');
-      
-      // Clear any overlays that might have been triggered
-      tutorialStore.dismissAllOverlays();
-      
-      console.log('🍽️ Pre-lunch state - Garcia activity completed, about to trigger lunch dialogue');
-    }
-  },
-  {
-    id: 'hospital_before_afternoon_choice',
-    name: 'Before Jesse/Kapoor Activity',
-    description: 'Hospital after lunch, only LINAC-1 and Dosimetry Lab available',
-    category: 'tutorial',
-    setup: () => {
-      const tutorialStore = useTutorialStore.getState();
-      const sceneStore = useSceneStore.getState();
-      const dialogueStore = useDialogueStore.getState();
-      
-      // Reset and set up tutorial state
-      tutorialStore.resetTutorialProgress();
-      dialogueStore.endDialogue();
-      
-      // Complete steps up to second mentor choice (silently - no popup)
-      tutorialStore.startTutorialSilently('first_day', 'morning_arrival');
-      tutorialStore.completeStep('morning_arrival');
-      tutorialStore.completeStep('hospital_tour');
-      tutorialStore.completeStep('first_mentor_intro');
-      tutorialStore.completeStep('first_educational_activity');
-      tutorialStore.completeStep('lunch_dialogue');
-      
-      // Set current step to second mentor intro (afternoon choice)
-      tutorialStore.skipToStep('second_mentor_intro');
-      
-      // Go to hospital view (only Jesse's LINAC-1 and Kapoor's dosimetry-lab will be available)
-      sceneStore.transitionToScene('hospital');
-      
-      // Clear any overlays that might have been triggered
-      tutorialStore.dismissAllOverlays();
-      
-      console.log('⚗️ Post-lunch state - Only LINAC-1 and Dosimetry Lab available for afternoon mentor choice');
-    }
-  },
-  {
-    id: 'hospital_before_quinn_office',
-    name: 'Before Quinn Activity',
-    description: 'Hospital with Physics Office available for end-of-day meeting',
-    category: 'tutorial',
-    setup: () => {
-      const tutorialStore = useTutorialStore.getState();
-      const sceneStore = useSceneStore.getState();
-      const dialogueStore = useDialogueStore.getState();
-      
-      // Reset and set up tutorial state
-      tutorialStore.resetTutorialProgress();
-      dialogueStore.endDialogue();
-      
-      // Complete steps up to night phase transition (silently - no popup)
-      tutorialStore.startTutorialSilently('first_day', 'morning_arrival');
-      tutorialStore.completeStep('morning_arrival');
-      tutorialStore.completeStep('hospital_tour');
-      tutorialStore.completeStep('first_mentor_intro');
-      tutorialStore.completeStep('first_educational_activity');
-      tutorialStore.completeStep('lunch_dialogue');
-      tutorialStore.completeStep('second_mentor_intro');
-      
-      // Set current step to night_phase_transition (makes physics office available but no Hill House button)
-      tutorialStore.skipToStep('night_phase_transition');
-      
-      // Go to hospital view (physics office should be available, no Hill House button yet)
-      sceneStore.transitionToScene('hospital');
-      
-      // Clear any overlays that might have been triggered
-      tutorialStore.dismissAllOverlays();
-      
-      console.log('👩‍⚕️ Pre-Quinn state - Physics Office available, no Hill House button yet');
-    }
-  },
-  {
-    id: 'hospital_sunset_hill_house',
-    name: 'Before Hill House',
-    description: 'Hospital with sunset effects and Hill House button ready',
-    category: 'tutorial',
-    setup: () => {
-      const tutorialStore = useTutorialStore.getState();
-      const sceneStore = useSceneStore.getState();
-      const dialogueStore = useDialogueStore.getState();
-      
-      // Reset and set up tutorial state
-      tutorialStore.resetTutorialProgress();
-      dialogueStore.endDialogue();
-      
-      // Complete steps up to Quinn office meeting (silently - no popup)
-      tutorialStore.startTutorialSilently('first_day', 'morning_arrival');
-      tutorialStore.completeStep('morning_arrival');
-      tutorialStore.completeStep('hospital_tour');
-      tutorialStore.completeStep('first_mentor_intro');
-      tutorialStore.completeStep('first_educational_activity');
-      tutorialStore.completeStep('lunch_dialogue');
-      tutorialStore.completeStep('second_mentor_intro');
-      tutorialStore.completeStep('night_phase_transition');
-      
-      // Set current step to quinn_office_meeting (triggers end of day)
-      tutorialStore.skipToStep('quinn_office_meeting');
-      
-      // Go to hospital view (should show sunset effects and Hill House button)
-      sceneStore.transitionToScene('hospital');
-      
-      // Clear any overlays that might have been triggered
-      tutorialStore.dismissAllOverlays();
-      
-      console.log('🌅 Sunset state - Hospital with beautiful gradient and Hill House button available');
-    }
-  },
-
-  // Core Gameplay Scenarios
-  {
-    id: 'hospital_free_roam',
-    name: 'Hospital Free Roam',
-    description: 'Normal hospital with all rooms unlocked, no tutorial',
-    category: 'gameplay',
-    setup: () => {
-      const tutorialStore = useTutorialStore.getState();
-      const sceneStore = useSceneStore.getState();
-      const gameStore = useGameStore.getState();
-      
-      tutorialStore.disableTutorialMode();
-      sceneStore.transitionToScene('hospital');
-      // Unlock all rooms, max resources for testing (if gameStore has this method)
-      console.log('🔓 Setting up free roam with max resources');
-    }
-  },
-  {
-    id: 'challenge_dosimetry_hard',
-    name: 'Dosimetry Challenge - Hard',
-    description: 'Jump to challenging dosimetry questions',
-    category: 'gameplay',
-    setup: () => {
-      const sceneStore = useSceneStore.getState();
-      sceneStore.transitionToScene('challenge', {
-        activityId: 'dosimetry-advanced-challenge',
-        mentorId: 'kapoor',
-        roomId: 'dosimetry-lab'
-      });
-    }
-  },
-
-  // Dialogue Testing Scenarios
-  {
-    id: 'dialogue_garcia_intro',
-    name: 'Dr. Garcia Introduction',
-    description: 'Test Dr. Garcia physics office dialogue',
-    category: 'dialogue',
-    setup: () => {
-      const dialogueStore = useDialogueStore.getState();
-      const sceneStore = useSceneStore.getState();
-      
-      dialogueStore.startDialogue('physics-office-intro');
-      sceneStore.transitionToScene('narrative', {
-        mentorId: 'garcia',
-        dialogueId: 'physics-office-intro',
-        roomId: 'physics-office'
-      });
-    }
-  },
-  {
-    id: 'dialogue_all_mentors',
-    name: 'Mentor Gallery',
-    description: 'See all mentors and their relationship status',
-    category: 'dialogue',
-    setup: () => {
-      const sceneStore = useSceneStore.getState();
-      sceneStore.transitionToScene('hospital'); // Add mentor gallery scene when available
-      console.log('Switch to mentor gallery view');
-    }
-  },
-
-  // Constellation/Knowledge Testing
-  {
-    id: 'constellation_full_unlock',
-    name: 'Full Constellation',
-    description: 'All knowledge stars unlocked for testing connections',
-    category: 'constellation',
-    setup: () => {
-      const sceneStore = useSceneStore.getState();
-      
-      // Unlock all knowledge concepts
-      console.log('🌟 Setting up full constellation view');
-      sceneStore.transitionToScene('constellation');
-      console.log('All constellation stars unlocked');
-    }
-  },
-
-  // Boss/Advanced Scenarios
-  {
-    id: 'boss_final_exam',
-    name: 'Final Physics Exam',
-    description: 'End-game comprehensive physics challenge',
-    category: 'boss',
-    setup: () => {
-      const sceneStore = useSceneStore.getState();
-      
-      // Set high-stakes final exam state
-      console.log('🔥 Setting up final physics exam');
-      sceneStore.transitionToScene('challenge', {
-        activityId: 'final-physics-comprehensive',
-        mentorId: 'all',
-        roomId: 'examination-hall'
-      });
-    }
-  },
-
-  // Additional Custom Scenarios for Advanced Testing
-  {
-    id: 'stress_test_dialogue',
-    name: 'Dialogue Stress Test',
-    description: 'Rapidly cycle through all mentor dialogues',
-    category: 'custom',
-    setup: () => {
-      const dialogueStore = useDialogueStore.getState();
-      const sceneStore = useSceneStore.getState();
-      
-      console.log('🔄 Starting dialogue stress test...');
-      // This would cycle through dialogues for testing
-      sceneStore.transitionToScene('narrative', {
-        mentorId: 'garcia',
-        dialogueId: 'physics-office-intro',
-        roomId: 'physics-office'
-      });
-    }
-  },
-  {
-    id: 'all_mentors_max_relationship',
-    name: 'Max Mentor Relationships',
-    description: 'Set all mentor relationships to maximum for testing',
-    category: 'custom',
-    setup: () => {
-      console.log('💕 Setting all mentor relationships to maximum');
-      // This would set high relationship values for all mentors
-      // You'd implement this based on your relationship store
-    }
-  },
-  {
-    id: 'edge_case_empty_state',
-    name: 'Edge Case - Empty State',
-    description: 'Test game behavior with minimal/empty state',
-    category: 'custom',
-    setup: () => {
-      const tutorialStore = useTutorialStore.getState();
-      const sceneStore = useSceneStore.getState();
-      
-      tutorialStore.resetTutorialProgress();
-      tutorialStore.disableTutorialMode();
-      sceneStore.transitionToScene('hospital');
-      console.log('🔄 Reset to minimal state for edge case testing');
-    }
-  }
-];
-
-// Compact console container - much smaller!
-const ConsoleContainer = styled.div<{ $isOpen: boolean }>`
+const ConsoleOverlay = styled.div<{ $visible: boolean }>`
   position: fixed;
-  top: ${({ $isOpen }) => $isOpen ? '0' : '-100vh'};
+  top: 0;
   left: 0;
   right: 0;
-  height: 100vh; /* Significantly increased from 45vh for full button visibility */
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96));
-  border-bottom: 2px solid #3B82F6;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(12px);
-  z-index: 9999;
-  transition: top 0.3s ease;
-  display: flex;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 10000;
+  display: ${props => props.$visible ? 'flex' : 'none'};
   flex-direction: column;
-  font-family: 'Courier New', monospace;
+  padding: 20px;
+  font-family: monospace;
+  color: #00ff00;
 `;
 
-const ConsoleHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+const Title = styled.h1`
+  margin: 0 0 20px 0;
+  font-size: 24px;
+  color: #00ff00;
+`;
+
+const Section = styled.div`
+  margin-bottom: 20px;
+`;
+
+const SectionTitle = styled.h2`
+  font-size: 16px;
+  margin: 0 0 10px 0;
+  color: #ffff00;
+`;
+
+const Button = styled.button`
+  background: #333;
+  color: #00ff00;
+  border: 1px solid #00ff00;
   padding: 8px 16px;
-  background: rgba(59, 130, 246, 0.15);
-  border-bottom: 1px solid rgba(59, 130, 246, 0.3);
-  min-height: 40px;
-`;
-
-const ConsoleTitle = styled.h2`
-  margin: 0;
-  color: #3B82F6;
-  font-size: 18px;
-  font-weight: bold;
-`;
-
-const ConsoleContent = styled.div`
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr; /* 4 columns for better readability */
-  gap: 20px; /* Even more gap for better spacing */
-  padding: 20px 24px; /* Increased padding for more breathing room */
-  overflow-y: auto;
-`;
-
-const ControlSection = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
-
-const SectionTitle = styled.h4`
-  color: #E2E8F0;
-  font-size: 14px;
-  font-weight: bold;
-  text-transform: uppercase;
-  margin: 0 0 6px 0;
-  padding-bottom: 2px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.2);
-`;
-
-const CompactButton = styled.button<{ $variant?: 'primary' | 'success' | 'warning' | 'danger' | 'weather' | 'ripple' | 'grid' | 'info' }>`
-  background: ${({ $variant }) => {
-    switch ($variant) {
-      case 'primary': return '#3B82F6';
-      case 'success': return '#10B981';
-      case 'warning': return '#F59E0B';
-      case 'danger': return '#EF4444';
-      case 'weather': return '#8B5CF6';
-      case 'ripple': return '#06B6D4';
-      case 'grid': return '#EC4899';
-      case 'info': return '#0EA5E9'; /* Added info variant for Report Card button */
-      default: return '#475569';
-    }
-  }};
-  color: white;
-  border: none;
-  border-radius: 6px; /* Slightly more rounded */
-  padding: 10px 14px; /* Even more padding for better clickability */
-  margin-bottom: 8px; /* Increased margin for better vertical spacing */
-  font-size: 13px; /* Slightly larger font */
-  font-weight: 500;
+  margin: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-height: 32px; /* Ensure consistent button height */
+  font-family: monospace;
 
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); /* Enhanced shadow */
-    opacity: 0.9;
-  }
-
-  &:disabled {
-    background: #374151;
-    color: #6B7280;
-    cursor: not-allowed;
-    transform: none;
+    background: #00ff00;
+    color: #000;
   }
 `;
 
-const StatusBar = styled.div`
-  display: flex;
-  gap: 12px;
+const Info = styled.div`
   font-size: 12px;
-  color: #94A3B8;
+  color: #888;
+  margin-top: 20px;
 `;
 
-const StatusItem = styled.span`
-  color: #F1F5F9;
+export default function GameDevConsole() {
+  const [visible, setVisible] = useState(false);
   
-  strong {
-    color: #3B82F6;
-  }
-`;
-
-// Main Game Dev Console Component
-const GameDevConsole: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  
-  // Store hooks for status display
-  const currentScene = useSceneStore(state => state.currentScene);
-  const tutorialMode = useTutorialStore(state => state.mode);
-  const currentStep = useTutorialStore(state => state.currentStep);
-  const playerName = useGameStore(state => state.playerName);
-
-  // Keyboard shortcut to toggle console (F2 key)
+  // Toggle with F2
   useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === 'F2') {
-        event.preventDefault();
-        setIsOpen(!isOpen);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2') {
+        setVisible(v => !v);
       }
-      // ESC to close
-      if (event.key === 'Escape' && isOpen) {
-        setIsOpen(false);
+      if (e.key === 'Escape' && visible) {
+        setVisible(false);
       }
     };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isOpen]);
-
-  // Quick navigation actions
-  const quickActions = {
-    // Scene Navigation
-    jumpToHospital: () => {
-      console.log('🏥 Jumping to hospital');
-      useSceneStore.getState().transitionToScene('hospital');
-    },
     
-    jumpToNight: () => {
-      console.log('🌙 Jumping to night phase');
-      useSceneStore.getState().transitionToScene('constellation');
-    },
-
-    // Day/Night Transition Shortcut
-    triggerDayNightTransition: () => {
-      console.log('🌅→🌙 Triggering day/night transition with magical starfield!');
-      const gameStore = useGameStore.getState();
-      const daysPassed = gameStore.daysPassed || 0;
-      
-      // Dispatch the same event that the "End Day" button triggers
-      centralEventBus.dispatch(
-        GameEventType.END_OF_DAY_REACHED, 
-        { day: daysPassed, insightRemaining: gameStore.resources?.insight || 0 }, 
-        'GameDevConsole.triggerDayNightTransition'
-      );
-    },
-
-    // Tutorial Control
-    startFreshDay: () => {
-      console.log('🌅 Starting fresh day tutorial');
-      const tutorialStore = useTutorialStore.getState();
-      const sceneStore = useSceneStore.getState();
-      tutorialStore.resetTutorialProgress();
-      tutorialStore.startTutorialSilently('first_day', 'morning_arrival');
-      sceneStore.transitionToScene('hospital');
-    },
-
-    beforeLunch: () => {
-      console.log('🍽️ Setting up pre-lunch state');
-      const tutorialStore = useTutorialStore.getState();
-      const sceneStore = useSceneStore.getState();
-      tutorialStore.resetTutorialProgress();
-      tutorialStore.startTutorialSilently('first_day', 'morning_arrival');
-      tutorialStore.completeStep('morning_arrival');
-      tutorialStore.completeStep('hospital_tour');
-      tutorialStore.completeStep('first_mentor_intro');
-      tutorialStore.completeStep('first_educational_activity');
-      tutorialStore.skipToStep('lunch_dialogue');
-      sceneStore.transitionToScene('hospital');
-    },
-
-    freeRoam: () => {
-      console.log('🔓 Enabling free roam');
-      const tutorialStore = useTutorialStore.getState();
-      const sceneStore = useSceneStore.getState();
-      tutorialStore.disableTutorialMode();
-      sceneStore.transitionToScene('hospital');
-    },
-
-    testActivity: () => {
-      console.log('🧪 Setting up test activity environment');
-      
-      // Set up the same test state as the title screen button
-      const gameStore = useGameStore.getState();
-      gameStore.setPlayerName("TEST_PLAYER");
-      
-      // Set up test resources
-      const resourceStore = useResourceStore.getState();
-      useResourceStore.setState({
-        insight: 75,
-        momentum: 0,
-        starPoints: 20
-      });
-      
-      // Disable tutorial
-      const tutorialStore = useTutorialStore.getState();
-      tutorialStore.disableTutorialMode();
-      
-      // Go to the dedicated test activity scene
-      const sceneStore = useSceneStore.getState();
-      sceneStore.transitionToScene('test_activity', {
-        mentorId: 'jesse'
-      });
-      
-      console.log('🧪 Test Activity Environment Ready!');
-    },
-
-    resetAll: () => {
-      console.log('🔄 Resetting all stores');
-      useTutorialStore.getState().resetTutorialProgress();
-      useDialogueStore.getState().endDialogue();
-    },
-
-    skipToQuinnNight: () => {
-      console.log('🌙 Skipping to Quinn\'s final dialogue (triggers night phase)');
-      const dialogueStore = useDialogueStore.getState();
-      const sceneStore = useSceneStore.getState();
-      const tutorialStore = useTutorialStore.getState();
-      
-      // Set up micro day tutorial if not already active
-      tutorialStore.startTutorialSilently('micro_day', 'quinn_followup');
-      
-      // Start the dialogue normally
-      dialogueStore.startDialogue('tutorial_quinn_intro');
-      
-      // Then manually set the current node to the final dialogue
-      setTimeout(() => {
-        // Access the store directly to set the specific node
-        useDialogueStore.setState({
-          currentNodeId: 'quinn_day_conclusion',
-          dialogueHistory: [
-            { nodeId: 'tutorial_quinn_intro', selectedOptionId: null },
-            { nodeId: 'quinn_day_conclusion', selectedOptionId: null }
-          ]
-        });
-        console.log('🗣️ Jumped directly to Quinn\'s final dialogue - click "See you tomorrow!" to trigger night phase');
-      }, 100);
-      
-      sceneStore.transitionToScene('narrative', {
-        mentorId: 'quinn',
-        dialogueId: 'tutorial_quinn_intro',
-        roomId: 'physics-office'
-      });
-    },
-
-    skipToQuinnRewards: () => {
-      console.log('🎁 Skipping to Quinn\'s reward sequence (after tutorial activity)');
-      const dialogueStore = useDialogueStore.getState();
-      const sceneStore = useSceneStore.getState();
-      const tutorialStore = useTutorialStore.getState();
-      
-      // Set up micro day tutorial if not already active
-      tutorialStore.startTutorialSilently('micro_day', 'quinn_activity');
-      
-      // Start the dialogue normally
-      dialogueStore.startDialogue('tutorial_quinn_intro');
-      
-      // Then manually set the current node to the reward sequence start
-      setTimeout(() => {
-        // Access the store directly to set the specific node
-        useDialogueStore.setState({
-          currentNodeId: 'quinn_reflection',
-          dialogueHistory: [
-            { nodeId: 'tutorial_quinn_intro', selectedOptionId: null },
-            { nodeId: 'quinn_reflection', selectedOptionId: null }
-          ]
-        });
-        console.log('🎁 Jumped directly to Quinn\'s reward sequence - experience the star point, journal, and card rewards!');
-      }, 100);
-      
-      sceneStore.transitionToScene('narrative', {
-        mentorId: 'quinn',
-        dialogueId: 'tutorial_quinn_intro',
-        roomId: 'physics-office'
-      });
-    },
-
-    skipToReportCard: () => {
-      console.log('📊 Skipping directly to Quinn Report Card screen');
-      const sceneStore = useSceneStore.getState();
-      const tutorialStore = useTutorialStore.getState();
-      
-      // Set up micro day tutorial if not already active
-      tutorialStore.startTutorialSilently('micro_day', 'quinn_activity');
-      
-      // Navigate to Quinn tutorial activity with special debug flag
-      sceneStore.transitionToScene('tutorial_activity', {
-        mentorId: 'quinn',
-        debugReportCard: true // Special flag to trigger report card immediately
-      });
-      
-      console.log('📊 Navigated to Quinn Tutorial with debug report card mode - should show report card immediately!');
-    },
-
-    skipToNightSceneReady: () => {
-      console.log('🌙 Setting up night scene with star unlocked and Fast Learner equipped');
-      const sceneStore = useSceneStore.getState();
-      const tutorialStore = useTutorialStore.getState();
-      const resourceStore = useResourceStore.getState();
-      const abilityStore = useAbilityStore.getState();
-      
-      // Complete tutorial steps to reach night phase
-      tutorialStore.startTutorialSilently('micro_day', 'constellation_intro');
-      tutorialStore.completeStep('quinn_intro');
-      tutorialStore.completeStep('quinn_activity');
-      tutorialStore.completeStep('quinn_followup');
-      tutorialStore.completeStep('night_phase_intro');
-      tutorialStore.completeStep('home_intro');
-      tutorialStore.completeStep('abilities_desk_intro');
-      tutorialStore.completeStep('constellation_available');
-      tutorialStore.completeStep('constellation_intro');
-      
-      // Give some star points and unlock the star
-      resourceStore.updateStarPoints(5);
-      
-      // Unlock and equip Fast Learner ability
-      abilityStore.unlockCard('fast_learner');
-      abilityStore.equipCard('fast_learner', 0);
-      
-      // Navigate to home scene 
-      sceneStore.transitionToScene('home');
-      
-      console.log('🌙 Night scene ready! Star unlocked, Fast Learner equipped, ready to test bed click for Day 2!');
-    },
-
-    // Time Lighting Tests  
-    testDawn: () => {
-      console.log('🌅 Testing dawn lighting (7 AM)');
-      centralEventBus.dispatch(GameEventType.TIME_ADVANCED, { hour: 7, minute: 0 }, 'GameDevConsole');
-    },
-
-    testDay: () => {
-      console.log('☀️ Testing day lighting (12 PM)');
-      centralEventBus.dispatch(GameEventType.TIME_ADVANCED, { hour: 12, minute: 0 }, 'GameDevConsole');
-    },
-
-    testEvening: () => {
-      console.log('🌆 Testing evening lighting (6 PM)');
-      centralEventBus.dispatch(GameEventType.TIME_ADVANCED, { hour: 18, minute: 0 }, 'GameDevConsole');
-    },
-
-    testNight: () => {
-      console.log('🌃 Testing night lighting (10 PM)');
-      centralEventBus.dispatch(GameEventType.TIME_ADVANCED, { hour: 22, minute: 0 }, 'GameDevConsole');
-    },
-
-    // Weather Controls
-    setClear: () => {
-      console.log('☀️ Setting clear weather');
-      if (typeof window !== 'undefined' && (window as any).setWeather) {
-        (window as any).setWeather('clear');
-      }
-    },
-
-    setRain: () => {
-      console.log('🌧️ Setting rain weather');
-      if (typeof window !== 'undefined' && (window as any).setWeather) {
-        (window as any).setWeather('rain');
-      }
-    },
-
-    setStorm: () => {
-      console.log('⛈️ Setting storm weather');
-      if (typeof window !== 'undefined' && (window as any).setWeather) {
-        (window as any).setWeather('storm');
-      }
-    },
-
-    setSnow: () => {
-      console.log('❄️ Setting snow weather');
-      if (typeof window !== 'undefined' && (window as any).setWeather) {
-        (window as any).setWeather('snow');
-      }
-    },
-
-    setFog: () => {
-      console.log('🌫️ Setting fog weather');
-      if (typeof window !== 'undefined' && (window as any).setWeather) {
-        (window as any).setWeather('fog');
-      }
-    },
-
-    // Scene Navigation
-    jumpToLunchRoom: () => {
-      console.log('🍽️ Navigating to Lunch Room social hub');
-      const sceneStore = useSceneStore.getState();
-      sceneStore.setSceneDirectly('lunch-room');
-    },
-
-    // Pond Ripple Controls
-    spawnAmbient: () => {
-      console.log('🌊 Spawning ambient ripple');
-      if (typeof window !== 'undefined' && (window as any).spawnRipple) {
-        (window as any).spawnRipple('ambient');
-      }
-    },
-
-    spawnRain: () => {
-      console.log('💧 Spawning rain ripple');
-      if (typeof window !== 'undefined' && (window as any).spawnRipple) {
-        (window as any).spawnRipple('rain');
-      }
-    },
-
-    spawnStorm: () => {
-      console.log('🌊 Spawning storm ripple');
-      if (typeof window !== 'undefined' && (window as any).spawnRipple) {
-        (window as any).spawnRipple('storm');
-      }
-    },
-
-    spawnSparkle: () => {
-      console.log('✨ Spawning water sparkle');
-      if (typeof window !== 'undefined' && (window as any).spawnRipple) {
-        (window as any).spawnRipple('sparkle');
-      }
-    },
-
-    clearRipples: () => {
-      console.log('🧹 Clearing all ripples');
-      if (typeof window !== 'undefined' && (window as any).clearRipples) {
-        (window as any).clearRipples();
-      }
-    },
-
-    // Fish Controls
-    spawnFish: () => {
-      console.log('🐟 Spawning test fish');
-      if (typeof window !== 'undefined' && (window as any).spawnFish) {
-        (window as any).spawnFish();
-      }
-    },
-
-    clearFish: () => {
-      console.log('🧹 Clearing all fish');
-      if (typeof window !== 'undefined' && (window as any).clearFish) {
-        (window as any).clearFish();
-      }
-    },
-
-    // Grid Controls
-    showGrid: () => {
-      console.log('🗺️ Showing coordinate grid');
-      if (typeof window !== 'undefined' && (window as any).showGrid) {
-        (window as any).showGrid();
-      }
-    },
-
-    hideGrid: () => {
-      console.log('🗺️ Hiding coordinate grid');
-      if (typeof window !== 'undefined' && (window as any).hideGrid) {
-        (window as any).hideGrid();
-      }
-    },
-
-    toggleGrid: () => {
-      console.log('🗺️ Toggling coordinate grid');
-      if (typeof window !== 'undefined' && (window as any).toggleGrid) {
-        (window as any).toggleGrid();
-      }
-    },
-
-    // Advanced Lighting Controls
-    testWindowsOnly: () => {
-      console.log('🏢 Testing window glows only');
-      if (typeof window !== 'undefined' && (window as any).setWindowsOnly) {
-        (window as any).setWindowsOnly();
-      }
-    },
-
-    testLampsOnly: () => {
-      console.log('💡 Testing lamp glows only');
-      if (typeof window !== 'undefined' && (window as any).setNight) {
-        (window as any).setNight();
-      }
-    },
-
-    // Knowledge System
-    unlockSomeKnowledge: () => {
-      console.log('🌟 Unlocking some knowledge stars for testing!');
-      
-      // First, initialize the knowledge store with concept data if it's empty
-      const knowledgeStore = useKnowledgeStore.getState();
-      if (Object.keys(knowledgeStore.stars).length === 0) {
-        console.log('🔧 Knowledge store is empty, initializing with concept data...');
-        
-        // Import and initialize the concept data
-        import('@/app/data/conceptData').then(({ initializeKnowledgeStore }) => {
-          initializeKnowledgeStore(useKnowledgeStore);
-          
-          // After initialization, unlock some stars
-          setTimeout(() => {
-            const { stars, unlockStar } = useKnowledgeStore.getState();
-            const allStars = Object.values(stars);
-            
-            // Unlock first 2 stars in each domain
-            const domains = ['TREATMENT_PLANNING', 'RADIATION_THERAPY', 'LINAC_ANATOMY', 'DOSIMETRY'];
-            domains.forEach(domain => {
-              const domainStars = allStars.filter(star => star.domain === domain);
-              if (domainStars.length > 0) {
-                console.log(`Unlocking: ${domainStars[0].name}`);
-                unlockStar(domainStars[0].id);
-              }
-              if (domainStars.length > 1) {
-                console.log(`Unlocking: ${domainStars[1].name}`);
-                unlockStar(domainStars[1].id);
-              }
-            });
-            
-            console.log('🌟 Stars unlocked! Check the constellation view!');
-          }, 100);
-        });
-      } else {
-        // Store already has stars, just unlock some
-        const { stars, unlockStar } = useKnowledgeStore.getState();
-        const allStars = Object.values(stars);
-        
-        const domains = ['TREATMENT_PLANNING', 'RADIATION_THERAPY', 'LINAC_ANATOMY', 'DOSIMETRY'];
-        domains.forEach(domain => {
-          const domainStars = allStars.filter(star => star.domain === domain);
-          if (domainStars.length > 0) unlockStar(domainStars[0].id);
-          if (domainStars.length > 1) unlockStar(domainStars[1].id);
-        });
-        
-        console.log('🌟 Additional stars unlocked!');
-      }
-    },
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [visible]);
+  
+  const handleBeforeDesk = () => {
+    localStorage.setItem('debug_skip_to_desk', 'true');
+    localStorage.removeItem('debug_skip_to_cutscene');
+    localStorage.removeItem('debug_after_cutscene');
+    window.location.reload();
   };
-
-  // Dev console now available in all environments (including deployment)
-  // if (process.env.NODE_ENV !== 'development') {
-  //   return null;
-  // }
+  
+  const handleBeforeCutscene = () => {
+    localStorage.removeItem('debug_skip_to_desk');
+    localStorage.setItem('debug_skip_to_cutscene', 'true');
+    localStorage.removeItem('debug_after_cutscene');
+    window.location.reload();
+  };
+  
+  const handleAfterCutscene = () => {
+    localStorage.removeItem('debug_skip_to_desk');
+    localStorage.removeItem('debug_skip_to_cutscene');
+    localStorage.setItem('debug_after_cutscene', 'true');
+    window.location.reload();
+  };
+  
+  const handleClearDebug = () => {
+    localStorage.removeItem('debug_skip_to_desk');
+    localStorage.removeItem('debug_skip_to_cutscene');
+    localStorage.removeItem('debug_after_cutscene');
+    console.log('Debug flags cleared');
+  };
+  
+  const handleAddResources = () => {
+      const resourceStore = useResourceStore.getState();
+    resourceStore.updateInsight(100, 'debug');
+    resourceStore.updateStarPoints(50, 'debug');
+    console.log('Added 100 insight, 50 star points');
+  };
+  
+  const handleResetGame = () => {
+    handleClearDebug();
+    window.location.reload();
+  };
+  
+  if (!visible) return null;
 
   return (
-    <>
-      {/* Console Toggle Button - Always visible in dev */}
-      <div
-        style={{
-          position: 'fixed',
-          top: '20px',
-          right: '30px',
-          zIndex: 10000,
-          fontSize: '24px',
-          cursor: 'pointer',
-          opacity: 0.7,
-          transition: 'opacity 0.3s ease'
-        }}
-        onClick={() => setIsOpen(!isOpen)}
-        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-        title="Dev Console (F2)"
-      >
-        🎮
-      </div>
-
-      {/* Compact Console */}
-      <ConsoleContainer $isOpen={isOpen}>
-        <ConsoleHeader>
-          <ConsoleTitle>🎮 Dev Console</ConsoleTitle>
-          <StatusBar>
-            <StatusItem><strong>Scene:</strong> {currentScene}</StatusItem>
-            <StatusItem><strong>Tutorial:</strong> {tutorialMode}</StatusItem>
-            <StatusItem><strong>Step:</strong> {currentStep || 'None'}</StatusItem>
-            {playerName === 'TEST_PLAYER' && (
-              <StatusItem style={{ color: '#10B981', fontWeight: 'bold' }}>
-                🧪 <strong>TEST MODE</strong>
-              </StatusItem>
-            )}
-          </StatusBar>
-          <div style={{ color: '#94A3B8', fontSize: '12px' }}>
-            F2 • ESC
-          </div>
-        </ConsoleHeader>
-
-        <ConsoleContent>
-          {/* Scene Navigation */}
-          <ControlSection>
-            <SectionTitle>🏠 Navigation</SectionTitle>
-            <CompactButton $variant="success" onClick={quickActions.testActivity}>
-              🧪 Test Activity
-            </CompactButton>
-            <CompactButton $variant="primary" onClick={quickActions.jumpToHospital}>
-              🏥 Hospital
-            </CompactButton>
-            <CompactButton $variant="primary" onClick={quickActions.jumpToLunchRoom}>
-              🍽️ Lunch Room
-            </CompactButton>
-            <CompactButton $variant="primary" onClick={quickActions.jumpToNight}>
-              🌙 Night Phase
-            </CompactButton>
-            <CompactButton $variant="success" onClick={quickActions.triggerDayNightTransition}>
-              🌅→🌙 Day→Night
-            </CompactButton>
-            <CompactButton $variant="warning" onClick={quickActions.freeRoam}>
-              🔓 Free Roam
-            </CompactButton>
-            <CompactButton $variant="success" onClick={quickActions.skipToQuinnRewards}>
-              🎁 Quinn Rewards
-            </CompactButton>
-            <CompactButton $variant="info" onClick={quickActions.skipToReportCard}>
-              📊 Report Card
-            </CompactButton>
-            <CompactButton $variant="success" onClick={quickActions.skipToQuinnNight}>
-              🌙 Skip to Quinn Night
-            </CompactButton>
-            <CompactButton $variant="primary" onClick={quickActions.skipToNightSceneReady}>
-              🛏️ Night Scene Ready
-            </CompactButton>
-            <CompactButton $variant="danger" onClick={quickActions.resetAll}>
-              🔄 Reset All
-            </CompactButton>
-          </ControlSection>
-
-          {/* Tutorial States */}
-          <ControlSection>
-            <SectionTitle>📚 Tutorial</SectionTitle>
-            <CompactButton $variant="success" onClick={quickActions.startFreshDay}>
-              🌅 Fresh Day
-            </CompactButton>
-            <CompactButton $variant="success" onClick={quickActions.beforeLunch}>
-              🍽️ Pre-Lunch
-            </CompactButton>
-            <CompactButton $variant="warning" onClick={quickActions.testDawn}>
-              🌅 Dawn Light
-            </CompactButton>
-            <CompactButton $variant="warning" onClick={quickActions.testDay}>
-              ☀️ Day Light
-            </CompactButton>
-            <CompactButton $variant="warning" onClick={quickActions.testEvening}>
-              🌆 Evening
-            </CompactButton>
-            <CompactButton $variant="warning" onClick={quickActions.testNight}>
-              🌃 Night Light
-            </CompactButton>
-          </ControlSection>
-
-          {/* Knowledge Controls */}
-          <ControlSection>
-            <SectionTitle>🌟 Knowledge</SectionTitle>
-            <CompactButton $variant="success" onClick={quickActions.unlockSomeKnowledge}>
-              Unlock Stars
-            </CompactButton>
-          </ControlSection>
-
-          {/* Weather Controls */}
-          <ControlSection>
-            <SectionTitle>🌦️ Weather</SectionTitle>
-            <CompactButton $variant="weather" onClick={quickActions.setClear}>
-              ☀️ Clear
-            </CompactButton>
-            <CompactButton $variant="weather" onClick={quickActions.setRain}>
-              🌧️ Rain
-            </CompactButton>
-            <CompactButton $variant="weather" onClick={quickActions.setStorm}>
-              ⛈️ Storm
-            </CompactButton>
-            <CompactButton $variant="weather" onClick={quickActions.setSnow}>
-              ❄️ Snow
-            </CompactButton>
-            <CompactButton $variant="weather" onClick={quickActions.setFog}>
-              🌫️ Fog
-            </CompactButton>
-          </ControlSection>
-
-          {/* Pond Ripples & Fish */}
-          <ControlSection>
-            <SectionTitle>🌊 Pond Effects</SectionTitle>
-            <CompactButton $variant="ripple" onClick={quickActions.spawnAmbient}>
-              🌊 Ambient
-            </CompactButton>
-            <CompactButton $variant="ripple" onClick={quickActions.spawnRain}>
-              💧 Rain Drop
-            </CompactButton>
-            <CompactButton $variant="ripple" onClick={quickActions.spawnStorm}>
-              🌊 Storm Wave
-            </CompactButton>
-            <CompactButton $variant="ripple" onClick={quickActions.spawnSparkle}>
-              ✨ Sparkle
-            </CompactButton>
-            <CompactButton $variant="ripple" onClick={quickActions.spawnFish}>
-              🐟 Spawn Fish
-            </CompactButton>
-            <CompactButton $variant="danger" onClick={quickActions.clearRipples}>
-              🧹 Clear Ripples
-            </CompactButton>
-            <CompactButton $variant="danger" onClick={quickActions.clearFish}>
-              🧹 Clear Fish
-            </CompactButton>
-          </ControlSection>
-
-          {/* Debug Grid */}
-          <ControlSection>
-            <SectionTitle>🗺️ Debug Grid</SectionTitle>
-            <CompactButton $variant="grid" onClick={quickActions.showGrid}>
-              📍 Show Grid
-            </CompactButton>
-            <CompactButton $variant="grid" onClick={quickActions.hideGrid}>
-              🚫 Hide Grid
-            </CompactButton>
-            <CompactButton $variant="grid" onClick={quickActions.toggleGrid}>
-              🔄 Toggle Grid
-            </CompactButton>
-            <CompactButton $variant="warning" onClick={quickActions.testWindowsOnly}>
-              🏢 Windows Only
-            </CompactButton>
-            <CompactButton $variant="warning" onClick={quickActions.testLampsOnly}>
-              💡 Lamps Only
-            </CompactButton>
-          </ControlSection>
-
-          {/* Advanced Controls */}
-          <ControlSection>
-            <SectionTitle>⚙️ Advanced</SectionTitle>
-            <CompactButton $variant="primary" onClick={() => {
-              console.log('🎯 Running performance test...');
-              // Could add performance testing here
-            }}>
-              🎯 Perf Test
-            </CompactButton>
-            <CompactButton $variant="warning" onClick={() => {
-              console.log('🖼️ Taking screenshot...');
-              // Could add screenshot functionality
-            }}>
-              📸 Screenshot
-            </CompactButton>
-            <CompactButton $variant="success" onClick={() => {
-              console.log('📊 Logging world state...');
-              console.log('Current scene:', useSceneStore.getState().currentScene);
-              console.log('Tutorial mode:', useTutorialStore.getState().mode);
-              console.log('Current step:', useTutorialStore.getState().currentStep);
-            }}>
-              📊 Log State
-            </CompactButton>
-            <CompactButton $variant="danger" onClick={() => {
-              console.log('⚠️ Testing error handling...');
-              // Could test error boundaries
-            }}>
-              ⚠️ Test Error
-            </CompactButton>
-          </ControlSection>
-        </ConsoleContent>
-      </ConsoleContainer>
-    </>
+    <ConsoleOverlay $visible={visible}>
+      <Title>🎮 Game Dev Console (F2 to toggle)</Title>
+      
+      <Section>
+        <SectionTitle>Debug States (will reload page)</SectionTitle>
+        <Button onClick={handleBeforeDesk}>Before Desk</Button>
+        <Button onClick={handleBeforeCutscene}>Before Cutscene</Button>
+        <Button onClick={handleAfterCutscene}>After Cutscene</Button>
+      </Section>
+      
+      <Section>
+        <SectionTitle>Quick Actions</SectionTitle>
+        <Button onClick={handleAddResources}>Add Resources (+100 insight, +50 SP)</Button>
+        <Button onClick={handleClearDebug}>Clear Debug Flags</Button>
+        <Button onClick={handleResetGame}>Reset Game</Button>
+      </Section>
+      
+      <Section>
+        <SectionTitle>Current State</SectionTitle>
+        <div>Phase: {useGameStore.getState().currentPhase}</div>
+        <div>Scene: {useSceneStore.getState().currentScene}</div>
+        <div>Insight: {useResourceStore.getState().insight}</div>
+        <div>Star Points: {useResourceStore.getState().starPoints}</div>
+        <div>First Activity: {useGameStore.getState().hasCompletedFirstActivity ? '✅' : '❌'}</div>
+        <div>Seen Cutscene: {useGameStore.getState().hasSeenConstellationCutscene ? '✅' : '❌'}</div>
+      </Section>
+      
+      <Info>
+        Press ESC to close • Debug scenarios set localStorage flags and reload
+      </Info>
+    </ConsoleOverlay>
   );
-};
-
-export default GameDevConsole; 
+}

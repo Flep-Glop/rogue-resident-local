@@ -18,35 +18,41 @@ export interface ChangelogEntry {
 
 // Current version info - update this when releasing new versions
 export const CURRENT_VERSION: VersionInfo = {
-  version: "0.9.0-dev",
-  buildDate: "2025-08-20",
+  version: "1.1.0-dev",
+  buildDate: "2025-12-16",
   environment: "development",
-  commitHash: "b005f8b" // Latest commit from git log
+  commitHash: "182fe8e" // Latest commit from git log
 };
 
 // Changelog entries - add new entries at the top
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
   {
-    version: "v0.9.0-dev",
-    date: "2025-08-20",
+    version: "v1.1.0-dev",
+    date: "2025-12-16",
     type: "minor",
     highlights: [
-      "Day 2 progression with Fast Learner ability",
-      "Interactive star unlocking system",
-      "Tutorial overlays with selective highlighting",
-      "Major codebase cleanup (31 files removed)"
+      "TBI positioning activity with 16-frame navigation",
+      "Anthro intro dialogue sequence",
+      "Split comp screen layers with fade transitions",
+      "TBI result auto-animation (13 frames)"
     ],
     changes: [
-      "Added Day 2 Quinn progression with Fast Learner click-to-activate ability system",
-      "Implemented star modal interface with unlock mechanics and ability card rewards",
-      "Created comprehensive tutorial overlay system with selective UI highlighting",
-      "Added exclamation mark guidance system for star → desk → bed progression flow",
-      "Enhanced journal interaction with hover tooltips and card management",
-      "Converted title screen to static cloud layering system with new visual assets",
-      "Fixed multiple UI timing and animation issues across star bars and modals",
-      "Comprehensive codebase cleanup removing 31 antiquated files and reducing console spam",
-      "Improved ability store with auto-equip mechanics and visual state feedback",
-      "Enhanced Quinn tutorial activity with reward sequences and momentum chain mechanics"
+      "Implemented TBI positioning sprite sheet viewer with arrow key navigation through 16 frames",
+      "Added anthro intro 4-frame dialogue sequence between menu and TBI activity",
+      "Split comp-window into separate monitor and screen layers for dynamic color transitions",
+      "Created boot-up and activity fade transitions with intermediate black states",
+      "Added TBI result animation layer with 500ms auto-play through 10 frames",
+      "Resized comp-sheet from 600×360 to 300×180 with proportional scaling",
+      "Major codebase cleanup: removed deprecated hospital, dialogue, question, and tutorial systems",
+      "Added new sprite assets: pico, c-key, arrow keys, speech bubble"
+    ]
+  },
+  {
+    version: "v1.0.0-dev",
+    date: "2025-11-06",
+    type: "major",
+    changes: [
+      "Complete rescope: Educational night phase game with constellation-based learning system"
     ]
   },
   {

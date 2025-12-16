@@ -2,29 +2,9 @@
 
 **"The mind is not a vessel to be filled, but a constellation to be illuminated."**
 
-An educational roguelike game that transforms medical physics education into an immersive hospital simulation. Players navigate their residency through time-based decision making while developing expertise visualized as a growing constellation of interconnected knowledge.
+An educational game that transforms medical physics concepts into an explorable knowledge constellation. Navigate a cozy pixel-art environment while building expertise visualized as interconnected stars.
 
-## 📚 Documentation & Design System
-
-**All current documentation, design decisions, and implementation guidance is available in our [Documentation Hub](https://github.com/yourusername/rogue-resident-docs).**
-
-The documentation hub provides:
-- 🎭 **Three-Audience Workflow**: Context-appropriate content for design discussions, development planning, and technical implementation
-- 📊 **System Status Dashboard**: Current implementation progress and priorities  
-- 📚 **Content Library**: Browse all game systems, characters, educational content, and configurations
-- 🔧 **Technical Specifications**: Architecture decisions, API references, and integration guides
-
-## 🚀 Current Development Focus
-
-**Priority**: Activity Interface System implementation with hospital backdrop and dialogue systems.
-
-See [`docs/workflow/activity-interface-development-plan.md`](docs/workflow/activity-interface-development-plan.md) for:
-- Current implementation roadmap
-- Asset requirements and priorities
-- Technical architecture decisions
-- Integration strategy
-
-## 🛠 Quick Start
+## 🚀 Quick Start
 
 ```bash
 # Clone and install
@@ -38,62 +18,56 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the game.
 
-## 🎯 Core Game Features
+## 🎯 Core Features
 
-- **Time-Based Gameplay**: Day/night cycle with authentic hospital rhythms
-- **Knowledge Constellation**: Visual expertise development through interconnected concepts
-- **Progressive Control**: Player agency increases as knowledge and relationships grow
-- **Mentor Relationships**: Four distinct teaching approaches and character development
-- **Seasonal Progression**: Year-long residency journey through Spring, Summer, Fall, Winter
+- **Knowledge Constellation**: Visual expertise development through interconnected concept stars
+- **Pixel-Art Home**: Explorable environment with parallax scrolling and interactive elements
+- **Quiz Activities**: Medical physics questions that reward Star Points
+- **Ability Cards**: Collectible modifiers that enhance gameplay
+- **Companion Character**: Pico guides players through the experience
 
 ## 🧰 Tech Stack
 
-- **Framework**: Next.js with TypeScript
+- **Framework**: Next.js 15 with React 19 and TypeScript
+- **Graphics**: PixiJS 8.x for sprite rendering and effects
 - **State Management**: Zustand stores with event-driven architecture
 - **Styling**: styled-components with custom pixel theme system
-- **UI Components**: Custom component library with domain-specific styling
-- **Performance**: Chamber Pattern optimizations for smooth gameplay
+- **Performance**: Surgical hybrid architecture (PixiJS + CSS animations)
 
 ## 📁 Project Structure
 
 ```
 app/
-├── components/        # React components (UI, gameplay, features)
-├── core/             # Game logic (events, state machines, systems)
-├── data/             # Game content (concepts, characters, dialogues)
+├── components/        # React components (UI, scenes, features)
+├── core/             # Game logic (events, storage)
+├── data/             # Game content (concepts)
 ├── store/            # Zustand state stores
 ├── styles/           # Global styles and theme system
-└── types/            # TypeScript definitions
+└── types.ts          # TypeScript definitions
 
 docs/
-├── workflow/         # Current development plans and context
 ├── static/           # Architecture guides and technical specs
-└── README.md         # Documentation system overview
+└── CLEANUP_PLAN.md   # Codebase maintenance tracking
+
+public/
+└── images/           # Sprite sheets, backgrounds, UI assets
 ```
 
 ## 🎮 Game Systems
 
-- **Hospital Backdrop**: Isometric hospital exploration interface
-- **Activity Interface**: Dual dialogue modes (narrative vs challenge)
-- **Knowledge System**: 90+ interconnected medical physics concepts
-- **Mentor System**: Four distinct teaching personalities and relationships
-- **Resource Management**: Insight, momentum, and star points progression
-- **Boss Encounters**: Comprehensive assessment scenarios
+- **Home Scene**: Ground-level exploration with character movement and interactions
+- **Sky View**: Constellation interface for inspecting and unlocking knowledge stars
+- **Desk Activity**: Quiz interface with multiple choice questions
+- **Star Progression**: Earn points → unlock stars → build constellation
 
-## 🔗 Key Links
+## 📚 Documentation
 
-- 📖 **[Documentation Hub](https://github.com/yourusername/rogue-resident-docs)** - Design documents, content library, system status
-- 🎯 **[Current Development Plan](docs/workflow/activity-interface-development-plan.md)** - Implementation roadmap and priorities
-- 🏗️ **[Architecture Guide](docs/static/rogue-resident-architecture-guide.md)** - Technical implementation patterns
-- 🎨 **[Theme System](docs/static/THEME.md)** - Styling and UI component guide
-
-## 🤝 Contributing
-
-1. Review the current development plan in `docs/workflow/`
-2. Check asset requirements and technical specifications
-3. Follow the three-audience documentation workflow for design discussions
-4. Implement using the established architectural patterns
+- **[HUB.md](docs/static/HUB.md)** - Development navigation and workflow
+- **[ARCHITECTURE.md](docs/static/ARCHITECTURE.md)** - Technical patterns and decisions
+- **[PATTERNS.md](docs/static/PATTERNS.md)** - Implementation guidelines
+- **[SPRITES.md](docs/static/SPRITES.md)** - Asset specifications
+- **[STACK.md](docs/static/STACK.md)** - Dependencies and known issues
 
 ---
 
-*An innovative approach to professional education that visualizes expertise development and integrates authentic scenarios with educational content.*
+*An innovative approach to professional education that visualizes expertise development through interactive constellation mechanics.*

@@ -4,8 +4,8 @@
 ## CORE STACK
 
 ### Framework & Language
-- **Next.js:** 14.x
-- **React:** 18.x (React 19 causes compatibility issues)
+- **Next.js:** 15.x
+- **React:** 19.x
 - **TypeScript:** 5.x
 - **Node.js:** 18.x or higher
 
@@ -61,10 +61,24 @@
 2. **Overflow Clipping**
    - **Issue:** Tooltips/badges get clipped by parent containers
    - **Solution:** Add `overflow: visible` to parent
+   - **Note:** For scrollbar prevention, add `overflow: hidden` at EVERY container level
 
 3. **Pointer Events**
    - **Issue:** High z-index invisible elements block clicks
    - **Solution:** `pointer-events: none` when hidden
+
+4. **TranslateY Transform Scrollbars**
+   - **Issue:** Transform effects (translateY, scale) can extend content outside containers
+   - **Solution:** Remove transforms or ensure parent has overflow: hidden
+
+5. **CSS Stacking Context Isolation**
+   - **Issue:** Elements inside one container cannot render between layers of another
+   - **Solution:** Split into separate containers at different z-index levels
+   - **Example:** Parallax layers must be separate containers, not nested
+
+6. **Border-Image Sprite Sheet Incompatibility**
+   - **Issue:** Border-image 9-slice always uses entire image, can't slice subsections
+   - **Solution:** Use separate image files for each state (default, hover, selected)
 
 ### Performance Gotchas
 1. **Memory Leaks in PixiJS**
@@ -74,6 +88,29 @@
 2. **State Thrashing**
    - **Issue:** Too many re-renders from primitive values
    - **Solution:** Use Chamber pattern with stable selectors
+
+3. **Animation Interval Recreation**
+   - **Issue:** Animation intervals recreate when state changes (if state in deps)
+   - **Solution:** Use refs to access state: `const stateRef = useRef(state)`
+
+### React Gotchas
+1. **Stale Closures in useEffect**
+   - **Issue:** Event handlers use old state values
+   - **Symptom:** State changes but handler doesn't react; works after unrelated state changes
+   - **Solution:** Include ALL referenced state in dependency array
+
+2. **Component Type Changes Break Transitions**
+   - **Issue:** Switching component types (StarSprite ↔ MoonSprite) causes React unmount/remount
+   - **Solution:** Use same component type with different props for smooth CSS transitions
+
+### Sprite/Animation Gotchas
+1. **Frame Range Overlap Between Sheets**
+   - **Issue:** Frame range checks (5-10) match multiple sprite sheets
+   - **Solution:** Use ID-based detection (startsWith checks) not frame numbers
+
+2. **Highlighting Wrong Frames**
+   - **Issue:** Frame offset (+9, +24) applied to wrong sprite sheet
+   - **Solution:** Check star ID pattern before applying offset
 
 ## BROWSER COMPATIBILITY
 
