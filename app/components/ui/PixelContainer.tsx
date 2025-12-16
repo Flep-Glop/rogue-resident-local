@@ -71,10 +71,10 @@ const CONTAINER_ASSETS = {
     nineslice: '/images/ui/containers/modal-9slice.png'
   },
   question: {
-    background: '/images/ui/containers/question-bg.png',
-    border: '/images/ui/containers/question-border.png',
-    corners: '/images/ui/containers/question-corners.png',
-    nineslice: '/images/ui/containers/question-9slice.png'
+    background: '',  // No background - uses 9-slice only
+    border: '',      // No border overlay
+    corners: '',     // No corners overlay
+    nineslice: '/images/ui/containers/window-9slice.png'  // Share with window variant
   },
   resource: {
     background: '/images/ui/containers/resource-bg.png',
@@ -100,8 +100,8 @@ const CONTAINER_ASSETS = {
     nineslice: '/images/ui/containers/toast-9slice.png'  // Primary asset for toast notifications
   },
   window: {
-    background: '/images/ui/containers/question-bg.png',  // Fallback to question
-    border: '/images/ui/containers/question-border.png',  // Fallback to question
+    background: '',  // No background - uses 9-slice only
+    border: '',      // No border overlay  
     nineslice: '/images/ui/containers/window-9slice.png'  // Primary asset for quiz windows (240×80px)
   }
 };

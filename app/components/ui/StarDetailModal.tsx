@@ -41,8 +41,10 @@ const ModalBackdrop = styled.div`
   height: 360px; /* Full internal height */
   background: rgba(0, 0, 0, 0.8);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start; /* Align to top for better positioning control */
+  padding-top: 80px; /* Position star up from center */
   z-index: 2000; /* Above other home scene elements */
   
   /* Allow overflow for star glow effects */
@@ -52,13 +54,12 @@ const ModalBackdrop = styled.div`
   animation: ${fadeIn} 0.15s ease-out;
 `;
 
-// Main container - two column layout: star left, info right
+// Main container - vertical layout: star at top, text below
 const Container = styled.div`
-  width: 400px;  /* Wider for two-column layout */
   display: flex;
-  flex-direction: row;
-  align-items: center; /* Center both columns vertically */
-  gap: 12px; /* Space between star and info columns */
+  flex-direction: column;
+  align-items: center; /* Center horizontally */
+  gap: 20px; /* Space between star and text */
   
   font-family: ${typography.fontFamily.pixel};
   color: ${colors.text};
@@ -78,16 +79,16 @@ const Container = styled.div`
   overflow: visible;
 `;
 
-// Star section - left column with overflow for glow effects
+// Star section - centered at top with overflow for glow effects
 const StarSection = styled.div`
-  width: 120px; /* Fixed width for left column */
-  height: 120px; /* Fixed height for proper centering */
+  width: 120px; /* Fixed width for star */
+  height: 120px; /* Fixed height for star */
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   flex-shrink: 0; /* Prevent shrinking */
-  z-index: 100; /* Render above InfoSection so sprites are visible */
+  z-index: 100;
   
   /* Allow overflow for star glow effects */
   overflow: visible;
@@ -162,13 +163,13 @@ const MoonSprite = styled.div<{ $frame: number }>`
   z-index: 150; /* Above planet */
 `;
 
-// Info section - right column
+// Info section - below star (centered)
 const InfoSection = styled.div`
-  flex: 1;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 6px;
-  z-index: 50; /* Below StarSection so sprites remain visible */
+  z-index: 50;
 `;
 
 // Typography override wrapper - maintains canvas scaling like QuinnTutorialActivity
@@ -608,21 +609,40 @@ export default function StarDetailModal({
           })}
         </StarSection>
         
-        {/* Right column - Info panel */}
+        {/* Below star - Info panel */}
         <InfoSection>
-          {/* Main content container with nested unlock button */}
-          <ExpandableQuestionContainer size="sm" style={{ position: 'relative' }}>
-            <CanvasTypographyOverride>
-              <StarTitle>{starData.name}</StarTitle>
-              <StarDescription>
-                {starData.description}
-                {focusedBodyId === 'star' && (
-                  <>
-                    <br />
-                    (Visit your desk to get started)
-                  </>
-                )}
-              </StarDescription>
+          {/* For ??? star: show simple italicized grey text without 9-slice boxes */}
+          {focusedBodyId === 'star' ? (
+            <div style={{ 
+              textAlign: 'center',
+              fontFamily: 'Aseprite, monospace',
+              marginTop: '-10px' // Slight upward adjustment
+            }}>
+              <div style={{
+                fontSize: '48px',
+                fontStyle: 'italic',
+                color: '#888',
+                marginBottom: '12px'
+              }}>
+                ???
+              </div>
+              <div style={{
+                fontSize: '14px',
+                fontStyle: 'normal',
+                color: '#aaa',
+                lineHeight: '1.4'
+              }}>
+                The sparkles, elusive, yet tangible, remain unclear.
+              </div>
+            </div>
+          ) : (
+            /* Main content container with nested unlock button for constellation stars */
+            <ExpandableQuestionContainer size="sm" style={{ position: 'relative' }}>
+              <CanvasTypographyOverride>
+                <StarTitle>{starData.name}</StarTitle>
+                <StarDescription>
+                  {starData.description}
+                </StarDescription>
               
               {/* Only show mastery for ??? star, constellation stars are display-only */}
               {!isConstellationStar && (
@@ -666,6 +686,7 @@ export default function StarDetailModal({
               )}
             </CanvasTypographyOverride>
           </ExpandableQuestionContainer>
+          )}
         </InfoSection>
       </Container>
     </ModalBackdrop>

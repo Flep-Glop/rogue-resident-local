@@ -3,7 +3,6 @@
 import React, { useEffect } from 'react';
 import ServiceWorkerRegistration from './ServiceWorkerRegistration';
 import { initializeResourceStore } from '@/app/store/resourceStore';
-import { initializeDialogueStore } from '@/app/data/dialogueData';
 
 export default function InitScripts() {
   useEffect(() => {
@@ -18,10 +17,6 @@ export default function InitScripts() {
     });
     
     console.log('[InitScripts] Resource store initialized');
-    
-    // Initialize dialogue store with all dialogues (including Day 1)
-    initializeDialogueStore();
-    console.log('[InitScripts] Dialogue store initialized with Day 1 dialogues');
     
     // Remove loading class after everything has loaded
     const removeLoadingClass = () => {

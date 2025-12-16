@@ -7,17 +7,16 @@
 - **Standard size:** 178×18px (89×18 per frame, 2 frames)
 - **Location:** `/public/images/ui/buttons/`
 
-### Character Portraits
-- **Detailed:** 113×161px
-- **Emblems:** 64×64px
-- **Location:** `/public/images/characters/`
-
 ### UI Containers (9-Slice System)
-- **Question:** 240×80px
-- **Answer:** 60×35px
+- **Window:** 240×80px, slice: `20 40 20 40 fill` (20px vertical, 40px horizontal borders)
+- **Answer Default:** 60×35px, slice: `10 10 10 10 fill`
+- **Answer Hover:** 60×35px (separate file for 9-slice compatibility)
+- **Answer Selected:** 60×35px (separate file for 9-slice compatibility)
 - **Toast:** 60×24px
 - **Card:** 120×60px
 - **Location:** `/public/images/ui/containers/`
+
+**Note:** Border-image 9-slice cannot slice sprite sheets - use separate files per state.
 
 ### Icons
 - **Standard:** 22×22px
@@ -27,85 +26,70 @@
 
 ### TitleScreen.tsx
 **Backgrounds & Title**
-- `title-background.png`: 3400×360px (scrolling, 640×360 viewport)
-- `title-sprite.png`: 246×90px
+- `title-screen-background.png`: 640×360px
+- `title-screen-title.png`: Title sprite
+- `title-screen-cloud-1/2/3.png`: Cloud layers for intro animation
+- `title-screen-purple-abyss.png`: Atmospheric layer
 
-**Interactive Buttons** (2-frame sprites)
-- `play-button.png`: 178×18px (89×18 per frame)
-- `test-button.png`: 178×18px
-- `whats-new-button.png`: 178×18px
+**Interactive Buttons** (3-frame sprites: normal/highlighted/selected)
+- `play-button.png`: 261×18px (87×18 per frame × 3 frames)
+- `dev-mode-button.png`: 261×18px (87×18 per frame × 3 frames)
+- `whats-new-button.png`: 261×18px (87×18 per frame × 3 frames)
 
-### HomeScene.tsx
+**Debug Grid Icons**
+- `debug-icons.png`: 504×53px (56×53 per frame × 9 frames)
+  - Frames 0-2: "Before Desk" (normal/highlighted/selected)
+  - Frames 3-5: "Before Cutscene" (normal/highlighted/selected)
+  - Frames 6-8: "After Cutscene" (normal/highlighted/selected)
+
+### CombinedHomeScene.tsx
 **Scene Background**
 - `home.png`: 285×160px
+- `home-combo.png`: Combined home scene
+- `home-sky-combo.png`: 640×585px (sky view background)
+- `abyss.png`: 640×585px (atmospheric layer)
+- `purple-abyss.png`: 640×585px (composite with abyss)
 
-### NarrativeDialogue.tsx
-**Character Portraits**
-- `quinn-detailed.png`: 113×161px
-- `quinn-title.png`: 147×26px
+**Interactive Elements**
+- `telescope-sheet.png`: 640×585px × 2 frames (1280×585 total)
+- `star-sheet.png`: 14×14px × 40 frames (1-indexed, frames 1-40)
+- `planetary-sheet.png`: 14×14px × 96 frames (0-indexed, organized as 8 sets × 3 types × 4 sections)
 
-**UI Icons & Cards**
-- `book-icon.png`: 22×22px
-- `card-laser-focus.png`: Ability card front
-- `card-back-orange.png`: Ability card back
+**Comp-Sheet Composite Layers** (all 300×180px per frame)
+- `comp-monitor.png`: Monitor frame with black fill (300×180) - base layer
+- `comp-screen-blue.png`: Screen color for home menu (300×180) - overlays monitor
+- `comp-screen-dark.png`: Screen color for TBI activity (300×180) - overlays monitor
+- `comp-activity.png`: Static content layer (300×180)
+- `comp-activity-options-sheet.png`: 7 frames, 2100×180 (frame 1: none, 2-6: highlights, 7: pressed)
+- `comp-activity-option1-sheet.png`: 5 frames, 1500×180 (autonomous thinking animation)
+- `tbi-positioning.png`: 16 frames, 4800×180 (TBI patient positioning - left/right arrow navigation)
 
-**Backgrounds**
-- `physics-office-blur.png`: 640×360px
+**Character Sprites**
+- `/images/characters/sprites/kapoor-home.png`: 38×102px × 38 frames (idle: 1-16, walk: 17-32, climb: 33-38)
+- `/images/characters/sprites/pico.png`: ~21px tall × 60 frames (idle: 0-29, talking: 30-59)
 
-### QuinnTutorialActivity.tsx
-**Character Emblems**
-- `quinn-medium-emblem.png`: 64×64px
+**Speech Bubbles**
+- `speech-bubble.png`: ~20×20px × 8 frames (1-4: normal, 5-8: highlighted)
 
-**Progress Bars** (large sprite sheets)
-- `star-bar.png`: 11826×40px (81 frames × 146px each)
-- `momentum-combo.png`: 594×155px (11 frames × 54px each)
-- `insight-combo.png`: 4374×155px (81 frames × 54px each)
+**Key Indicators**
+- `x-key.png`: 60×16px × 4 frames (1: default, 2: hover, 3: highlighted, 4: pressed)
+- `c-key.png`: 60×16px × 4 frames (same pattern)
+- `up-arrow-key.png`: 15×16px × 4 frames
+- `down-arrow-key.png`: 15×16px × 4 frames
+- `arrow-keys.png`: 48×32px × 8 frames (movement tutorial)
 
-**Container Elements**
-- `ability-panel-container.png`: 90×240px
-- `ability-slot.png`: 58×58px
-
-### HospitalBackdrop.tsx (World Coordinates)
-**Main Hospital**
-- `hospital-isometric-base.png`: 640×360px (scaled 3x for world)
-
-**Animated Creatures**
-- **Birds:** 4 frames each
-  - `birds.png`, `birds-two.png`, `birds-three.png`
-- **Deer:** `deer.png` 96×24px, 4 frames
-- **People:** `quinn-walking.png` 2 frames
-
-**Weather Particles**
-- **Rain:** `rain-drop.png` 3 frames
-- **Storm:** `rain-heavy.png` 4 frames
-- **Snow:** `snowflake-small.png`, `snowflake-large.png` 4 frames
-- **Fog:** `mist-wisp.png` 2 frames, `fog-patch.png` 3 frames
-
-**Pond Elements**
-- **Ripples:**
-  - `ripple-small.png`: 64×16px, 4 frames
-  - `ripple-medium.png`: 96×24px, 4 frames
-  - `ripple-storm.png`: 160×32px, 5 frames
-- **Sparkles:** `water-sparkle.png` 24×8px, 3 frames
-
-**Environment**
-- **Trees:** 32×48px to 48×64px
-- **Bushes:** 32×16px, 2 frames
-- **Grass:** 14×18px average
-
-**Fish**
-- **Small:** 36×12px, 3 frames
-- **Koi:** 64×16px, 4 frames
+### Hospital Backgrounds
+**Room Backgrounds** (640×360px)
+- `physics-office-blur.png`: Physics office scene
+- `linac-room.png`: Linac room scene
+- `labratory-background.png`: Laboratory background
+- `labratory-foreground.png`: Laboratory foreground layer
+- `ct sim.png`: CT simulation room
 
 ## SPRITE CREATION GUIDELINES
 
 ### For New Sprites
 When creating new sprites, provide these specifications to Aseprite:
-
-**Characters:**
-- Portraits: 113×161px, single frame
-- Emblems: 64×64px, single frame
-- Upload to: `/public/images/characters/[name]/`
 
 **UI Elements:**
 - Buttons: 178×18px, 2 frames horizontal
@@ -115,7 +99,7 @@ When creating new sprites, provide these specifications to Aseprite:
 **Animations:**
 - Ambient creatures: 2-5 frames, 16×16px to 96×24px
 - Weather effects: 3-4 frames, varies by effect
-- Upload to: `/public/images/environment/[category]/`
+- Upload to: `/public/images/[category]/`
 
 **Progress Bars:**
 - Height: 40-155px
@@ -126,24 +110,43 @@ When creating new sprites, provide these specifications to Aseprite:
 
 ```
 /public/images/
+├── cards/                # Ability card images
 ├── characters/
-│   ├── quinn/
-│   ├── kapoor/
-│   └── jesse/
+│   └── sprites/          # Character sprite sheets
+├── home/                 # Home scene assets
+├── hospital/
+│   └── backgrounds/      # Hospital room backgrounds
+├── journal/              # Journal UI assets
+├── title/                # Title screen assets
 ├── ui/
 │   ├── buttons/
 │   ├── containers/
-│   ├── icons/
-│   └── progress/
-├── environment/
-│   ├── weather/
-│   ├── creatures/
-│   └── vegetation/
-├── backgrounds/
-│   ├── scenes/
-│   └── offices/
-└── abilities/
-    └── cards/
+│   └── icons/
+├── ambient/              # Ambient effects
+└── weather/              # Weather particles
+```
+
+## SPRITE SHEET ORGANIZATION
+
+### Planetary Sheet (96 frames)
+Organized as sections for easy frame calculation:
+```
+Section 0 (frames 0-23):  Default sprites
+Section 1 (frames 24-47): Highlighted sprites (+24 offset)
+Section 2 (frames 48-71): Modal crisp layer (+48 offset)
+Section 3 (frames 72-95): Modal highlighted (+72 offset)
+
+Within each section (24 frames):
+- 8 sets × 3 types (planet, moon, small moon)
+- Frame = (section × 24) + (setIndex × 3) + typeIndex
+```
+
+### Star Sheet (40 frames, 1-indexed)
+```
+Frames 1-4:   Base idle
+Frames 5-10:  State variants
+Frames 11-13: Highlighted sparkle (+9 from base)
+Frames 14-19: State variants highlighted
 ```
 
 ## CRITICAL REMINDERS
@@ -153,3 +156,5 @@ When creating new sprites, provide these specifications to Aseprite:
 3. **Use power-of-2 dimensions** when possible for GPU optimization
 4. **Test sprites at 1x, 2x, and 3x scale** for different screen sizes
 5. **Keep consistent padding** between frames (usually 0px for tight sheets)
+6. **0-indexed vs 1-indexed** - check sheet convention before calculating positions
+7. **9-slice requires separate files** - cannot slice subsections of sprite sheets

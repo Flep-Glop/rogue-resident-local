@@ -70,7 +70,7 @@ const scaleY = viewportHeight / DIALOGUE_INTERNAL_HEIGHT;
 const scale = Math.min(scaleX, scaleY);
 ```
 
-**Used by:** QuinnTutorialActivity, NarrativeDialogue, HomeScene, all UI screens
+**Used by:** HomeScene, all UI screens
 
 **Key Rule:** Never mix coordinate systems within a single component.
 
@@ -98,7 +98,7 @@ window.addEventListener('visualEffect', (event) => {
 ## STATE MANAGEMENT
 
 ### Zustand Stores
-- Domain-specific stores (gameStore, knowledgeStore, timeStore)
+- Domain-specific stores (gameStore, knowledgeStore, resourceStore, abilityStore, sceneStore)
 - Event bus for cross-store communication
 - Chamber pattern for performance optimization
 
@@ -126,3 +126,192 @@ window.addEventListener('visualEffect', (event) => {
 ### ❌ Complex Layered Systems
 - **Problem:** Over-engineering visual layers
 - **Solution:** Direct mapping usually better
+
+## PARALLAX MULTI-CONTAINER ARCHITECTURE
+
+### The Problem
+CSS stacking contexts isolate z-index values. Elements inside one container cannot render between layers of another container, regardless of z-index values.
+
+### The Solution
+Split parallax into multiple containers at different z-index levels:
+```
+Z-INDEX HIERARCHY:
+├── BackgroundContainer (z: 2)    ← Sky, distant stars
+├── CelestialContainer (z: 6)     ← Stars, planets (elevates to 15 when highlighted)
+├── CloudContainer (z: 8)         ← Atmospheric clouds
+├── AbyssContainer (z: 9)         ← Foreground atmosphere
+├── TelescopeContainer (z: 14)    ← Interactive foreground elements
+└── ScrollingContent (z: 12)      ← Character, UI overlays
+```
+
+### Layer Group System
+```typescript
+type LayerGroup = 'background' | 'clouds' | 'abyss' | 'telescope';
+
+const layers = [
+  { image: 'sky.png', group: 'background', parallaxFactor: 0.2 },
+  { image: 'clouds.png', group: 'clouds', parallaxFactor: 0.5 },
+  { image: 'telescope.png', group: 'telescope', parallaxFactor: 1.0 },
+];
+
+// Render separate containers per group
+{['background', 'clouds', 'telescope'].map(group => (
+  <ParallaxContainer key={group} $zIndex={zIndexMap[group]}>
+    {layers.filter(l => l.group === group).map(renderLayer)}
+  </ParallaxContainer>
+))}
+```
+
+### Dynamic Z-Index Elevation
+When highlighting celestial bodies, elevate entire container:
+```typescript
+const shouldElevate = skyHighlight === 'star' || skyHighlight.startsWith('planet_');
+<CelestialContainer style={{ zIndex: shouldElevate ? 15 : 6 }} />
+```
+
+## PARENT-CHILD ORBITAL ARCHITECTURE
+
+### Data Structure
+```typescript
+interface CelestialBody {
+  id: string;
+  parentId?: string;      // If set, this orbits that parent
+  frame: number;
+  angle?: number;         // Orbital position (radians)
+  distance?: number;      // Orbital radius (pixels)
+  x: number;
+  y: number;
+  scale: number;
+  opacity: number;
+  zIndex: number;
+}
+```
+
+### Position Calculation
+```typescript
+// Build lookup for parent positions
+const planetPositions = new Map<string, {x: number, y: number}>();
+bodies.filter(b => !b.parentId).forEach(planet => {
+  planetPositions.set(planet.id, { x: planet.x, y: planet.y });
+});
+
+// Calculate moon positions relative to parents
+bodies.filter(b => b.parentId).forEach(moon => {
+  const parent = planetPositions.get(moon.parentId);
+  if (!parent) return;
+  
+  moon.x = parent.x + Math.cos(moon.angle) * moon.distance;
+  moon.y = parent.y + Math.sin(moon.angle) * moon.distance * 0.5; // Elliptical
+});
+```
+
+## COMPOSITE LAYER SYSTEMS
+
+### Pattern: Aligned Sprite Layers
+Instead of one monolithic sprite sheet, use multiple aligned layers:
+```
+comp-sheet system (300×180 per frame):
+├── comp-monitor.png (300×180, z: 300) - Monitor frame with black fill (base layer)
+├── comp-screen-blue.png / comp-screen-dark.png (300×180, z: 301) - Dynamic screen color overlay
+├── comp-activity.png (300×180, z: 302) - Static content layer
+├── comp-activity-options-sheet.png (7 frames @ 2100×180, z: 303) - Highlight states
+├── comp-activity-option1-sheet.png (5 frames @ 1500×180, z: 304) - Autonomous animation
+├── ActivityClickRegion (z: 305) - Mouse interaction overlay
+└── tbi-positioning.png (16 frames @ 4800×180, z: 306) - TBI activity content
+```
+
+### Benefits
+- Independent animation per layer
+- Simpler frame calculations
+- Easier to modify individual layers
+- Phase-based visibility control
+
+### Implementation
+```typescript
+// Layer visibility by phase
+const showActivityLayers = compSheetPhase === 'waiting';
+const screenVariant = compSheetPhase === 'activity' ? 'dark' : 'blue';
+
+<CompMonitor $visible={compSheetVisible} /> {/* Base layer with black fill */}
+<CompScreen $visible={compSheetVisible} $variant={screenVariant} />
+<CompActivity $visible={compSheetVisible && showActivityLayers} />
+<CompOptions $frame={optionsFrame} $visible={showActivityLayers} />
+<CompOption1 $frame={option1Frame} $visible={showActivityLayers} />
+<TbiPositioning $visible={compSheetPhase === 'activity'} />
+```
+
+## DUAL SPRITE SHEET SYSTEMS
+
+### When Needed
+Different sprite sheets with different frame indexing (0-based vs 1-based) or dimensions.
+
+### Implementation
+```typescript
+interface StarSpriteProps {
+  $isPlanetarySystem: boolean;
+  $frame: number;
+}
+
+const StarSprite = styled.div<StarSpriteProps>`
+  background-image: url(${props => 
+    props.$isPlanetarySystem 
+      ? '/images/home/planetary-sheet.png'
+      : '/images/home/star-sheet.png'
+  });
+  background-size: ${props => 
+    props.$isPlanetarySystem ? '9600%' : '4000%'  // 96 vs 40 frames
+  };
+  background-position: ${props => {
+    const frame = props.$isPlanetarySystem 
+      ? props.$frame           // 0-indexed
+      : props.$frame - 1;      // 1-indexed
+    return `${frame * -14}px 0`;
+  }};
+`;
+```
+
+### Frame Offset Highlighting
+```typescript
+// Different sheets use different highlight offsets
+const getHighlightedFrame = (frame: number, id: string) => {
+  if (id.startsWith('planet_') || id.startsWith('tbi_')) {
+    return frame + 24;  // Planetary sheet: section 0 → section 1
+  }
+  return frame + 9;     // Star sheet: different organization
+};
+```
+
+## CAMERA TRANSLATION PATTERN
+
+### For Modal Focus Navigation
+Instead of repositioning elements, translate the "camera":
+```typescript
+// All bodies in absolute coordinate system
+const bodies = [
+  { id: 'planet', x: 0, y: 0 },        // Planet at origin
+  { id: 'moon1', x: 30, y: 20 },       // Moons orbit around it
+  { id: 'moon2', x: -25, y: -15 },
+];
+
+// Camera follows focused body
+const focusedBody = bodies.find(b => b.id === focusedId);
+const cameraX = focusedBody.x;
+const cameraY = focusedBody.y;
+
+// Render all bodies relative to camera
+{bodies.map(body => (
+  <Sprite style={{
+    left: `calc(50% + ${body.x - cameraX}px)`,
+    top: `calc(50% + ${body.y - cameraY}px)`,
+  }} />
+))}
+```
+
+### Component Consistency for Transitions
+**Use same component type for all elements** to maintain CSS transition state:
+```typescript
+// ❌ Component type change breaks transitions
+{focusedId === body.id ? <StarSprite /> : <MoonSprite />}
+
+// ✅ Same component, different props
+<MoonSprite $isFocused={focusedId === body.id} />

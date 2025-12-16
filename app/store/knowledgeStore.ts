@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { KnowledgeStar, KnowledgeConnection, KnowledgeDomain, GameEventType } from '@/app/types';
 import { centralEventBus } from '@/app/core/events/CentralEventBus';
 import { produce } from 'immer';
-import { useJournalStore } from './journalStore';
 import { useGameStore } from './gameStore';
 
 // Interface for the knowledge store
@@ -34,26 +33,6 @@ interface KnowledgeState {
   getInsightBonus: () => number;
 }
 
-// Template entries for generating concept journal entries
-const conceptJournalTemplates: Record<KnowledgeDomain, string[]> = {
-  [KnowledgeDomain.TREATMENT_PLANNING]: [
-    "Today I learned about $CONCEPT. The key insight was understanding how treatment plans need to be tailored to specific patient needs, while still following standardized protocols.",
-    "I observed a treatment planning session for $CONCEPT. It's fascinating how much precision goes into every aspect of the plan, with multiple layers of verification."
-  ],
-  [KnowledgeDomain.RADIATION_THERAPY]: [
-    "Participated in a session on $CONCEPT today. The procedures require extreme attention to detail, with safety protocols being a top priority throughout the process.",
-    "Made notes on $CONCEPT during today's observation. The technology behind radiation therapy is incredibly sophisticated, yet the human element remains crucial."
-  ],
-  [KnowledgeDomain.LINAC_ANATOMY]: [
-    "Studied the components of $CONCEPT today. The engineering that goes into linear accelerators is remarkable - each piece serves a specific function to ensure accurate treatment delivery.",
-    "Today's maintenance session on $CONCEPT revealed how these complex machines require regular calibration. The tolerances are measured in millimeters."
-  ],
-  [KnowledgeDomain.DOSIMETRY]: [
-    "Calculated doses for $CONCEPT today. The balance between delivering sufficient radiation to the target while minimizing exposure to healthy tissue is a constant challenge.",
-    "Reviewed quality assurance protocols for $CONCEPT. Dosimetry requires both advanced mathematics and practical problem-solving skills."
-  ]
-};
-
 // Create the knowledge store
 export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
   // Initialize state
@@ -64,19 +43,9 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
   
   // Discover a concept (triggered during Day Phase)
   discoverConcept: (conceptId: string, source = 'unknown') => {
-    // Create a local variable to store star info safely before updating state
-    let starName = '';
-    let starDomain: KnowledgeDomain | null = null;
-    
     set(produce(state => {
       // If star exists and is not already discovered
       if (state.stars[conceptId] && !state.stars[conceptId].discovered) {
-        const star = state.stars[conceptId];
-        
-        // Save star data for use outside of the state update
-        starName = star.name;
-        starDomain = star.domain;
-        
         // Mark as discovered
         state.stars[conceptId].discovered = true;
         
@@ -93,38 +62,6 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
         );
       }
     }));
-    
-    // Only proceed with journal entry if we have valid star info
-    if (starName && starDomain) {
-      // Generate a journal entry for this discovery - after state update
-      setTimeout(() => { 
-        try {
-          const journalStore = useJournalStore.getState();
-          
-          if (journalStore) {
-            // Select a random template for this domain
-            const templates = starDomain ? conceptJournalTemplates[starDomain] || [] : [];
-            if (templates.length > 0) {
-              const randomIndex = Math.floor(Math.random() * templates.length);
-              const template = templates[randomIndex];
-              
-              // Create content with the concept name substituted
-              const content = template.replace('$CONCEPT', starName);
-              
-              // Add the journal entry
-              journalStore.addConceptEntry(
-                conceptId,
-                `Discovered: ${starName}`,
-                content,
-                starDomain || KnowledgeDomain.TREATMENT_PLANNING // Provide a default domain if null
-              );
-            }
-          }
-        } catch (error) {
-          console.error('Failed to create journal entry:', error);
-        }
-      }, 0);
-    }
   },
   
   // Unlock a star (spend SP to permanently unlock in Night Phase)
@@ -132,8 +69,6 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
     const star = get().stars[starId];
     if (!star || star.unlocked) return false;
     
-    // Extract star properties we'll need later
-    const starName = star.name;
     const starDomain = star.domain;
     const spCost = star.spCost;
     
@@ -148,7 +83,6 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
       state.stars[starId].unlocked = true;
       
       // Auto-form connections to already unlocked stars
-      // Use a type assertion for the array elements
       const otherStars = Object.values(state.stars) as KnowledgeStar[];
       otherStars.forEach(otherStar => {
         if (otherStar.id !== starId && otherStar.unlocked) {
@@ -166,24 +100,6 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
         'knowledgeStore.unlockStar'
       );
     }));
-    
-    // Add journal entry for unlocking the star
-    setTimeout(() => {
-      try {
-        const journalStore = useJournalStore.getState();
-        
-        if (journalStore) {
-          journalStore.addConceptEntry(
-            starId,
-            `Unlocked: ${starName}`,
-            `I've officially added ${starName} to my knowledge constellation. This concept is now part of my growing expertise. I should continue to develop my understanding to increase my mastery.`,
-            starDomain || KnowledgeDomain.TREATMENT_PLANNING // Provide a default domain if null
-          );
-        }
-      } catch (error) {
-        console.error('Failed to create journal entry for unlocking:', error);
-      }
-    }, 0);
     
     return true;
   },
@@ -212,17 +128,13 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
     const star = get().stars[starId];
     if (!star || !star.unlocked) return;
     
-    // Store star data locally
-    const starName = star.name;
-    const starDomain = star.domain;
     const currentMastery = star.mastery;
-    let newMastery = 0;
     
     set(produce(state => {
       const star = state.stars[starId];
       if (!star || !star.unlocked) return;
       
-      newMastery = Math.min(100, currentMastery + amount);
+      const newMastery = Math.min(100, currentMastery + amount);
       
       if (newMastery > currentMastery) {
         state.stars[starId].mastery = newMastery;
@@ -231,7 +143,6 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
         let totalMastery = 0;
         let unlockedCount = 0;
         
-        // Use a type assertion for the array elements
         const allStars = Object.values(state.stars) as KnowledgeStar[];
         allStars.forEach(s => {
           if (s.unlocked) {
@@ -255,47 +166,10 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
         );
       }
     }));
-    
-    // If mastery increases significantly (25% increment), add a journal entry
-    if (Math.floor(currentMastery / 25) < Math.floor(newMastery / 25)) {
-      setTimeout(() => {
-        try {
-          const journalStore = useJournalStore.getState();
-          
-          if (journalStore) {
-            const masteryLevel = Math.floor(newMastery / 25) * 25;
-            journalStore.addConceptEntry(
-              starId,
-              `Mastery Improved: ${starName}`,
-              `I've reached ${masteryLevel}% mastery in ${starName}. My understanding is deepening and I'm becoming more confident in applying this knowledge in clinical settings.`,
-              starDomain || KnowledgeDomain.TREATMENT_PLANNING // Provide a default domain if null
-            );
-          }
-        } catch (error) {
-          console.error('Failed to create journal entry for mastery:', error);
-        }
-      }, 0);
-    }
   },
   
   // Form a connection between two stars
   formConnection: (sourceId: string, targetId: string) => {
-    // Make local copies of star data
-    let sourceStarName = '';
-    let sourceStarDomain: KnowledgeDomain | null = null;
-    let targetStarName = '';
-    
-    // Check if stars exist first
-    const currentState = get();
-    const sourceStar = currentState.stars[sourceId];
-    const targetStar = currentState.stars[targetId];
-    
-    if (sourceStar && targetStar) {
-      sourceStarName = sourceStar.name;
-      sourceStarDomain = sourceStar.domain;
-      targetStarName = targetStar.name;
-    }
-    
     set(produce(state => {
       // Ensure both stars exist and are unlocked
       const sourceStar = state.stars[sourceId];
@@ -343,26 +217,6 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
         'knowledgeStore.formConnection'
       );
     }));
-    
-    // Add journal entry for the connection only if we have valid star data
-    if (sourceStarName && targetStarName && sourceStarDomain) {
-      setTimeout(() => {
-        try {
-          const journalStore = useJournalStore.getState();
-          
-          if (journalStore) {
-            journalStore.addConceptEntry(
-              sourceId,
-              `Connected: ${sourceStarName} & ${targetStarName}`,
-              `I've made a connection between ${sourceStarName} and ${targetStarName}. These concepts are related and understanding this relationship strengthens my overall comprehension of ${sourceStarDomain.replace('_', ' ')}.`,
-              sourceStarDomain
-            );
-          }
-        } catch (error) {
-          console.error('Failed to create journal entry for connection:', error);
-        }
-      }, 0);
-    }
   },
   
   // Clear discoveries from today (called at end of day)

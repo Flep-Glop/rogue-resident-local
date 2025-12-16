@@ -1,15 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import styled, { css, keyframes } from 'styled-components';
 import { useSceneStore } from '@/app/store/sceneStore';
 import { useGameStore } from '@/app/store/gameStore';
 import { useAbilityStore } from '@/app/store/abilityStore';
-import { useTutorialStore } from '@/app/store/tutorialStore';
-import { useTutorialOverlays } from '@/app/components/tutorial/TutorialOverlay';
 
-import AbilityCardInterface from './AbilityCardInterface';
 import ParallaxRenderer from './ParallaxRenderer';
 import { ToastContainer, ExpandableQuestionContainer, ExpandableAnswerContainer, WindowContainer } from '@/app/components/ui/PixelContainer';
 import StarDetailModal from '@/app/components/ui/StarDetailModal';
@@ -281,8 +277,8 @@ const ConnectionLine = styled.div<{ $x1: number; $y1: number; $x2: number; $y2: 
 // Wrapper that follows the 'stars' parallax layer so the TutorialStar stays anchored relative to the sky
 // Removed: StarAnchor to avoid transform-based drift
 
-// Container for celestial bodies (stars/planets/moons) - renders below clouds but above background
-// When tutorial star or planet is highlighted, elevates above clouds/abyss for dramatic effect
+// Container for celestial bodies (stars/planets/moons) - always renders above abyss layers
+// When tutorial star or planet is highlighted, elevates even higher for dramatic effect
 const CelestialLayer = styled.div<{ $scrollPosition: number; $transitionDuration: number; $elevated?: boolean }>`
   position: absolute;
   top: 0;
@@ -292,7 +288,7 @@ const CelestialLayer = styled.div<{ $scrollPosition: number; $transitionDuration
   transform: translateY(${props => props.$scrollPosition}px);
   transition: transform ${props => props.$transitionDuration}s cubic-bezier(0.4, 0, 0.2, 1);
   image-rendering: pixelated;
-  z-index: ${props => props.$elevated ? 15 : 6}; /* Elevated (15) above abyss/purple-abyss (12-13) when highlighted, normal (6) otherwise */
+  z-index: ${props => props.$elevated ? 15 : 14}; /* Always above abyss/purple-abyss (12-13), elevated (15) when highlighted */
   pointer-events: none; /* No interaction - X key handles star clicks */
   overflow: visible;
 `;
@@ -457,7 +453,7 @@ const CharacterSprite = styled.div<{
   }};
   background-repeat: no-repeat;
   image-rendering: pixelated;
-  z-index: 50; /* Below UI elements but above background */
+  z-index: 65; /* Above dialogue text (55) so character renders on top */
   pointer-events: none;
   transition: left 0.1s linear, top 0.1s linear;
 `;
@@ -495,20 +491,351 @@ const XKeySprite = styled.div<{ $frame: number; $visible: boolean }>`
   
   opacity: ${props => props.$visible ? 1 : 0};
   transform: ${props => props.$visible ? 'scale(1)' : 'scale(0.8)'};
+  transition: opacity 0.3s ease, transform 0.3s ease, left 0.1s linear, top 0.1s linear;
+`;
+
+// C key sprite - 4 frames (normal, depressed, highlighted, depressed+highlighted)
+const CKeySprite = styled.div<{ $frame: number; $visible: boolean }>`
+  position: absolute;
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/c-key.png');
+  background-size: ${15 * 4}px 16px; /* 4 frames × 15px = 60px width */
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 60; /* Above character */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible ? 'scale(1)' : 'scale(0.8)'};
+  transition: opacity 0.3s ease, transform 0.3s ease, left 0.1s linear, top 0.1s linear;
+`;
+
+// Up arrow key sprite - 4 frames (normal, depressed, highlighted, depressed+highlighted)
+const UpArrowSprite = styled.div<{ $frame: number; $visible: boolean }>`
+  position: absolute;
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/up-arrow-key.png');
+  background-size: ${15 * 4}px 16px; /* 4 frames × 15px = 60px width */
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 60; /* Above character */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible ? 'scale(1)' : 'scale(0.8)'};
+  transition: opacity 0.3s ease, transform 0.3s ease, left 0.1s linear, top 0.1s linear;
+`;
+
+// Down arrow key sprite - 4 frames (normal, depressed, highlighted, depressed+highlighted)
+const DownArrowSprite = styled.div<{ $frame: number; $visible: boolean }>`
+  position: absolute;
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/down-arrow-key.png');
+  background-size: ${15 * 4}px 16px; /* 4 frames × 15px = 60px width */
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 60; /* Above character */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible ? 'scale(1)' : 'scale(0.8)'};
+  transition: opacity 0.3s ease, transform 0.3s ease, left 0.1s linear, top 0.1s linear;
+`;
+
+// Contextual action label that appears next to interaction keys
+const ContextLabel = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  font-family: 'Aseprite', monospace;
+  font-size: 10px;
+  color: #ffffff;
+  white-space: nowrap;
+  pointer-events: none;
+  image-rendering: pixelated;
+  z-index: 60; /* Same level as keys */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible ? 'scale(1)' : 'scale(0.8)'};
+  transition: opacity 0.3s ease, transform 0.3s ease, left 0.1s linear, top 0.1s linear;
+`;
+
+// Sky view interaction indicator - fixed position at bottom center, displays X and C keys vertically
+const SkyInteractionIndicator = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 100; /* Above sky elements */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible 
+    ? 'translateX(-50%) translateY(0)' 
+    : 'translateX(-50%) translateY(10px)'};
   transition: opacity 0.3s ease, transform 0.3s ease;
 `;
 
-// === COMP-SHEET COMPOSITE LAYER SYSTEM ===
-// Layer 1: Window frame (static single frame) - always visible when comp-sheet is shown
-const CompWindowLayer = styled.div<{ $visible: boolean }>`
-  position: absolute;
-  width: 600px;
-  height: 360px;
-  background-image: url('/images/home/comp-window.png');
-  background-size: 600px 360px;
+// Sky key row - horizontal container for key sprite and label
+const SkyKeyRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+// Sky view X key sprite
+const SkyXKeySprite = styled.div<{ $frame: number }>`
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/x-key.png');
+  background-size: ${15 * 4}px 16px; /* 4 frames × 15px = 60px width */
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
-  z-index: 300;
+`;
+
+// Sky view C key sprite
+const SkyCKeySprite = styled.div<{ $frame: number }>`
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/c-key.png');
+  background-size: ${15 * 4}px 16px; /* 4 frames × 15px = 60px width */
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+// Sky view action label
+const SkyActionLabel = styled.div`
+  font-family: 'Aseprite', monospace;
+  font-size: 12px;
+  color: #ffffff;
+  white-space: nowrap;
+  image-rendering: pixelated;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
+// Desk activity interaction indicator - fixed position at bottom center during desk activities
+const DeskInteractionIndicator = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 350; /* Above comp-sheet (z-index 300-303) */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible 
+    ? 'translateX(-50%) translateY(0)' 
+    : 'translateX(-50%) translateY(10px)'};
+  transition: opacity 0.3s ease, transform 0.3s ease;
+`;
+
+// Desk key row - horizontal container for key sprite and label
+const DeskKeyRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+// Desk view X key sprite
+const DeskXKeySprite = styled.div<{ $frame: number }>`
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/x-key.png');
+  background-size: ${15 * 4}px 16px; /* 4 frames × 15px = 60px width */
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+// Desk view C key sprite
+const DeskCKeySprite = styled.div<{ $frame: number }>`
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/c-key.png');
+  background-size: ${15 * 4}px 16px; /* 4 frames × 15px = 60px width */
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+// Desk view action label
+const DeskActionLabel = styled.div`
+  font-family: 'Aseprite', monospace;
+  font-size: 12px;
+  color: #ffffff;
+  white-space: nowrap;
+  image-rendering: pixelated;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
+// Kapoor monologue text box - matches Pico dialogue styling but narrower
+const KapoorMonologue = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  width: 140px; /* Narrower than Pico's 160px */
+  font-family: 'Aseprite', monospace;
+  font-size: 11px;
+  color: #e0e0e0;
+  line-height: 1.2;
+  z-index: 2100; /* Above modal backdrop */
+  
+  /* Subtle backdrop for better text readability - matching Pico */
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  padding: 8px 10px;
+  border-radius: 3px;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.2s ease;
+  
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
+const KapoorSpeakerLabel = styled.div`
+  color: #FFD700;
+  font-weight: bold;
+  margin-bottom: 4px;
+  display: block;
+`;
+
+const KapoorContinueHint = styled.div`
+  font-size: 9px;
+  color: #999;
+  margin-top: 8px;
+  font-style: italic;
+`;
+
+// Pico sprite - 60 frames (28x21px each): frames 0-29 normal idle, frames 30-59 talking idle
+const PicoSprite = styled.div<{ $frame: number; $isTalking: boolean }>`
+  position: absolute;
+  width: 28px;
+  height: 21px;
+  background-image: url('/images/characters/sprites/pico.png');
+  background-size: ${28 * 60}px 21px; /* 60 frames × 28px = 1680px width */
+  background-position: ${props => {
+    // Calculate frame offset based on talking state
+    const baseFrame = props.$isTalking ? 30 : 0; // Start at frame 30 for talking
+    const frameOffset = baseFrame + (props.$frame % 30); // 30 frames for each animation
+    return `${frameOffset * -28}px 0px`;
+  }};
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 60; /* Above dialogue text (55) so character renders on top */
+  pointer-events: none;
+`;
+
+// Speech bubble sprite - 8 frames (16x16px each): frames 1-4 normal, frames 5-8 highlighted
+const SpeechBubbleSprite = styled.div<{ $frame: number; $visible: boolean; $highlighted: boolean }>`
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background-image: url('/images/ui/speech-bubble.png');
+  background-size: ${16 * 8}px 16px; /* 8 frames × 16px = 128px width */
+  background-position: ${props => {
+    // Use frames 5-8 (indices 4-7) when highlighted, frames 1-4 (indices 0-3) otherwise
+    const baseFrame = props.$highlighted ? 4 : 0;
+    const frameIndex = baseFrame + (props.$frame - 1);
+    return `${frameIndex * -16}px 0px`;
+  }};
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 46; /* Below Kapoor (50) but above Pico (45) */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible ? 'scale(1)' : 'scale(0.8)'};
+  transition: opacity 0.3s ease, transform 0.3s ease;
+`;
+
+// Pico dialogue overlay - simple dialogue box for cat conversation
+// Now dynamically positioned based on speaker
+const PicoDialogueText = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  width: 160px; /* Narrower from 220px for tighter text wrapping */
+  font-family: 'Aseprite', monospace;
+  font-size: 11px;
+  color: #e0e0e0;
+  line-height: 1.2; /* Tighter line spacing from 1.5 */
+  z-index: 55; /* Above Pico and characters */
+  
+  /* Subtle backdrop for better text readability */
+  background: rgba(0, 0, 0, 0.6); /* Semi-transparent dark background */
+  backdrop-filter: blur(4px); /* Subtle blur behind text */
+  padding: 8px 10px; /* Breathing room around text */
+  border-radius: 4px; /* Soft corners */
+  border: 1px solid rgba(255, 255, 255, 0.1); /* Very subtle border for definition */
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  pointer-events: none;
+  transition: opacity 0.2s ease, left 0.3s ease, top 0.3s ease; /* Smooth movement between characters */
+  
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
+const PicoSpeakerLabel = styled.div`
+  color: #FFD700;
+  font-weight: bold;
+  margin-bottom: 4px; /* Space between name and dialogue */
+  display: block; /* Force to own line */
+`;
+
+const PicoContinueHint = styled.div`
+  font-size: 9px;
+  color: #999;
+  margin-top: 8px;
+  font-style: italic;
+`;
+
+// Pet description textbox - grey, italicized narrative text
+const PetDescriptionBox = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  width: 200px;
+  font-family: 'Aseprite', monospace;
+  font-size: 10px;
+  color: #888; /* Grey text for narrative description */
+  font-style: italic;
+  line-height: 1.3;
+  z-index: 55; /* Above Pico */
+  
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
+// === COMP-SHEET COMPOSITE LAYER SYSTEM ===
+// All layers are 300×180px (half original size)
+// Layer 1a: Monitor frame with black fill (base layer) - always visible when comp-sheet is shown
+const CompMonitorLayer = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  background-image: url('/images/home/comp-monitor.png');
+  background-size: 300px 180px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 300; /* Base layer - monitor frame with black screen */
   pointer-events: ${props => props.$visible ? 'all' : 'none'};
   
   opacity: ${props => props.$visible ? 1 : 0};
@@ -516,16 +843,36 @@ const CompWindowLayer = styled.div<{ $visible: boolean }>`
   transition: opacity 0.3s ease, transform 0.3s ease;
 `;
 
+// Layer 1b: Screen color overlay - changes color based on context
+// Blue for home menu, dark for TBI activity
+const CompScreenLayer = styled.div<{ $visible: boolean; $variant: 'blue' | 'dark' }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  background-image: url(${props => props.$variant === 'blue' 
+    ? '/images/home/comp-screen-blue.png' 
+    : '/images/home/comp-screen-dark.png'});
+  background-size: 300px 180px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 301; /* Above monitor base */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible ? 'scale(1)' : 'scale(0.95)'};
+  transition: opacity 0.3s ease, transform 0.3s ease, background-image 0.3s ease;
+`;
+
 // Layer 2: Activity base (static single frame) - visible until activity selected
 const CompActivityLayer = styled.div<{ $visible: boolean }>`
   position: absolute;
-  width: 600px;
-  height: 360px;
+  width: 300px;
+  height: 180px;
   background-image: url('/images/home/comp-activity.png');
-  background-size: 600px 360px;
+  background-size: 300px 180px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
-  z-index: 301;
+  z-index: 302;
   pointer-events: none;
   
   opacity: ${props => props.$visible ? 1 : 0};
@@ -542,28 +889,11 @@ const CompActivityLayer = styled.div<{ $visible: boolean }>`
 // Frame 7: top-left pressed
 const CompOptionsLayer = styled.div<{ $frame: number; $visible: boolean }>`
   position: absolute;
-  width: 600px;
-  height: 360px;
+  width: 300px;
+  height: 180px;
   background-image: url('/images/home/comp-activity-options-sheet.png');
-  background-size: ${600 * 7}px 360px; /* 7 frames × 600px = 4200px width */
-  background-position: ${props => (props.$frame - 1) * -600}px 0px;
-  background-repeat: no-repeat;
-  image-rendering: pixelated;
-  z-index: 302;
-  pointer-events: none;
-  
-  opacity: ${props => props.$visible ? 1 : 0};
-  transition: opacity 0.3s ease;
-`;
-
-// Layer 4: Activity option 1 animation (5 frames - autonomous loop) - visible until activity selected
-const CompOption1Layer = styled.div<{ $frame: number; $visible: boolean }>`
-  position: absolute;
-  width: 600px;
-  height: 360px;
-  background-image: url('/images/home/comp-activity-option1-sheet.png');
-  background-size: ${600 * 5}px 360px; /* 5 frames × 600px = 3000px width */
-  background-position: ${props => (props.$frame - 1) * -600}px 0px;
+  background-size: ${300 * 7}px 180px; /* 7 frames × 300px = 2100px width */
+  background-position: ${props => (props.$frame - 1) * -300}px 0px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
   z-index: 303;
@@ -573,10 +903,43 @@ const CompOption1Layer = styled.div<{ $frame: number; $visible: boolean }>`
   transition: opacity 0.3s ease;
 `;
 
+// Layer 4: Activity option 1 animation (5 frames - autonomous loop) - visible until activity selected
+const CompOption1Layer = styled.div<{ $frame: number; $visible: boolean }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  background-image: url('/images/home/comp-activity-option1-sheet.png');
+  background-size: ${300 * 5}px 180px; /* 5 frames × 300px = 1500px width */
+  background-position: ${props => (props.$frame - 1) * -300}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 304;
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+`;
+
+// Backdrop overlay - darkens and blurs background when comp-sheet is visible
+const CompSheetBackdrop = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 299; /* Just below comp-sheet layers (300+) */
+  pointer-events: ${props => props.$visible ? 'all' : 'none'};
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.4s ease;
+`;
+
 // Activity click region - invisible overlay for mouse interaction
 const ActivityClickRegion = styled.div<{ $active: boolean }>`
   position: absolute;
-  z-index: 304; /* Above all comp-sheet layers */
+  z-index: 305; /* Above all comp-sheet layers */
   cursor: pointer;
   pointer-events: all;
   
@@ -587,247 +950,58 @@ const ActivityClickRegion = styled.div<{ $active: boolean }>`
   `}
 `;
 
-// Pixel art transition keyframes - swap these in QuizOverlay animation property to test different effects
-const scanlineWipe = keyframes`
-  from {
-    clip-path: inset(0 0 100% 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-`;
-
-const pixelMaterialize = keyframes`
-  0% {
-    opacity: 0;
-    filter: blur(8px);
-    transform: scale(0.95);
-  }
-  50% {
-    filter: blur(4px);
-  }
-  100% {
-    opacity: 1;
-    filter: blur(0);
-    transform: scale(1);
-  }
-`;
-
-const slideFromBottom = keyframes`
-  from {
-    transform: translateY(40px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-`;
-
-const popIn = keyframes`
-  0% {
-    transform: scale(0.8);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.05);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-`;
-
-const glitchIn = keyframes`
-  0% {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-  20% {
-    opacity: 0.5;
-    transform: translateX(8px);
-  }
-  40% {
-    opacity: 0.8;
-    transform: translateX(-4px);
-  }
-  60% {
-    opacity: 0.9;
-    transform: translateX(2px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-`;
-
-const typeIn = keyframes`
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-`;
-
-// Create noise pattern for pixel-by-pixel dissolve effect
-const createNoisePattern = (density: number, seed: number) => {
-  const canvas = document.createElement('canvas');
-  canvas.width = 640;
-  canvas.height = 360;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return '';
-  
-  const imageData = ctx.createImageData(640, 360);
-  const data = imageData.data;
-  
-  // Seeded random for consistent pattern
-  let random = seed;
-  const seededRandom = () => {
-    random = (random * 9301 + 49297) % 233280;
-    return random / 233280;
-  };
-  
-  for (let i = 0; i < data.length; i += 4) {
-    const value = seededRandom() < density ? 255 : 0;
-    data[i] = 255;     // R
-    data[i + 1] = 255; // G
-    data[i + 2] = 255; // B
-    data[i + 3] = value; // Alpha (visible or transparent)
-  }
-  
-  ctx.putImageData(imageData, 0, 0);
-  return canvas.toDataURL();
-};
-
-const pixelDissolve = keyframes`
-  0% {
-    mask-image: none;
-    -webkit-mask-image: none;
-  }
-  20% {
-    mask-image: radial-gradient(circle, transparent 20%, black 20%);
-    -webkit-mask-image: radial-gradient(circle, transparent 20%, black 20%);
-    mask-size: 2px 2px;
-    -webkit-mask-size: 2px 2px;
-  }
-  40% {
-    mask-image: radial-gradient(circle, transparent 40%, black 40%);
-    -webkit-mask-image: radial-gradient(circle, transparent 40%, black 40%);
-    mask-size: 2px 2px;
-    -webkit-mask-size: 2px 2px;
-  }
-  60% {
-    mask-image: radial-gradient(circle, transparent 60%, black 60%);
-    -webkit-mask-image: radial-gradient(circle, transparent 60%, black 60%);
-    mask-size: 2px 2px;
-    -webkit-mask-size: 2px 2px;
-  }
-  80% {
-    mask-image: radial-gradient(circle, transparent 80%, black 80%);
-    -webkit-mask-image: radial-gradient(circle, transparent 80%, black 80%);
-    mask-size: 2px 2px;
-    -webkit-mask-size: 2px 2px;
-  }
-  100% {
-    mask-image: radial-gradient(circle, transparent 100%, black 100%);
-    -webkit-mask-image: radial-gradient(circle, transparent 100%, black 100%);
-    mask-size: 2px 2px;
-    -webkit-mask-size: 2px 2px;
-  }
-`;
-
-const pixelReconstruct = keyframes`
-  0% {
-    mask-image: radial-gradient(circle, transparent 100%, black 100%);
-    -webkit-mask-image: radial-gradient(circle, transparent 100%, black 100%);
-    mask-size: 2px 2px;
-    -webkit-mask-size: 2px 2px;
-    filter: brightness(1.3);
-  }
-  20% {
-    mask-image: radial-gradient(circle, transparent 80%, black 80%);
-    -webkit-mask-image: radial-gradient(circle, transparent 80%, black 80%);
-    mask-size: 2px 2px;
-    -webkit-mask-size: 2px 2px;
-    filter: brightness(1.25);
-  }
-  40% {
-    mask-image: radial-gradient(circle, transparent 60%, black 60%);
-    -webkit-mask-image: radial-gradient(circle, transparent 60%, black 60%);
-    mask-size: 2px 2px;
-    -webkit-mask-size: 2px 2px;
-    filter: brightness(1.2);
-  }
-  60% {
-    mask-image: radial-gradient(circle, transparent 40%, black 40%);
-    -webkit-mask-image: radial-gradient(circle, transparent 40%, black 40%);
-    mask-size: 2px 2px;
-    -webkit-mask-size: 2px 2px;
-    filter: brightness(1.1);
-  }
-  80% {
-    mask-image: radial-gradient(circle, transparent 20%, black 20%);
-    -webkit-mask-image: radial-gradient(circle, transparent 20%, black 20%);
-    mask-size: 2px 2px;
-    -webkit-mask-size: 2px 2px;
-    filter: brightness(1.05);
-  }
-  100% {
-    mask-image: none;
-    -webkit-mask-image: none;
-    filter: brightness(1);
-  }
-`;
-
-// Quiz overlay - renders on top of comp-sheet frame 1
-const QuizOverlay = styled.div<{ $isDissolving?: boolean }>`
+// Anthro intro layer - 4 frame dialogue sequence before TBI positioning
+// 4 frames at 300×180 each (1200×180 total), advanced with X key
+const AnthroIntroLayer = styled.div<{ $frame: number; $visible: boolean }>`
   position: absolute;
-  width: 600px;
-  height: 360px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 305; /* Above all comp-sheet layers and click regions */
-  pointer-events: ${props => props.$isDissolving ? 'none' : 'all'}; /* Disable clicks during dissolve */
+  width: 300px;
+  height: 180px;
+  background-image: url('/images/home/anthro-intro.png');
+  background-size: ${300 * 4}px 180px; /* 4 frames × 300px = 1200px width */
+  background-position: ${props => props.$frame * -300}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 305; /* Above menu layers, below TBI positioning */
+  pointer-events: none;
   
-  /* Two states: dissolving (pixelDissolve) or reconstructing (pixelReconstruct) */
-  animation: ${props => props.$isDissolving ? pixelDissolve : pixelReconstruct} 
-    ${props => props.$isDissolving ? '0.5s' : '0.6s'} 
-    cubic-bezier(0.2, 0.8, 0.2, 1);
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
 `;
 
-const QuizQuestion = styled.div`
-  font-family: 'Aseprite', monospace;
-  font-size: 18px;
-  color: #10141f;
-  text-align: center;
-  margin-bottom: 20px;
-  line-height: 1.5;
+// TBI Positioning viewer - sprite sheet layer that renders on top of comp-sheet
+// 16 frames at 300×180 each (4800×180 total), navigated with left/right arrow keys
+const TbiPositioningLayer = styled.div<{ $frame: number; $visible: boolean }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  background-image: url('/images/home/tbi-positioning.png');
+  background-size: ${300 * 16}px 180px; /* 16 frames × 300px = 4800px width */
+  background-position: ${props => props.$frame * -300}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 306; /* Above all comp-sheet layers and click regions */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
 `;
 
-const QuizOptions = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  align-items: flex-start; /* Only stretch as wide as content needs */
-`;
-
-const QuizOptionText = styled.div<{ $isSelected: boolean }>`
-  font-family: 'Aseprite', monospace;
-  font-size: 14px;
-  color: ${props => props.$isSelected ? '#ebede9' : '#62291a'};
-  text-align: left;
-`;
-
-const QuizResults = styled.div`
-  font-family: 'Aseprite', monospace;
-  font-size: 24px;
-  color: #FFD700;
-  text-align: center;
-  padding: 40px;
+// TBI Result layer - 13 frame animation showing results after positioning
+// Frames 0-10 play at 500ms each, then lands on frame 11 or 12
+const TbiResultLayer = styled.div<{ $frame: number; $visible: boolean }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  background-image: url('/images/home/tbi-positioning-result.png');
+  background-size: ${300 * 13}px 180px; /* 13 frames × 300px = 3900px width */
+  background-position: ${props => props.$frame * -300}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 307; /* Above TBI positioning layer */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
 `;
 
 // Boundary debug visualization components
@@ -897,7 +1071,6 @@ export default function CombinedHomeScene() {
   } = useGameStore();
   const { unlockCard, getUnlockedCards, getEquippedCards } = useAbilityStore();
   // Removed hoveredArea state - no longer needed without tooltips
-  const [showAbilityInterface, setShowAbilityInterface] = useState(false);
   const [showStarDetail, setShowStarDetail] = useState(false);
   type StarIdType = 'star' | 'tbi' | 'tbi_dosimetry' | 'tbi_prescriptions' | 'tbi_commissioning' | 'planet_1' | 'planet_2' | 'planet_3' | 'planet_4' | 'planet_5' | 'planet_6' | 'planet_7';
   const [activeStarId, setActiveStarId] = useState<StarIdType>('star'); // Track which star modal is open
@@ -936,8 +1109,38 @@ export default function CombinedHomeScene() {
   type SkyHighlightType = 'star' | 'tbi' | 'tbi_dosimetry' | 'tbi_prescriptions' | 'tbi_commissioning' | 'telescope' | 'planet_1' | 'planet_2' | 'planet_3' | 'planet_4' | 'planet_5' | 'planet_6' | 'planet_7';
   const [skyHighlight, setSkyHighlight] = useState<SkyHighlightType>('star'); // Default to star highlighted
   
-  // Telescope sprite state
-  const [telescopeFrame, setTelescopeFrame] = useState(1); // 1: normal, 2: highlighted
+  // Sky view interaction - X key always for inspecting stars, C key for returning home
+  const [skyXKeyFrame] = useState(1); // X key always unhighlighted (highlights on press)
+  const [skyCKeyFrame] = useState(1); // C key always unhighlighted (highlights on press)
+  
+  // Kapoor monologue for ??? star inspection
+  // Monologue system - tracks which inspection cycle we're on and current line in that cycle
+  const [inspectionCount, setInspectionCount] = useState(0); // 0 = not started, 1 = first time, 2 = second time, 3+ = completed
+  const [currentMonologueLineIndex, setCurrentMonologueLineIndex] = useState(0);
+  const [showMonologue, setShowMonologue] = useState(false);
+  
+  // Single monologue line - same every time
+  const monologueLines = [
+    "Still unsure what to make of that... Spending some more time studying might help."
+  ];
+  
+  // Telescope sprite state (no longer using highlighted frame - always frame 1)
+  const [telescopeFrame] = useState(1); // Always normal frame
+  
+  // Telescope speech bubble state
+  const [telescopeSpeechBubbleVisible, setTelescopeSpeechBubbleVisible] = useState(true); // Start visible
+  const [telescopeSpeechBubbleHighlighted, setTelescopeSpeechBubbleHighlighted] = useState(false);
+  const [telescopeSpeechBubbleFrame, setTelescopeSpeechBubbleFrame] = useState(1);
+  
+  // Star speech bubble state
+  const [starSpeechBubbleVisible, setStarSpeechBubbleVisible] = useState(true); // Always visible
+  const [starSpeechBubbleHighlighted, setStarSpeechBubbleHighlighted] = useState(false);
+  const [starSpeechBubbleFrame, setStarSpeechBubbleFrame] = useState(1);
+  
+  // Desk speech bubble state
+  const [deskSpeechBubbleVisible, setDeskSpeechBubbleVisible] = useState(false);
+  const [deskSpeechBubbleHighlighted, setDeskSpeechBubbleHighlighted] = useState(false);
+  const [deskSpeechBubbleFrame, setDeskSpeechBubbleFrame] = useState(1);
   
   // Star notification state
   const [starNotification, setStarNotification] = useState<{
@@ -946,10 +1149,6 @@ export default function CombinedHomeScene() {
     visible: boolean;
   } | null>(null);
   
-  // Tutorial integration
-  const currentStep = useTutorialStore(state => state.currentStep);
-  const completeStep = useTutorialStore(state => state.completeStep);
-  const { dismissAllOverlays } = useTutorialOverlays();
 
   // Welcome panel state
   const [welcomeToastVisible, setWelcomeToastVisible] = useState(false);
@@ -976,25 +1175,67 @@ export default function CombinedHomeScene() {
   const kapoorFrameTickRef = useRef(0); // For slowing down sprite animation
   const keysPressed = useRef<Set<string>>(new Set()); // Track which arrow keys are currently pressed
   
+  // Pico character animation state
+  // Kapoor is 102px tall, Pico is 21px tall
+  // Kapoor at y:467 has bottom at 467+102=569
+  // Pico needs y = 569-21 = 548 to align bottoms
+  const PICO_POSITION = { x: 330, y: 548 }; // Position on first floor, left side, bottom-aligned with Kapoor
+  const PICO_PROXIMITY_THRESHOLD = 80; // Horizontal distance threshold for highlighting speech bubble
+  const PICO_LEFT_EXTENSION = 60; // Additional distance allowed to the left of Pico
+  const [picoFrame, setPicoFrame] = useState(0);
+  const [picoIsTalking, setPicoIsTalking] = useState(false);
+  const [picoSpeechBubbleVisible, setPicoSpeechBubbleVisible] = useState(true); // Always visible until interaction
+  const [picoSpeechBubbleHighlighted, setPicoSpeechBubbleHighlighted] = useState(false); // Highlighted when Kapoor is near
+  const [picoSpeechBubbleFrame, setPicoSpeechBubbleFrame] = useState(1); // 1-4: animation frames
+  const [picoInteracted, setPicoInteracted] = useState(false); // Track if Pico has been talked to
+  const [showPicoDialogue, setShowPicoDialogue] = useState(false); // Show dialogue overlay
+  const [picoDialogueIndex, setPicoDialogueIndex] = useState(0); // Current dialogue line (0-3)
+  const picoAnimationRef = useRef<NodeJS.Timeout | null>(null);
+  const [showPetDescription, setShowPetDescription] = useState(false); // Show pet description textbox
+  const [showPicoBlockingDialogue, setShowPicoBlockingDialogue] = useState(false); // Show blocking dialogue when trying to climb without talking
+  const [picoBlockingDialogueIndex, setPicoBlockingDialogueIndex] = useState(0); // Current blocking dialogue line (0-1)
+  const [hasShownFirstBlockingMessage, setHasShownFirstBlockingMessage] = useState(false); // Track if we've shown the first blocking message
+  
+  // Centralized interaction system - player-following X/C keys with contextual labels
+  type InteractionType = 'telescope' | 'desk' | 'pico' | null;
+  const [activeInteraction, setActiveInteraction] = useState<InteractionType>(null); // Which object is closest
+  const [interactionFrame, setInteractionFrame] = useState(1); // X key frame (1: normal, 3: highlighted)
+  const [cKeyFrame, setCKeyFrame] = useState(1); // C key frame (1: normal, 3: highlighted)
+  const [contextLabel, setContextLabel] = useState<string>(''); // Dynamic label text ("Look", "Study", "Talk")
+  const [upArrowFrame, setUpArrowFrame] = useState(1); // Up arrow frame (1: unhighlighted by default)
+  const [downArrowFrame, setDownArrowFrame] = useState(1); // Down arrow frame (1: unhighlighted by default)
+  const [showUpArrow, setShowUpArrow] = useState(false); // Show up arrow when near ladder at ground floor
+  const [showDownArrow, setShowDownArrow] = useState(false); // Show down arrow when near ladder at second floor
+  const picoFrameCountRef = useRef(0);
+  const picoFrameTickRef = useRef(0);
+  
+  // Pico dialogue lines
+  const picoDialogueLines = [
+    { speaker: 'Pico', text: 'Did ya know, back in my day we used to just look up at the stars and dream.' },
+    { speaker: 'Pico', text: "We didn't have one of those fancy telescopes like ya got upstairs." },
+    { speaker: 'Kapoor', text: 'Back in your day, huh? and remind me, how far back are we talking?' },
+    { speaker: 'Pico', text: "Ohhh don't worry about that. Mm-mm. Trust me, you couldn' handle the truth kid…" }
+  ];
+  
+  // Pico blocking dialogue - when player tries to climb without talking first
+  const picoBlockingDialogue = [
+    { speaker: 'Pico', text: 'Oh too good for your old pal Pico huh? Ya getting fresh with me kid?' },
+    { speaker: 'Pico', text: 'Come here let me tell you a couple of three things about how things used to be! Back when we used to respect one anotha.' }
+  ];
+  
   // Tutorial sprite states
   const [arrowKeysVisible, setArrowKeysVisible] = useState(true); // Show for first 10 seconds
   const [arrowKeysFrame, setArrowKeysFrame] = useState(1); // 1-8: all up, right, left, up, down, all pushed, all up highlighted, all pushed highlighted
-  const [xKeyVisible, setXKeyVisible] = useState(false); // Show when Kapoor is near target
-  const [xKeyFrame, setXKeyFrame] = useState(1); // 1: normal, 2: depressed, 3: highlighted, 4: depressed+highlighted
-  const [xKeyTriggered, setXKeyTriggered] = useState(false); // Track if X key interaction was completed
-  const sceneStartTimeRef = useRef<number>(Date.now()); // Track when scene started
-  
-  // Desk X key states
-  const [deskXKeyVisible, setDeskXKeyVisible] = useState(false); // Show when star is clicked
-  const [deskXKeyFrame, setDeskXKeyFrame] = useState(1); // 1: normal, 2: depressed, 3: highlighted, 4: depressed+highlighted
+  const [xKeyTriggered, setXKeyTriggered] = useState(false); // Track if telescope X key interaction was completed (for cutscene trigger)
   const [deskXKeyTriggered, setDeskXKeyTriggered] = useState(false); // Track if desk X key was used
   const [deskXKeyEnabled, setDeskXKeyEnabled] = useState(false); // Track if desk X key system is enabled (star must be viewed first)
+  const sceneStartTimeRef = useRef<number>(Date.now()); // Track when scene started
   
   // Comp-sheet animation states
   const [compSheetVisible, setCompSheetVisible] = useState(false); // Show comp-sheet overlay
   const [compOptionsFrame, setCompOptionsFrame] = useState(1); // Options layer frame (1-7)
   const [compOption1Frame, setCompOption1Frame] = useState(1); // Option1 layer frame (1-5) - autonomous animation
-  const [compSheetPhase, setCompSheetPhase] = useState<'idle' | 'waiting' | 'transitioning' | 'activity'>('idle');
+  const [compSheetPhase, setCompSheetPhase] = useState<'idle' | 'booting' | 'booting_fade_in' | 'waiting' | 'transitioning' | 'fading_to_black' | 'intro' | 'intro_fading_to_black' | 'fading_from_black' | 'activity' | 'result_fading_to_black' | 'result_fading_from_black' | 'result'>('idle');
   const compSheetAnimationRef = useRef<NodeJS.Timeout | null>(null);
   const compOption1AnimationRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -1004,42 +1245,24 @@ export default function CombinedHomeScene() {
   const [hoveredActivity, setHoveredActivity] = useState<number | null>(null);
   const [highlightedActivity, setHighlightedActivity] = useState<number>(0); // For keyboard navigation (0-4)
   
-  // Quiz states (happens on comp-sheet frame 1)
-  const [showQuiz, setShowQuiz] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [userAnswers, setUserAnswers] = useState<number[]>([]);
-  const [showResults, setShowResults] = useState(false);
-  const [quizAnimationKey, setQuizAnimationKey] = useState(0); // Triggers re-animation on change
-  const [isDissolving, setIsDissolving] = useState(false); // Tracks dissolve-out animation between questions
-  const [highlightedQuizOption, setHighlightedQuizOption] = useState(0); // Track keyboard-highlighted option (0-2)
+  // Anthro intro dialogue state (shown before TBI positioning)
+  const [showAnthroIntro, setShowAnthroIntro] = useState(false);
+  const [anthroIntroFrame, setAnthroIntroFrame] = useState(0); // 0-3 for 4 frames
+  const ANTHRO_INTRO_TOTAL_FRAMES = 4; // 1200px / 300px = 4 frames
   
-  // TBI Quiz questions
-  const quizQuestions = [
-    {
-      question: "What is the primary purpose of Total Body Irradiation (TBI)?",
-      options: [
-        "Conditioning before bone marrow transplant",
-        "Treating localized brain tumors",
-        "Post-operative pain management"
-      ],
-      correctAnswer: 0
-    },
-    {
-      question: "What is a major concern when delivering TBI?",
-      options: [
-        "Dose uniformity across entire body",
-        "Patient claustrophobia",
-        "Treatment time under 5 minutes"
-      ],
-      correctAnswer: 0
-    }
-  ];
+  // TBI Positioning viewer state (replaces old quiz system)
+  const [showTbiPositioning, setShowTbiPositioning] = useState(false);
+  const [tbiPositioningFrame, setTbiPositioningFrame] = useState(0); // 0-15 for 16 frames
+  const TBI_POSITIONING_TOTAL_FRAMES = 16; // 4800px / 300px = 16 frames
   
-  // Star X key states (shows next to star when in sky view and star is highlighted)
-  const [starXKeyVisible, setStarXKeyVisible] = useState(true); // Show when star is highlighted in sky view
-  const [starXKeyFrame, setStarXKeyFrame] = useState(3); // Start highlighted (3: highlighted)
-  const [starXKeyTriggered, setStarXKeyTriggered] = useState(false); // Track if star X key was used
+  // TBI Result animation state (shown after TBI positioning complete)
+  const [showTbiResult, setShowTbiResult] = useState(false);
+  const [tbiResultFrame, setTbiResultFrame] = useState(0); // 0-12 for 13 frames
+  const tbiResultAnimationRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Desk activity key indicator frames (always highlighted frame 3)
+  const deskXKeyFrame = 1; // Unhighlighted by default (highlights on press)
+  const deskCKeyFrame = 1; // Unhighlighted by default (highlights on press)
   
   // Constellation cutscene states
   const [isPlayingCutscene, setIsPlayingCutscene] = useState(false);
@@ -1053,13 +1276,10 @@ export default function CombinedHomeScene() {
   
   // Removed: Tiny star orbital state (no longer needed without HDR star)
   
-  // X key target position (near Kapoor's starting position for easy discovery)
-  const X_KEY_TARGET = { x: 480, y: 310 }; // Stationary position in room, near Kapoor
-  const X_KEY_PROXIMITY_THRESHOLD = 60; // Show X key when Kapoor is within this distance
-  
-  // Desk X key target position (moved to the right, above the desk on first floor)
-  const DESK_X_KEY_TARGET = { x: 400, y: 495 }; // Moved right, above desk area
-  const DESK_X_KEY_PROXIMITY_THRESHOLD = 60; // Show X key when Kapoor is within this distance
+  // Interactive object positions and thresholds for proximity detection
+  const TELESCOPE_POSITION = { x: 480, y: 310 }; // Telescope position on second floor
+  const DESK_POSITION = { x: 400, y: 495 }; // Desk position on first floor
+  const PROXIMITY_THRESHOLD = 60; // Show interaction prompt when Kapoor is within this distance
   
   // Primareus (???) position - further left than before, higher in sky
   const PRIMAREUS_POSITION = { x: 180, y: 120 };
@@ -1352,26 +1572,17 @@ export default function CombinedHomeScene() {
     transitionToScene('hospital');
   };
 
-  const handleDeskClick = () => {
-    console.log('[CombinedHomeScene] Desk clicked - opening journal/ability cards');
-    setShowAbilityInterface(true);
-  };
-
-  const handleCloseAbilityInterface = () => {
-    setShowAbilityInterface(false);
-    // Mark first activity as completed (for constellation cutscene trigger)
-    if (!hasCompletedFirstActivity) {
-      console.log('[CombinedHomeScene] First activity completed - enabling constellation cutscene');
-      setHasCompletedFirstActivity(true);
-    }
-    
-    // Reset desk X key state so it can be used again
-    setDeskXKeyTriggered(false);
-    console.log('[CombinedHomeScene] Ability interface closed - desk X key reset for next interaction');
-  };
 
   const handleCloseStarDetail = () => {
     setShowStarDetail(false);
+    
+    // If closing ??? star modal, show monologue immediately (no delay to prevent UI flicker)
+    if (activeStarId === 'star') {
+      // Increment inspection count and reset to first line
+      setInspectionCount(prev => prev + 1);
+      setCurrentMonologueLineIndex(0);
+      setShowMonologue(true);
+    }
   };
 
   const handleStarUnlock = (newFrame: number) => {
@@ -1410,8 +1621,8 @@ export default function CombinedHomeScene() {
   };
 
   const handleStarViewed = () => {
-    console.log('[CombinedHomeScene] Star viewed - showing desk X key');
-    setDeskXKeyVisible(true);
+    console.log('[CombinedHomeScene] Star viewed - enabling desk interaction');
+    setDeskXKeyEnabled(true);
   };
 
   // Activity interaction - handle activity selection from comp-sheet
@@ -1421,35 +1632,9 @@ export default function CombinedHomeScene() {
     setCompSheetPhase('transitioning');
   };
   
-  // Quiz interaction handlers
-  const handleOptionSelect = (optionIndex: number) => {
-    setSelectedOption(optionIndex);
-    setUserAnswers([...userAnswers, optionIndex]);
-    
-    // Immediate transition to next question
-    if (currentQuestionIndex < quizQuestions.length - 1) {
-      setIsDissolving(true); // Start dissolve effect
-      
-      // After dissolve completes (0.5s), show next question
-      setTimeout(() => {
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
-        setSelectedOption(null);
-        setIsDissolving(false);
-        setQuizAnimationKey(prev => prev + 1); // Trigger re-animation
-      }, 500); // Match pixelDissolve duration
-    } else {
-      // Last question - dissolve to results
-      setIsDissolving(true);
-      setTimeout(() => {
-        setShowQuiz(false);
-        setShowResults(true);
-        setIsDissolving(false);
-      }, 500);
-    }
-  };
-
-  const handleQuizComplete = () => {
-    console.log('[CombinedHomeScene] Quiz complete - closing comp-sheet');
+  // TBI Positioning viewer - close and complete activity
+  const handleActivityComplete = () => {
+    console.log('[CombinedHomeScene] Activity complete - closing comp-sheet');
     
     // Mark first activity as completed (for constellation cutscene trigger)
     if (!hasCompletedFirstActivity) {
@@ -1457,22 +1642,25 @@ export default function CombinedHomeScene() {
       setHasCompletedFirstActivity(true);
     }
     
+    // Clear any ongoing result animation
+    if (tbiResultAnimationRef.current) {
+      clearTimeout(tbiResultAnimationRef.current);
+      tbiResultAnimationRef.current = null;
+    }
+    
     // Hide everything and reset
     setCompSheetVisible(false);
-    setShowResults(false);
-    setShowQuiz(false);
+    setShowTbiPositioning(false);
+    setShowTbiResult(false);
     
-    // Reset all quiz and activity state
+    // Reset all activity state
     setTimeout(() => {
-      setCurrentQuestionIndex(0);
-      setSelectedOption(null);
-      setUserAnswers([]);
+      setTbiPositioningFrame(0); // Reset to first frame
+      setTbiResultFrame(0); // Reset result to first frame
       setCompSheetPhase('idle');
       setCompOptionsFrame(1);
       setCompOption1Frame(1);
       setDeskXKeyTriggered(false); // Reset so desk can be used again
-      setQuizAnimationKey(0); // Reset animation key
-      setIsDissolving(false); // Reset dissolve state
       
       // Reset activity selection state
       setSelectedActivity(null);
@@ -1562,15 +1750,13 @@ export default function CombinedHomeScene() {
       setKapoorDirection('right');
       setKapoorIsWalking(false);
       
-      // Enable desk X key immediately (simulate star having been viewed)
+      // Enable desk interaction immediately (simulate star having been viewed)
       setDeskXKeyEnabled(true);
-      setDeskXKeyVisible(true);
       
       // Hide tutorial elements
       setArrowKeysVisible(false);
-      setXKeyVisible(false);
       
-      console.log('[CombinedHomeScene] 🧪 Debug setup complete - desk X key is active!');
+      console.log('[CombinedHomeScene] 🧪 Debug setup complete - desk interaction is active!');
     }
   }, []); // Run once on mount
   
@@ -1593,10 +1779,6 @@ export default function CombinedHomeScene() {
       
       // Mark first activity as completed (enables cutscene trigger)
       setHasCompletedFirstActivity(true);
-      
-      // Enable X key near telescope
-      setXKeyVisible(true);
-      setXKeyFrame(3); // Highlighted state
       
       // Hide tutorial elements
       setArrowKeysVisible(false);
@@ -1679,8 +1861,6 @@ export default function CombinedHomeScene() {
       
       // Hide all tutorial/interaction elements
       setArrowKeysVisible(false);
-      setXKeyVisible(false);
-      setDeskXKeyVisible(false);
       setDeskXKeyEnabled(false);
       
       // Set initial sky highlight to first planet for navigation
@@ -1790,9 +1970,7 @@ export default function CombinedHomeScene() {
       // Mark first activity as complete so telescope is interactive
       setHasCompletedFirstActivity(true);
       
-      // Enable telescope X key for easy navigation to sky
-      setXKeyVisible(true);
-      setXKeyFrame(3); // Highlighted state
+      // Enable telescope interaction for easy navigation to sky
       setXKeyTriggered(false); // Allow triggering
       
       console.log('[CombinedHomeScene] 🧪 Planetary systems showcase created!');
@@ -1802,42 +1980,67 @@ export default function CombinedHomeScene() {
     }
   }, []); // Run once on mount
   
-  // Tutorial star sparkle animation - cycles through sparkle frames, highlighting based on skyHighlight state
+  // Star sparkle animation - cycles through sparkle frames (NO highlighting - speech bubble handles that)
   useEffect(() => {
-    console.log('[CombinedHomeScene] 🌟 Star effect check - currentStep:', currentStep, 'isPingPongActive:', isPingPongActive);
-    
-    // TEMPORARY: Start loop immediately for testing (remove this line when tutorial flow is working)
-    const testMode = true;
-    
-    if (testMode || currentStep === 'constellation_intro' || currentStep === 'constellation_available') {
-      // User has completed Quinn tutorial - start sparkle loop (only if star hasn't been unlocked yet)
-      if (!isPingPongActive && !isRevealAnimating && !starUnlocked) {
-        console.log('[CombinedHomeScene] ⭐ Tutorial completed - starting sparkle animation!');
-        setIsPingPongActive(true);
+    // Start sparkle loop (only if star hasn't been unlocked yet)
+    if (!isPingPongActive && !isRevealAnimating && !starUnlocked) {
+      console.log('[CombinedHomeScene] ⭐ Starting sparkle animation!');
+      setIsPingPongActive(true);
+      
+      // Creating star animation interval
+      pingPongIntervalRef.current = setInterval(() => {
+        // Cycle through 0, 1, 2
+        sparkleAnimationCycle.current = (sparkleAnimationCycle.current + 1) % 3;
         
-        // Creating star animation interval
-        pingPongIntervalRef.current = setInterval(() => {
-          // Cycle through 0, 1, 2
-          sparkleAnimationCycle.current = (sparkleAnimationCycle.current + 1) % 3;
-          
-          // Determine if we should use highlighted frames (read from refs for current values)
-          // In sky view, only highlight if skyHighlight === 'star' AND not playing cutscene
-          // During cutscene or cutscene scroll transition, never highlight - just pulse with base frames
-          const isInSkyView = currentViewRef.current === 'sky';
-          const isCutscenePlaying = isPlayingCutsceneRef.current;
-          const isCutsceneScrollingNow = isCutsceneScrollingRef.current;
-          const shouldHighlight = !isCutscenePlaying && !isCutsceneScrollingNow && (isInSkyView ? skyHighlightRef.current === 'star' : true);
-          
-          // Base frames: 2, 3, 4
-          // Highlighted frames: 11, 12, 13
-          const baseFrame = sparkleAnimationCycle.current + 2;
-          const frame = shouldHighlight ? baseFrame + 9 : baseFrame;
-          
-          setTutorialStarFrame(frame);
-        }, 400); // 400ms per frame for clear progression
-      }
+        // Always use base sparkle frames (2, 3, 4) - no highlighting
+        // Speech bubble will indicate selection instead
+        const frame = sparkleAnimationCycle.current + 2;
+        
+        setTutorialStarFrame(frame);
+      }, 400); // 400ms per frame for clear progression
     }
-  }, [currentStep, isPingPongActive, isRevealAnimating, starUnlocked]); // Removed currentView and skyHighlight - using refs instead
+  }, [isPingPongActive, isRevealAnimating, starUnlocked]);
+  
+  // === STAR SPEECH BUBBLE VISIBILITY ===
+  // Show star speech bubble in sky view when star is visible, hide after first inspection
+  useEffect(() => {
+    setStarSpeechBubbleVisible(
+      currentView === 'sky' && 
+      !showFinalConstellation && 
+      !isPlayingCutscene && 
+      !showStarDetail && // Hide when modal is open
+      !showMonologue && // Hide when monologue is showing
+      !deskXKeyEnabled // Hide after first inspection (star has been viewed)
+    );
+  }, [currentView, showFinalConstellation, isPlayingCutscene, showStarDetail, showMonologue, deskXKeyEnabled]);
+  
+  // === STAR PROXIMITY DETECTION (for speech bubble highlighting in sky view) ===
+  useEffect(() => {
+    if (currentView !== 'sky' || !starSpeechBubbleVisible) {
+      setStarSpeechBubbleHighlighted(false);
+      return;
+    }
+    
+    // In sky view, highlight when star is selected in navigation
+    setStarSpeechBubbleHighlighted(skyHighlight === 'star');
+  }, [currentView, skyHighlight, starSpeechBubbleVisible]);
+  
+  // === STAR SPEECH BUBBLE ANIMATION ===
+  useEffect(() => {
+    if (!starSpeechBubbleVisible) return;
+    
+    const BUBBLE_FRAME_SPEED = 150; // ms per frame
+    let bubbleFrameCount = 1;
+    
+    const animateBubble = () => {
+      bubbleFrameCount = (bubbleFrameCount % 4) + 1; // Cycle 1-4
+      setStarSpeechBubbleFrame(bubbleFrameCount);
+    };
+    
+    const bubbleInterval = setInterval(animateBubble, BUBBLE_FRAME_SPEED);
+    
+    return () => clearInterval(bubbleInterval);
+  }, [starSpeechBubbleVisible]);
   
   // Comp-sheet options layer animation - show highlighted frame based on hover/highlight state
   useEffect(() => {
@@ -1896,8 +2099,27 @@ export default function CombinedHomeScene() {
     }
   }, [compSheetPhase]);
   
-  // Comp-sheet transition animation - show pressed state (options frame 7), then hide activity layers and start quiz
+  // Comp-sheet phase transitions - handles boot-up and activity transitions with fade effects
   useEffect(() => {
+    // === BOOT-UP PHASES (opening the computer) ===
+    // Phase: Booting - monitor visible with black fill, wait briefly then start fade in
+    if (compSheetPhase === 'booting') {
+      console.log('[CombinedHomeScene] Computer booting - showing black monitor');
+      setTimeout(() => {
+        console.log('[CombinedHomeScene] Boot fade in - showing blue screen + menu');
+        setCompSheetPhase('booting_fade_in');
+      }, 300); // Hold on black monitor briefly
+    }
+    
+    // Phase: Booting fade in - screen + menu layers fade in, then ready for interaction
+    if (compSheetPhase === 'booting_fade_in') {
+      setTimeout(() => {
+        console.log('[CombinedHomeScene] Boot complete - ready for interaction');
+        setCompSheetPhase('waiting');
+      }, 350); // Wait for fade in transition
+    }
+    
+    // === ACTIVITY TRANSITION PHASES (selecting an activity) ===
     if (compSheetPhase === 'transitioning') {
       console.log('[CombinedHomeScene] Starting comp-sheet transition animation');
       
@@ -1910,12 +2132,78 @@ export default function CombinedHomeScene() {
       // Show pressed state (options layer frame 7) briefly
       setCompOptionsFrame(7);
       
-      // After 150ms, transition to activity phase (hides activity/options/option1 layers, keeps window)
+      // After 150ms, start fading to black (menu layers + screen fade out)
       setTimeout(() => {
-        console.log('[CombinedHomeScene] Transitioning to activity phase - showing quiz');
-        setCompSheetPhase('activity');
-        setShowQuiz(true);
+        console.log('[CombinedHomeScene] Fading to black - hiding menu layers');
+        setCompSheetPhase('fading_to_black');
       }, 150);
+    }
+    
+    // Phase: Fading to black - wait for screen to fade out, then show intro
+    if (compSheetPhase === 'fading_to_black') {
+      setTimeout(() => {
+        console.log('[CombinedHomeScene] Fading from black - showing Anthro intro');
+        setShowAnthroIntro(true);
+        setAnthroIntroFrame(0); // Start at first frame
+        setCompSheetPhase('intro');
+      }, 350); // Wait for screen layer fade out transition
+    }
+    
+    // Phase: Intro fading to black - after intro complete, fade out then show TBI
+    if (compSheetPhase === 'intro_fading_to_black') {
+      setTimeout(() => {
+        console.log('[CombinedHomeScene] Intro complete - showing TBI positioning');
+        setShowAnthroIntro(false); // Hide intro
+        setShowTbiPositioning(true);
+        setTbiPositioningFrame(0); // Start at first frame
+        setCompSheetPhase('fading_from_black');
+      }, 350); // Wait for intro fade out transition
+    }
+    
+    // Phase: Fading from black - wait for dark screen + TBI to fade in, then complete
+    if (compSheetPhase === 'fading_from_black') {
+      setTimeout(() => {
+        console.log('[CombinedHomeScene] Transition complete - activity phase');
+        setCompSheetPhase('activity');
+      }, 350); // Wait for fade in transition
+    }
+    
+    // === RESULT TRANSITION PHASES (after TBI positioning complete) ===
+    // Phase: Result fading to black - hide TBI, then show result
+    if (compSheetPhase === 'result_fading_to_black') {
+      setTimeout(() => {
+        console.log('[CombinedHomeScene] TBI faded out - showing result animation');
+        setShowTbiPositioning(false); // Hide TBI positioning
+        setShowTbiResult(true);
+        setTbiResultFrame(0); // Start at first frame
+        setCompSheetPhase('result_fading_from_black');
+      }, 350); // Wait for TBI fade out transition
+    }
+    
+    // Phase: Result fading from black - wait for result to fade in, then start animation
+    if (compSheetPhase === 'result_fading_from_black') {
+      setTimeout(() => {
+        console.log('[CombinedHomeScene] Result faded in - starting animation');
+        setCompSheetPhase('result');
+        
+        // Start result animation: play frames 0-10 at 500ms each, then land on frame 11
+        let currentFrame = 0;
+        const animateResult = () => {
+          if (currentFrame < 11) {
+            // Play frames 0-10
+            currentFrame++;
+            setTbiResultFrame(currentFrame);
+            tbiResultAnimationRef.current = setTimeout(animateResult, 500);
+          } else {
+            // Animation complete - land on frame 11 (or 12)
+            console.log('[CombinedHomeScene] Result animation complete - landed on frame 11');
+            setTbiResultFrame(11); // Final frame (can be 11 or 12)
+          }
+        };
+        
+        // Start animation after a brief pause
+        tbiResultAnimationRef.current = setTimeout(animateResult, 500);
+      }, 350); // Wait for fade in transition
     }
   }, [compSheetPhase]);
   
@@ -1935,6 +2223,10 @@ export default function CombinedHomeScene() {
         clearTimeout(compOption1AnimationRef.current);
         compOption1AnimationRef.current = null;
       }
+      if (tbiResultAnimationRef.current) {
+        clearTimeout(tbiResultAnimationRef.current);
+        tbiResultAnimationRef.current = null;
+      }
     };
   }, []);
   
@@ -1947,13 +2239,14 @@ export default function CombinedHomeScene() {
         
         // Comp-sheet activity navigation: spatial navigation based on actual positions
         if (compSheetVisible && compSheetPhase === 'waiting') {
-          // Define activity positions (matching ActivityClickRegion coordinates)
+          // Define activity positions (matching ActivityClickRegion coordinates - centers)
+          // Scaled from 600×360 to 300×180, offset by comp position (170, 90)
           const activityPositions = [
-            { id: 0, x: 110, y: 100 },  // top-left (center of region)
-            { id: 1, x: 510, y: 100 },  // top-right
-            { id: 2, x: 110, y: 260 },  // bottom-left
-            { id: 3, x: 300, y: 260 },  // bottom-middle
-            { id: 4, x: 510, y: 260 },  // bottom-right
+            { id: 0, x: 215, y: 140 },  // top-left (center of region)
+            { id: 1, x: 415, y: 140 },  // top-right
+            { id: 2, x: 215, y: 220 },  // bottom-left
+            { id: 3, x: 310, y: 220 },  // bottom-middle
+            { id: 4, x: 415, y: 220 },  // bottom-right
           ];
           
           const currentPos = activityPositions[highlightedActivity];
@@ -1996,84 +2289,9 @@ export default function CombinedHomeScene() {
             console.log(`[CombinedHomeScene] Activity navigation: ${highlightedActivity} → ${bestTarget.id}`);
           }
         }
-        // In sky view: use arrows to navigate between constellation stars and telescope (spatial navigation)
-        else if (currentView === 'sky' && !showStarDetail) {
-          const hasConstellation = showFinalConstellation;
-          
-          if (hasConstellation) {
-            // Spatial navigation - find nearest PLANET in the pressed direction (moons not navigable)
-            // Build list of all navigable targets with their current positions
-            // Filter to only planets (bodies without parentId) - moons are only navigable in modal view
-            const planets = constellationStars.filter(body => !body.parentId);
-            const targets: Array<{ id: SkyHighlightType; x: number; y: number }> = [
-              ...planets.map(planet => ({ id: planet.id as SkyHighlightType, x: planet.x, y: planet.y })),
-              { id: 'telescope' as SkyHighlightType, x: 320, y: 520 } // Telescope position (centered, bottom)
-            ];
-            
-            // Find current highlighted target
-            let currentTarget = targets.find(t => t.id === skyHighlight);
-            
-            // If current highlight is invalid (e.g., 'tbi' or 'star' in debug planetary systems), default to first planet
-            if (!currentTarget && planets.length > 0) {
-              const firstPlanet = planets[0];
-              setSkyHighlight(firstPlanet.id as SkyHighlightType);
-              currentTarget = targets.find(t => t.id === firstPlanet.id);
-              console.log(`[CombinedHomeScene] Invalid skyHighlight "${skyHighlight}" - defaulting to ${firstPlanet.id}`);
-            }
-            
-            if (!currentTarget) return;
-            
-            // Determine direction vector based on key
-            let directionX = 0;
-            let directionY = 0;
-            if (e.key === 'ArrowLeft') directionX = -1;
-            else if (e.key === 'ArrowRight') directionX = 1;
-            else if (e.key === 'ArrowUp') directionY = -1;
-            else if (e.key === 'ArrowDown') directionY = 1;
-            
-            // Find the nearest target in the pressed direction
-            let bestTarget: SkyHighlightType | null = null;
-            let bestScore = Infinity;
-            
-            for (const target of targets) {
-              if (target.id === skyHighlight) continue; // Skip current target
-              
-              // Calculate vector from current to target
-              const dx = target.x - currentTarget.x;
-              const dy = target.y - currentTarget.y;
-              
-              // Check if target is in the general direction we're pressing
-              // Dot product with direction vector (positive = same direction)
-              const alignment = dx * directionX + dy * directionY;
-              if (alignment <= 0) continue; // Not in the right direction
-              
-              // Calculate distance
-              const distance = Math.sqrt(dx * dx + dy * dy);
-              
-              // Score = distance / alignment (prefer close targets that are well-aligned)
-              const score = distance / alignment;
-              
-              if (score < bestScore) {
-                bestScore = score;
-                bestTarget = target.id;
-              }
-            }
-            
-            if (bestTarget) {
-              setSkyHighlight(bestTarget);
-              console.log(`[CombinedHomeScene] Sky navigation: moved to planet ${bestTarget}`);
-            }
-          } else {
-            // Original single-star navigation
-            if (e.key === 'ArrowUp') {
-              setSkyHighlight('star'); // Move highlight to star
-              console.log('[CombinedHomeScene] Sky navigation: highlight moved to star');
-            } else if (e.key === 'ArrowDown') {
-              setSkyHighlight('telescope'); // Move highlight to telescope
-              console.log('[CombinedHomeScene] Sky navigation: highlight moved to telescope');
-            }
-          }
-        } else if (currentView === 'home') {
+        // In sky view: no arrow key navigation - stars are always highlighted
+        // (Navigation removed - C key returns home, X key inspects stars)
+        else if (currentView === 'home') {
           // In home view: add to movement keys
           keysPressed.current.add(e.key);
         }
@@ -2081,33 +2299,82 @@ export default function CombinedHomeScene() {
       
       // Handle 'x' key interaction - toggle between sky and home views, or interact with desk/star
       if (e.key === 'x' || e.key === 'X') {
-        // Priority 0: Complete quiz if showing results
-        if (showResults) {
-          console.log('[CombinedHomeScene] X key pressed - completing quiz');
-          handleQuizComplete();
+        // Debug: Log all X key states
+        console.log('[X Key Debug] Pressed!', {
+          currentView,
+          showAnthroIntro,
+          anthroIntroFrame,
+          showTbiPositioning,
+          showTbiResult,
+          showStarDetail,
+          activeInteraction,
+          interactionFrame,
+          deskXKeyTriggered,
+          compSheetVisible,
+          compSheetPhase,
+          showPicoDialogue,
+          picoInteracted
+        });
+        
+        // Priority 0a: Advance Anthro intro dialogue if showing
+        if (showAnthroIntro && compSheetPhase === 'intro') {
+          if (anthroIntroFrame < ANTHRO_INTRO_TOTAL_FRAMES - 1) {
+            // Advance to next frame
+            console.log('[CombinedHomeScene] X key pressed - advancing intro frame', anthroIntroFrame + 1);
+            setAnthroIntroFrame(prev => prev + 1);
+          } else {
+            // Last frame - start fade to TBI positioning
+            console.log('[CombinedHomeScene] X key pressed - intro complete, fading to TBI');
+            setCompSheetPhase('intro_fading_to_black');
+          }
         }
-        // Priority 1: Close star modal if open
+        // Priority 0b: Transition to result if TBI positioning is showing (and in activity phase)
+        else if (showTbiPositioning && compSheetPhase === 'activity') {
+          console.log('[CombinedHomeScene] X key pressed - TBI positioning complete, showing result');
+          setCompSheetPhase('result_fading_to_black');
+        }
+        // Priority 0c: Complete activity if result screen is showing
+        else if (showTbiResult && compSheetPhase === 'result') {
+          console.log('[CombinedHomeScene] X key pressed - completing activity from result');
+          handleActivityComplete();
+        }
+        // Priority 1a: Advance through Kapoor monologue lines (or dismiss if last line)
+        else if (showMonologue && currentView === 'sky') {
+          if (currentMonologueLineIndex < monologueLines.length - 1) {
+            // Advance to next line in current monologue
+            console.log('[CombinedHomeScene] X key pressed - advancing monologue line');
+            setCurrentMonologueLineIndex(prev => prev + 1);
+          } else {
+            // Last line - dismiss monologue and reset star highlight for re-inspection
+            console.log('[CombinedHomeScene] X key pressed - closing monologue');
+            setShowMonologue(false);
+            setSkyHighlight('star'); // Reset to star so player can inspect again
+          }
+        }
+        // Priority 1b: Close star modal if open
         else if (showStarDetail) {
           console.log('[CombinedHomeScene] X key pressed - closing star modal');
-          setShowStarDetail(false);
+          
+          // Close modal (monologue will appear in handleCloseStarDetail if it's ??? star)
+          handleCloseStarDetail();
         }
-        // Priority 2: Desk X key interaction (when in home view, visible, highlighted, not yet triggered)
-        else if (currentView === 'home' && deskXKeyVisible && deskXKeyFrame === 3 && !deskXKeyTriggered && !compSheetVisible) {
+        // Priority 2: Desk interaction (new system: when desk is active interaction)
+        else if (currentView === 'home' && activeInteraction === 'desk' && !deskXKeyTriggered && !compSheetVisible) {
           console.log('[CombinedHomeScene] Desk X key pressed - showing comp-sheet!');
           
-          // Show depressed+highlighted frame
-          setDeskXKeyFrame(4);
+          // Show highlighted frame
+          setInteractionFrame(3);
           
-          // After brief depression, show comp-sheet and start waiting animation
+          // After brief highlight, show comp-sheet and start boot-up animation
           setTimeout(() => {
             setDeskXKeyTriggered(true);
-            setDeskXKeyVisible(false);
+            setActiveInteraction(null); // Clear active interaction
             setCompSheetVisible(true);
-            setCompSheetPhase('waiting');
+            setCompSheetPhase('booting'); // Start with black monitor, then fade in
             setCompOptionsFrame(1); // Start with no highlight
             setCompOption1Frame(1); // Start option1 animation
             setHighlightedActivity(0); // Default to first activity highlighted
-          }, 150); // Brief depression visual
+          }, 150); // Brief highlight visual
         }
         // Priority 2b: Comp-sheet X key interaction (when comp-sheet is in waiting phase) - select highlighted activity
         else if (compSheetVisible && compSheetPhase === 'waiting') {
@@ -2117,46 +2384,112 @@ export default function CombinedHomeScene() {
           setSelectedActivity(highlightedActivity);
           setCompSheetPhase('transitioning');
         }
-        // Priority 3: Star X key interaction (when in sky view, constellation stars highlighted)
-        else if (currentView === 'sky' && !showStarDetail && skyHighlight !== 'telescope') {
-          // Check if any constellation celestial body is highlighted (??? star, TBI planet, or moons)
-          const constellationStarIds: StarIdType[] = ['star', 'tbi', 'tbi_dosimetry', 'tbi_prescriptions', 'tbi_commissioning'];
-          if (constellationStarIds.includes(skyHighlight as StarIdType)) {
-            console.log(`[CombinedHomeScene] X key pressed on ${skyHighlight} - opening star modal!`);
+        // Priority 2b: Pico blocking dialogue advancement/dismissal (when player tried to climb without talking)
+        else if (showPicoBlockingDialogue) {
+          console.log('[CombinedHomeScene] X key pressed - advancing/dismissing Pico blocking dialogue', {
+            currentIndex: picoBlockingDialogueIndex,
+            totalLines: picoBlockingDialogue.length
+          });
+          
+          // Advance to next dialogue line if not on last line
+          if (picoBlockingDialogueIndex < picoBlockingDialogue.length - 1) {
+            setPicoBlockingDialogueIndex(picoBlockingDialogueIndex + 1);
+            console.log('[CombinedHomeScene] Advanced to blocking line', picoBlockingDialogueIndex + 1);
+          } else {
+            // Last line - close blocking dialogue and allow player to try again (or go talk to Pico)
+            console.log('[CombinedHomeScene] Blocking dialogue complete - dismissing');
+            setShowPicoBlockingDialogue(false);
+            setPicoIsTalking(false);
+            setKapoorIsClimbing(false); // Release the freeze
             
-            // Show depressed+highlighted frame for X key if it's the original star
-            if (skyHighlight === 'star' && starXKeyVisible) {
-              setStarXKeyFrame(4);
-            }
+            // Mark that player has seen the full blocking sequence (only matters if they started from message 0)
+            setHasShownFirstBlockingMessage(true);
             
-            // After brief depression, trigger star modal
+            // Reset dialogue index after fade animation completes
             setTimeout(() => {
-              setActiveStarId(skyHighlight as StarIdType);
-              setShowStarDetail(true);
-              if (skyHighlight === 'star') {
-                setStarXKeyTriggered(true);
-                setStarXKeyVisible(false);
-              }
-            }, 150); // Brief depression visual
+              setPicoBlockingDialogueIndex(0);
+              console.log('[CombinedHomeScene] Blocking dialogue closed - player can try again or talk to Pico');
+            }, 250);
           }
         }
-        // Priority 4: Sky X key interaction (when in home view, visible, highlighted, not yet triggered)
-        else if (currentView === 'home' && xKeyVisible && xKeyFrame === 3 && !xKeyTriggered) {
+        // Priority 2c: Pico dialogue advancement (when dialogue is showing)
+        else if (showPicoDialogue) {
+          console.log('[CombinedHomeScene] X key pressed - advancing Pico dialogue', {
+            currentIndex: picoDialogueIndex,
+            totalLines: picoDialogueLines.length,
+            nextAction: picoDialogueIndex < picoDialogueLines.length - 1 ? 'advance' : 'close'
+          });
+          
+          // Advance to next dialogue line
+          if (picoDialogueIndex < picoDialogueLines.length - 1) {
+            setPicoDialogueIndex(picoDialogueIndex + 1);
+            console.log('[CombinedHomeScene] Advanced to line', picoDialogueIndex + 1);
+          } else {
+            // End of dialogue - close dialogue and mark as interacted
+            console.log('[CombinedHomeScene] Pico dialogue complete!');
+            setShowPicoDialogue(false);
+            setPicoInteracted(true);
+            setPicoIsTalking(false);
+            
+            // Reset dialogue index after fade animation completes (0.2s transition)
+            setTimeout(() => {
+              setPicoDialogueIndex(0);
+            }, 250);
+          }
+        }
+        // Priority 2d: Pico initial interaction (new system: when pico is active interaction)
+        else if (currentView === 'home' && activeInteraction === 'pico' && !picoInteracted) {
+          console.log('[CombinedHomeScene] X key pressed near Pico - starting dialogue!');
+          
+          // Show highlighted frame
+          setInteractionFrame(3);
+          
+          // After brief highlight, start dialogue
+          setTimeout(() => {
+            setPicoSpeechBubbleVisible(false);
+            setShowPicoDialogue(true);
+            setPicoDialogueIndex(0);
+            setPicoIsTalking(true);
+          }, 150);
+        }
+        // Priority 3: Star X key interaction (when in sky view, constellation stars highlighted)
+        else if (currentView === 'sky' && !showStarDetail && skyHighlight !== 'telescope' && !showMonologue) {
+          // Check if ??? star (tutorial star) - open modal (monologue will appear on close)
+          if (skyHighlight === 'star') {
+            console.log(`[CombinedHomeScene] X key pressed on ??? star - opening modal`);
+            
+            // Open the modal showing "???" and description
+            setActiveStarId('star');
+            setShowStarDetail(true);
+          }
+          // Check if any other constellation celestial body is highlighted (TBI planet, or moons)
+          else {
+            const constellationStarIds: StarIdType[] = ['tbi', 'tbi_dosimetry', 'tbi_prescriptions', 'tbi_commissioning'];
+            if (constellationStarIds.includes(skyHighlight as StarIdType)) {
+              console.log(`[CombinedHomeScene] X key pressed on ${skyHighlight} - opening star modal!`);
+              
+              // Trigger star modal immediately (no key depression visual in sky view)
+              setActiveStarId(skyHighlight as StarIdType);
+              setShowStarDetail(true);
+            }
+          }
+        }
+        // Priority 4: Telescope interaction (new system: when telescope is active interaction)
+        else if (currentView === 'home' && activeInteraction === 'telescope' && !xKeyTriggered) {
           // Check if we should play the constellation cutscene
           const shouldPlayCutscene = hasCompletedFirstActivity && !hasSeenConstellationCutscene;
           
           console.log(`[CombinedHomeScene] X key pressed - ${shouldPlayCutscene ? 'triggering CUTSCENE' : 'triggering slow scroll to sky'}!`);
           
-          // Show depressed+highlighted frame
-          setXKeyFrame(4);
+          // Show highlighted frame
+          setInteractionFrame(3);
           
-          // After brief depression, fade away and trigger slow scroll to sky
+          // After brief highlight, fade away and trigger slow scroll to sky
           setTimeout(() => {
-            setXKeyVisible(false);
+            setActiveInteraction(null); // Clear active interaction
             setXKeyTriggered(true);
             
-            // Unhighlight telescope in home view
-            setTelescopeFrame(1);
+            // Telescope speech bubble visibility now controlled by useEffect based on game state
             
             // If about to play cutscene, mark that we're in cutscene scroll mode
             if (shouldPlayCutscene) {
@@ -2191,7 +2524,7 @@ export default function CombinedHomeScene() {
                 // No need to change it here
               }, slowDuration * 1000); // Reset after slow transition completes
             }, 100); // Small delay to ensure transition duration is set first
-          }, 150); // Brief depression visual
+          }, 150); // Brief highlight visual
         }
         // Priority 5: In sky view telescope - check if telescope is highlighted
         else if (currentView === 'sky' && skyHighlight === 'telescope') {
@@ -2216,6 +2549,63 @@ export default function CombinedHomeScene() {
           }, 100);
         }
       }
+      
+      // Handle 'c' key - in desk activity: close, in sky view: return home, in home view: pet Pico
+      if (e.key === 'c' || e.key === 'C') {
+        console.log('[C Key Debug] Pressed!', { currentView, cKeyFrame, compSheetVisible, showAnthroIntro, showTbiPositioning, showTbiResult });
+        
+        // Priority 0: Close desk activity if visible (but not during intro, TBI positioning, or result - use X key for those)
+        if (compSheetVisible && !showAnthroIntro && !showTbiPositioning && !showTbiResult) {
+          console.log('[CombinedHomeScene] C key pressed - closing desk activity');
+          handleActivityComplete();
+        }
+        // Priority 1: In sky view, return home with slow cinematic transition
+        else if (currentView === 'sky' && !showStarDetail && !isPlayingCutscene) {
+          console.log('[CombinedHomeScene] C key pressed in sky view - returning home with slow transition');
+          const slowDuration = 5.0; // 5 seconds for dramatic slow scroll like telescope return
+          setTransitionDuration(slowDuration);
+          setScrollPosition(-225); // Return to home position
+          
+          // Reset states after animation completes
+          setTimeout(() => {
+            setCurrentView('home');
+            setXKeyTriggered(false); // Reset so telescope can be used again
+            setTransitionDuration(0.8);
+          }, slowDuration * 1000);
+        }
+        // Priority 2: In home view, pet Pico when in interaction range
+        else if (currentView === 'home') {
+          const picoHorizontalOffset = kapoorPosition.x - PICO_POSITION.x;
+          const picoDistance = Math.abs(picoHorizontalOffset);
+          const INTERACTION_RANGE = PROXIMITY_THRESHOLD / 2;
+          
+          // Pico has extended interaction range to the left
+          const picoInteractionRange = picoHorizontalOffset < 0 
+            ? INTERACTION_RANGE + PICO_LEFT_EXTENSION // Left of Pico - extended range
+            : INTERACTION_RANGE; // Right of Pico - normal range
+          
+          const isNearPico = picoDistance < picoInteractionRange;
+          
+          if (isNearPico) {
+            console.log('[CombinedHomeScene] C key pressed near Pico - showing pet description!');
+            
+            // Show highlighted frame
+            setCKeyFrame(3);
+            
+            // After brief highlight, show pet description
+            setTimeout(() => {
+              setShowPetDescription(true);
+              
+              // Hide description after 3 seconds
+              setTimeout(() => {
+                setShowPetDescription(false);
+                // Reset C key frame back to normal
+                setCKeyFrame(1);
+              }, 3000);
+            }, 150);
+          }
+        }
+      }
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -2229,7 +2619,7 @@ export default function CombinedHomeScene() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [xKeyVisible, xKeyFrame, xKeyTriggered, currentView, deskXKeyVisible, deskXKeyFrame, deskXKeyTriggered, starXKeyVisible, starXKeyFrame, starXKeyTriggered, skyHighlight, showStarDetail, constellationStars, showFinalConstellation, showResults, compSheetVisible, compSheetPhase, highlightedActivity]); // Add comp-sheet activity navigation dependencies
+  }, [activeInteraction, interactionFrame, cKeyFrame, xKeyTriggered, currentView, deskXKeyTriggered, skyHighlight, showStarDetail, showMonologue, currentMonologueLineIndex, constellationStars, showFinalConstellation, showAnthroIntro, anthroIntroFrame, ANTHRO_INTRO_TOTAL_FRAMES, showTbiPositioning, showTbiResult, compSheetVisible, compSheetPhase, highlightedActivity, showPicoDialogue, showPicoBlockingDialogue, picoBlockingDialogueIndex, picoDialogueIndex, picoInteracted, kapoorPosition, hasCompletedFirstActivity, hasSeenConstellationCutscene]); // Updated for new interaction system
   
   // Arrow keys visibility timer - hide after 10 seconds
   useEffect(() => {
@@ -2241,36 +2631,26 @@ export default function CombinedHomeScene() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Quiz keyboard controls - arrow keys to navigate options, X to select
+  // TBI Positioning keyboard controls - left/right arrow keys to navigate frames
   useEffect(() => {
-    if (!showQuiz || selectedOption !== null) return; // Only active when quiz is showing and no option selected yet
+    if (!showTbiPositioning) return; // Only active when TBI positioning is showing
 
-    const handleQuizKeyDown = (e: KeyboardEvent) => {
-      if (['ArrowUp', 'ArrowDown', 'x', 'X'].includes(e.key)) {
+    const handleTbiPositioningKeyDown = (e: KeyboardEvent) => {
+      if (['ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
         e.stopPropagation(); // Stop from reaching other handlers
       }
 
-      const optionCount = quizQuestions[currentQuestionIndex].options.length;
-
-      if (e.key === 'ArrowUp') {
-        setHighlightedQuizOption(prev => Math.max(0, prev - 1));
-      } else if (e.key === 'ArrowDown') {
-        setHighlightedQuizOption(prev => Math.min(optionCount - 1, prev + 1));
-      } else if (e.key === 'x' || e.key === 'X') {
-        // Select the highlighted option
-        handleOptionSelect(highlightedQuizOption);
+      if (e.key === 'ArrowLeft') {
+        setTbiPositioningFrame(prev => Math.min(TBI_POSITIONING_TOTAL_FRAMES - 1, prev + 1));
+      } else if (e.key === 'ArrowRight') {
+        setTbiPositioningFrame(prev => Math.max(0, prev - 1));
       }
     };
 
-    window.addEventListener('keydown', handleQuizKeyDown, { capture: true }); // Use capture phase for priority
-    return () => window.removeEventListener('keydown', handleQuizKeyDown, { capture: true });
-  }, [showQuiz, selectedOption, highlightedQuizOption, currentQuestionIndex, quizQuestions]);
-
-  // Reset highlighted quiz option when question changes
-  useEffect(() => {
-    setHighlightedQuizOption(0); // Reset to first option on new question
-  }, [currentQuestionIndex]);
+    window.addEventListener('keydown', handleTbiPositioningKeyDown, { capture: true }); // Use capture phase for priority
+    return () => window.removeEventListener('keydown', handleTbiPositioningKeyDown, { capture: true });
+  }, [showTbiPositioning, TBI_POSITIONING_TOTAL_FRAMES]);
   
   // Arrow keys frame animation based on key presses
   // Frames: 1=all up, 2=right only, 3=left only, 4=up only, 5=down only, 6=multiple, 7=all up highlighted, 8=multiple highlighted
@@ -2304,86 +2684,204 @@ export default function CombinedHomeScene() {
     return () => clearInterval(interval);
   }, []);
   
-  // X key proximity detection
+  // Centralized proximity detection - checks all interactive objects and determines closest
   useEffect(() => {
-    // Don't show X key if already triggered
-    if (xKeyTriggered) {
+    // Only active in home view
+    if (currentView !== 'home') {
+      setActiveInteraction(null);
       return;
     }
     
-    const checkXKeyProximity = () => {
-      const distance = Math.sqrt(
-        Math.pow(kapoorPosition.x - X_KEY_TARGET.x, 2) + 
-        Math.pow(kapoorPosition.y - X_KEY_TARGET.y, 2)
-      );
-      
-      const isNear = distance < X_KEY_PROXIMITY_THRESHOLD;
-      setXKeyVisible(isNear);
-      
-      // Highlight when very close
-      if (isNear && distance < X_KEY_PROXIMITY_THRESHOLD / 2) {
-        setXKeyFrame(3); // Highlighted - ready for interaction!
-      } else if (isNear) {
-        setXKeyFrame(1); // Normal - nearby but not close enough
-      }
-    };
+    // Calculate distances to all interactive objects
+    const telescopeDistance = Math.sqrt(
+      Math.pow(kapoorPosition.x - TELESCOPE_POSITION.x, 2) + 
+      Math.pow(kapoorPosition.y - TELESCOPE_POSITION.y, 2)
+    );
     
-    checkXKeyProximity();
-  }, [kapoorPosition, xKeyTriggered]);
-
-  // Telescope highlighting logic - synced with X key in home view, or skyHighlight in sky view
-  useEffect(() => {
-    if (currentView === 'home') {
-      // In home view: highlight telescope when X key is highlighted (near telescope position)
-      if (xKeyVisible && xKeyFrame === 3) {
-        setTelescopeFrame(2); // Highlighted
-      } else {
-        setTelescopeFrame(1); // Normal
-      }
-    } else if (currentView === 'sky') {
-      // In sky view: highlight telescope when skyHighlight is 'telescope'
-      if (skyHighlight === 'telescope') {
-        setTelescopeFrame(2); // Highlighted
-      } else {
-        setTelescopeFrame(1); // Normal
-      }
+    const deskDistance = Math.sqrt(
+      Math.pow(kapoorPosition.x - DESK_POSITION.x, 2) + 
+      Math.pow(kapoorPosition.y - DESK_POSITION.y, 2)
+    );
+    
+    // Pico distance with extended range to the left
+    const picoHorizontalOffset = kapoorPosition.x - PICO_POSITION.x;
+    const picoDistance = Math.abs(picoHorizontalOffset);
+    
+    // Find closest interactive object within ACTUAL INTERACTION RANGE (not proximity hint range)
+    // Keys only show when actually interactable to prevent player confusion
+    const INTERACTION_RANGE = PROXIMITY_THRESHOLD / 2; // Half of original proximity threshold
+    
+    // Pico has extended interaction range to the left
+    const picoInteractionRange = picoHorizontalOffset < 0 
+      ? INTERACTION_RANGE + PICO_LEFT_EXTENSION // Left of Pico - extended range
+      : INTERACTION_RANGE; // Right of Pico - normal range
+    
+    const interactions: Array<{ type: InteractionType; distance: number; label: string; enabled: boolean; range?: number }> = [
+      { type: 'telescope', distance: telescopeDistance, label: 'Look', enabled: !xKeyTriggered },
+      { type: 'desk', distance: deskDistance, label: 'Study', enabled: deskXKeyEnabled && !deskXKeyTriggered },
+      { type: 'pico', distance: picoDistance, label: 'Talk', enabled: !picoInteracted, range: picoInteractionRange }
+    ];
+    
+    // Filter to only enabled interactions within their respective ranges
+    const nearbyInteractions = interactions.filter(i => i.enabled && i.distance < (i.range || INTERACTION_RANGE));
+    
+    if (nearbyInteractions.length === 0) {
+      setActiveInteraction(null);
+      return;
     }
-  }, [currentView, xKeyVisible, xKeyFrame, skyHighlight]);
-
-  // Desk X key proximity detection - matches sky X key behavior (show/hide based on distance)
-  // When star is viewed, enable the desk X key system
-  useEffect(() => {
-    if (deskXKeyVisible) {
-      setDeskXKeyEnabled(true);
-    }
-  }, [deskXKeyVisible]);
+    
+    // Sort by distance and take closest
+    nearbyInteractions.sort((a, b) => a.distance - b.distance);
+    const closest = nearbyInteractions[0];
+    
+    setActiveInteraction(closest.type);
+    setContextLabel(closest.label);
+    
+    // Always show unhighlighted when visible - highlighting happens on key press
+    setInteractionFrame(1); // Normal (unhighlighted)
+  }, [kapoorPosition, currentView, xKeyTriggered, deskXKeyEnabled, deskXKeyTriggered, picoInteracted]);
   
+  // Ladder arrow indicators - show up/down arrows when near ladder
   useEffect(() => {
-    // Don't check proximity if not enabled, already triggered, or not in home view
-    if (!deskXKeyEnabled || deskXKeyTriggered || currentView !== 'home') {
-      setDeskXKeyVisible(false);
+    // Constants for ladder position (matching movement logic)
+    const CLIMB_X_THRESHOLD = 545;
+    const CLIMB_X_TOLERANCE = 10;
+    const GROUND_FLOOR_Y = 467;
+    const SECOND_FLOOR_Y = 307; // 467 - 160 = 307
+    const FLOOR_TOLERANCE = 15;
+    
+    // Check if near ladder horizontally
+    const nearLadderX = Math.abs(kapoorPosition.x - CLIMB_X_THRESHOLD) < CLIMB_X_TOLERANCE;
+    
+    // Check floor positions
+    const onGroundFloor = Math.abs(kapoorPosition.y - GROUND_FLOOR_Y) < FLOOR_TOLERANCE;
+    const onSecondFloor = Math.abs(kapoorPosition.y - SECOND_FLOOR_Y) < FLOOR_TOLERANCE;
+    
+    // Show up arrow when near ladder at ground floor
+    setShowUpArrow(nearLadderX && onGroundFloor && currentView === 'home');
+    
+    // Show down arrow when near ladder at second floor
+    setShowDownArrow(nearLadderX && onSecondFloor && currentView === 'home');
+  }, [kapoorPosition, currentView]);
+
+  // === TELESCOPE SPEECH BUBBLE VISIBILITY ===
+  // Show telescope in home view initially only (hide after first inspection)
+  useEffect(() => {
+    if (currentView === 'home' && !deskXKeyEnabled) {
+      // In home view before star has been viewed - show bubble (initial state only)
+      setTelescopeSpeechBubbleVisible(true);
+    } else {
+      // All other cases: hide bubble (after first inspection, in sky view, etc.)
+      setTelescopeSpeechBubbleVisible(false);
+    }
+  }, [currentView, deskXKeyEnabled]);
+  
+  // === DESK SPEECH BUBBLE VISIBILITY ===
+  // Show desk speech bubble after viewing the star, but hide after completing first activity
+  useEffect(() => {
+    setDeskSpeechBubbleVisible(
+      currentView === 'home' && 
+      deskXKeyEnabled && 
+      !hasCompletedFirstActivity && // Hide after completing first activity
+      !compSheetVisible // Hide during comp-sheet activity
+    );
+  }, [currentView, deskXKeyEnabled, hasCompletedFirstActivity, compSheetVisible]);
+  
+  // === TELESCOPE PROXIMITY DETECTION (for speech bubble highlighting) ===
+  useEffect(() => {
+    if (!telescopeSpeechBubbleVisible) {
+      setTelescopeSpeechBubbleHighlighted(false);
       return;
     }
     
-    const checkDeskXKeyProximity = () => {
-      const distance = Math.sqrt(
-        Math.pow(kapoorPosition.x - DESK_X_KEY_TARGET.x, 2) + 
-        Math.pow(kapoorPosition.y - DESK_X_KEY_TARGET.y, 2)
+    if (currentView === 'home') {
+      // In home view: highlight when Kapoor is near telescope
+      const telescopeDistance = Math.sqrt(
+        Math.pow(kapoorPosition.x - TELESCOPE_POSITION.x, 2) + 
+        Math.pow(kapoorPosition.y - TELESCOPE_POSITION.y, 2)
       );
-      
-      const isNear = distance < DESK_X_KEY_PROXIMITY_THRESHOLD;
-      setDeskXKeyVisible(isNear); // Show/hide based on proximity
-      
-      // Highlight when very close
-      if (isNear && distance < DESK_X_KEY_PROXIMITY_THRESHOLD / 2) {
-        setDeskXKeyFrame(3); // Highlighted - ready for interaction!
-      } else if (isNear) {
-        setDeskXKeyFrame(1); // Normal - nearby but not close enough
-      }
+      setTelescopeSpeechBubbleHighlighted(telescopeDistance < PROXIMITY_THRESHOLD);
+    } else if (currentView === 'sky') {
+      // In sky view: highlight when telescope is selected (always highlighted since it's the only "return" option)
+      setTelescopeSpeechBubbleHighlighted(true);
+    } else {
+      setTelescopeSpeechBubbleHighlighted(false);
+    }
+  }, [currentView, telescopeSpeechBubbleVisible, kapoorPosition]);
+  
+  // === DESK PROXIMITY DETECTION (for speech bubble highlighting in home view only) ===
+  useEffect(() => {
+    if (!deskSpeechBubbleVisible || currentView !== 'home') {
+      setDeskSpeechBubbleHighlighted(false);
+      return;
+    }
+    
+    // In home view: highlight when Kapoor is near desk
+    const deskDistance = Math.sqrt(
+      Math.pow(kapoorPosition.x - DESK_POSITION.x, 2) + 
+      Math.pow(kapoorPosition.y - DESK_POSITION.y, 2)
+    );
+    setDeskSpeechBubbleHighlighted(deskDistance < PROXIMITY_THRESHOLD);
+  }, [currentView, deskSpeechBubbleVisible, kapoorPosition]);
+  
+  // === TELESCOPE SPEECH BUBBLE ANIMATION ===
+  useEffect(() => {
+    if (!telescopeSpeechBubbleVisible) return;
+    
+    const BUBBLE_FRAME_SPEED = 150; // ms per frame
+    let bubbleFrameCount = 1;
+    
+    const animateBubble = () => {
+      bubbleFrameCount = (bubbleFrameCount % 4) + 1; // Cycle 1-4
+      setTelescopeSpeechBubbleFrame(bubbleFrameCount);
     };
     
-    checkDeskXKeyProximity();
-  }, [kapoorPosition, deskXKeyEnabled, deskXKeyTriggered, currentView]);
+    const bubbleInterval = setInterval(animateBubble, BUBBLE_FRAME_SPEED);
+    
+    return () => clearInterval(bubbleInterval);
+  }, [telescopeSpeechBubbleVisible]);
+  
+  // === DESK SPEECH BUBBLE ANIMATION ===
+  useEffect(() => {
+    if (!deskSpeechBubbleVisible) return;
+    
+    const BUBBLE_FRAME_SPEED = 150; // ms per frame
+    let bubbleFrameCount = 1;
+    
+    const animateBubble = () => {
+      bubbleFrameCount = (bubbleFrameCount % 4) + 1; // Cycle 1-4
+      setDeskSpeechBubbleFrame(bubbleFrameCount);
+    };
+    
+    const bubbleInterval = setInterval(animateBubble, BUBBLE_FRAME_SPEED);
+    
+    return () => clearInterval(bubbleInterval);
+  }, [deskSpeechBubbleVisible]);
+  
+  // C key (Pet) proximity detection for Pico - only shows when in actual interaction range
+  useEffect(() => {
+    if (currentView !== 'home') {
+      setCKeyFrame(1);
+      return;
+    }
+    
+    const picoHorizontalOffset = kapoorPosition.x - PICO_POSITION.x;
+    const picoDistance = Math.abs(picoHorizontalOffset);
+    const INTERACTION_RANGE = PROXIMITY_THRESHOLD / 2; // Same as X key interaction range
+    
+    // Pico has extended interaction range to the left
+    const picoInteractionRange = picoHorizontalOffset < 0 
+      ? INTERACTION_RANGE + PICO_LEFT_EXTENSION // Left of Pico - extended range
+      : INTERACTION_RANGE; // Right of Pico - normal range
+    
+    // Only show C key when in actual interaction range (unhighlighted)
+    // Highlighting happens on key press to prevent confusion
+    if (picoDistance < picoInteractionRange) {
+      setCKeyFrame(1); // Normal (unhighlighted)
+    } else {
+      setCKeyFrame(1); // Not visible when out of range
+    }
+  }, [kapoorPosition, currentView]);
   
   // Kapoor movement and animation - keyboard controlled
   useEffect(() => {
@@ -2431,6 +2929,26 @@ export default function CombinedHomeScene() {
         
         // Handle climbing up
         if (nearClimbPoint && upPressed && !leftPressed && !rightPressed) {
+          // PICO BLOCKING: Check if player hasn't talked to Pico yet - freeze and show blocking dialogue
+          if (!picoInteracted) {
+            console.log('[CombinedHomeScene] Pico blocks ladder - player must talk to Pico first!');
+            // Freeze Kapoor at ladder
+            isClimbing = true;
+            isFrozenOnLadder = true;
+            setKapoorIsClimbing(true);
+            setKapoorIsWalking(false);
+            // Show Pico's blocking dialogue
+            // If first time: show message 0 (both messages), otherwise show message 1 (just the demand)
+            if (!hasShownFirstBlockingMessage) {
+              setPicoBlockingDialogueIndex(0); // Start with first message
+            } else {
+              setPicoBlockingDialogueIndex(1); // Skip to second message for repeat offenders
+            }
+            setShowPicoBlockingDialogue(true);
+            setPicoIsTalking(true); // Pico starts talking animation
+            return currentPos; // Stay at current position
+          }
+          
           // Check if at ceiling (second floor)
           if (currentPos.y <= SECOND_FLOOR_Y) {
             console.log('[CombinedHomeScene] At ceiling - cannot climb higher, freezing animation');
@@ -2602,47 +3120,92 @@ export default function CombinedHomeScene() {
         clearInterval(kapoorAnimationRef.current);
       }
     };
-  }, [climbingStartY, currentView]); // Depend on climbingStartY and currentView to track state changes
+  }, [climbingStartY, currentView, picoInteracted, showPicoBlockingDialogue, hasShownFirstBlockingMessage]); // Depend on climbingStartY, currentView, and Pico interaction state
+  
+  // === PICO ANIMATION LOOP ===
+  useEffect(() => {
+    const FRAME_INTERVAL = 16; // ~60fps
+    const PICO_IDLE_FRAME_SPEED = 8; // Slower animation for idle
+    
+    const animatePico = () => {
+      // Update animation frame
+      picoFrameTickRef.current++;
+      if (picoFrameTickRef.current >= PICO_IDLE_FRAME_SPEED) {
+        picoFrameTickRef.current = 0;
+        picoFrameCountRef.current++;
+        setPicoFrame(picoFrameCountRef.current);
+      }
+    };
+    
+    // Start animation loop
+    picoAnimationRef.current = setInterval(animatePico, FRAME_INTERVAL);
+    
+    return () => {
+      if (picoAnimationRef.current) {
+        clearInterval(picoAnimationRef.current);
+      }
+    };
+  }, [picoIsTalking]); // Re-run when talking state changes
+  
+  // === PICO SPEECH BUBBLE VISIBILITY (always shown until interaction) ===
+  useEffect(() => {
+    // Show speech bubble if not interacted and in home view
+    if (!picoInteracted && currentView === 'home' && !showPicoDialogue) {
+      setPicoSpeechBubbleVisible(true);
+    } else {
+      setPicoSpeechBubbleVisible(false);
+    }
+  }, [picoInteracted, currentView, showPicoDialogue]);
+  
+  // === PICO PROXIMITY DETECTION (for speech bubble highlighting) ===
+  useEffect(() => {
+    if (!picoSpeechBubbleVisible) {
+      setPicoSpeechBubbleHighlighted(false);
+      return;
+    }
+    
+    const checkPicoProximity = () => {
+      // Only check horizontal distance since this is a side-view 2D game
+      // (Characters are bottom-aligned but at different y positions)
+      const horizontalDistance = Math.abs(kapoorPosition.x - PICO_POSITION.x);
+      
+      const isNear = horizontalDistance < PICO_PROXIMITY_THRESHOLD;
+      
+      // Debug logging to verify proximity detection
+      if (isNear !== picoSpeechBubbleHighlighted) {
+        console.log(`[Pico] Horizontal distance: ${horizontalDistance.toFixed(0)}px, Threshold: ${PICO_PROXIMITY_THRESHOLD}px, Highlighting: ${isNear}`);
+      }
+      
+      setPicoSpeechBubbleHighlighted(isNear);
+    };
+    
+    checkPicoProximity();
+  }, [kapoorPosition, picoSpeechBubbleVisible, picoSpeechBubbleHighlighted]);
+  
+  // === SPEECH BUBBLE ANIMATION ===
+  useEffect(() => {
+    if (!picoSpeechBubbleVisible) return;
+    
+    const BUBBLE_FRAME_SPEED = 150; // ms per frame
+    let bubbleFrameCount = 1;
+    
+    const animateBubble = () => {
+      bubbleFrameCount = (bubbleFrameCount % 4) + 1; // Cycle 1-4
+      setPicoSpeechBubbleFrame(bubbleFrameCount);
+    };
+    
+    const bubbleInterval = setInterval(animateBubble, BUBBLE_FRAME_SPEED);
+    
+    return () => clearInterval(bubbleInterval);
+  }, [picoSpeechBubbleVisible]);
   
   // Simplified tutorial state (no complex guided tour)
   const shownSpotlightsRef = useRef(new Set<string>());
   
-  // Debug: Track tutorial step changes with deduplication
-  const lastLoggedStep = useRef<string | null>(null);
-  useEffect(() => {
-    if (currentStep && currentStep !== lastLoggedStep.current) {
-      console.log(`[CombinedHomeScene] 📚 Tutorial step changed to: ${currentStep}`);
-      console.log(`[CombinedHomeScene] 📚 State: currentView=${currentView}, scrollPosition=${scrollPosition}`);
-      lastLoggedStep.current = currentStep;
-    }
-  }, [currentStep, currentView, scrollPosition]);
-  
-  // Single-source tutorial progression - prevent multiple triggers
-  const tutorialProcessingRef = useRef(false);
-  useEffect(() => {
-    if (currentStep === 'night_phase_intro' && !hasProcessedRef.current && !tutorialProcessingRef.current) {
-      // First time arriving home - advance to home_intro step
-      console.log('[CombinedHomeScene] 🎯 Processing night_phase_intro transition (single-source)');
-      hasProcessedRef.current = true;
-      tutorialProcessingRef.current = true;
-      
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          if (tutorialProcessingRef.current) { // Double-check we haven't been cancelled
-            console.log('[CombinedHomeScene] 🎯 Completing night_phase_intro');
-            completeStep('night_phase_intro');
-            tutorialProcessingRef.current = false;
-          }
-        }, 100);
-      });
-    }
-  }, [currentStep, completeStep]);
-
   // Show welcome panel when scene loads (only once) - with debouncing
   const welcomeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    if (currentStep === 'home_intro' && !hasShownWelcomeRef.current) {
+    if (!hasShownWelcomeRef.current) {
       hasShownWelcomeRef.current = true;
       
       // Clear any existing timeout
@@ -2663,52 +3226,16 @@ export default function CombinedHomeScene() {
         clearTimeout(welcomeTimeoutRef.current);
       }
     };
-  }, [currentStep]); // guidedTourStep intentionally excluded to prevent retriggering
-
-  // Tutorial overlay removed - users can explore freely after welcome panel
-
-  // Note: Simplified guided tour - we now go directly to telescope after welcome modal
-  // The telescope spotlight is shown in the welcome modal timeout effect above
-  // No need for complex multi-step guided tour sequence
-
-  // Simplified desk click handler
-  const handleDeskClickWithTutorial = () => {
-    handleDeskClick();
-  };
+  }, []);
 
   // Simplified telescope click handler
   const handleTelescopeClickWithTutorial = () => {
-    console.log(`[CombinedHomeScene] 🔭 Telescope clicked! currentStep=${currentStep}, currentView=${currentView}`);
-    
-    if (currentStep === 'home_intro') {
-      // First time tutorial - scroll to sky view and advance tutorial
-      console.log('[CombinedHomeScene] Telescope clicked during home_intro - scrolling to sky view');
-      dismissAllOverlays();
-      handleTelescopeClick();
-      
-      // After scroll animation, advance tutorial
-      setTimeout(() => {
-        const { skipToStep } = useTutorialStore.getState();
-        skipToStep('constellation_intro');
-      }, 800);
-    } else if (currentStep === 'constellation_available') {
-      // User is ready for constellation tutorial
-      console.log('[CombinedHomeScene] Telescope clicked during constellation_available');
-      completeStep('constellation_available');
-      handleTelescopeClick();
-    } else {
-      // Default behavior for all other states
-      handleTelescopeClick();
-    }
+    console.log(`[CombinedHomeScene] 🔭 Telescope clicked! currentView=${currentView}`);
+    handleTelescopeClick();
   };
 
   // Simplified bed click handler
   const handleBedClickWithTutorial = () => {
-    if (currentStep === 'home_intro') {
-      // Complete home intro tutorial and advance day
-      dismissAllOverlays();
-      completeStep('home_intro');
-    }
     handleBedClick();
   };
 
@@ -2766,16 +3293,51 @@ export default function CombinedHomeScene() {
           $transitionDuration={transitionDuration}
           $elevated={skyHighlight === 'star' || skyHighlight.startsWith('planet_') || skyHighlight === 'tbi' || skyHighlight.startsWith('tbi_')}
         >
+          {/* Telescope speech bubble - shown in home view */}
+          <SpeechBubbleSprite
+            $frame={telescopeSpeechBubbleFrame}
+            $visible={telescopeSpeechBubbleVisible}
+            $highlighted={telescopeSpeechBubbleHighlighted}
+            style={{
+              left: `${TELESCOPE_POSITION.x - 16}px`, // Moved 15px left from original -1px position
+              top: `${TELESCOPE_POSITION.y - 20}px`,  // Hover above telescope
+            }}
+          />
+          
+          {/* Desk speech bubble - shown in home view after viewing star */}
+          <SpeechBubbleSprite
+            $frame={deskSpeechBubbleFrame}
+            $visible={deskSpeechBubbleVisible}
+            $highlighted={deskSpeechBubbleHighlighted}
+            style={{
+              left: `${DESK_POSITION.x - 1}px`, // Center above desk
+              top: `${DESK_POSITION.y - 20}px`,  // Hover above desk
+            }}
+          />
+          
           {/* Star sprite - visible until final constellation replaces it */}
           {!showFinalConstellation && (
-            <StarSprite
-              $frame={tutorialStarFrame}
-              style={{ 
-                left: `${PRIMAREUS_POSITION.x}px`, 
-                top: `${PRIMAREUS_POSITION.y}px`,
-                opacity: isPlayingCutscene ? cutsceneStarOpacity : 1, // Apply oscillating opacity during cutscene
-              }}
-            />
+            <>
+              <StarSprite
+                $frame={tutorialStarFrame}
+                style={{ 
+                  left: `${PRIMAREUS_POSITION.x}px`, 
+                  top: `${PRIMAREUS_POSITION.y}px`,
+                  opacity: isPlayingCutscene ? cutsceneStarOpacity : 1, // Apply oscillating opacity during cutscene
+                }}
+              />
+              
+              {/* Speech bubble above star - shown in sky view */}
+              <SpeechBubbleSprite
+                $frame={starSpeechBubbleFrame}
+                $visible={starSpeechBubbleVisible}
+                $highlighted={starSpeechBubbleHighlighted}
+                style={{
+                  left: `${PRIMAREUS_POSITION.x - 1}px`, // Center above star (14px star - 16px bubble, offset 1px left)
+                  top: `${PRIMAREUS_POSITION.y - 20}px`,  // Hover above star
+                }}
+              />
+            </>
           )}
 
           {/* Final constellation - TBI planet at center with orbiting moons */}
@@ -2859,6 +3421,67 @@ export default function CombinedHomeScene() {
                 }}
               />
               
+              {/* Pico the cat - idle animation, switches to talking when interacted */}
+              <PicoSprite
+                $frame={picoFrame}
+                $isTalking={picoIsTalking}
+                style={{
+                  left: `${PICO_POSITION.x}px`,
+                  top: `${PICO_POSITION.y}px`,
+                }}
+              />
+              
+              {/* Speech bubble above Pico - always visible until interaction, highlights when Kapoor is near */}
+              <SpeechBubbleSprite
+                $frame={picoSpeechBubbleFrame}
+                $visible={picoSpeechBubbleVisible}
+                $highlighted={picoSpeechBubbleHighlighted}
+                style={{
+                  left: `${PICO_POSITION.x + 6}px`, // Center above Pico (28px cat - 16px bubble = 12px / 2 = 6px)
+                  top: `${PICO_POSITION.y - 20}px`,  // Hover above Pico's head
+                }}
+              />
+              
+              {/* Pico Dialogue Text - Follows the speaking character */}
+              <PicoDialogueText 
+                $visible={showPicoDialogue}
+                style={{
+                  // Position text box near the current speaker
+                  left: picoDialogueLines[picoDialogueIndex].speaker === 'Pico' 
+                    ? `${PICO_POSITION.x + 10}px`  // 10px to the right of Pico
+                    : `${kapoorPosition.x - 90}px`, // 90px to the left of Kapoor (160px width - 70px center offset)
+                  top: picoDialogueLines[picoDialogueIndex].speaker === 'Pico'
+                    ? `${PICO_POSITION.y - 80}px`  // Above Pico's head
+                    : `${kapoorPosition.y - 65}px`, // Above Kapoor's head (nudged down from -80)
+                }}
+              >
+                <PicoSpeakerLabel>
+                  {picoDialogueLines[picoDialogueIndex].speaker}
+                </PicoSpeakerLabel>
+                <div>{picoDialogueLines[picoDialogueIndex].text}</div>
+                <PicoContinueHint>
+                  {picoDialogueIndex < picoDialogueLines.length - 1 ? '(X to continue)' : '(X to close)'}
+                </PicoContinueHint>
+              </PicoDialogueText>
+              
+              {/* Pico Blocking Dialogue - When player tries to climb without talking first */}
+              <PicoDialogueText 
+                $visible={showPicoBlockingDialogue}
+                style={{
+                  // Always positioned near Pico since blocking dialogue is always from Pico
+                  left: `${PICO_POSITION.x + 10}px`,  // 10px to the right of Pico
+                  top: `${PICO_POSITION.y - 100}px`,  // Above Pico's head (nudged up from -80)
+                }}
+              >
+                <PicoSpeakerLabel>
+                  {picoBlockingDialogue[picoBlockingDialogueIndex].speaker}
+                </PicoSpeakerLabel>
+                <div>{picoBlockingDialogue[picoBlockingDialogueIndex].text}</div>
+                <PicoContinueHint>
+                  {picoBlockingDialogueIndex < picoBlockingDialogue.length - 1 ? '(X to continue)' : '(X to close)'}
+                </PicoContinueHint>
+              </PicoDialogueText>
+              
               {/* Arrow keys tutorial - hover over Kapoor for first 20 seconds */}
               <ArrowKeysSprite
                 $frame={arrowKeysFrame}
@@ -2869,35 +3492,113 @@ export default function CombinedHomeScene() {
                 }}
               />
               
-              {/* X key tutorial - stationary position, shows when Kapoor is nearby */}
+              {/* Player-following X key - shows when near interactive objects with contextual labels */}
               <XKeySprite
-                $frame={xKeyFrame}
-                $visible={xKeyVisible}
+                $frame={interactionFrame}
+                $visible={activeInteraction !== null && currentView === 'home' && !showPicoDialogue && !showPicoBlockingDialogue && !compSheetVisible}
                 style={{
-                  left: `${X_KEY_TARGET.x}px`,
-                  top: `${X_KEY_TARGET.y - 25}px`, // Hover above target position
+                  left: `${kapoorPosition.x + 36}px`, // Upper right of Kapoor
+                  top: `${kapoorPosition.y - 5}px`,
                 }}
               />
               
-              {/* Desk X key - shows after star is clicked, guides player to desk */}
-              <XKeySprite
-                $frame={deskXKeyFrame}
-                $visible={deskXKeyVisible && currentView === 'home'}
+              {/* Contextual label for X key - shows what action will be performed */}
+              <ContextLabel
+                $visible={activeInteraction !== null && currentView === 'home' && !showPicoDialogue && !compSheetVisible}
                 style={{
-                  left: `${DESK_X_KEY_TARGET.x}px`,
-                  top: `${DESK_X_KEY_TARGET.y}px`,
+                  left: `${kapoorPosition.x + 55}px`, // Right of X key sprite (30px offset + 15px sprite + 2px gap)
+                  top: `${kapoorPosition.y - 5}px`, // Aligned with key sprite
                 }}
-              />
+              >
+                {contextLabel}
+              </ContextLabel>
               
-              {/* Star X key - shows next to star when in sky view and star is highlighted (not during cutscene) */}
-              <XKeySprite
-                $frame={starXKeyFrame}
-                $visible={starXKeyVisible && currentView === 'sky' && skyHighlight === 'star' && !isPlayingCutscene}
+              {/* C key for petting Pico - shows when in actual interaction range, stacked below X key if both visible */}
+              {(() => {
+                const picoHorizontalOffset = kapoorPosition.x - PICO_POSITION.x;
+                const picoDistance = Math.abs(picoHorizontalOffset);
+                const INTERACTION_RANGE = PROXIMITY_THRESHOLD / 2; // Same range as X key interactions
+                
+                // Pico has extended interaction range to the left
+                const picoInteractionRange = picoHorizontalOffset < 0 
+                  ? INTERACTION_RANGE + PICO_LEFT_EXTENSION // Left of Pico - extended range
+                  : INTERACTION_RANGE; // Right of Pico - normal range
+                
+                const isNearPico = picoDistance < picoInteractionRange;
+                const showCKey = isNearPico && currentView === 'home' && !showPicoDialogue && !showPicoBlockingDialogue && !compSheetVisible;
+                const yOffset = (activeInteraction === 'pico' && !picoInteracted) ? 18 : 0; // Stack below X key if Talk is showing
+                
+                return (
+                  <>
+                    <CKeySprite
+                      $frame={cKeyFrame}
+                      $visible={showCKey}
+                      style={{
+                        left: `${kapoorPosition.x + 36}px`, // Same x position as X key
+                        top: `${kapoorPosition.y - 5 + yOffset}px`, // Stack below X key if both showing
+                      }}
+                    />
+                    <ContextLabel
+                      $visible={showCKey}
+                      style={{
+                        left: `${kapoorPosition.x + 55}px`, // Right of C key sprite (30px offset + 15px sprite + 2px gap)
+                        top: `${kapoorPosition.y - 5 + yOffset}px`, // Aligned with key sprite
+                      }}
+                    >
+                      Pet
+                    </ContextLabel>
+                  </>
+                );
+              })()}
+              
+              {/* Pet description textbox - appears after petting Pico */}
+              <PetDescriptionBox
+                $visible={showPetDescription}
                 style={{
-                  left: `${STAR_X_KEY_POSITION.x}px`,
-                  top: `${STAR_X_KEY_POSITION.y}px`,
+                  left: `${PICO_POSITION.x + 35}px`, // To the right of Pico
+                  top: `${PICO_POSITION.y - 60}px`, // Above Pico
+                }}
+              >
+                Pico though tough on the outside is a softie for a nice head pat
+              </PetDescriptionBox>
+              
+              {/* Up arrow - shows when near ladder at ground floor */}
+              <UpArrowSprite
+                $frame={upArrowFrame}
+                $visible={showUpArrow && !showPicoDialogue && !compSheetVisible}
+                style={{
+                  left: `${kapoorPosition.x + 36}px`, // Same x position as X key
+                  top: `${kapoorPosition.y - 5}px`,
                 }}
               />
+              <ContextLabel
+                $visible={showUpArrow && !showPicoDialogue && !compSheetVisible}
+                style={{
+                  left: `${kapoorPosition.x + 55}px`,
+                  top: `${kapoorPosition.y - 5}px`,
+                }}
+              >
+                Climb
+              </ContextLabel>
+              
+              {/* Down arrow - shows when near ladder at second floor */}
+              <DownArrowSprite
+                $frame={downArrowFrame}
+                $visible={showDownArrow && !showPicoDialogue && !compSheetVisible}
+                style={{
+                  left: `${kapoorPosition.x + 36}px`, // Same x position as X key
+                  top: `${kapoorPosition.y - 5}px`,
+                }}
+              />
+              <ContextLabel
+                $visible={showDownArrow && !showPicoDialogue && !compSheetVisible}
+                style={{
+                  left: `${kapoorPosition.x + 55}px`,
+                  top: `${kapoorPosition.y - 5}px`,
+                }}
+              >
+                Descend
+              </ContextLabel>
               
               {/* Visual boundary debugging */}
               {DEBUG_BOUNDARIES && (
@@ -2995,12 +3696,11 @@ export default function CombinedHomeScene() {
                 }}
               />
 
-              {/* Desk area */}
+              {/* Desk area - X key interaction only (no click handler) */}
               <ClickableArea
                 data-testid="home-desk-area"
                 $isHovered={false}
                 style={{ left: '5px', top: '510px', width: '120px', height: '72px' }}
-                onClick={handleDeskClickWithTutorial}
               />
               
               {/* Exclamation mark on desk when cards need equipping */}
@@ -3108,6 +3808,10 @@ export default function CombinedHomeScene() {
 
         {/* Star Detail Modal - Rendered within the 640×360 coordinate system */}
         {showStarDetail && (() => {
+          // Only show modal for supported star types (not planets)
+          const validStarIds = ['star', 'tbi', 'tbi_dosimetry', 'tbi_prescriptions', 'tbi_commissioning'];
+          if (!validStarIds.includes(activeStarId)) return null;
+          
           // Calculate the current frame for the active celestial body
           // TBI constellation now uses planetary-sheet.png: planet uses frame 2, moons use frame 0 (small moon)
           const currentStarFrame = activeStarId === 'star' ? tutorialStarFrame :
@@ -3115,7 +3819,7 @@ export default function CombinedHomeScene() {
           
           return (
             <StarDetailModal 
-              starId={activeStarId}
+              starId={activeStarId as 'star' | 'tbi' | 'tbi_dosimetry' | 'tbi_prescriptions' | 'tbi_commissioning'}
               onClose={handleCloseStarDetail}
               starFrame={currentStarFrame}
               isUnlocked={starUnlocked}
@@ -3126,48 +3830,63 @@ export default function CombinedHomeScene() {
           );
         })()}
 
+        {/* Backdrop overlay - darkens and blurs when comp-sheet is visible */}
+        <CompSheetBackdrop $visible={compSheetVisible} />
+
         {/* Comp-sheet composite layer system - appears when desk interaction starts */}
         {compSheetVisible && (
           <>
-            {/* Layer 1: Window frame (always visible when comp-sheet is shown) */}
-            <CompWindowLayer
+            {/* Layer 1a: Monitor frame with black fill (base layer) */}
+            <CompMonitorLayer
               $visible={compSheetVisible}
               style={{
-                left: '20px', // Center horizontally (640 - 600 = 40, 40/2 = 20)
-                top: '0px',
+                left: '170px', // Center horizontally (640 - 300 = 340, 340/2 = 170)
+                top: '90px', // Center vertically (360 - 180 = 180, 180/2 = 90)
               }}
             />
             
-            {/* Layer 2: Activity base (visible until activity selected) */}
-            <CompActivityLayer
-              $visible={compSheetPhase === 'waiting'}
+            {/* Layer 1b: Screen color overlay (blue for menu, dark for activity/intro/result) */}
+            {/* Hidden during booting and fading_to_black phases to show black monitor underneath */}
+            <CompScreenLayer
+              $visible={compSheetPhase !== 'booting' && compSheetPhase !== 'fading_to_black' && compSheetPhase !== 'intro_fading_to_black' && compSheetPhase !== 'result_fading_to_black'}
+              $variant={compSheetPhase === 'intro' || compSheetPhase === 'fading_from_black' || compSheetPhase === 'activity' || compSheetPhase === 'result_fading_from_black' || compSheetPhase === 'result' ? 'dark' : 'blue'}
               style={{
-                left: '20px',
-                top: '0px',
+                left: '170px',
+                top: '90px',
               }}
             />
             
-            {/* Layer 3: Activity options highlights (visible until activity selected) */}
+            {/* Layer 2: Activity base (visible during boot fade-in and waiting) */}
+            <CompActivityLayer
+              $visible={compSheetPhase === 'booting_fade_in' || compSheetPhase === 'waiting'}
+              style={{
+                left: '170px',
+                top: '90px',
+              }}
+            />
+            
+            {/* Layer 3: Activity options highlights (visible during boot fade-in, waiting, and transitioning) */}
             <CompOptionsLayer
               $frame={compOptionsFrame}
-              $visible={compSheetPhase === 'waiting' || compSheetPhase === 'transitioning'}
+              $visible={compSheetPhase === 'booting_fade_in' || compSheetPhase === 'waiting' || compSheetPhase === 'transitioning'}
               style={{
-                left: '20px',
-                top: '0px',
+                left: '170px',
+                top: '90px',
               }}
             />
             
-            {/* Layer 4: Activity option 1 animation (visible until activity selected) */}
+            {/* Layer 4: Activity option 1 animation (visible during boot fade-in and waiting) */}
             <CompOption1Layer
               $frame={compOption1Frame}
-              $visible={compSheetPhase === 'waiting'}
+              $visible={compSheetPhase === 'booting_fade_in' || compSheetPhase === 'waiting'}
               style={{
-                left: '20px',
-                top: '0px',
+                left: '170px',
+                top: '90px',
               }}
             />
             
             {/* Activity click regions - only visible during waiting phase */}
+            {/* Positions scaled from 600×360 to 300×180, offset by comp position (170, 90) */}
             {compSheetPhase === 'waiting' && (
               <>
                 {/* Top-left activity (0) */}
@@ -3177,10 +3896,10 @@ export default function CombinedHomeScene() {
                   onMouseLeave={() => setHoveredActivity(null)}
                   onClick={() => handleActivitySelect(0)}
                   style={{
-                    left: '50px',
-                    top: '50px',
-                    width: '120px',
-                    height: '100px',
+                    left: '185px',
+                    top: '115px',
+                    width: '60px',
+                    height: '50px',
                   }}
                 />
                 
@@ -3191,10 +3910,10 @@ export default function CombinedHomeScene() {
                   onMouseLeave={() => setHoveredActivity(null)}
                   onClick={() => handleActivitySelect(1)}
                   style={{
-                    left: '450px',
-                    top: '50px',
-                    width: '120px',
-                    height: '100px',
+                    left: '385px',
+                    top: '115px',
+                    width: '60px',
+                    height: '50px',
                   }}
                 />
                 
@@ -3205,10 +3924,10 @@ export default function CombinedHomeScene() {
                   onMouseLeave={() => setHoveredActivity(null)}
                   onClick={() => handleActivitySelect(2)}
                   style={{
-                    left: '50px',
-                    top: '210px',
-                    width: '120px',
-                    height: '100px',
+                    left: '185px',
+                    top: '195px',
+                    width: '60px',
+                    height: '50px',
                   }}
                 />
                 
@@ -3219,10 +3938,10 @@ export default function CombinedHomeScene() {
                   onMouseLeave={() => setHoveredActivity(null)}
                   onClick={() => handleActivitySelect(3)}
                   style={{
-                    left: '240px',
-                    top: '210px',
-                    width: '120px',
-                    height: '100px',
+                    left: '280px',
+                    top: '195px',
+                    width: '60px',
+                    height: '50px',
                   }}
                 />
                 
@@ -3233,67 +3952,92 @@ export default function CombinedHomeScene() {
                   onMouseLeave={() => setHoveredActivity(null)}
                   onClick={() => handleActivitySelect(4)}
                   style={{
-                    left: '450px',
-                    top: '210px',
-                    width: '120px',
-                    height: '100px',
+                    left: '385px',
+                    top: '195px',
+                    width: '60px',
+                    height: '50px',
                   }}
                 />
               </>
             )}
             
-            {/* Quiz overlay - renders on top of comp-sheet when active */}
-            {showQuiz && (
-              <QuizOverlay 
-                key={quizAnimationKey}
-                $isDissolving={isDissolving}
-                style={{ left: '20px', top: '0px' }}
-              >
-                <WindowContainer size="lg" style={{ width: '500px', maxWidth: '500px' }}>
-                  <QuizQuestion>{quizQuestions[currentQuestionIndex].question}</QuizQuestion>
-                  <QuizOptions>
-                    {quizQuestions[currentQuestionIndex].options.map((option, index) => (
-                      <ExpandableAnswerContainer
-                        key={index}
-                        domain="planning"
-                        size="sm"
-                        isActive={selectedOption === index}
-                        isHovered={highlightedQuizOption === index && selectedOption === null}
-                        onClick={() => handleOptionSelect(index)}
-                        style={{ cursor: 'pointer', width: 'fit-content' }}
-                      >
-                        <QuizOptionText $isSelected={selectedOption === index}>
-                          {option}
-                        </QuizOptionText>
-                      </ExpandableAnswerContainer>
-                    ))}
-                  </QuizOptions>
-                </WindowContainer>
-              </QuizOverlay>
-            )}
+            {/* Anthro intro dialogue - 4 frame sequence advanced with X key */}
+            <AnthroIntroLayer
+              $frame={anthroIntroFrame}
+              $visible={showAnthroIntro}
+              style={{
+                left: '170px', // Same position as comp layers
+                top: '90px',
+              }}
+            />
             
-            {/* Results screen - shows on comp-sheet after quiz completes */}
-            {showResults && (
-              <QuizOverlay 
-                style={{ left: '20px', top: '0px' }}
-              >
-                <WindowContainer size="lg" style={{ width: '500px', maxWidth: '500px' }}>
-                  <QuizResults>
-                    <div style={{ marginBottom: '20px' }}>
-                      Quiz Complete!
-                    </div>
-                    <div style={{ fontSize: '18px' }}>
-                      You got {userAnswers.filter((answer, idx) => answer === quizQuestions[idx].correctAnswer).length} out of {quizQuestions.length} correct
-                    </div>
-                    <div style={{ fontSize: '14px', marginTop: '30px', color: '#999' }}>
-                      Press X to continue
-                    </div>
-                  </QuizResults>
-                </WindowContainer>
-              </QuizOverlay>
-            )}
+            {/* TBI Positioning viewer - sprite sheet navigation with arrow keys */}
+            <TbiPositioningLayer
+              $frame={tbiPositioningFrame}
+              $visible={showTbiPositioning}
+              style={{
+                left: '170px', // Same position as comp layers
+                top: '90px',
+              }}
+            />
+            
+            {/* TBI Result - animated result screen after positioning complete */}
+            <TbiResultLayer
+              $frame={tbiResultFrame}
+              $visible={showTbiResult}
+              style={{
+                left: '170px', // Same position as comp layers
+                top: '90px',
+              }}
+            />
           </>
         )}
+        
+        {/* Sky view interaction indicator - fixed at bottom center, shows X (Inspect) and C (Return) keys */}
+        <SkyInteractionIndicator $visible={currentView === 'sky' && !showStarDetail && !isPlayingCutscene && !showMonologue}>
+          <SkyKeyRow>
+            <SkyXKeySprite $frame={skyXKeyFrame} />
+            <SkyActionLabel>Inspect</SkyActionLabel>
+          </SkyKeyRow>
+          <SkyKeyRow>
+            <SkyCKeySprite $frame={skyCKeyFrame} />
+            <SkyActionLabel>Return</SkyActionLabel>
+          </SkyKeyRow>
+        </SkyInteractionIndicator>
+        
+        {/* Desk activity interaction indicator - fixed at bottom center during desk activities */}
+        <DeskInteractionIndicator $visible={compSheetVisible}>
+          <DeskKeyRow>
+            <DeskXKeySprite $frame={deskXKeyFrame} />
+            <DeskActionLabel>Select</DeskActionLabel>
+          </DeskKeyRow>
+          <DeskKeyRow>
+            <DeskCKeySprite $frame={deskCKeyFrame} />
+            <DeskActionLabel>Close</DeskActionLabel>
+          </DeskKeyRow>
+        </DeskInteractionIndicator>
+        
+        {/* Kapoor monologue - appears after closing ??? star modal (positioned relative to Kapoor like Pico dialogue) */}
+        {(() => {
+          const isLastLine = currentMonologueLineIndex >= monologueLines.length - 1;
+          
+          return (
+            <KapoorMonologue
+              $visible={showMonologue && currentView === 'sky'}
+              style={{
+                left: `${kapoorPosition.x - 70}px`, // Positioned relative to Kapoor (140px width / 2 = 70px center offset)
+                top: `${kapoorPosition.y - 120}px`, // Higher up in sky view for better visibility
+              }}
+            >
+              <KapoorSpeakerLabel>Kapoor</KapoorSpeakerLabel>
+              <div>{monologueLines[currentMonologueLineIndex]}</div>
+              <KapoorContinueHint>
+                {isLastLine ? '(X to close)' : '(X to continue)'}
+              </KapoorContinueHint>
+            </KapoorMonologue>
+          );
+        })()}
+        
       </JumboViewport>
 
       {/* Boom effect overlay (full-screen flash + pulse during cutscene) */}
@@ -3302,15 +4046,6 @@ export default function CombinedHomeScene() {
       {/* Cinematic letterbox bars - slide in AFTER scroll completes, during cutscene only */}
       <CinematicLetterbox $visible={isPlayingCutscene} $position="top" />
       <CinematicLetterbox $visible={isPlayingCutscene} $position="bottom" />
-
-      {/* Ability Interface Modal - Rendered outside scaled container using portal */}
-      {showAbilityInterface && createPortal(
-        <AbilityCardInterface
-          onClose={handleCloseAbilityInterface}
-        />,
-        document.body
-      )}
-
 
     </>
   );

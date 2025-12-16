@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import * as PIXI from 'pixi.js';
 import { useGameStore } from '@/app/store/gameStore';
-import { useTutorialStore } from '@/app/store/tutorialStore';
 import { useResourceStore } from '@/app/store/resourceStore';
 import { useKnowledgeStore } from '@/app/store/knowledgeStore';
 import { useSceneStore } from '@/app/store/sceneStore';
@@ -956,17 +955,12 @@ export const TitleScreen: React.FC = () => {
     // Transition effect - fade out buttons, speed up scroll
     setTimeout(() => {
       // Initialize fresh game state
-      const gameStore = useGameStore.getState();
-      const newTime = gameStore.timeManager.resetToStartOfDay();
       useGameStore.setState({ 
-        currentTime: newTime,
+        currentTime: { hour: 8, minute: 0 },
         daysPassed: 0
       });
       
-      // Start tutorial immediately (silently, without welcome overlay)
-      const tutorialStore = useTutorialStore.getState();
-      tutorialStore.startTutorialSilently('micro_day', 'quinn_intro');
-      
+      // Go to game
       setPhase(GamePhase.NIGHT);
     }, 800);
   };
@@ -999,18 +993,12 @@ export const TitleScreen: React.FC = () => {
     // Transition effect - fade out grid
     setTimeout(() => {
       // Initialize fresh game state
-      const gameStore = useGameStore.getState();
-      const newTime = gameStore.timeManager.resetToStartOfDay();
       useGameStore.setState({ 
-        currentTime: newTime,
+        currentTime: { hour: 8, minute: 0 },
         daysPassed: 0
       });
       
-      // Start tutorial silently
-      const tutorialStore = useTutorialStore.getState();
-      tutorialStore.startTutorialSilently('micro_day', 'quinn_intro');
-      
-      // Go directly to night phase (home scene)
+      // Go directly to game (home scene)
       setPhase(GamePhase.NIGHT);
     }, 800);
   };

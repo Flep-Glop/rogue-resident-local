@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-**Rogue Resident** is an educational roguelike game built as a hospital simulation for medical physics training. The architecture follows a modular, event-driven design with clear separation of concerns.
+**Rogue Resident** is an educational game for medical physics training. Players explore a pixel-art home environment with a knowledge constellation system that visualizes learning progress.
 
 ### Core Architecture Patterns
 
@@ -27,32 +27,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Loading screens manage phase transitions with async state updates
 
 **State Management (Zustand-based):**
-- **gameStore** - Core game state, phases, time, relationships, resource proxies
-- **resourceStore** - Player resources (insight, momentum, star points)
+- **gameStore** - Core game state, phases, day tracking, difficulty
+- **resourceStore** - Player resources (star points)
 - **knowledgeStore** - Medical physics concepts, mastery tracking, constellation data
-- **activityStore** - Activity management, special events, unlocks
-- **dialogueStore** - Conversation state, mentor interactions
+- **abilityStore** - Ability card management and equipment
 - **sceneStore** - Scene navigation and UI state management
-- Other specialized stores: relationshipStore, abilityStore, journalStore, questionStore, tutorialStore
 
 **Event System:**
 - Centralized event bus (`app/core/events/CentralEventBus.ts`)
 - Event-driven communication between stores and systems
 - Maintains loose coupling between game systems
 
-**Time Management:**
-- TimeManager handles game time progression and day/night cycles
-- Time blocks and scheduling system for activities
-- Automatic phase transitions based on time advancement
-
 ### Key Technical Patterns
 
 **Component Organization:**
 - `app/components/` - All React components organized by feature
 - `app/core/` - Game logic, systems, and business rules
-- `app/data/` - Game content (concepts, characters, dialogues)
+- `app/data/` - Game content (concepts)
 - `app/store/` - Zustand state management
-- `app/types/` - TypeScript type definitions
 
 **Styling System:**
 - styled-components with custom pixel theme system
@@ -66,25 +58,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Game-Specific Systems
 
+**Home Scene:**
+- Parallax pixel-art environment with character navigation
+- Interactive elements: telescope (sky view), desk (quiz activity), Pico (companion)
+- Ladder-based vertical navigation between ground and sky views
+
 **Knowledge Constellation:**
-- Medical physics concepts represented as interconnected nodes
+- Medical physics concepts represented as interconnected star nodes
 - Mastery tracking and star point progression system
 - Visual constellation interface for knowledge exploration
 
-**Mentor System:**
-- Four distinct mentors with unique teaching approaches
-- Relationship progression affects available control mechanics
-- Dialogue system with dynamic content based on relationship levels
-
-**Activity Interface:**
-- Dual dialogue modes (narrative vs challenge)
-- Hospital backdrop with isometric exploration
-- Activity unlocks based on knowledge and relationship progression
+**Quiz Activity:**
+- Multiple choice question interface at desk
+- Star point rewards for correct answers
+- Ability card integration for gameplay modifiers
 
 **Resource Economy:**
-- Insight → Star Points conversion system
-- Momentum tracking for daily progression
-- Resource constraints drive strategic decision-making
+- Star Points earned through quiz activities
+- Star Points spent to unlock constellation stars
+- Ability cards modify resource gain rates
 
 ## Development Guidelines
 
@@ -97,12 +89,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Component Development:**
 - Follow existing styled-components patterns
 - Examine neighboring components for styling conventions
-- Use proper TypeScript typing from `app/types/`
 - Integrate with appropriate Zustand stores
 
 **Game Logic:**
 - Business rules belong in `app/core/` modules
-- Use TimeManager for all time-related operations
 - Events should be dispatched through centralEventBus
 - Maintain phase-based organization for game flow
 
