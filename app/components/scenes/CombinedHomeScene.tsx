@@ -49,16 +49,6 @@ const CanvasTypographyOverride = styled.div`
   }
 `;
 
-// Large text override for welcome panel (bypasses the xs font forcing)
-const WelcomeTypographyOverride = styled.div`
-  line-height: 1.4 !important;
-  
-  /* Allow explicit font sizes to work */
-  * {
-    line-height: inherit !important;
-  }
-`;
-
 // Star notification wrapper (positioned within canvas coordinates)
 const StarNotificationWrapper = styled.div<{ $visible: boolean; $type: 'discovery' | 'growth' | 'mastery' | 'card' }>`
   position: absolute;
@@ -117,22 +107,6 @@ const WelcomeContent = styled.div`
   align-items: center;
   justify-content: center;
   gap: 4px;
-`;
-
-// 9-slice welcome panel wrapper positioned in canvas coordinates
-const WelcomePanelWrapper = styled.div<{ $visible: boolean }>`
-  position: absolute;
-  top: 48px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 380px;  /* Narrower width for natural wrapping */
-  z-index: 1600;
-  pointer-events: ${props => props.$visible ? 'all' : 'none'}; /* Don't block clicks when hidden */
-
-  opacity: ${props => props.$visible ? 1 : 0};
-  transform: ${props => props.$visible ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(-10px)'};
-  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), 
-              transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 `;
 
 // Notification content styling
@@ -1150,11 +1124,6 @@ export default function CombinedHomeScene() {
   } | null>(null);
   
 
-  // Welcome panel state
-  const [welcomeToastVisible, setWelcomeToastVisible] = useState(false);
-  const [welcomeShown, setWelcomeShown] = useState(false);
-  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
-  
   // Navigation arrow hover states
   const [upperBandHovered, setUpperBandHovered] = useState(false);
   const [skyBandHovered, setSkyBandHovered] = useState(false);
@@ -3201,32 +3170,6 @@ export default function CombinedHomeScene() {
   
   // Simplified tutorial state (no complex guided tour)
   const shownSpotlightsRef = useRef(new Set<string>());
-  
-  // Show welcome panel when scene loads (only once) - with debouncing
-  const welcomeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  useEffect(() => {
-    if (!hasShownWelcomeRef.current) {
-      hasShownWelcomeRef.current = true;
-      
-      // Clear any existing timeout
-      if (welcomeTimeoutRef.current) {
-        clearTimeout(welcomeTimeoutRef.current);
-      }
-      
-      // Debounce the welcome panel to prevent rapid firing
-      welcomeTimeoutRef.current = setTimeout(() => {
-        setWelcomeShown(true);
-        setWelcomeDismissed(false);
-        setWelcomeToastVisible(true);
-      }, 200);
-    }
-    
-    return () => {
-      if (welcomeTimeoutRef.current) {
-        clearTimeout(welcomeTimeoutRef.current);
-      }
-    };
-  }, []);
 
   // Simplified telescope click handler
   const handleTelescopeClickWithTutorial = () => {
@@ -3781,31 +3724,6 @@ export default function CombinedHomeScene() {
           </StarNotificationWrapper>
         )}
         
-        {/* Welcome Home 9-slice panel with nested CTA */}
-        <WelcomePanelWrapper $visible={welcomeToastVisible}>
-          <ExpandableQuestionContainer domain="planning">
-            <WelcomeTypographyOverride>
-              <div style={{ padding: '6px 8px' }}>
-                <div style={{ fontSize: '20px', marginBottom: '8px', fontWeight: 'bold' }}>Welcome Home!</div>
-                <div style={{ fontSize: '16px', marginBottom: '10px' }}>
-                  Your day at the hospital is complete. Time to explore your personal space!
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <ExpandableAnswerContainer 
-                    domain="planning" 
-                    size="md" 
-                    onClick={() => { setWelcomeToastVisible(false); setWelcomeDismissed(true); }}
-                  >
-                    <WelcomeTypographyOverride>
-                      <div style={{ fontSize: '14px', padding: '4px 10px', fontWeight: 'bold' }}>Click to Continue</div>
-                    </WelcomeTypographyOverride>
-                  </ExpandableAnswerContainer>
-                </div>
-              </div>
-            </WelcomeTypographyOverride>
-          </ExpandableQuestionContainer>
-        </WelcomePanelWrapper>
-
         {/* Star Detail Modal - Rendered within the 640×360 coordinate system */}
         {showStarDetail && (() => {
           // Only show modal for supported star types (not planets)
