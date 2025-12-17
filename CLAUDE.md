@@ -24,27 +24,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Game Phase Management:**
 - Main game loop handled by phase-based state machine (`app/page.tsx`)
 - Phases: `TITLE`, `NIGHT` with smooth transitions
-- Loading screens manage phase transitions with async state updates
+- Single scene with camera panning (no scene switching)
 
 **State Management (Zustand-based):**
-- **gameStore** - Core game state, phases, day tracking, difficulty
-- **resourceStore** - Player resources (star points)
-- **knowledgeStore** - Medical physics concepts, mastery tracking, constellation data
-- **abilityStore** - Ability card management and equipment
-- **sceneStore** - Scene navigation and UI state management
-
-**Event System:**
-- Centralized event bus (`app/core/events/CentralEventBus.ts`)
-- Event-driven communication between stores and systems
-- Maintains loose coupling between game systems
+- **gameStore** - Core game state, phases, cutscene tracking
 
 ### Key Technical Patterns
 
 **Component Organization:**
 - `app/components/` - All React components organized by feature
-- `app/core/` - Game logic, systems, and business rules
-- `app/data/` - Game content (concepts)
-- `app/store/` - Zustand state management
+- `app/store/` - Zustand state management (gameStore only)
 
 **Styling System:**
 - styled-components with custom pixel theme system
@@ -58,46 +47,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Game-Specific Systems
 
-**Home Scene:**
-- Parallax pixel-art environment with character navigation
-- Interactive elements: telescope (sky view), desk (quiz activity), Pico (companion)
-- Ladder-based vertical navigation between ground and sky views
+**Home Scene (CombinedHomeScene.tsx):**
+- Single large scene with vertical camera panning
+- Interactive elements: telescope (sky view), desk (TBI activity), Pico (companion)
+- Character-based navigation with Kapoor sprite
 
 **Knowledge Constellation:**
-- Medical physics concepts represented as interconnected star nodes
-- Mastery tracking and star point progression system
-- Visual constellation interface for knowledge exploration
+- Medical physics concepts represented as planet and moon system
+- TBI (Total Body Irradiation) as central planet with subtopics as moons
+- Visual constellation in the sky view
 
-**Quiz Activity:**
-- Multiple choice question interface at desk
-- Star point rewards for correct answers
-- Ability card integration for gameplay modifiers
-
-**Resource Economy:**
-- Star Points earned through quiz activities
-- Star Points spent to unlock constellation stars
-- Ability cards modify resource gain rates
+**TBI Activity:**
+- Accessed via desk interaction
+- Multi-phase computer interface (boot, menu, intro, positioning, result)
+- Sprite sheet-based animation system
 
 ## Development Guidelines
-
-**State Management Patterns:**
-- Use appropriate store for the data type (don't put everything in gameStore)
-- Resources should flow through resourceStore, not gameStore
-- Use event bus for cross-system communication
-- Maintain store separation for modularity
 
 **Component Development:**
 - Follow existing styled-components patterns
 - Examine neighboring components for styling conventions
-- Integrate with appropriate Zustand stores
-
-**Game Logic:**
-- Business rules belong in `app/core/` modules
-- Events should be dispatched through centralEventBus
-- Maintain phase-based organization for game flow
+- All game content is in CombinedHomeScene.tsx
 
 **Performance Considerations:**
-- Game uses "Chamber Pattern" optimizations for smooth gameplay
 - PIXI.js handles graphics rendering and animations
 - Turbopack enabled for fast development builds
 
@@ -119,4 +91,3 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - PIXI.js 8.x for game graphics with specialized filters
 - Zustand for state management
 - styled-components for styling
-- d3.js for data visualization components

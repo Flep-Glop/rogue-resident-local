@@ -4,14 +4,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import * as PIXI from 'pixi.js';
 import { useGameStore } from '@/app/store/gameStore';
-import { useResourceStore } from '@/app/store/resourceStore';
-import { useKnowledgeStore } from '@/app/store/knowledgeStore';
-import { useSceneStore } from '@/app/store/sceneStore';
-import { GamePhase, Difficulty } from '@/app/types';
 import { colors, typography } from '@/app/styles/pixelTheme';
 import { ChangelogPopup } from '@/app/components/ui/ChangelogPopup';
-import { getCurrentVersionString, hasRecentUpdates } from '@/app/utils/versionManager';
-import GameDevConsole from '@/app/components/debug/GameDevConsole';
+import { getCurrentVersionString } from '@/app/utils/versionManager';
 
 // Styled components for the container and UI elements
 const FullScreenContainer = styled.div`
@@ -162,18 +157,16 @@ const DebugBox = styled.div<{ $isEmpty?: boolean; $isSelected?: boolean }>`
 
 const DebugBoxImage = styled.div<{ $debugOption: number; $isSelected: boolean; $isPressed: boolean }>`
   width: 100%;
-  height: 100%;
+  aspect-ratio: 56 / 53; /* Match sprite frame dimensions to prevent truncation */
   background-image: url('/images/debug/debug-icons.png');
-  /* Each frame is 56x53, sprite sheet has 12 frames horizontally (672x53 total) */
+  /* Sprite sheet has 12 frames horizontally (4 debug options × 3 states each) */
   /* 3 frames per debug option: normal, highlighted, selected */
-  /* Scale so one frame (56px) fills 100% of width, meaning 12 frames = 1200% */
   background-size: 1200% 100%;
-  /* Calculate frame: (debugOption * 3) + state (0=normal, 1=highlighted, 2=selected/pressed) */
-  /* Then position: frame * (100 / 11) because 12 frames means 11 gaps between them */
   background-position: ${props => {
     const baseFrame = props.$debugOption * 3; // 0, 3, 6, or 9
     const stateOffset = props.$isPressed ? 2 : (props.$isSelected ? 1 : 0); // 0=normal, 1=highlighted, 2=pressed
     const frame = baseFrame + stateOffset;
+    // Position calculation: frame / (totalFrames - 1) * 100 for percentage-based positioning
     const position = (frame * 100) / 11; // 11 gaps between 12 frames
     return `${position}% 0%`;
   }};
@@ -183,6 +176,29 @@ const DebugBoxImage = styled.div<{ $debugOption: number; $isSelected: boolean; $
   -moz-image-rendering: crisp-edges;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
+  transition: transform 0.1s ease;
+  
+  /* Mouse hover shows highlighted state when not in keyboard mode */
+  &:hover {
+    background-position: ${props => {
+      const baseFrame = props.$debugOption * 3;
+      const frame = baseFrame + 1; // Highlighted frame
+      const position = (frame * 100) / 11;
+      return `${position}% 0%`;
+    }};
+    transform: scale(1.05);
+  }
+  
+  /* Pressed state (click feedback) */
+  &:active {
+    background-position: ${props => {
+      const baseFrame = props.$debugOption * 3;
+      const frame = baseFrame + 2; // Selected/pressed frame
+      const position = (frame * 100) / 11;
+      return `${position}% 0%`;
+    }};
+    transform: scale(0.98);
+  }
 `;
 
 const DebugBoxLabel = styled.div`
@@ -208,6 +224,7 @@ export const TitleScreen: React.FC = () => {
   const pixiDevModeButtonRef = useRef<PIXI.Sprite | null>(null);
   const pixiWhatsNewButtonRef = useRef<PIXI.Sprite | null>(null);
   const introCompleteRef = useRef(false);
+  const lastMousePositionRef = useRef<{ x: number; y: number } | null>(null);
   
   const [isLoaded, setIsLoaded] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
@@ -216,13 +233,11 @@ export const TitleScreen: React.FC = () => {
   const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [showDebugGrid, setShowDebugGrid] = useState(false);
   const [introComplete, setIntroComplete] = useState(false);
-  const [selectedButton, setSelectedButton] = useState(0); // 0 = Play, 1 = Dev Mode, 2 = What's New
-  const [selectedDebugOption, setSelectedDebugOption] = useState(0); // 0 = Before Desk, 1 = Before Cutscene, 2 = After Cutscene, 3 = Planetary Systems
+  const [selectedButton, setSelectedButton] = useState(-1); // -1 = no selection (mouse mode), 0 = Play, 1 = Dev Mode, 2 = What's New
+  const [selectedDebugOption, setSelectedDebugOption] = useState(-1); // -1 = no selection (mouse mode), 0 = Before Desk, 1 = Before Cutscene, 2 = After Cutscene, 3 = Planetary Systems
   const [pressedDebugOption, setPressedDebugOption] = useState<number | null>(null); // Track which debug option is pressed (showing third frame)
   
-  const setPhase = useGameStore(state => state.setPhase);
-  const setPlayerName = useGameStore(state => state.setPlayerName);
-  const setDifficulty = useGameStore(state => state.setDifficulty);
+  const startGame = useGameStore(state => state.startGame);
 
   useEffect(() => {
     if (!pixiContainerRef.current) return;
@@ -253,43 +268,30 @@ export const TitleScreen: React.FC = () => {
         let titleSprite: PIXI.Sprite | null = null;
         let playButtonSprite: PIXI.Sprite | null = null;
         let settingsButtonSprite: PIXI.Sprite | null = null;
-        let cloudSprite1: PIXI.Sprite | null = null;
-        let cloudSprite2: PIXI.Sprite | null = null;
-        let cloudSprite3: PIXI.Sprite | null = null;
-        let cloudSprite4: PIXI.Sprite | null = null;
 
         // Animation state tracking
         let animationStartTime = 0;
-        const CLOUD_INTRO_DURATION = 1500; // 1.5 seconds for clouds to slide in
-        const TITLE_INTRO_START = 1200; // Title starts zooming in after 1.2s
-        const TITLE_INTRO_DURATION = 800; // 0.8 seconds for title zoom
-        const BUTTON_INTRO_START = 2200; // Buttons appear after 2.2s
+        const BG_FADE_DURATION = 1200; // 1.2 seconds for background to fade in from black
+        const TITLE_INTRO_START = 1000; // Title starts fading in after 1s
+        const TITLE_INTRO_DURATION = 800; // 0.8 seconds for title fade
+        const BUTTON_INTRO_START = 1800; // Buttons appear after 1.8s
         const BUTTON_INTRO_DURATION = 600; // 0.6 seconds for button fade
 
         // Easing function for smooth animations
         const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-        const easeOutBack = (t: number) => {
-          const c1 = 1.70158;
-          const c3 = c1 + 1;
-          return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-        };
 
         // Load textures and create sprites
         const loadAssets = async () => {
           try {
-            // Load all textures - background + 3 cloud layers + purple abyss + UI elements
+            // Load all textures - single background + UI elements
             const backgroundTexture = await PIXI.Assets.load('/images/title/title-screen-background.png');
-            const cloudLayer1Texture = await PIXI.Assets.load('/images/title/title-screen-cloud-1.png');
-            const cloudLayer2Texture = await PIXI.Assets.load('/images/title/title-screen-cloud-2.png');
-            const cloudLayer3Texture = await PIXI.Assets.load('/images/title/title-screen-cloud-3.png');
-            const cloudLayer4Texture = await PIXI.Assets.load('/images/title/title-screen-purple-abyss.png');
             const titleTexture = await PIXI.Assets.load('/images/title/title-screen-title.png');
             const playButtonTexture = await PIXI.Assets.load('/images/title/play-button.png');
             const devModeButtonTexture = await PIXI.Assets.load('/images/title/dev-mode-button.png');
             const whatsNewButtonTexture = await PIXI.Assets.load('/images/title/whats-new-button.png');
 
             // Set pixel-perfect rendering for all textures
-            [backgroundTexture, cloudLayer1Texture, cloudLayer2Texture, cloudLayer3Texture, cloudLayer4Texture, titleTexture, playButtonTexture, devModeButtonTexture, whatsNewButtonTexture].forEach(texture => {
+            [backgroundTexture, titleTexture, playButtonTexture, devModeButtonTexture, whatsNewButtonTexture].forEach(texture => {
               texture.source.scaleMode = 'nearest'; // Pixel-perfect scaling
             });
 
@@ -298,48 +300,16 @@ export const TitleScreen: React.FC = () => {
             const scaleY = app.screen.height / 360;
             const uniformScale = Math.min(scaleX, scaleY);
 
-            // Create static background and cloud layers (all 640x360) with proper z-ordering
-            // Z-order: background (back) → cloud-1 → cloud-2 → cloud-3 → purple-abyss (front) → UI
-            
-            backgroundSprite = new PIXI.Sprite(backgroundTexture);
-            backgroundSprite.scale.set(uniformScale);
-            backgroundSprite.x = (app.screen.width - 640 * uniformScale) / 2;
-            backgroundSprite.y = (app.screen.height - 360 * uniformScale) / 2;
-            app.stage.addChild(backgroundSprite);
-
-            // Cloud sprites - start off-screen from different directions
             const centerX = (app.screen.width - 640 * uniformScale) / 2;
             const centerY = (app.screen.height - 360 * uniformScale) / 2;
 
-            cloudSprite1 = new PIXI.Sprite(cloudLayer1Texture);
-            cloudSprite1.scale.set(uniformScale);
-            cloudSprite1.x = centerX - app.screen.width; // Start from left
-            cloudSprite1.y = centerY;
-            (cloudSprite1 as any).targetX = centerX;
-            (cloudSprite1 as any).startX = centerX - app.screen.width;
-            app.stage.addChild(cloudSprite1);
-
-            cloudSprite2 = new PIXI.Sprite(cloudLayer2Texture);
-            cloudSprite2.scale.set(uniformScale);
-            cloudSprite2.x = centerX + app.screen.width; // Start from right
-            cloudSprite2.y = centerY;
-            (cloudSprite2 as any).targetX = centerX;
-            (cloudSprite2 as any).startX = centerX + app.screen.width;
-            app.stage.addChild(cloudSprite2);
-
-            cloudSprite3 = new PIXI.Sprite(cloudLayer3Texture);
-            cloudSprite3.scale.set(uniformScale);
-            cloudSprite3.x = centerX;
-            cloudSprite3.y = centerY - app.screen.height; // Start from top
-            (cloudSprite3 as any).targetY = centerY;
-            (cloudSprite3 as any).startY = centerY - app.screen.height;
-            app.stage.addChild(cloudSprite3);
-
-            cloudSprite4 = new PIXI.Sprite(cloudLayer4Texture);
-            cloudSprite4.scale.set(uniformScale);
-            cloudSprite4.x = centerX;
-            cloudSprite4.y = centerY; // Static position - no animation
-            app.stage.addChild(cloudSprite4);
+            // Create background sprite - starts invisible for fade from black effect
+            backgroundSprite = new PIXI.Sprite(backgroundTexture);
+            backgroundSprite.scale.set(uniformScale);
+            backgroundSprite.x = centerX;
+            backgroundSprite.y = centerY;
+            backgroundSprite.alpha = 0; // Start invisible for fade from black
+            app.stage.addChild(backgroundSprite);
 
             // Create title sprite (640x360) - same size as background for compositing
             titleSprite = new PIXI.Sprite(titleTexture);
@@ -348,7 +318,7 @@ export const TitleScreen: React.FC = () => {
             titleSprite.y = centerY;
             titleSprite.alpha = 0; // Start invisible
             (titleSprite as any).normalY = titleSprite.y; // Store normal position
-            (titleSprite as any).debugY = app.screen.height * 0.22; // Position when debug grid is shown (22% from top)
+            (titleSprite as any).debugY = centerY - (80 * uniformScale); // Move up 80px in 640x360 coordinates when debug grid is shown
             app.stage.addChild(titleSprite);
             pixiTitleRef.current = titleSprite;
 
@@ -401,7 +371,7 @@ export const TitleScreen: React.FC = () => {
             playButtonSprite = createButtonSprite(
               playButtonTexture, 
               320, // Center of 640px width
-              200, // 55% of 360px height (0.55 * 360 = 198)
+              225, // Shifted down 25px from 200
               1.0 // Normal scale - no extra multiplier needed
             );
             
@@ -440,7 +410,7 @@ export const TitleScreen: React.FC = () => {
             settingsButtonSprite = createButtonSprite(
               devModeButtonTexture, 
               320, // Center of 640px width
-              220, // 66% of 360px height (shifted down from 223)
+              245, // Shifted down 25px from 220
               1.0 // Normal scale - no extra multiplier needed
             );
             
@@ -483,7 +453,7 @@ export const TitleScreen: React.FC = () => {
             const whatsNewButtonSprite = createButtonSprite(
               whatsNewButtonTexture, 
               320, // Center of 640px width
-              240, // 73% of 360px height (shifted down from 248)
+              265, // Shifted down 25px from 240
               1.0 // Normal scale - no extra multiplier needed
             );
             
@@ -531,31 +501,18 @@ export const TitleScreen: React.FC = () => {
                 return;
               }
               
-              // What's New button is now a PIXI sprite, fades in with other buttons below
-              
-              // Animate clouds sliding in (0-1500ms)
-              if (elapsed < CLOUD_INTRO_DURATION) {
-                const cloudProgress = easeOutCubic(elapsed / CLOUD_INTRO_DURATION);
-                
-                // Cloud 1 - from left
-                if (cloudSprite1 && (cloudSprite1 as any).startX !== undefined) {
-                  cloudSprite1.x = (cloudSprite1 as any).startX + ((cloudSprite1 as any).targetX - (cloudSprite1 as any).startX) * cloudProgress;
+              // Animate background fading in from black (0-1200ms)
+              if (elapsed < BG_FADE_DURATION) {
+                const bgProgress = easeOutCubic(elapsed / BG_FADE_DURATION);
+                if (backgroundSprite) {
+                  backgroundSprite.alpha = bgProgress;
                 }
-                
-                // Cloud 2 - from right
-                if (cloudSprite2 && (cloudSprite2 as any).startX !== undefined) {
-                  cloudSprite2.x = (cloudSprite2 as any).startX + ((cloudSprite2 as any).targetX - (cloudSprite2 as any).startX) * cloudProgress;
-                }
-                
-                // Cloud 3 - from top
-                if (cloudSprite3 && (cloudSprite3 as any).startY !== undefined) {
-                  cloudSprite3.y = (cloudSprite3 as any).startY + ((cloudSprite3 as any).targetY - (cloudSprite3 as any).startY) * cloudProgress;
-                }
-                
-                // Purple abyss (cloud 4) - static, no animation
+              } else if (backgroundSprite && backgroundSprite.alpha !== 1) {
+                // Ensure background is fully visible
+                backgroundSprite.alpha = 1;
               }
               
-              // Animate title fading in (1200-2000ms)
+              // Animate title fading in (1000-1800ms)
               if (elapsed >= TITLE_INTRO_START && elapsed < TITLE_INTRO_START + TITLE_INTRO_DURATION) {
                 const titleElapsed = elapsed - TITLE_INTRO_START;
                 const titleProgress = easeOutCubic(titleElapsed / TITLE_INTRO_DURATION);
@@ -568,7 +525,7 @@ export const TitleScreen: React.FC = () => {
                 titleSprite.alpha = 1;
               }
               
-              // Animate buttons fading in (2200-2800ms)
+              // Animate buttons fading in (1800-2400ms)
               if (elapsed >= BUTTON_INTRO_START && elapsed < BUTTON_INTRO_START + BUTTON_INTRO_DURATION) {
                 const buttonElapsed = elapsed - BUTTON_INTRO_START;
                 const buttonProgress = easeOutCubic(buttonElapsed / BUTTON_INTRO_DURATION);
@@ -758,6 +715,28 @@ export const TitleScreen: React.FC = () => {
     introCompleteRef.current = introComplete;
   }, [introComplete]);
 
+  // Mouse movement exits keyboard mode - allows seamless switching between input methods
+  useEffect(() => {
+    if (!introComplete) return;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      // Only exit keyboard mode if mouse actually moved (not just a hover trigger)
+      const last = lastMousePositionRef.current;
+      if (last && (Math.abs(e.clientX - last.x) > 5 || Math.abs(e.clientY - last.y) > 5)) {
+        // Mouse moved significantly - exit keyboard mode for whichever menu is active
+        if (showDebugGrid) {
+          setSelectedDebugOption(-1);
+        } else {
+          setSelectedButton(-1);
+        }
+      }
+      lastMousePositionRef.current = { x: e.clientX, y: e.clientY };
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [introComplete, showDebugGrid]);
+
   // Keyboard controls for navigation and activation
   useEffect(() => {
     if (!introComplete || showDebugGrid) return;
@@ -768,14 +747,22 @@ export const TitleScreen: React.FC = () => {
         e.preventDefault();
       }
 
-      // Arrow key navigation
+      // Arrow key navigation - activates keyboard mode if not already active
       if (e.key === 'ArrowUp') {
-        setSelectedButton(prev => Math.max(0, prev - 1));
+        setSelectedButton(prev => {
+          // If in mouse mode (no selection), start at Play button
+          if (prev < 0) return 0;
+          return Math.max(0, prev - 1);
+        });
       } else if (e.key === 'ArrowDown') {
-        setSelectedButton(prev => Math.min(2, prev + 1));
+        setSelectedButton(prev => {
+          // If in mouse mode (no selection), start at Play button
+          if (prev < 0) return 0;
+          return Math.min(2, prev + 1);
+        });
       }
-      // X key activation
-      else if (e.key === 'x' || e.key === 'X') {
+      // X key activation - only works in keyboard mode
+      else if ((e.key === 'x' || e.key === 'X') && selectedButton >= 0) {
         const playButton = pixiPlayButtonRef.current;
         const devModeButton = pixiDevModeButtonRef.current;
         const whatsNewButton = pixiWhatsNewButtonRef.current;
@@ -803,7 +790,7 @@ export const TitleScreen: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [introComplete, showDebugGrid, selectedButton]);
 
-  // Apply visual highlighting to selected button
+  // Apply visual highlighting to selected button (keyboard mode only)
   useEffect(() => {
     if (!introComplete || showDebugGrid) return;
 
@@ -813,7 +800,7 @@ export const TitleScreen: React.FC = () => {
 
     if (!playButton || !devModeButton || !whatsNewButton) return;
 
-    // Reset all buttons to normal
+    // Reset all buttons to normal state
     playButton.texture = (playButton as any).normalTexture;
     playButton.scale.set((playButton as any).baseScale);
     devModeButton.texture = (devModeButton as any).normalTexture;
@@ -821,7 +808,7 @@ export const TitleScreen: React.FC = () => {
     whatsNewButton.texture = (whatsNewButton as any).normalTexture;
     whatsNewButton.scale.set((whatsNewButton as any).baseScale);
 
-    // Highlight selected button
+    // Only apply keyboard highlighting when in keyboard mode (selectedButton >= 0)
     if (selectedButton === 0) {
       playButton.texture = (playButton as any).highlightedTexture;
       playButton.scale.set((playButton as any).baseScale * 1.05);
@@ -832,6 +819,8 @@ export const TitleScreen: React.FC = () => {
       whatsNewButton.texture = (whatsNewButton as any).highlightedTexture;
       whatsNewButton.scale.set((whatsNewButton as any).baseScale * 1.05);
     }
+    // When selectedButton === -1 (mouse mode), all buttons stay in normal state
+    // Mouse hover events handle their own highlighting independently
   }, [selectedButton, introComplete, showDebugGrid]);
 
   // Keyboard controls for debug grid navigation
@@ -844,14 +833,20 @@ export const TitleScreen: React.FC = () => {
         e.preventDefault();
       }
 
-      // Arrow key navigation (horizontal for top row of 3 options)
+      // Arrow key navigation - activates keyboard mode if not already active
       if (e.key === 'ArrowLeft') {
-        setSelectedDebugOption(prev => Math.max(0, prev - 1));
+        setSelectedDebugOption(prev => {
+          if (prev < 0) return 0; // Start at first option
+          return Math.max(0, prev - 1);
+        });
       } else if (e.key === 'ArrowRight') {
-        setSelectedDebugOption(prev => Math.min(2, prev + 1));
+        setSelectedDebugOption(prev => {
+          if (prev < 0) return 0; // Start at first option
+          return Math.min(2, prev + 1);
+        });
       }
-      // X key activation
-      else if (e.key === 'x' || e.key === 'X') {
+      // X key activation - only works in keyboard mode
+      else if ((e.key === 'x' || e.key === 'X') && selectedDebugOption >= 0) {
         const debugStates = ['before_desk', 'before_cutscene', 'after_cutscene'];
         
         // Show pressed (third) frame
@@ -954,14 +949,8 @@ export const TitleScreen: React.FC = () => {
     
     // Transition effect - fade out buttons, speed up scroll
     setTimeout(() => {
-      // Initialize fresh game state
-      useGameStore.setState({ 
-        currentTime: { hour: 8, minute: 0 },
-        daysPassed: 0
-      });
-      
       // Go to game
-      setPhase(GamePhase.NIGHT);
+      startGame();
     }, 800);
   };
 
@@ -992,14 +981,8 @@ export const TitleScreen: React.FC = () => {
     
     // Transition effect - fade out grid
     setTimeout(() => {
-      // Initialize fresh game state
-      useGameStore.setState({ 
-        currentTime: { hour: 8, minute: 0 },
-        daysPassed: 0
-      });
-      
       // Go directly to game (home scene)
-      setPhase(GamePhase.NIGHT);
+      startGame();
     }, 800);
   };
 
@@ -1046,9 +1029,6 @@ export const TitleScreen: React.FC = () => {
           isOpen={showChangelog} 
           onClose={() => setShowChangelog(false)} 
         />
-        
-        {/* Debug Console - always available */}
-        <GameDevConsole />
         
         {/* Debug State Grid - shown when test button is clicked */}
         <DebugGridContainer $visible={showDebugGrid}>

@@ -3,9 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { colors, spacing, typography, mixins } from '@/app/styles/pixelTheme';
-import { useResourceStore } from '@/app/store/resourceStore';
-import { useAbilityStore } from '@/app/store/abilityStore';
-import { ExpandableQuestionContainer, ExpandableAnswerContainer } from '@/app/components/ui/PixelContainer';
+import { NineSliceContainer } from '@/app/components/ui/NineSliceContainer';
 
 // === FITS WITHIN EXISTING 640×360 RESOLUTION ===
 // This modal fits within CombinedHomeScene's existing internal resolution
@@ -226,48 +224,14 @@ const HighlightedText = styled.span`
   font-weight: bold !important;
 `;
 
-// Unlock section - single line, minimal styling
-const UnlockSection = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-`;
-
-// Star points cost - simplified
-const StarPointsCost = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: ${CanvasFonts.sm};
-  color: ${colors.starPoints};
-`;
-
-// Star point icon (simple pixel-perfect circle)
-const StarPointIcon = styled.div`
-  width: 8px;
-  height: 8px;
-  background: ${colors.starPoints};
-  border-radius: 50%;
-  display: inline-block;
-`;
-
-// Unlock button wrapper - will be styled by ExpandableAnswerContainer
-const UnlockButtonWrapper = styled.div`
-  cursor: pointer;
-  display: inline-block;
-  max-width: 280px;
-`;
-
 // Removed close button - click outside to close
 
 interface StarDetailModalProps {
-  starId?: 'star' | 'tbi' | 'tbi_dosimetry' | 'tbi_prescriptions' | 'tbi_commissioning'; // Which celestial body is being viewed (??? star, TBI planet, or moons)
+  starId?: 'star' | 'tbi' | 'tbi_patient_setup'; // Which celestial body is being viewed (??? star, TBI planet, or moon)
   onClose: () => void;
   starFrame?: number;      // Current frame from the zoomed-out view
   isUnlocked?: boolean;    // Whether the star has been unlocked
   onStarUnlock?: (newFrame: number) => void; // Callback to sync unlock with parent
-  onCardUnlock?: (cardName: string) => void; // Callback to show toast notification
   onStarViewed?: () => void; // Callback when star is clicked/viewed
 }
 
@@ -279,11 +243,8 @@ export default function StarDetailModal({
   starFrame = 1, 
   isUnlocked: initialUnlocked = false,
   onStarUnlock,
-  onCardUnlock,
   onStarViewed
 }: StarDetailModalProps) {
-  const { starPoints, updateStarPoints } = useResourceStore();
-  const { unlockCard } = useAbilityStore();
   const [isUnlocked, setIsUnlocked] = useState(initialUnlocked);
   
   // Convert highlighted frames (11-19) to non-highlighted (2-10) for modal display
@@ -316,19 +277,15 @@ export default function StarDetailModal({
   
   // Initialize all bodies in absolute coordinate system (only once)
   useEffect(() => {
-    // Only show orbital system for TBI constellation (planet + moons)
-    const isTBIConstellation = starId === 'tbi' || starId === 'tbi_dosimetry' || 
-                                starId === 'tbi_prescriptions' || starId === 'tbi_commissioning';
+    // Only show orbital system for TBI constellation (planet + moon)
+    const isTBIConstellation = starId === 'tbi' || starId === 'tbi_patient_setup';
     
     if (!isTBIConstellation) return;
     
-    // Initialize all 4 bodies with TBI planet at origin (0, 0) and moons orbiting around it
-    // Moons start at evenly spaced angles (0°, 120°, 240°)
+    // Initialize 2 bodies with TBI planet at origin (0, 0) and moon orbiting around it
     const initialBodies = [
       { id: 'tbi', angle: 0, absoluteX: 0, absoluteY: 0, scale: 1, opacity: 1, zIndex: 150 }, // Planet at origin
-      { id: 'tbi_dosimetry', angle: 0, absoluteX: 0, absoluteY: 0, scale: 1, opacity: 1, zIndex: 149 },
-      { id: 'tbi_prescriptions', angle: (Math.PI * 2) / 3, absoluteX: 0, absoluteY: 0, scale: 1, opacity: 1, zIndex: 149 },
-      { id: 'tbi_commissioning', angle: (Math.PI * 4) / 3, absoluteX: 0, absoluteY: 0, scale: 1, opacity: 1, zIndex: 149 },
+      { id: 'tbi_patient_setup', angle: 0, absoluteX: 0, absoluteY: 0, scale: 1, opacity: 1, zIndex: 149 },
     ];
     
     setAllBodies(initialBodies);
@@ -451,92 +408,30 @@ export default function StarDetailModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [allBodies, focusedBodyId]);
   
-  // Celestial body data (planet and moons)
-  const starDataMap: Record<NonNullable<StarDetailModalProps['starId']>, { name: string; description: string; topic: string; cost: number }> = {
+  // Celestial body data (planet and moon)
+  const starDataMap: Record<NonNullable<StarDetailModalProps['starId']>, { name: string; description: string; topic: string }> = {
     star: {
       name: '???',
       description: 'A vague nebula of uncharted stars. Study and practice to bring clarity to this constellation.',
-      topic: 'Radiation Therapy',
-      cost: 1
+      topic: 'Radiation Therapy'
     },
     tbi: {
       name: 'Total Body Irradiation',
       description: 'Whole body radiation therapy for transplant conditioning and systemic treatment.',
-      topic: 'TBI',
-      cost: 1
+      topic: 'TBI'
     },
-    tbi_dosimetry: {
-      name: 'TBI Dosimetry',
-      description: 'Precise dose measurement and calculation techniques for total body irradiation treatments.',
-      topic: 'TBI Dosimetry',
-      cost: 1
-    },
-    tbi_prescriptions: {
-      name: 'TBI Prescriptions',
-      description: 'Treatment prescription protocols and dose fractionation schedules for TBI.',
-      topic: 'TBI Prescriptions',
-      cost: 1
-    },
-    tbi_commissioning: {
-      name: 'TBI Commissioning',
-      description: 'Quality assurance and commissioning procedures for TBI treatment systems.',
-      topic: 'TBI Commissioning',
-      cost: 1
+    tbi_patient_setup: {
+      name: 'TBI Patient Setup',
+      description: 'Patient positioning and setup procedures for total body irradiation treatments.',
+      topic: 'TBI Patient Setup'
     }
   };
   
   // Use focused body data for modal content (changes as user navigates)
   const starData = starDataMap[focusedBodyId as keyof typeof starDataMap] || starDataMap.tbi;
-  const canAfford = starPoints >= starData.cost;
   
-  const handleUnlock = () => {
-    // Only ??? star can be unlocked, constellation stars are informational only
-    if (focusedBodyId !== 'star') return;
-    if (!canAfford) return;
-    
-    if (!isUnlocked) {
-      // First unlock: sparkle to solid (non-highlighted versions for modal)
-      updateStarPoints(-starData.cost, 'star_unlock');
-      setIsUnlocked(true);
-      setCurrentFrame(8); // Switch to unlocked frame (small star, non-highlighted)
-      
-      // Notify parent to sync the zoomed-out view with highlighted version
-      if (onStarUnlock) {
-        onStarUnlock(17); // Parent uses highlighted version (frame 17)
-      }
-      
-      console.log(`[StarDetailModal] Unlocked ${starData.name} for ${starData.cost} star points (modal frame 8, parent frame 17)`);
-      
-      // Special reward for first star (???): unlock Fast Learner ability card
-      if (starData.name === '???') {
-        console.log(`⭐ [StarDetailModal] First star unlocked - granting Fast Learner ability card!`);
-        unlockCard('fast_learner');
-        
-        // Trigger toast notification in parent
-        if (onCardUnlock) {
-          onCardUnlock('Fast Learner');
-        }
-      }
-    } else if (currentFrame === 8) {
-      // Second click: growth progression (medium star, non-highlighted in modal)
-      setCurrentFrame(9);
-      if (onStarUnlock) {
-        onStarUnlock(18); // Parent uses highlighted version (frame 18)
-      }
-      console.log(`[StarDetailModal] Star progressed to growth (modal frame 9, parent frame 18)`);
-    } else if (currentFrame === 9) {
-      // Third click: mastery progression (big star, non-highlighted in modal)
-      setCurrentFrame(10);
-      if (onStarUnlock) {
-        onStarUnlock(19); // Parent uses highlighted version (frame 19)
-      }
-      console.log(`[StarDetailModal] Star progressed to mastery (modal frame 10, parent frame 19)`);
-    }
-  };
-  
-  // Planet and moons are always "unlocked" and display-only (not the ??? star though)
-  const isConstellationStar = focusedBodyId === 'tbi' || focusedBodyId === 'tbi_dosimetry' || 
-                               focusedBodyId === 'tbi_prescriptions' || focusedBodyId === 'tbi_commissioning';
+  // Planet and moon are always "unlocked" and display-only (not the ??? star though)
+  const isConstellationStar = focusedBodyId === 'tbi' || focusedBodyId === 'tbi_patient_setup';
   
   return (
     <ModalBackdrop>
@@ -637,7 +532,7 @@ export default function StarDetailModal({
             </div>
           ) : (
             /* Main content container with nested unlock button for constellation stars */
-            <ExpandableQuestionContainer size="sm" style={{ position: 'relative' }}>
+            <NineSliceContainer size="sm" style={{ position: 'relative' }}>
               <CanvasTypographyOverride>
                 <StarTitle>{starData.name}</StarTitle>
                 <StarDescription>
@@ -677,7 +572,7 @@ export default function StarDetailModal({
               {isConstellationStar && (
                 <div style={{ marginTop: '12px', textAlign: 'center' }}>
                   <div style={{ 
-                    color: colors.starPoints, 
+                    color: colors.highlight, 
                     fontSize: CanvasFonts.sm
                   }}>
                     Visit your desk to study this topic
@@ -685,7 +580,7 @@ export default function StarDetailModal({
                 </div>
               )}
             </CanvasTypographyOverride>
-          </ExpandableQuestionContainer>
+          </NineSliceContainer>
           )}
         </InfoSection>
       </Container>
