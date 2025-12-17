@@ -158,6 +158,20 @@ GUIDELINES:
 
 ---
 
+## Entry #121
+**Focus:** v1.1.0-dev deployment and security patching
+**Smooth:** 
+- VERSION_MANAGEMENT.md workflow executed cleanly: updated versionManager.ts, package.json, committed with detailed message
+- Merged rescoped-rogue → main without conflicts (version files resolved with --theirs)
+- React2Shell CVE-2025-66478 patched: Next.js 15.3.1 → 15.3.6 (critical vulnerability eliminated)
+- Removed deprecated "Welcome Home" popup from old hospital flow (82 lines deleted cleanly)
+**Friction:** 
+- Git push required `required_permissions: ["all"]` due to SSL certificate verification issue in sandbox
+- GitHub vulnerabilities dropped 14 → 8 → 6 across patches (remaining are non-critical dependencies)
+**Insight:** VERSION_MANAGEMENT.md pre-deployment checklist prevents missing files - always verify `git status` before version bumps to catch untracked assets
+
+---
+
 ## WHAT GETS PRESERVED
 - Architectural decisions → ARCHITECTURE.md
 - Proven patterns → PATTERNS.md
