@@ -27,6 +27,166 @@ export type SkyHighlightType =
 
 export type InteractionType = 'telescope' | 'desk' | 'pico' | null;
 
+// === GROUPED STATE INTERFACES ===
+
+/** Speech bubble state - used for telescope, star, desk, pico */
+export interface SpeechBubbleState {
+  visible: boolean;
+  highlighted: boolean;
+  frame: number;
+}
+
+/** All speech bubbles in the scene */
+export interface SpeechBubblesState {
+  telescope: SpeechBubbleState;
+  star: SpeechBubbleState;
+  desk: SpeechBubbleState;
+  pico: SpeechBubbleState;
+}
+
+/** Pico companion character state */
+export interface PicoState {
+  frame: number;
+  isTalking: boolean;
+  interacted: boolean;
+  showDialogue: boolean;
+  dialogueIndex: number;
+  showPetDescription: boolean;
+  showBlockingDialogue: boolean;
+  blockingDialogueIndex: number;
+  hasShownFirstBlockingMessage: boolean;
+}
+
+/** Computer/desk activity system state */
+export interface CompActivityState {
+  visible: boolean;
+  phase: 'idle' | 'booting' | 'booting_fade_in' | 'waiting' | 'transitioning' | 'fading_to_black' | 'intro' | 'intro_fading_to_black' | 'fading_from_black' | 'activity' | 'result_fading_to_black' | 'result_fading_from_black' | 'result';
+  optionsFrame: number;
+  option1Frame: number;
+  selectedActivity: number | null;
+  hoveredActivity: number | null;
+  highlightedActivity: number;
+  anthroIntroVisible: boolean;
+  anthroIntroFrame: number;
+  tbiPositioningVisible: boolean;
+  tbiPositioningFrame: number;
+  tbiResultVisible: boolean;
+  tbiResultFrame: number;
+}
+
+/** Cutscene star data */
+export interface CutsceneStar {
+  x: number;
+  y: number;
+  frame: number;
+  opacity: number;
+  frameOffset: number;
+  opacityOffset: number;
+}
+
+/** Constellation star/planet data */
+export interface ConstellationBody {
+  id: string;
+  x: number;
+  y: number;
+  frame: number;
+  angle?: number;
+  distance?: number;
+  parentId?: string;
+  scale?: number;
+  opacity?: number;
+  zIndex?: number;
+}
+
+/** Constellation cutscene state */
+export interface CutsceneState {
+  isPlaying: boolean;
+  isScrolling: boolean;
+  phase: 'stars-appearing' | 'building-tension' | 'boom' | 'final-constellation' | 'complete';
+  stars: CutsceneStar[];
+  starOpacity: number;
+  showBoomEffect: boolean;
+  showFinalConstellation: boolean;
+  constellationBodies: ConstellationBody[];
+}
+
+/** Player interaction UI state */
+export interface InteractionUIState {
+  active: InteractionType;
+  xKeyFrame: number;
+  cKeyFrame: number;
+  contextLabel: string;
+  upArrowFrame: number;
+  downArrowFrame: number;
+  showUpArrow: boolean;
+  showDownArrow: boolean;
+}
+
+// === DEFAULT STATES ===
+
+export const DEFAULT_SPEECH_BUBBLE: SpeechBubbleState = {
+  visible: true,
+  highlighted: false,
+  frame: 1,
+};
+
+export const DEFAULT_SPEECH_BUBBLES: SpeechBubblesState = {
+  telescope: { ...DEFAULT_SPEECH_BUBBLE },
+  star: { ...DEFAULT_SPEECH_BUBBLE },
+  desk: { visible: false, highlighted: false, frame: 1 },
+  pico: { ...DEFAULT_SPEECH_BUBBLE },
+};
+
+export const DEFAULT_PICO_STATE: PicoState = {
+  frame: 0,
+  isTalking: false,
+  interacted: false,
+  showDialogue: false,
+  dialogueIndex: 0,
+  showPetDescription: false,
+  showBlockingDialogue: false,
+  blockingDialogueIndex: 0,
+  hasShownFirstBlockingMessage: false,
+};
+
+export const DEFAULT_COMP_ACTIVITY: CompActivityState = {
+  visible: false,
+  phase: 'idle',
+  optionsFrame: 1,
+  option1Frame: 1,
+  selectedActivity: null,
+  hoveredActivity: null,
+  highlightedActivity: 0,
+  anthroIntroVisible: false,
+  anthroIntroFrame: 0,
+  tbiPositioningVisible: false,
+  tbiPositioningFrame: 0,
+  tbiResultVisible: false,
+  tbiResultFrame: 0,
+};
+
+export const DEFAULT_CUTSCENE: CutsceneState = {
+  isPlaying: false,
+  isScrolling: false,
+  phase: 'stars-appearing',
+  stars: [],
+  starOpacity: 1,
+  showBoomEffect: false,
+  showFinalConstellation: false,
+  constellationBodies: [],
+};
+
+export const DEFAULT_INTERACTION_UI: InteractionUIState = {
+  active: null,
+  xKeyFrame: 1,
+  cKeyFrame: 1,
+  contextLabel: '',
+  upArrowFrame: 1,
+  downArrowFrame: 1,
+  showUpArrow: false,
+  showDownArrow: false,
+};
+
 // === POSITION CONSTANTS ===
 
 // Kapoor is 102px tall, Pico is 21px tall

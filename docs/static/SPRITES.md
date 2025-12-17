@@ -26,21 +26,21 @@
 
 ### TitleScreen.tsx
 **Backgrounds & Title**
-- `title-screen-background.png`: 640×360px
+- `title-screen-background.png`: 640×360px (consolidated background, replaces separate cloud layers)
 - `title-screen-title.png`: Title sprite
-- `title-screen-cloud-1/2/3.png`: Cloud layers for intro animation
-- `title-screen-purple-abyss.png`: Atmospheric layer
 
 **Interactive Buttons** (3-frame sprites: normal/highlighted/selected)
 - `play-button.png`: 261×18px (87×18 per frame × 3 frames)
 - `dev-mode-button.png`: 261×18px (87×18 per frame × 3 frames)
 - `whats-new-button.png`: 261×18px (87×18 per frame × 3 frames)
+- `test-button.png`: 261×18px (87×18 per frame × 3 frames)
 
 **Debug Grid Icons**
-- `debug-icons.png`: 504×53px (56×53 per frame × 9 frames)
+- `debug-icons.png`: 672×53px (56×53 per frame × 12 frames)
   - Frames 0-2: "Before Desk" (normal/highlighted/selected)
   - Frames 3-5: "Before Cutscene" (normal/highlighted/selected)
   - Frames 6-8: "After Cutscene" (normal/highlighted/selected)
+  - Frames 9-11: "Planetary Systems" (normal/highlighted/selected)
 
 ### CombinedHomeScene.tsx
 **Scene Background**
@@ -62,7 +62,9 @@
 - `comp-activity.png`: Static content layer (300×180)
 - `comp-activity-options-sheet.png`: 7 frames, 2100×180 (frame 1: none, 2-6: highlights, 7: pressed)
 - `comp-activity-option1-sheet.png`: 5 frames, 1500×180 (autonomous thinking animation)
+- `anthro-intro.png`: 4 frames, 1200×180 (dialogue sequence before TBI activity)
 - `tbi-positioning.png`: 16 frames, 4800×180 (TBI patient positioning - left/right arrow navigation)
+- `tbi-positioning-result.png`: 13 frames, 3900×180 (result animation - frames 0-10 auto-play at 500ms, frame 11 final)
 
 **Character Sprites**
 - `/images/characters/sprites/kapoor-home.png`: 38×102px × 38 frames (idle: 1-16, walk: 17-32, climb: 33-38)
@@ -149,6 +151,42 @@ Frames 11-13: Highlighted sparkle (+9 from base)
 Frames 14-19: State variants highlighted
 ```
 
+## SPRITE SHEET RENDERING
+
+### Aspect Ratio Container Pattern
+For background sprite sheets, container aspect ratio **must** match individual frame dimensions:
+
+```css
+/* ❌ BAD: Using auto height causes truncation/squishing */
+.sprite-container {
+  width: 100%;
+  height: 100%;
+  background: url('debug-icons.png');
+  background-size: 1200% 100%;  /* 12 frames */
+}
+
+/* ✅ GOOD: Aspect ratio preserves frame dimensions */
+.sprite-container {
+  width: 100%;
+  aspect-ratio: 56 / 53;  /* Matches individual frame: 56px × 53px */
+  background: url('debug-icons.png');
+  background-size: 1200% 100%;  /* 12 frames */
+  background-position: calc(-100% * frameIndex / 11) 0;  /* Divide by (frames - 1) */
+}
+```
+
+**Why:** Using `height: 100%` or `auto` without matching aspect ratio causes the sprite to stretch or truncate, distorting the pixel art.
+
+### Background Position Calculation
+```typescript
+// For N frames in a horizontal sprite sheet:
+const backgroundSize = `${N * 100}% 100%`;
+const backgroundPosition = `${frameIndex * -frameWidth}px 0`;
+
+// OR using percentage (divide by N-1, not N):
+const backgroundPosition = `calc(-100% * ${frameIndex} / ${N - 1}) 0`;
+```
+
 ## CRITICAL REMINDERS
 
 1. **Always use native dimensions** - no scaling in code
@@ -158,3 +196,4 @@ Frames 14-19: State variants highlighted
 5. **Keep consistent padding** between frames (usually 0px for tight sheets)
 6. **0-indexed vs 1-indexed** - check sheet convention before calculating positions
 7. **9-slice requires separate files** - cannot slice subsections of sprite sheets
+8. **Container aspect-ratio must match frame dimensions** - prevents truncation/squishing
