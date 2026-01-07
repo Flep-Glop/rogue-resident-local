@@ -1,4 +1,4 @@
-# 🏗️ ROGUE RESIDENT ARCHITECTURE
+# 🏗️ THE OBSERVATORY ARCHITECTURE
 *Core architectural decisions and patterns that define the project*
 
 ## SURGICAL HYBRID ARCHITECTURE
@@ -217,7 +217,9 @@ comp-sheet system (300×180 per frame):
 ├── comp-activity-options-sheet.png (7 frames @ 2100×180, z: 303) - Highlight states
 ├── comp-activity-option1-sheet.png (5 frames @ 1500×180, z: 304) - Autonomous animation
 ├── ActivityClickRegion (z: 305) - Mouse interaction overlay
-└── tbi-positioning.png (16 frames @ 4800×180, z: 306) - TBI activity content
+├── tbi-positioning.png (16 frames @ 4800×180, z: 306) - TBI activity content
+├── anthro-intro.png (4 frames @ 1200×180, z: 305) - Dialogue overlay
+└── tbi-positioning-result.png (13 frames @ 3900×180, z: 307) - Result animation
 ```
 
 ### Benefits
@@ -225,6 +227,7 @@ comp-sheet system (300×180 per frame):
 - Simpler frame calculations
 - Easier to modify individual layers
 - Phase-based visibility control
+- Clean layer swapping for different activities
 
 ### Implementation
 ```typescript
@@ -238,7 +241,26 @@ const screenVariant = compSheetPhase === 'activity' ? 'dark' : 'blue';
 <CompOptions $frame={optionsFrame} $visible={showActivityLayers} />
 <CompOption1 $frame={option1Frame} $visible={showActivityLayers} />
 <TbiPositioning $visible={compSheetPhase === 'activity'} />
+<AnthroIntro $frame={introFrame} $visible={compSheetPhase === 'intro'} />
+<TbiResult $frame={resultFrame} $visible={compSheetPhase === 'result'} />
 ```
+
+### Dynamic Color Overlay Pattern
+Split static structure from dynamic content for elegant transitions:
+
+```typescript
+// Base layer: monitor with black fill (always visible)
+<CompMonitorLayer $visible={compSheetVisible} />
+
+// Color overlay: changes based on phase
+<CompScreenLayer 
+  $visible={compSheetVisible} 
+  $variant={compSheetPhase === 'waiting' ? 'blue' : 'dark'}
+  $opacity={screenOpacity}
+/>
+```
+
+**Key insight:** The black monitor base naturally serves as intermediate "fade to/from black" state, enabling bi-directional transitions without additional layers.
 
 ## DUAL SPRITE SHEET SYSTEMS
 
@@ -279,6 +301,81 @@ const getHighlightedFrame = (frame: number, id: string) => {
   }
   return frame + 9;     // Star sheet: different organization
 };
+```
+
+## PHASE-BASED STATE MACHINES
+
+### Pattern: Transition Chains
+Use phase strings to manage complex multi-step transitions:
+
+```typescript
+type CompSheetPhase = 
+  | 'booting'                    // Initial black screen (300ms)
+  | 'booting_fade_in'            // Fade to menu (350ms)
+  | 'waiting'                    // Menu idle state
+  | 'transitioning'              // Button press (150ms)
+  | 'fading_to_black'            // Fade out (350ms)
+  | 'intro'                      // Dialogue sequence
+  | 'intro_fading_to_black'      // Dialogue → activity (350ms)
+  | 'fading_from_black'          // Activity fade in (350ms)
+  | 'activity'                   // TBI positioning active
+  | 'result_fading_to_black'     // Activity → result (350ms)
+  | 'result_fading_from_black'   // Result fade in (350ms)
+  | 'result';                    // Result animation
+
+// Transition logic
+const startActivity = () => {
+  setPhase('transitioning');
+  setTimeout(() => {
+    setPhase('fading_to_black');
+    setTimeout(() => {
+      setPhase('intro');
+    }, 350);
+  }, 150);
+};
+```
+
+### Benefits
+- **Scalable:** Adding intermediate phases extends chain without restructuring
+- **Debuggable:** Current phase is explicit in state
+- **Flexible:** Easy to insert new transitions between existing phases
+- **Clear:** Phase names document the flow
+
+### Layer Visibility by Phase
+```typescript
+// Menu layers visible during boot and menu phases
+const showMenuLayers = ['booting_fade_in', 'waiting', 'transitioning'].includes(phase);
+
+// Screen color switches by phase group
+const screenVariant = ['waiting', 'booting_fade_in', 'transitioning'].includes(phase) 
+  ? 'blue' 
+  : 'dark';
+
+// Activity content only during activity phases
+const showActivity = phase === 'activity';
+const showIntro = phase === 'intro' || phase === 'intro_fading_to_black';
+const showResult = ['result', 'result_fading_from_black', 'result_fading_to_black'].includes(phase);
+```
+
+### Transition Timing Patterns
+```typescript
+// Fast press feedback
+const PRESS_DURATION = 150;
+
+// Standard fade duration
+const FADE_DURATION = 350;
+
+// Hover highlight
+const HOVER_DURATION = 50;
+
+// Chain multiple transitions
+setPhase('transitioning');
+setTimeout(() => {
+  setPhase('fading_to_black');
+  setTimeout(() => {
+    setPhase('next_phase');
+  }, FADE_DURATION);
+}, PRESS_DURATION);
 ```
 
 ## CAMERA TRANSLATION PATTERN

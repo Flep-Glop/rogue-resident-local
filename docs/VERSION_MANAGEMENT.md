@@ -1,6 +1,6 @@
 # Version Management System
 
-This document describes the version management and changelog system for Rogue Resident.
+This document describes the version management and changelog system for The Observatory.
 
 ## Overview
 

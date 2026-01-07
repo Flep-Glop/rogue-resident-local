@@ -1,4 +1,4 @@
-# 🎯 ROGUE RESIDENT PATTERNS
+# 🎯 THE OBSERVATORY PATTERNS
 *What works, what doesn't, and how to implement successfully*
 
 ## ANIMATION PATTERNS
@@ -484,6 +484,228 @@ When debugging layout issues:
 3. Log dimensions at each container level
 4. Check if problem is overflow, stacking context, or positioning
 
+## DISTANCE CALCULATION PATTERNS
+
+### Horizontal-Only vs 2D Euclidean Distance
+Choose the right distance metric for your interaction:
+
+```typescript
+// ✅ Horizontal-only: Same-floor interactions
+const distanceToDesk = Math.abs(kapoorPosition.x - DESK_POSITION.x);
+if (distanceToDesk <= INTERACTION_RANGE) {
+  // Trigger desk interaction
+}
+
+// ✅ 2D Euclidean: Multi-floor or negligible y-offset
+const dx = telescope.x - kapoor.x;
+const dy = telescope.y - kapoor.y;  // Only 3px offset
+const distance = Math.sqrt(dx * dx + dy * dy);
+
+// ❌ 2D Euclidean with significant y-offset
+// If y-offset is 28px and range is 30px:
+// Effective horizontal range = √(30²-28²) ≈ 10px (too small!)
+```
+
+**Rule:** Use horizontal-only for same-floor side-view interactions. Only use 2D when y-offset is negligible or you need multi-floor gating.
+
+## HYBRID INPUT SYSTEMS
+
+### Mouse/Keyboard Mode Switching
+```typescript
+// -1 means "mouse mode", >= 0 means "keyboard mode"
+const [selectedButton, setSelectedButton] = useState(-1);
+
+// Arrow key activates keyboard mode
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    if (selectedButton === -1) {
+      setSelectedButton(0); // Start keyboard nav
+    } else {
+      // Continue keyboard nav
+      setSelectedButton(prev => /* navigate */);
+    }
+  }
+};
+
+// Mouse movement exits keyboard mode (with threshold)
+let lastMouseX = 0, lastMouseY = 0;
+window.addEventListener('mousemove', (e) => {
+  const dx = e.clientX - lastMouseX;
+  const dy = e.clientY - lastMouseY;
+  if (Math.sqrt(dx * dx + dy * dy) > 5) { // Threshold prevents jitter
+    setSelectedButton(-1); // Exit keyboard mode
+  }
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
+});
+```
+
+**Benefits:** Clear separation between input modes, intuitive mode switching, no conflicts between mouse and keyboard highlighting.
+
+## REFACTORING PATTERNS
+
+### Sprite System Resize Order
+When resizing sprite systems, follow this sequence:
+1. **Styled components** - Update dimensions and background-size
+2. **JSX positioning** - Update x/y coordinates
+3. **Click regions** - Recalculate offsets (scale factor + new position)
+4. **Navigation positions** - Update spatial navigation coordinates
+5. **Documentation** - Update SPRITES.md with new dimensions
+
+### Feature Replacement Grep Strategy
+When replacing complex features with simpler ones:
+```bash
+# Don't just search for setState calls
+grep -r "quizQuestions" .  # Search for ALL references
+
+# State hides in:
+# - Debug logs: console.log({ quizQuestions })
+# - useEffect dependencies: [quizQuestions, showQuiz]
+# - Conditional renders: {quizQuestions.length > 0 && ...}
+# - Type definitions: interface State { quizQuestions: ... }
+```
+
+**Insight:** Complex features leave traces in debug logs, dependency arrays, and conditional logic - search comprehensively.
+
+### State Consolidation Process
+When component has 50+ useState hooks:
+
+**Step 1:** Define typed interfaces
+```typescript
+interface SpeechBubblesState {
+  star: { visible: boolean; highlighted: boolean; };
+  desk: { visible: boolean; highlighted: boolean; };
+  pico: { visible: boolean; highlighted: boolean; };
+}
+```
+
+**Step 2:** Create default objects
+```typescript
+const DEFAULT_BUBBLES: SpeechBubblesState = {
+  star: { visible: true, highlighted: false },
+  desk: { visible: true, highlighted: false },
+  pico: { visible: true, highlighted: false },
+};
+```
+
+**Step 3:** Add update helper
+```typescript
+const [bubbles, setBubbles] = useState(DEFAULT_BUBBLES);
+const updateBubble = (key: keyof SpeechBubblesState, update: Partial<SpeechBubblesState[typeof key]>) => {
+  setBubbles(prev => ({ ...prev, [key]: { ...prev[key], ...update } }));
+};
+```
+
+**Step 4:** Systematic replacement
+```typescript
+// Old: starBubbleHighlighted
+// New: bubbles.star.highlighted
+// Use TypeScript errors to guide replacement
+```
+
+**Step 5:** Test incrementally
+- Fix TypeScript errors in batches
+- Run build between major sections
+- Update keyboard handlers and effects last
+
+**Result:** 70 useState → 5 domain objects. Total LOC stays flat but cognitive load drops dramatically.
+
+### Hook Extraction with Actions Pattern
+For large coupled hooks (keyboard handlers, movement logic):
+
+**Create clean interfaces:**
+```typescript
+interface KeyboardState {
+  // Read-only flags for decisions
+  canCloseModal: boolean;
+  canAdvanceDialogue: boolean;
+  activeInteraction: InteractionType | null;
+}
+
+interface KeyboardActions {
+  // Mutation callbacks
+  onCloseModal: () => void;
+  onAdvanceDialogue: () => void;
+  onNavigateActivity: (direction: 'up' | 'down') => void;
+}
+```
+
+**Extract pure logic:**
+```typescript
+export const useKeyboardControls = (
+  state: KeyboardState,
+  actions: KeyboardActions
+) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'x') {
+        if (state.canCloseModal) actions.onCloseModal();
+        else if (state.canAdvanceDialogue) actions.onAdvanceDialogue();
+        // ... pure decision logic only
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state, actions]); // Hook knows what it depends on
+};
+```
+
+**In component:**
+```typescript
+const keyboardState = useMemo(() => ({
+  canCloseModal: showModal && !isTransitioning,
+  canAdvanceDialogue: showDialogue && currentFrame < maxFrames,
+  activeInteraction: /* ... */,
+}), [showModal, isTransitioning, showDialogue, currentFrame]);
+
+const keyboardActions = useMemo(() => ({
+  onCloseModal: () => setShowModal(false),
+  onAdvanceDialogue: () => setCurrentFrame(f => f + 1),
+  onNavigateActivity: (dir) => { /* ... */ },
+}), [/* deps */]);
+
+useKeyboardControls(keyboardState, keyboardActions);
+```
+
+**Benefits:**
+- Hook is testable (pure decision logic)
+- State contract is explicit
+- Actions are atomic operations
+- Total LOC increases but maintainability improves dramatically
+
+### Callback-Based Hooks Pattern
+When child behavior triggers parent state changes:
+
+```typescript
+// Hook handles condition detection
+export const useKapoorMovement = (
+  picoInteracted: boolean,
+  onClimbBlocked: () => void  // Callback for side effects
+) => {
+  useEffect(() => {
+    // ... movement logic
+    if (tryingToClimb && !picoInteracted) {
+      onClimbBlocked(); // Let parent handle dialogue/UI
+    }
+  }, [tryingToClimb, picoInteracted, onClimbBlocked]);
+  
+  return { position, direction, isWalking };
+};
+
+// In component
+const handlePicoBlockingDialogue = () => {
+  setPicoDialogue('Come talk to me first!');
+  setShowBlockingDialogue(true);
+};
+
+const kapoorState = useKapoorMovement(
+  picoInteracted,
+  handlePicoBlockingDialogue
+);
+```
+
+**Benefits:** Hook stays pure and testable, parent controls side effects, clean separation of concerns.
+
 ## KEY PRINCIPLES
 
 1. **Motion > brightness** for attention grabbing
@@ -494,3 +716,5 @@ When debugging layout issues:
 6. **Single-zone interactions > two-zone proximity hints**
 7. **One-way progression flags > cyclical state toggles**
 8. **Refs for interval state access > deps that recreate intervals**
+9. **Horizontal-only distance > 2D Euclidean for same-floor interactions**
+10. **Single consolidated backgrounds > layered parallax when static works**

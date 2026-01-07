@@ -1,70 +1,78 @@
 'use client';
 
-import React, { useMemo, useEffect, useState, useRef } from 'react';
-import styled from 'styled-components';
-import { TitleScreen } from './components/phase/TitleScreen';
-import { NightPhase } from './components/phase/NightPhase';
+import React, { useState, useEffect, useRef } from 'react';
+import styled, { keyframes } from 'styled-components';
+import { TitleScreen } from './components/screens/TitleScreen';
+import CombinedHomeScene from './components/game/CombinedHomeScene';
 import { useGameStore } from './store/gameStore';
-import { GamePhase } from './types';
-import { useLoading } from './providers/LoadingProvider';
 
 const PageContainer = styled.div`
   min-height: 100vh;
   width: 100%;
 `;
 
-// Game component that renders the appropriate phase based on the game state
+// Loading overlay - simple fade to/from black
+const fadeIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+const LoadingOverlay = styled.div<{ $visible: boolean; $fadeOut: boolean }>`
+  position: fixed;
+  inset: 0;
+  background: black;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: ${props => props.$visible ? 'all' : 'none'};
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease-out;
+`;
+
+const LoadingText = styled.div`
+  font-family: var(--font-press-start-2p), monospace;
+  color: white;
+  font-size: 14px;
+  animation: ${fadeIn} 0.3s ease-out;
+`;
+
+// Game component with built-in loading transition
 const Game: React.FC = () => {
-  const currentPhase = useGameStore(state => state.currentPhase);
-  const { startLoading, stopLoading, isLoading } = useLoading();
-  const [displayPhase, setDisplayPhase] = useState<GamePhase>(currentPhase);
-  const phaseChangeInProgressRef = useRef(false);
-  
-  // Handle phase transitions with loading screen
+  const isPlaying = useGameStore(state => state.isPlaying);
+  const [displayState, setDisplayState] = useState<'title' | 'loading' | 'game'>(
+    isPlaying ? 'game' : 'title'
+  );
+  const prevPlayingRef = useRef(isPlaying);
+
+  // Handle transition when isPlaying changes
   useEffect(() => {
-    // If the current displayed phase is already what we want, do nothing
-    if (displayPhase === currentPhase || phaseChangeInProgressRef.current) {
-      return;
-    }
-    
-    const handlePhaseChange = async () => {
-      try {
-        // Set flag to prevent multiple transitions at once
-        phaseChangeInProgressRef.current = true;
-        
-        // Start loading animation and wait for it to complete
-        console.log(`[Page.tsx] Phase transition: ${displayPhase} → ${currentPhase}`);
-        await startLoading();
-        
-        // After loading animation finishes, update the displayed phase
-        setDisplayPhase(currentPhase);
-        
-        // Small delay to ensure component rendering
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Stop loading animation
-        stopLoading();
-      } catch (error) {
-        console.error('[Page.tsx] Error during phase transition:', error);
-        stopLoading();
-      } finally {
-        // Clear flag when done
-        phaseChangeInProgressRef.current = false;
-      }
-    };
-    
-    handlePhaseChange();
-  }, [currentPhase, displayPhase, startLoading, stopLoading]);
-  
-  // Render the appropriate component based on the current game phase
-  switch (displayPhase) {
-    case GamePhase.TITLE:
-      return <TitleScreen />;
-    case GamePhase.NIGHT:
-      return <NightPhase />;
-    default:
-      return <TitleScreen />;
-  }
+    if (prevPlayingRef.current === isPlaying) return;
+    prevPlayingRef.current = isPlaying;
+
+    // Show loading screen
+    setDisplayState('loading');
+
+    // After brief loading, show target screen
+    const timer = setTimeout(() => {
+      setDisplayState(isPlaying ? 'game' : 'title');
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [isPlaying]);
+
+  return (
+    <>
+      {/* Loading overlay */}
+      <LoadingOverlay $visible={displayState === 'loading'} $fadeOut={false}>
+        <LoadingText>Loading...</LoadingText>
+      </LoadingOverlay>
+
+      {/* Render appropriate screen */}
+      {displayState === 'title' && <TitleScreen />}
+      {displayState === 'game' && <CombinedHomeScene />}
+    </>
+  );
 };
 
 export default function Home() {

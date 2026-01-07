@@ -2,17 +2,15 @@
 
 /**
  * GlobalStyles.tsx
- * Global styling for the Rogue Resident application
- * Applies pixel theme and animations consistently across the app
+ * Global styling for The Observatory application
  */
 
 import React from 'react';
 import { createGlobalStyle } from 'styled-components';
 import pixelTheme from './pixelTheme';
-import pixelAnimations from './pixelAnimations';
 
 const GlobalStyle = createGlobalStyle`
-  /* Reset styles - these extend the basic reset in globals.css */
+  /* Reset styles */
   *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -37,29 +35,11 @@ const GlobalStyle = createGlobalStyle`
     flex-direction: column;
   }
 
-  /* Apply scrollbar styling */
-  * {
-    ${pixelTheme.mixins.scrollable}
-  }
-
   /* Heading styles */
   h1, h2, h3, h4, h5, h6 {
     font-family: ${pixelTheme.typography.fontFamily.pixel};
     font-weight: normal;
     margin-bottom: ${pixelTheme.spacing.md};
-    text-shadow: ${pixelTheme.typography.textShadow.pixel};
-  }
-
-  h1 {
-    font-size: ${pixelTheme.typography.fontSize.xxl};
-  }
-
-  h2 {
-    font-size: ${pixelTheme.typography.fontSize.xl};
-  }
-
-  h3 {
-    font-size: ${pixelTheme.typography.fontSize.lg};
   }
 
   /* Button reset */
@@ -87,39 +67,6 @@ const GlobalStyle = createGlobalStyle`
     }
   }
 
-  /* Inject all keyframe animations */
-  ${pixelAnimations.generateGlobalKeyframes()}
-
-  /* Domain-specific color classes */
-  .treatment-planning {
-    color: ${pixelTheme.colors.treatmentPlanning};
-  }
-  
-  .radiation-therapy {
-    color: ${pixelTheme.colors.radiationTherapy};
-  }
-  
-  .linac-anatomy {
-    color: ${pixelTheme.colors.linacAnatomy};
-  }
-  
-  .dosimetry {
-    color: ${pixelTheme.colors.dosimetry};
-  }
-
-  /* Resource color classes */
-  .momentum {
-    color: ${pixelTheme.colors.momentum};
-  }
-  
-  .insight {
-    color: ${pixelTheme.colors.insight};
-  }
-  
-  .star-points {
-    color: ${pixelTheme.colors.starPoints};
-  }
-
   /* Utility classes */
   .pixel-perfect {
     ${pixelTheme.mixins.pixelPerfect}
@@ -129,31 +76,17 @@ const GlobalStyle = createGlobalStyle`
     ${pixelTheme.mixins.noSelect}
   }
   
-  /* Sync CSS variables with theme values for non-styled-component usage */
+  /* Sync CSS variables with theme */
   :root {
     --background: ${pixelTheme.colors.background};
     --foreground: ${pixelTheme.colors.text};
     --font-pixel: ${pixelTheme.typography.fontFamily.pixel};
     --font-mono: ${pixelTheme.typography.fontFamily.mono};
-    
-    /* Domain colors as CSS variables */
-    --color-treatment-planning: ${pixelTheme.colors.treatmentPlanning};
-    --color-radiation-therapy: ${pixelTheme.colors.radiationTherapy};
-    --color-linac-anatomy: ${pixelTheme.colors.linacAnatomy};
-    --color-dosimetry: ${pixelTheme.colors.dosimetry};
-    
-    /* Resource colors as CSS variables */
-    --color-momentum: ${pixelTheme.colors.momentum};
-    --color-insight: ${pixelTheme.colors.insight};
-    --color-star-points: ${pixelTheme.colors.starPoints};
   }
 `;
 
-/**
- * GlobalStyles component that applies consistent styling across the app
- */
 const GlobalStyles: React.FC = () => {
   return <GlobalStyle />;
 };
 
-export default GlobalStyles; 
+export default GlobalStyles;
