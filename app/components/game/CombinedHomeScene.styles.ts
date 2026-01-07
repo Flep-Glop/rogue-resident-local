@@ -123,7 +123,7 @@ export const CelestialLayer = styled.div<{ $scrollPosition: number; $transitionD
   width: ${HOME_INTERNAL_WIDTH}px;
   height: ${JUMBO_ASSET_HEIGHT}px;
   transform: translateY(${props => props.$scrollPosition}px);
-  transition: transform ${props => props.$transitionDuration}s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform ${props => props.$transitionDuration}s cubic-bezier(0.4, 0, 0.3, 1);
   image-rendering: pixelated;
   z-index: ${props => props.$elevated ? 15 : 14};
   pointer-events: none;
@@ -135,7 +135,7 @@ export const ScrollingContent = styled.div<{ $scrollPosition: number; $transitio
   width: ${HOME_INTERNAL_WIDTH}px;
   height: ${JUMBO_ASSET_HEIGHT}px;
   transform: translateY(${props => props.$scrollPosition}px);
-  transition: transform ${props => props.$transitionDuration}s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform ${props => props.$transitionDuration}s cubic-bezier(0.4, 0, 0.3, 1);
   image-rendering: pixelated;
   z-index: 12;
   overflow: visible;
@@ -490,6 +490,61 @@ export const DeskActionLabel = styled.div`
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 `;
 
+// === TBI Positioning Key Instructions ===
+export const TbiPositioningIndicator = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 310;
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible 
+    ? 'translateX(-50%) translateY(0)' 
+    : 'translateX(-50%) translateY(10px)'};
+  transition: opacity 0.3s ease, transform 0.3s ease;
+`;
+
+export const TbiKeyRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+export const LeftRightArrowKeysSprite = styled.div<{ $frame: number }>`
+  width: 33px;
+  height: 17px;
+  background-image: url('/images/ui/left-right-arrow-keys.png');
+  background-size: ${33 * 6}px 17px; /* 6 frames: neither, left, right, both, both highlighted, both pressed+highlighted */
+  background-position: ${props => (props.$frame - 1) * -33}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+export const TbiXKeySprite = styled.div<{ $frame: number }>`
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/x-key.png');
+  background-size: ${15 * 4}px 16px;
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+export const TbiActionLabel = styled.div`
+  font-family: 'Aseprite', monospace;
+  font-size: 12px;
+  color: #ffffff;
+  white-space: nowrap;
+  image-rendering: pixelated;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
 export const KapoorMonologue = styled.div<{ $visible: boolean }>`
   position: absolute;
   width: 140px;
@@ -497,7 +552,7 @@ export const KapoorMonologue = styled.div<{ $visible: boolean }>`
   font-size: 11px;
   color: #e0e0e0;
   line-height: 1.2;
-  z-index: 2100;
+  z-index: 55;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   padding: 8px 10px;
@@ -593,22 +648,50 @@ export const PicoContinueHint = styled.div`
 
 export const PetDescriptionBox = styled.div<{ $visible: boolean }>`
   position: absolute;
-  width: 200px;
+  width: 150px;
   font-family: 'Aseprite', monospace;
-  font-size: 10px;
-  color: #888;
+  font-size: 12px;
+  color: #aaa;
   font-style: italic;
-  line-height: 1.3;
+  line-height: 1.4;
   z-index: 55;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   opacity: ${props => props.$visible ? 1 : 0};
   pointer-events: none;
   transition: opacity 0.3s ease;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
+export const PetContinueHint = styled.div`
+  font-size: 9px;
+  color: #999;
+  margin-top: 8px;
+  font-style: italic;
+`;
+
+export const LockedMessageBox = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  width: 120px;
+  font-family: 'Aseprite', monospace;
+  font-size: 11px;
+  color: #ff6b6b;
+  font-style: italic;
+  line-height: 1.4;
+  z-index: 310; /* Above all comp activity layers (highest is 309) */
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  opacity: ${props => props.$visible ? 1 : 0};
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  text-align: center;
 `;
 
 // === COMP-SHEET COMPOSITE LAYER SYSTEM ===
@@ -706,8 +789,7 @@ export const CompSheetBackdrop = styled.div<{ $visible: boolean }>`
 export const ActivityClickRegion = styled.div<{ $active: boolean }>`
   position: absolute;
   z-index: 305;
-  cursor: pointer;
-  pointer-events: all;
+  pointer-events: none; /* Keyboard navigation only */
   
   ${DEBUG_CLICKBOXES && `
     background: rgba(255, 0, 0, 0.2);
@@ -715,13 +797,15 @@ export const ActivityClickRegion = styled.div<{ $active: boolean }>`
   `}
 `;
 
-export const AnthroIntroLayer = styled.div<{ $frame: number; $visible: boolean }>`
+// Anthro Intro - Composite layer system
+// Layer 1 (bottom): Container/background
+export const AnthroIntroContainer = styled.div<{ $visible: boolean }>`
   position: absolute;
   width: 300px;
   height: 180px;
-  background-image: url('/images/home/anthro-intro.png');
-  background-size: ${300 * 4}px 180px;
-  background-position: ${props => props.$frame * -300}px 0px;
+  background-image: url('/images/home/anthro-intro-container.png');
+  background-size: 300px 180px;
+  background-position: 0px 0px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
   z-index: 305;
@@ -730,13 +814,68 @@ export const AnthroIntroLayer = styled.div<{ $frame: number; $visible: boolean }
   transition: opacity 0.3s ease;
 `;
 
-export const TbiPositioningLayer = styled.div<{ $frame: number; $visible: boolean }>`
+// Layer 2 (middle): Dialogue text
+export const AnthroDialogueText = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  width: 240px;
+  font-family: 'Aseprite', monospace;
+  font-size: 11px;
+  color: #e0e0e0;
+  line-height: 1;
+  z-index: 310;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+  padding: 10px 12px 10px 12px;
+  padding-right: 40px;
+  border-radius: 4px;
+  border: 1px solid rgba(100, 200, 255, 0.3);
+  opacity: ${props => props.$visible ? 1 : 0};
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
+// Layer 3 (top): Anthro character sprite (16-frame animation)
+// Frames 0-7: idle, Frames 8-11: hand raise (one-time), Frames 12-15: waving (loop)
+export const AnthroIntroLayer = styled.div<{ $frame: number; $visible: boolean }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  background-image: url('/images/home/anthro-intro.png');
+  background-size: ${300 * 16}px 180px;
+  background-position: ${props => props.$frame * -300}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 311;
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+`;
+
+export const AnthroSpeakerLabel = styled.div`
+  color: #66CCFF;
+  font-weight: bold;
+  margin-bottom: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+`;
+
+export const AnthroDialogueContinueHint = styled.div`
+  font-size: 9px;
+  color: #999;
+  margin-top: 8px;
+  font-style: italic;
+`;
+
+/** TBI Positioning background - static single frame (300×180px) */
+export const TbiPositioningLayer = styled.div<{ $visible: boolean }>`
   position: absolute;
   width: 300px;
   height: 180px;
   background-image: url('/images/home/tbi-positioning.png');
-  background-size: ${300 * 16}px 180px;
-  background-position: ${props => props.$frame * -300}px 0px;
+  background-size: 300px 180px;
+  background-position: 0px 0px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
   z-index: 306;
@@ -745,12 +884,47 @@ export const TbiPositioningLayer = styled.div<{ $frame: number; $visible: boolea
   transition: opacity 0.3s ease;
 `;
 
-export const TbiResultLayer = styled.div<{ $frame: number; $visible: boolean }>`
+/** TBI Anthro sprite - 8-frame idle animation (31×90px per frame), positioned via $x prop */
+export const TbiAnthroSprite = styled.div<{ $frame: number; $x: number; $visible: boolean }>`
+  position: absolute;
+  width: 31px;
+  height: 90px;
+  background-image: url('/images/home/anthro-tbi.png');
+  background-size: ${31 * 8}px 90px;
+  background-position: ${props => props.$frame * -31}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 306; /* Same as positioning layer - anthro rendered over background */
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: left 0.1s ease-out, opacity 0.3s ease; /* Smooth sliding + fade */
+`;
+
+/** Beam-on animation overlay - 11 frames (0-10) at 300×180px per frame */
+export const TbiBeamOnLayer = styled.div<{ $frame: number; $visible: boolean }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  background-image: url('/images/home/tbi-positioning-beam-on.png');
+  background-size: ${300 * 11}px 180px;
+  background-position: ${props => props.$frame * -300}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 307; /* Render above TbiPositioningLayer (306) but below result layers */
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.1s ease; /* Faster transition for beam on/off */
+`;
+
+// === TBI MODULAR RESULT SYSTEM ===
+
+/** Backdrop panel - 3 frames: 0=base, 1=fail, 2=pass */
+export const TbiResultBackdrop = styled.div<{ $visible: boolean; $frame: number }>`
   position: absolute;
   width: 300px;
   height: 180px;
   background-image: url('/images/home/tbi-positioning-result.png');
-  background-size: ${300 * 13}px 180px;
+  background-size: ${300 * 3}px 180px;
   background-position: ${props => props.$frame * -300}px 0px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
@@ -758,6 +932,92 @@ export const TbiResultLayer = styled.div<{ $frame: number; $visible: boolean }>`
   pointer-events: none;
   opacity: ${props => props.$visible ? 1 : 0};
   transition: opacity 0.3s ease;
+`;
+
+/** Container for color bars and percentages - sits between backdrop and anthro base */
+export const TbiResultDataLayer = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  z-index: 308;
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+`;
+
+/** Individual segment color bar - 51×7px, positioned per segment */
+export const TbiColorBar = styled.div<{ $colorFrame: number; $x: number; $y: number }>`
+  position: absolute;
+  width: 51px;
+  height: 7px;
+  left: ${props => props.$x}px;
+  top: ${props => props.$y}px;
+  background-image: url('/images/home/color-bars.png');
+  background-size: ${51 * 3}px 7px;
+  background-position: ${props => props.$colorFrame * -51}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+/** Sector 1 (head) color bar - 51×8px (1px taller) */
+export const TbiColorBarSector1 = styled.div<{ $colorFrame: number; $x: number; $y: number }>`
+  position: absolute;
+  width: 51px;
+  height: 8px;
+  left: ${props => props.$x}px;
+  top: ${props => props.$y}px;
+  background-image: url('/images/home/color-bars-sector1.png');
+  background-size: ${51 * 3}px 8px;
+  background-position: ${props => props.$colorFrame * -51}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+/** Bare anthro silhouette - single frame base layer */
+export const TbiResultBase = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  background-image: url('/images/home/tbi-result-base.png');
+  background-size: 300px 180px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 309;
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+`;
+
+/** Animated mask reveal - 61×72px, 11 frames (0=full, 10=none) */
+export const TbiResultMask = styled.div<{ $frame: number; $visible: boolean; $x: number; $y: number }>`
+  position: absolute;
+  width: 61px;
+  height: 72px;
+  left: ${props => 170 + props.$x}px;
+  top: ${props => 90 + props.$y}px;
+  background-image: url('/images/home/tbi-masks.png');
+  background-size: ${61 * 11}px 72px;
+  background-position: ${props => props.$frame * -61}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 310;
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+`;
+
+/** Position indicator (checkmark/tilde/X) - 5×3px per frame */
+export const TbiPositionIndicator = styled.div<{ $colorFrame: number; $x: number; $y: number }>`
+  position: absolute;
+  width: 5px;
+  height: 3px;
+  left: ${props => props.$x}px;
+  top: ${props => props.$y}px;
+  background-image: url('/images/home/position-indicators.png');
+  background-size: ${5 * 3}px 3px;
+  background-position: ${props => props.$colorFrame * -5}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
 `;
 
 // === DEBUG BOUNDARY VISUALIZATION ===

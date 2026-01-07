@@ -1,4 +1,4 @@
-# 🎨 ROGUE RESIDENT SPRITES
+# 🎨 THE OBSERVATORY SPRITES
 *Complete sprite specifications and locations organized by component*
 
 ## STANDARD PATTERNS

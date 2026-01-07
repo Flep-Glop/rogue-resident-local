@@ -7,6 +7,7 @@ import { useGameStore } from '@/app/store/gameStore';
 import { colors, typography } from '@/app/styles/pixelTheme';
 import { ChangelogPopup } from '@/app/components/ui/ChangelogPopup';
 import { getCurrentVersionString } from '@/app/utils/versionManager';
+import { useAudioInit, useSound } from '@/app/audio/useAudio';
 
 // Styled components for the container and UI elements
 const FullScreenContainer = styled.div`
@@ -111,6 +112,52 @@ const GameVersion = styled.div`
   opacity: 0.7;
   pointer-events: none;
   font-family: ${typography.fontFamily.pixel};
+`;
+
+// Flashing "Press X to Play" indicator
+const PressXIndicator = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) scale(2); /* 2x scale to match title screen's scaled content */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 11;
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.6s ease;
+  
+  @keyframes flashPulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+  
+  animation: ${props => props.$visible ? 'flashPulse 1.5s ease-in-out infinite' : 'none'};
+`;
+
+const XKeySprite = styled.div<{ $frame: number }>`
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/x-key.png');
+  background-size: ${15 * 4}px 16px;
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+const PressXLabel = styled.div`
+  font-family: 'Aseprite', monospace;
+  font-size: 12px;
+  color: #ffffff;
+  white-space: nowrap;
+  image-rendering: pixelated;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 `;
 
 // Debug Grid Container
@@ -238,6 +285,71 @@ export const TitleScreen: React.FC = () => {
   const [pressedDebugOption, setPressedDebugOption] = useState<number | null>(null); // Track which debug option is pressed (showing third frame)
   
   const startGame = useGameStore(state => state.startGame);
+  
+  // Initialize audio system on first user interaction
+  useAudioInit();
+  const { play: playSound } = useSound();
+  
+  // Attempt to autoplay music when intro completes
+  // If browser blocks it (autoplay policy), will start on first user interaction
+  const musicStartedRef = useRef(false);
+  useEffect(() => {
+    if (!introComplete || musicStartedRef.current) return;
+    
+    const attemptAutoplay = async () => {
+      // Create audio element directly to attempt autoplay
+      const audio = new Audio('/audio/The-Observatory.mp3');
+      audio.loop = true;
+      audio.volume = 0; // Start silent for fade-in
+      
+      try {
+        await audio.play();
+        // Autoplay succeeded! Fade in the volume
+        console.log('[TitleScreen] Autoplay succeeded!');
+        musicStartedRef.current = true;
+        
+        // Fade in over 2 seconds
+        const targetVolume = 0.35 * 0.7 * 0.8; // config.volume * musicVolume * masterVolume
+        const fadeIn = () => {
+          if (audio.volume < targetVolume) {
+            audio.volume = Math.min(audio.volume + 0.01, targetVolume);
+            requestAnimationFrame(fadeIn);
+          }
+        };
+        fadeIn();
+        
+        // Store reference so AudioManager knows music is playing
+        const { audioManager } = await import('@/app/audio/AudioManager');
+        // @ts-expect-error - accessing private property for sync
+        audioManager.musicElements?.set('main_theme', audio);
+        // @ts-expect-error - accessing private property for sync
+        audioManager.currentMusic = 'main_theme';
+        
+      } catch (error) {
+        // Autoplay blocked by browser - wait for user interaction
+        console.log('[TitleScreen] Autoplay blocked, waiting for user interaction...');
+        audio.remove();
+        
+        const startMusicOnInteraction = async () => {
+          if (musicStartedRef.current) return;
+          musicStartedRef.current = true;
+          
+          console.log('[TitleScreen] User interaction - starting music');
+          const { audioManager } = await import('@/app/audio/AudioManager');
+          await audioManager.init();
+          audioManager.playMusic('main_theme');
+          
+          window.removeEventListener('click', startMusicOnInteraction);
+          window.removeEventListener('keydown', startMusicOnInteraction);
+        };
+        
+        window.addEventListener('click', startMusicOnInteraction);
+        window.addEventListener('keydown', startMusicOnInteraction);
+      }
+    };
+    
+    attemptAutoplay();
+  }, [introComplete]);
 
   useEffect(() => {
     if (!pixiContainerRef.current) return;
@@ -269,8 +381,75 @@ export const TitleScreen: React.FC = () => {
         let playButtonSprite: PIXI.Sprite | null = null;
         let settingsButtonSprite: PIXI.Sprite | null = null;
 
+        // Layered background sprites
+        let cloud1Sprite: PIXI.Sprite | null = null;
+        let cloud2Sprite: PIXI.Sprite | null = null;
+        let cloud3Sprite: PIXI.Sprite | null = null;
+        let abyssSprite: PIXI.Sprite | null = null;
+        let shootingStar1Sprite: PIXI.Sprite | null = null;
+        let shootingStar2Sprite: PIXI.Sprite | null = null;
+        let shootingStar3Sprite: PIXI.Sprite | null = null;
+        let shootingStar4Sprite: PIXI.Sprite | null = null;
+        let shineSprite: PIXI.Sprite | null = null;
+        
+        // Texture arrays for animated sprites
+        let cloud1Textures: PIXI.Texture[] = [];
+        let cloud2Textures: PIXI.Texture[] = [];
+        let cloud3Textures: PIXI.Texture[] = [];
+        let shootingStar1Textures: PIXI.Texture[] = [];
+        let shootingStar2Textures: PIXI.Texture[] = [];
+        let shootingStar3Textures: PIXI.Texture[] = [];
+        let shootingStar4Textures: PIXI.Texture[] = [];
+        let shineTextures: PIXI.Texture[] = [];
+        
+        // Animation state
+        let cloud1Frame = 0;
+        let cloud2Frame = 0;
+        let cloud3Frame = 0;
+        
+        // Ping-pong direction (1 = forward, -1 = backward)
+        let cloud1Direction = 1;
+        let cloud2Direction = 1;
+        let cloud3Direction = 1;
+        let shootingStar1Frame = -1; // -1 means not playing
+        let shootingStar2Frame = -1;
+        let shootingStar3Frame = -1;
+        let shootingStar4Frame = -1;
+        let shineFrame = -1;
+        
+        // Animation timers (ms since last frame change)
+        let cloud1Timer = 0;
+        let cloud2Timer = 0;
+        let cloud3Timer = 0;
+        let shootingStar1Timer = 0;
+        let shootingStar2Timer = 0;
+        let shootingStar3Timer = 0;
+        let shootingStar4Timer = 0;
+        let shineTimer = 0;
+        
+        // Shooting star trigger timers (countdown to next trigger)
+        let shootingStar1Countdown = 3000; // Staggered starts
+        let shootingStar2Countdown = 7000;
+        let shootingStar3Countdown = 12000;
+        let shootingStar4Countdown = 18000;
+        let shineCountdown = 5000;
+        
+        // Animation speeds (ms per frame) - parallax: closer clouds move faster
+        const CLOUD1_FRAME_DURATION = 600; // Slowest - furthest back
+        const CLOUD2_FRAME_DURATION = 450; // Medium speed
+        const CLOUD3_FRAME_DURATION = 300; // Fastest - closest/foreground
+        const SHOOTING_STAR_FRAME_DURATION = 100; // 100ms per frame
+        const SHINE_FRAME_DURATION = 120; // 120ms per frame
+        
+        // Cooldowns between shooting star/shine triggers
+        const SHOOTING_STAR_COOLDOWN_MIN = 8000;
+        const SHOOTING_STAR_COOLDOWN_MAX = 15000;
+        const SHINE_COOLDOWN_MIN = 12000;
+        const SHINE_COOLDOWN_MAX = 20000;
+
         // Animation state tracking
         let animationStartTime = 0;
+        let lastTickTime = 0;
         const BG_FADE_DURATION = 1200; // 1.2 seconds for background to fade in from black
         const TITLE_INTRO_START = 1000; // Title starts fading in after 1s
         const TITLE_INTRO_DURATION = 800; // 0.8 seconds for title fade
@@ -280,20 +459,53 @@ export const TitleScreen: React.FC = () => {
         // Easing function for smooth animations
         const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
+        // Helper to create texture frames from a horizontal sprite sheet
+        const createFrameTextures = (baseTexture: PIXI.Texture, frameCount: number, frameWidth: number, frameHeight: number): PIXI.Texture[] => {
+          const textures: PIXI.Texture[] = [];
+          for (let i = 0; i < frameCount; i++) {
+            const texture = new PIXI.Texture({
+              source: baseTexture.source,
+              frame: new PIXI.Rectangle(i * frameWidth, 0, frameWidth, frameHeight)
+            });
+            texture.source.scaleMode = 'nearest';
+            textures.push(texture);
+          }
+          return textures;
+        };
+
         // Load textures and create sprites
         const loadAssets = async () => {
           try {
-            // Load all textures - single background + UI elements
+            // Load all textures - layered background + UI elements
             const backgroundTexture = await PIXI.Assets.load('/images/title/title-screen-background.png');
+            const cloud1Texture = await PIXI.Assets.load('/images/title/title-screen-cloud-1.png');
+            const cloud2Texture = await PIXI.Assets.load('/images/title/title-screen-cloud-2.png');
+            const cloud3Texture = await PIXI.Assets.load('/images/title/title-screen-cloud-3.png');
+            const abyssTexture = await PIXI.Assets.load('/images/title/title-screen-abyss.png');
+            const shootingStar1Texture = await PIXI.Assets.load('/images/title/title-screen-shooting-stars-1.png');
+            const shootingStar2Texture = await PIXI.Assets.load('/images/title/title-screen-shooting-stars-2.png');
+            const shootingStar3Texture = await PIXI.Assets.load('/images/title/title-screen-shooting-stars-3.png');
+            const shootingStar4Texture = await PIXI.Assets.load('/images/title/title-screen-shooting-stars-4.png');
             const titleTexture = await PIXI.Assets.load('/images/title/title-screen-title.png');
+            const shineTexture = await PIXI.Assets.load('/images/title/title-screen-shine.png');
             const playButtonTexture = await PIXI.Assets.load('/images/title/play-button.png');
             const devModeButtonTexture = await PIXI.Assets.load('/images/title/dev-mode-button.png');
             const whatsNewButtonTexture = await PIXI.Assets.load('/images/title/whats-new-button.png');
 
-            // Set pixel-perfect rendering for all textures
-            [backgroundTexture, titleTexture, playButtonTexture, devModeButtonTexture, whatsNewButtonTexture].forEach(texture => {
-              texture.source.scaleMode = 'nearest'; // Pixel-perfect scaling
+            // Set pixel-perfect rendering for static textures
+            [backgroundTexture, abyssTexture, titleTexture, playButtonTexture, devModeButtonTexture, whatsNewButtonTexture].forEach(texture => {
+              texture.source.scaleMode = 'nearest';
             });
+            
+            // Create frame textures for animated sprite sheets
+            cloud1Textures = createFrameTextures(cloud1Texture, 8, 640, 360);
+            cloud2Textures = createFrameTextures(cloud2Texture, 8, 640, 360);
+            cloud3Textures = createFrameTextures(cloud3Texture, 8, 640, 360);
+            shootingStar1Textures = createFrameTextures(shootingStar1Texture, 7, 640, 360);
+            shootingStar2Textures = createFrameTextures(shootingStar2Texture, 7, 640, 360);
+            shootingStar3Textures = createFrameTextures(shootingStar3Texture, 7, 640, 360);
+            shootingStar4Textures = createFrameTextures(shootingStar4Texture, 7, 640, 360);
+            shineTextures = createFrameTextures(shineTexture, 7, 640, 360);
 
             // Calculate scale factor to fit 640x360 coordinate system to screen
             const scaleX = app.screen.width / 640;
@@ -303,7 +515,7 @@ export const TitleScreen: React.FC = () => {
             const centerX = (app.screen.width - 640 * uniformScale) / 2;
             const centerY = (app.screen.height - 360 * uniformScale) / 2;
 
-            // Create background sprite - starts invisible for fade from black effect
+            // === LAYER 1: Background (static) ===
             backgroundSprite = new PIXI.Sprite(backgroundTexture);
             backgroundSprite.scale.set(uniformScale);
             backgroundSprite.x = centerX;
@@ -311,7 +523,75 @@ export const TitleScreen: React.FC = () => {
             backgroundSprite.alpha = 0; // Start invisible for fade from black
             app.stage.addChild(backgroundSprite);
 
-            // Create title sprite (640x360) - same size as background for compositing
+            // === LAYER 2: Cloud 1 (8 frames, smooth scroll) ===
+            cloud1Sprite = new PIXI.Sprite(cloud1Textures[0]);
+            cloud1Sprite.scale.set(uniformScale);
+            cloud1Sprite.x = centerX;
+            cloud1Sprite.y = centerY;
+            cloud1Sprite.alpha = 0;
+            app.stage.addChild(cloud1Sprite);
+
+            // === LAYER 3: Cloud 2 (8 frames, smooth scroll, out of sync) ===
+            cloud2Sprite = new PIXI.Sprite(cloud2Textures[3]); // Start on frame 3 for desync
+            cloud2Frame = 3;
+            cloud2Direction = -1; // Start moving backwards for additional desync
+            cloud2Sprite.scale.set(uniformScale);
+            cloud2Sprite.x = centerX;
+            cloud2Sprite.y = centerY;
+            cloud2Sprite.alpha = 0;
+            app.stage.addChild(cloud2Sprite);
+
+            // === LAYER 4: Cloud 3 (8 frames, smooth scroll, out of sync) ===
+            cloud3Sprite = new PIXI.Sprite(cloud3Textures[0]);
+            cloud3Timer = 2000; // Offset timer for desync
+            cloud3Sprite.scale.set(uniformScale);
+            cloud3Sprite.x = centerX;
+            cloud3Sprite.y = centerY;
+            cloud3Sprite.alpha = 0;
+            app.stage.addChild(cloud3Sprite);
+
+            // === LAYER 5: Abyss (static) ===
+            abyssSprite = new PIXI.Sprite(abyssTexture);
+            abyssSprite.scale.set(uniformScale);
+            abyssSprite.x = centerX;
+            abyssSprite.y = centerY;
+            abyssSprite.alpha = 0;
+            app.stage.addChild(abyssSprite);
+
+            // === LAYER 6-9: Shooting Stars 1-4 (7 frames each, triggered) ===
+            shootingStar1Sprite = new PIXI.Sprite(shootingStar1Textures[0]);
+            shootingStar1Sprite.scale.set(uniformScale);
+            shootingStar1Sprite.x = centerX;
+            shootingStar1Sprite.y = centerY;
+            shootingStar1Sprite.alpha = 0; // Hidden until triggered
+            shootingStar1Sprite.visible = false;
+            app.stage.addChild(shootingStar1Sprite);
+
+            shootingStar2Sprite = new PIXI.Sprite(shootingStar2Textures[0]);
+            shootingStar2Sprite.scale.set(uniformScale);
+            shootingStar2Sprite.x = centerX;
+            shootingStar2Sprite.y = centerY;
+            shootingStar2Sprite.alpha = 0;
+            shootingStar2Sprite.visible = false;
+            app.stage.addChild(shootingStar2Sprite);
+
+            shootingStar3Sprite = new PIXI.Sprite(shootingStar3Textures[0]);
+            shootingStar3Sprite.scale.set(uniformScale);
+            shootingStar3Sprite.x = centerX;
+            shootingStar3Sprite.y = centerY;
+            shootingStar3Sprite.alpha = 0;
+            shootingStar3Sprite.visible = false;
+            app.stage.addChild(shootingStar3Sprite);
+
+            shootingStar4Sprite = new PIXI.Sprite(shootingStar4Textures[0]);
+            shootingStar4Sprite.scale.set(uniformScale);
+            shootingStar4Sprite.x = centerX;
+            shootingStar4Sprite.y = centerY;
+            shootingStar4Sprite.alpha = 0;
+            shootingStar4Sprite.visible = false;
+            app.stage.addChild(shootingStar4Sprite);
+
+            // === LAYER 10: Title (static) ===
             titleSprite = new PIXI.Sprite(titleTexture);
             titleSprite.scale.set(uniformScale);
             titleSprite.x = centerX;
@@ -321,6 +601,15 @@ export const TitleScreen: React.FC = () => {
             (titleSprite as any).debugY = centerY - (80 * uniformScale); // Move up 80px in 640x360 coordinates when debug grid is shown
             app.stage.addChild(titleSprite);
             pixiTitleRef.current = titleSprite;
+
+            // === LAYER 11: Shine (7 frames, triggered occasionally) ===
+            shineSprite = new PIXI.Sprite(shineTextures[0]);
+            shineSprite.scale.set(uniformScale);
+            shineSprite.x = centerX;
+            shineSprite.y = centerY;
+            shineSprite.alpha = 0;
+            shineSprite.visible = false;
+            app.stage.addChild(shineSprite);
 
             // Helper function to create button sprite from sprite sheet (261x18, 3 frames) using 640x360 coordinates
             const createButtonSprite = (texture: PIXI.Texture, worldX: number, worldY: number, scaleMultiplier: number = 1) => {
@@ -490,38 +779,45 @@ export const TitleScreen: React.FC = () => {
 
             // Start the intro animation
             animationStartTime = Date.now();
+            lastTickTime = Date.now();
             let introAnimationComplete = false;
             
-            // Animation loop
-            const introTicker = () => {
-              const elapsed = Date.now() - animationStartTime;
+            // Helper to get random cooldown
+            const getRandomCooldown = (min: number, max: number) => 
+              Math.floor(Math.random() * (max - min)) + min;
+            
+            // Animation loop - handles both intro and ongoing animations
+            const animationTicker = () => {
+              const now = Date.now();
+              const elapsed = now - animationStartTime;
+              const deltaTime = now - lastTickTime;
+              lastTickTime = now;
               
-              // Stop ticker if intro is complete
-              if (introAnimationComplete) {
-                return;
-              }
+              // === INTRO ANIMATIONS ===
               
-              // Animate background fading in from black (0-1200ms)
+              // Animate all background layers fading in from black (0-1200ms)
               if (elapsed < BG_FADE_DURATION) {
                 const bgProgress = easeOutCubic(elapsed / BG_FADE_DURATION);
-                if (backgroundSprite) {
-                  backgroundSprite.alpha = bgProgress;
-                }
-              } else if (backgroundSprite && backgroundSprite.alpha !== 1) {
-                // Ensure background is fully visible
-                backgroundSprite.alpha = 1;
+                if (backgroundSprite) backgroundSprite.alpha = bgProgress;
+                if (cloud1Sprite) cloud1Sprite.alpha = bgProgress;
+                if (cloud2Sprite) cloud2Sprite.alpha = bgProgress;
+                if (cloud3Sprite) cloud3Sprite.alpha = bgProgress;
+                if (abyssSprite) abyssSprite.alpha = bgProgress;
+              } else {
+                // Ensure all background layers are fully visible
+                if (backgroundSprite && backgroundSprite.alpha !== 1) backgroundSprite.alpha = 1;
+                if (cloud1Sprite && cloud1Sprite.alpha !== 1) cloud1Sprite.alpha = 1;
+                if (cloud2Sprite && cloud2Sprite.alpha !== 1) cloud2Sprite.alpha = 1;
+                if (cloud3Sprite && cloud3Sprite.alpha !== 1) cloud3Sprite.alpha = 1;
+                if (abyssSprite && abyssSprite.alpha !== 1) abyssSprite.alpha = 1;
               }
               
               // Animate title fading in (1000-1800ms)
               if (elapsed >= TITLE_INTRO_START && elapsed < TITLE_INTRO_START + TITLE_INTRO_DURATION) {
                 const titleElapsed = elapsed - TITLE_INTRO_START;
                 const titleProgress = easeOutCubic(titleElapsed / TITLE_INTRO_DURATION);
-                
-                if (titleSprite) {
-                  titleSprite.alpha = titleProgress;
-                }
+                if (titleSprite) titleSprite.alpha = titleProgress;
               } else if (elapsed >= TITLE_INTRO_START + TITLE_INTRO_DURATION && titleSprite && titleSprite.alpha !== 1) {
-                // Ensure title is at full opacity
                 titleSprite.alpha = 1;
               }
               
@@ -534,19 +830,15 @@ export const TitleScreen: React.FC = () => {
                   playButtonSprite.visible = true;
                   playButtonSprite.alpha = buttonProgress;
                 }
-                
                 if (settingsButtonSprite) {
                   settingsButtonSprite.visible = true;
                   settingsButtonSprite.alpha = buttonProgress;
                 }
-                
                 if (whatsNewButtonSprite) {
                   whatsNewButtonSprite.visible = true;
                   whatsNewButtonSprite.alpha = buttonProgress;
                 }
-              } else if (elapsed >= BUTTON_INTRO_START + BUTTON_INTRO_DURATION) {
-                // Ensure buttons are fully visible and mark intro as complete
-                if (!introAnimationComplete) {
+              } else if (elapsed >= BUTTON_INTRO_START + BUTTON_INTRO_DURATION && !introAnimationComplete) {
                   if (playButtonSprite) {
                     playButtonSprite.visible = true;
                     playButtonSprite.alpha = 1;
@@ -562,11 +854,228 @@ export const TitleScreen: React.FC = () => {
                   setIntroComplete(true);
                   introCompleteRef.current = true;
                   introAnimationComplete = true;
+                
+                // Trigger shine animation at end of intro
+                shineFrame = 0;
+                shineTimer = 0;
+                if (shineSprite && shineTextures.length > 0) {
+                  shineSprite.texture = shineTextures[0];
+                  shineSprite.visible = true;
+                  shineSprite.alpha = 1;
+                }
+              }
+              
+              // === ONGOING CLOUD ANIMATIONS (slow alternation) ===
+              
+              // Cloud 1 animation (8 frames, ping-pong, slowest - parallax back layer)
+              cloud1Timer += deltaTime;
+              if (cloud1Timer >= CLOUD1_FRAME_DURATION) {
+                cloud1Timer = 0;
+                cloud1Frame += cloud1Direction;
+                // Ping-pong: reverse direction at ends
+                if (cloud1Frame >= 7) {
+                  cloud1Frame = 7;
+                  cloud1Direction = -1;
+                } else if (cloud1Frame <= 0) {
+                  cloud1Frame = 0;
+                  cloud1Direction = 1;
+                }
+                if (cloud1Sprite && cloud1Textures.length > 0) {
+                  cloud1Sprite.texture = cloud1Textures[cloud1Frame];
+                }
+              }
+              
+              // Cloud 2 animation (ping-pong, medium speed - parallax middle layer)
+              cloud2Timer += deltaTime;
+              if (cloud2Timer >= CLOUD2_FRAME_DURATION) {
+                cloud2Timer = 0;
+                cloud2Frame += cloud2Direction;
+                if (cloud2Frame >= 7) {
+                  cloud2Frame = 7;
+                  cloud2Direction = -1;
+                } else if (cloud2Frame <= 0) {
+                  cloud2Frame = 0;
+                  cloud2Direction = 1;
+                }
+                if (cloud2Sprite && cloud2Textures.length > 0) {
+                  cloud2Sprite.texture = cloud2Textures[cloud2Frame];
+                }
+              }
+              
+              // Cloud 3 animation (ping-pong, fastest - parallax front layer)
+              cloud3Timer += deltaTime;
+              if (cloud3Timer >= CLOUD3_FRAME_DURATION) {
+                cloud3Timer = 0;
+                cloud3Frame += cloud3Direction;
+                if (cloud3Frame >= 7) {
+                  cloud3Frame = 7;
+                  cloud3Direction = -1;
+                } else if (cloud3Frame <= 0) {
+                  cloud3Frame = 0;
+                  cloud3Direction = 1;
+                }
+                if (cloud3Sprite && cloud3Textures.length > 0) {
+                  cloud3Sprite.texture = cloud3Textures[cloud3Frame];
+                }
+              }
+              
+              // === SHOOTING STAR ANIMATIONS (triggered, staggered) ===
+              
+              // Shooting Star 1
+              if (shootingStar1Frame >= 0) {
+                // Currently playing
+                shootingStar1Timer += deltaTime;
+                if (shootingStar1Timer >= SHOOTING_STAR_FRAME_DURATION) {
+                  shootingStar1Timer = 0;
+                  shootingStar1Frame++;
+                  if (shootingStar1Frame >= 7) {
+                    // Animation complete
+                    shootingStar1Frame = -1;
+                    if (shootingStar1Sprite) {
+                      shootingStar1Sprite.visible = false;
+                      shootingStar1Sprite.alpha = 0;
+                    }
+                    shootingStar1Countdown = getRandomCooldown(SHOOTING_STAR_COOLDOWN_MIN, SHOOTING_STAR_COOLDOWN_MAX);
+                  } else if (shootingStar1Sprite && shootingStar1Textures.length > shootingStar1Frame) {
+                    shootingStar1Sprite.texture = shootingStar1Textures[shootingStar1Frame];
+                  }
+                }
+              } else if (introAnimationComplete) {
+                // Countdown to trigger
+                shootingStar1Countdown -= deltaTime;
+                if (shootingStar1Countdown <= 0) {
+                  shootingStar1Frame = 0;
+                  shootingStar1Timer = 0;
+                  if (shootingStar1Sprite && shootingStar1Textures.length > 0) {
+                    shootingStar1Sprite.texture = shootingStar1Textures[0];
+                    shootingStar1Sprite.visible = true;
+                    shootingStar1Sprite.alpha = 1;
+                  }
+                }
+              }
+              
+              // Shooting Star 2
+              if (shootingStar2Frame >= 0) {
+                shootingStar2Timer += deltaTime;
+                if (shootingStar2Timer >= SHOOTING_STAR_FRAME_DURATION) {
+                  shootingStar2Timer = 0;
+                  shootingStar2Frame++;
+                  if (shootingStar2Frame >= 7) {
+                    shootingStar2Frame = -1;
+                    if (shootingStar2Sprite) {
+                      shootingStar2Sprite.visible = false;
+                      shootingStar2Sprite.alpha = 0;
+                    }
+                    shootingStar2Countdown = getRandomCooldown(SHOOTING_STAR_COOLDOWN_MIN, SHOOTING_STAR_COOLDOWN_MAX);
+                  } else if (shootingStar2Sprite && shootingStar2Textures.length > shootingStar2Frame) {
+                    shootingStar2Sprite.texture = shootingStar2Textures[shootingStar2Frame];
+                  }
+                }
+              } else if (introAnimationComplete) {
+                shootingStar2Countdown -= deltaTime;
+                if (shootingStar2Countdown <= 0) {
+                  shootingStar2Frame = 0;
+                  shootingStar2Timer = 0;
+                  if (shootingStar2Sprite && shootingStar2Textures.length > 0) {
+                    shootingStar2Sprite.texture = shootingStar2Textures[0];
+                    shootingStar2Sprite.visible = true;
+                    shootingStar2Sprite.alpha = 1;
+                  }
+                }
+              }
+              
+              // Shooting Star 3
+              if (shootingStar3Frame >= 0) {
+                shootingStar3Timer += deltaTime;
+                if (shootingStar3Timer >= SHOOTING_STAR_FRAME_DURATION) {
+                  shootingStar3Timer = 0;
+                  shootingStar3Frame++;
+                  if (shootingStar3Frame >= 7) {
+                    shootingStar3Frame = -1;
+                    if (shootingStar3Sprite) {
+                      shootingStar3Sprite.visible = false;
+                      shootingStar3Sprite.alpha = 0;
+                    }
+                    shootingStar3Countdown = getRandomCooldown(SHOOTING_STAR_COOLDOWN_MIN, SHOOTING_STAR_COOLDOWN_MAX);
+                  } else if (shootingStar3Sprite && shootingStar3Textures.length > shootingStar3Frame) {
+                    shootingStar3Sprite.texture = shootingStar3Textures[shootingStar3Frame];
+                  }
+                }
+              } else if (introAnimationComplete) {
+                shootingStar3Countdown -= deltaTime;
+                if (shootingStar3Countdown <= 0) {
+                  shootingStar3Frame = 0;
+                  shootingStar3Timer = 0;
+                  if (shootingStar3Sprite && shootingStar3Textures.length > 0) {
+                    shootingStar3Sprite.texture = shootingStar3Textures[0];
+                    shootingStar3Sprite.visible = true;
+                    shootingStar3Sprite.alpha = 1;
+                  }
+                }
+              }
+              
+              // Shooting Star 4
+              if (shootingStar4Frame >= 0) {
+                shootingStar4Timer += deltaTime;
+                if (shootingStar4Timer >= SHOOTING_STAR_FRAME_DURATION) {
+                  shootingStar4Timer = 0;
+                  shootingStar4Frame++;
+                  if (shootingStar4Frame >= 7) {
+                    shootingStar4Frame = -1;
+                    if (shootingStar4Sprite) {
+                      shootingStar4Sprite.visible = false;
+                      shootingStar4Sprite.alpha = 0;
+                    }
+                    shootingStar4Countdown = getRandomCooldown(SHOOTING_STAR_COOLDOWN_MIN, SHOOTING_STAR_COOLDOWN_MAX);
+                  } else if (shootingStar4Sprite && shootingStar4Textures.length > shootingStar4Frame) {
+                    shootingStar4Sprite.texture = shootingStar4Textures[shootingStar4Frame];
+                  }
+                }
+              } else if (introAnimationComplete) {
+                shootingStar4Countdown -= deltaTime;
+                if (shootingStar4Countdown <= 0) {
+                  shootingStar4Frame = 0;
+                  shootingStar4Timer = 0;
+                  if (shootingStar4Sprite && shootingStar4Textures.length > 0) {
+                    shootingStar4Sprite.texture = shootingStar4Textures[0];
+                    shootingStar4Sprite.visible = true;
+                    shootingStar4Sprite.alpha = 1;
+                  }
+                }
+              }
+              
+              // === SHINE ANIMATION (triggered occasionally) ===
+              if (shineFrame >= 0) {
+                shineTimer += deltaTime;
+                if (shineTimer >= SHINE_FRAME_DURATION) {
+                  shineTimer = 0;
+                  shineFrame++;
+                  if (shineFrame >= 7) {
+                    shineFrame = -1;
+                    if (shineSprite) {
+                      shineSprite.visible = false;
+                      shineSprite.alpha = 0;
+                    }
+                    shineCountdown = getRandomCooldown(SHINE_COOLDOWN_MIN, SHINE_COOLDOWN_MAX);
+                  } else if (shineSprite && shineTextures.length > shineFrame) {
+                    shineSprite.texture = shineTextures[shineFrame];
+                  }
+                }
+              } else if (introAnimationComplete) {
+                shineCountdown -= deltaTime;
+                if (shineCountdown <= 0) {
+                  shineFrame = 0;
+                  shineTimer = 0;
+                  if (shineSprite && shineTextures.length > 0) {
+                    shineSprite.texture = shineTextures[0];
+                    shineSprite.visible = true;
+                    shineSprite.alpha = 1;
+                  }
                 }
               }
             };
             
-            app.ticker.add(introTicker);
+            app.ticker.add(animationTicker);
 
             setIsLoaded(true);
           } catch (error) {
@@ -589,7 +1098,7 @@ export const TitleScreen: React.FC = () => {
           app.stage.addChild(fallbackBg);
 
           // Fallback title
-          const titleText = new PIXI.Text('ROGUE RESIDENT', {
+          const titleText = new PIXI.Text('THE OBSERVATORY', {
             fontFamily: 'Arial',
             fontSize: 64,
             fill: '#845AF5',
@@ -751,26 +1260,45 @@ export const TitleScreen: React.FC = () => {
       if (e.key === 'ArrowUp') {
         setSelectedButton(prev => {
           // If in mouse mode (no selection), start at Play button
-          if (prev < 0) return 0;
-          return Math.max(0, prev - 1);
+          if (prev < 0) {
+            playSound('ui_hover');
+            return 0;
+          }
+          const next = Math.max(0, prev - 1);
+          if (next !== prev) playSound('ui_hover');
+          return next;
         });
       } else if (e.key === 'ArrowDown') {
         setSelectedButton(prev => {
           // If in mouse mode (no selection), start at Play button
-          if (prev < 0) return 0;
-          return Math.min(2, prev + 1);
+          if (prev < 0) {
+            playSound('ui_hover');
+            return 0;
+          }
+          const next = Math.min(2, prev + 1);
+          if (next !== prev) playSound('ui_hover');
+          return next;
         });
       }
-      // X key activation - only works in keyboard mode
-      else if ((e.key === 'x' || e.key === 'X') && selectedButton >= 0) {
+      // X key activation
+      else if (e.key === 'x' || e.key === 'X') {
         const playButton = pixiPlayButtonRef.current;
         const devModeButton = pixiDevModeButtonRef.current;
         const whatsNewButton = pixiWhatsNewButtonRef.current;
 
         if (!playButton || !devModeButton || !whatsNewButton) return;
 
-        // Show selected (third) frame with scale animation
-        if (selectedButton === 0) {
+        // Play confirm sound for any selection
+        playSound('ui_confirm');
+
+        // If nothing is highlighted (mouse mode), automatically select Play button
+        if (selectedButton < 0) {
+          playButton.texture = (playButton as any).selectedTexture;
+          playButton.scale.set((playButton as any).baseScale * 0.98);
+          setTimeout(() => handleStartGame(), 150);
+        }
+        // Show selected (third) frame with scale animation for keyboard mode
+        else if (selectedButton === 0) {
           playButton.texture = (playButton as any).selectedTexture;
           playButton.scale.set((playButton as any).baseScale * 0.98);
           setTimeout(() => handleStartGame(), 150);
@@ -836,18 +1364,30 @@ export const TitleScreen: React.FC = () => {
       // Arrow key navigation - activates keyboard mode if not already active
       if (e.key === 'ArrowLeft') {
         setSelectedDebugOption(prev => {
-          if (prev < 0) return 0; // Start at first option
-          return Math.max(0, prev - 1);
+          if (prev < 0) {
+            playSound('ui_hover');
+            return 0; // Start at first option
+          }
+          const next = Math.max(0, prev - 1);
+          if (next !== prev) playSound('ui_hover');
+          return next;
         });
       } else if (e.key === 'ArrowRight') {
         setSelectedDebugOption(prev => {
-          if (prev < 0) return 0; // Start at first option
-          return Math.min(2, prev + 1);
+          if (prev < 0) {
+            playSound('ui_hover');
+            return 0; // Start at first option
+          }
+          const next = Math.min(2, prev + 1);
+          if (next !== prev) playSound('ui_hover');
+          return next;
         });
       }
       // X key activation - only works in keyboard mode
       else if ((e.key === 'x' || e.key === 'X') && selectedDebugOption >= 0) {
         const debugStates = ['before_desk', 'before_cutscene', 'after_cutscene'];
+        
+        playSound('ui_confirm');
         
         // Show pressed (third) frame
         setPressedDebugOption(selectedDebugOption);
@@ -860,6 +1400,7 @@ export const TitleScreen: React.FC = () => {
       }
       // Escape to close debug grid
       else if (e.key === 'Escape') {
+        playSound('ui_decline');
         setShowDebugGrid(false);
       }
     };
@@ -1013,9 +1554,15 @@ export const TitleScreen: React.FC = () => {
         
         {/* UI overlay for non-sprite elements */}
         <UIOverlay>
+          {/* Flashing "Press X to Play" indicator - shows after intro completes */}
+          <PressXIndicator $visible={introComplete && !showDebugGrid && !startingGame}>
+            <XKeySprite $frame={3} />
+            <PressXLabel>to Play</PressXLabel>
+          </PressXIndicator>
+          
           {/* Game version */}
           <GameVersion>
-            {getCurrentVersionString()}
+            {getCurrentVersionString()} - by Questrium
           </GameVersion>
         </UIOverlay>
         

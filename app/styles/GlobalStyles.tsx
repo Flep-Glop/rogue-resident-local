@@ -2,7 +2,7 @@
 
 /**
  * GlobalStyles.tsx
- * Global styling for the Rogue Resident application
+ * Global styling for The Observatory application
  */
 
 import React from 'react';

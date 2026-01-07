@@ -103,7 +103,7 @@ const ParallaxContainer = styled.div<{ $layerGroup?: 'background' | 'clouds' | '
     props.$layerGroup === 'background' ? 2 :  /* Sky/stars/moon - below celestial bodies */
     props.$layerGroup === 'clouds' ? 8 :      /* Clouds - above celestial bodies */
     props.$layerGroup === 'abyss' ? 9 :       /* Abyss (base + purple composite) - above clouds, below telescope */
-    props.$layerGroup === 'telescope' ? 14 :   /* Telescope - above home-sky-combo (z-12) and abyss (z-13) */
+    props.$layerGroup === 'telescope' ? 10 :   /* Telescope - below dialogue (z-55) but above abyss (z-9) */
     5                                          /* Default fallback */
   };
   pointer-events: none; /* Allow clicks to pass through to interactive elements */
@@ -154,7 +154,7 @@ const Layer = styled.div.attrs<{
   transform: translateY(${props => props.$scrollPosition * props.$parallaxFactor}px);
   
   /* Conditional transition: disabled during startup, enabled for smooth scrolling with dynamic duration */
-  transition: ${props => props.$enableTransitions ? `transform ${props.$transitionDuration}s cubic-bezier(0.4, 0, 0.2, 1)` : 'none'};
+  transition: ${props => props.$enableTransitions ? `transform ${props.$transitionDuration}s cubic-bezier(0.4, 0, 0.3, 1)` : 'none'};
 
   /* Set animation properties based on props */
   animation-name: ${props => {

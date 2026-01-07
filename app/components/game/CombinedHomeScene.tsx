@@ -39,12 +39,19 @@ import {
   SECOND_FLOOR_Y,
   PROXIMITY_THRESHOLD,
   PICO_LEFT_EXTENSION,
-  ANTHRO_INTRO_TOTAL_FRAMES,
-  TBI_POSITIONING_TOTAL_FRAMES,
+  // TBI Anthro positioning system
+  TBI_ANTHRO_MIN_X,
+  TBI_ANTHRO_MAX_X,
+  TBI_ANTHRO_START_X,
+  TBI_ANTHRO_STEP,
+  TBI_ANTHRO_Y,
+  TBI_ANTHRO_TOTAL_FRAMES,
+  getPositionIndexFromX,
   STAR_NAMES,
   MONOLOGUE_LINES,
   PICO_DIALOGUE_LINES,
   PICO_BLOCKING_DIALOGUE,
+  ANTHRO_INTRO_DIALOGUE,
   ACTIVITY_POSITIONS,
   WALK_SPEED,
   CLIMB_SPEED,
@@ -56,8 +63,25 @@ import {
   CLIMB_X_THRESHOLD,
   CLIMB_DISTANCE,
   CLIMB_X_TOLERANCE,
+  CLIMB_RIGHT_EXTENSION,
   FLOOR_TOLERANCE,
   SLOW_SCROLL_DURATION,
+  // TBI Result system
+  TBI_POSITION_RESULTS,
+  TBI_SEGMENT_BAR_POSITIONS,
+  TBI_SEGMENT_INDICATOR_POSITIONS,
+  TBI_MASK_POSITION,
+  TBI_MASK_TOTAL_FRAMES,
+  // TBI Beam animation
+  TBI_BEAM_TOTAL_FRAMES,
+  TBI_BEAM_INTRO_FRAMES,
+  TBI_BEAM_LOOP_START_FRAME,
+  TBI_BEAM_LOOP_END_FRAME,
+  TBI_BEAM_LOOP_COUNT,
+  TBI_BEAM_FRAME_DURATION,
+  getIndicatorFrameFromBarFrame,
+  getTbiResultBackdropFrame,
+  evaluateTbiPositioning,
 } from './CombinedHomeScene.constants';
 
 // Import all styled components and constants from styles file
@@ -65,7 +89,6 @@ import {
   HOME_INTERNAL_WIDTH,
   HOME_INTERNAL_HEIGHT,
   JUMBO_ASSET_HEIGHT,
-  DEBUG_CLICKBOXES,
   DEBUG_BOUNDARIES,
   FIRST_FLOOR_BOUNDS,
   SECOND_FLOOR_BOUNDS,
@@ -77,9 +100,6 @@ import {
   CelestialLayer,
   ScrollingContent,
   ForegroundLayer,
-  ClickableArea,
-  DebugLabel,
-  ExclamationIndicator,
   CharacterSprite,
   ArrowKeysSprite,
   XKeySprite,
@@ -97,6 +117,11 @@ import {
   DeskXKeySprite,
   DeskCKeySprite,
   DeskActionLabel,
+  TbiPositioningIndicator,
+  TbiKeyRow,
+  LeftRightArrowKeysSprite,
+  TbiXKeySprite,
+  TbiActionLabel,
   KapoorMonologue,
   KapoorSpeakerLabel,
   KapoorContinueHint,
@@ -106,6 +131,8 @@ import {
   PicoSpeakerLabel,
   PicoContinueHint,
   PetDescriptionBox,
+  PetContinueHint,
+  LockedMessageBox,
   CompMonitorLayer,
   CompScreenLayer,
   CompActivityLayer,
@@ -113,15 +140,34 @@ import {
   CompOption1Layer,
   CompSheetBackdrop,
   ActivityClickRegion,
+  AnthroIntroContainer,
   AnthroIntroLayer,
+  AnthroDialogueText,
+  AnthroSpeakerLabel,
+  AnthroDialogueContinueHint,
   TbiPositioningLayer,
-  TbiResultLayer,
+  TbiAnthroSprite,
+  TbiBeamOnLayer,
+  // TBI Modular Result System
+  TbiResultBackdrop,
+  TbiResultDataLayer,
+  TbiColorBar,
+  TbiColorBarSector1,
+  TbiPositionIndicator,
+  TbiResultBase,
+  TbiResultMask,
   BoundaryLine,
   BoundaryLabel,
   BoundaryFloorIndicator,
 } from './CombinedHomeScene.styles';
 
+// Import audio system
+import { useAudioInit } from '@/app/audio/useAudio';
+
 export default function CombinedHomeScene() {
+  // Initialize audio system (backup in case not initialized on title screen)
+  useAudioInit();
+  
   const { 
     hasCompletedFirstActivity, 
     hasSeenConstellationCutscene,
@@ -161,9 +207,6 @@ export default function CombinedHomeScene() {
     setSpeechBubbles(prev => ({ ...prev, [key]: { ...prev[key], ...updates } }));
   }, []);
   
-  // Navigation arrow hover states
-  const [upperBandHovered, setUpperBandHovered] = useState(false);
-  const [skyBandHovered, setSkyBandHovered] = useState(false);
   
   
   // Keys pressed ref for keyboard controls (shared between keyboard controls and Kapoor movement)
@@ -181,13 +224,12 @@ export default function CombinedHomeScene() {
   // === KAPOOR MOVEMENT HOOK ===
   const kapoorMovementCallbacks: KapoorMovementCallbacks = useMemo(() => ({
     onClimbBlocked: () => {
-      console.log('[CombinedHomeScene] Pico blocks ladder - showing dialogue');
+      console.log('[CombinedHomeScene] Kapoor climbing without talking - showing remote dialogue');
+      // Just trigger the dialogue - don't block climbing
       if (!pico.hasShownFirstBlockingMessage) {
-        updatePico({ blockingDialogueIndex: 0 }); // Start with first message
-      } else {
-        updatePico({ blockingDialogueIndex: 1 }); // Skip to second message for repeat offenders
+        updatePico({ blockingDialogueIndex: 0, showBlockingDialogue: true, isTalking: true, hasShownFirstBlockingMessage: true });
       }
-      updatePico({ showBlockingDialogue: true, isTalking: true });
+      // If already shown, don't repeat
     },
   }), [pico.hasShownFirstBlockingMessage, updatePico]);
   
@@ -230,7 +272,11 @@ export default function CombinedHomeScene() {
   const [compActivity, setCompActivity] = useState<CompActivityState>(DEFAULT_COMP_ACTIVITY);
   const compSheetAnimationRef = useRef<NodeJS.Timeout | null>(null);
   const compOption1AnimationRef = useRef<NodeJS.Timeout | null>(null);
+  const anthroIntroAnimationRef = useRef<NodeJS.Timeout | null>(null);
+  const tbiAnthroAnimationRef = useRef<NodeJS.Timeout | null>(null);
   const tbiResultAnimationRef = useRef<NodeJS.Timeout | null>(null);
+  const [showLockedMessage, setShowLockedMessage] = useState(false);
+  const lockedMessageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Helper to update comp activity state
   const updateCompActivity = useCallback((updates: Partial<CompActivityState>) => {
@@ -240,6 +286,9 @@ export default function CombinedHomeScene() {
   // Desk activity key indicator frames (always highlighted frame 3)
   const deskXKeyFrame = 1; // Unhighlighted by default (highlights on press)
   const deskCKeyFrame = 1; // Unhighlighted by default (highlights on press)
+  
+  // TBI positioning key indicator frame (responds to arrow key input)
+  const [tbiArrowKeysFrame, setTbiArrowKeysFrame] = useState(1); // 1=neither, 2=right, 3=left, 4=both
   
   // === GROUPED STATE: Constellation Cutscene ===
   const [cutscene, setCutscene] = useState<CutsceneState>(DEFAULT_CUTSCENE);
@@ -288,10 +337,13 @@ export default function CombinedHomeScene() {
     compSheetVisible: compActivity.visible,
     compSheetPhase: compActivity.phase,
     showAnthroIntro: compActivity.anthroIntroVisible,
-    anthroIntroFrame: compActivity.anthroIntroFrame,
-    anthroIntroTotalFrames: ANTHRO_INTRO_TOTAL_FRAMES,
+    anthroDialogueIndex: compActivity.anthroDialogueIndex,
+    anthroDialogueLinesLength: ANTHRO_INTRO_DIALOGUE.length,
     showTbiPositioning: compActivity.tbiPositioningVisible,
     showTbiResult: compActivity.tbiResultVisible,
+    tbiResultRevealed: compActivity.tbiResultRevealed,
+    tbiResultPassed: compActivity.tbiResultPassed,
+    tbiBeamAnimating: compActivity.tbiBeamAnimating,
     highlightedActivity: compActivity.highlightedActivity,
     showMonologue,
     currentMonologueLineIndex,
@@ -303,6 +355,7 @@ export default function CombinedHomeScene() {
     picoBlockingDialogueIndex: pico.blockingDialogueIndex,
     picoBlockingDialogueLinesLength: PICO_BLOCKING_DIALOGUE.length,
     showStarDetail,
+    showPetDescription: pico.showPetDescription,
     skyHighlight,
     activeInteraction: interactionUI.active,
     deskXKeyTriggered,
@@ -323,20 +376,67 @@ export default function CombinedHomeScene() {
   const keyboardActions: KeyboardActions = useMemo(() => ({
     // Comp-sheet actions
     advanceAnthroIntro: () => {
-      console.log('[CombinedHomeScene] Advancing intro frame', compActivity.anthroIntroFrame + 1);
-      updateCompActivity({ anthroIntroFrame: compActivity.anthroIntroFrame + 1 });
+      const nextIndex = compActivity.anthroDialogueIndex + 1;
+      console.log('[CombinedHomeScene] Advancing anthro dialogue', nextIndex);
+      // Switch to idle animation after first dialogue (was waving)
+      if (compActivity.anthroDialogueIndex === 0) {
+        updateCompActivity({ 
+          anthroDialogueIndex: nextIndex,
+          anthroAnimPhase: 'idle',
+          anthroIntroFrame: 0
+        });
+      } else {
+        updateCompActivity({ anthroDialogueIndex: nextIndex });
+      }
     },
     completeAnthroIntro: () => {
       console.log('[CombinedHomeScene] Intro complete, fading to TBI');
       updateCompActivity({ phase: 'intro_fading_to_black' });
     },
     completeTbiPositioning: () => {
-      console.log('[CombinedHomeScene] TBI positioning complete, showing result');
-      updateCompActivity({ phase: 'result_fading_to_black' });
+      console.log('[CombinedHomeScene] TBI positioning complete, starting beam animation');
+      // Start beam animation overlay
+      updateCompActivity({ 
+        tbiBeamVisible: true, 
+        tbiBeamFrame: 0, 
+        tbiBeamLoopCount: 0, 
+        tbiBeamAnimating: true 
+      });
+    },
+    restartTbiPositioning: () => {
+      console.log('[CombinedHomeScene] Restarting TBI positioning (failed attempt)');
+      // Fade out result screen
+      updateCompActivity({ phase: 'intro_fading_to_black' });
+      // After fade completes, reset to positioning
+      setTimeout(() => {
+        updateCompActivity({ 
+          tbiResultVisible: false,
+          tbiResultRevealed: false,
+          tbiResultMaskFrame: 0,
+          tbiResultPassed: false,
+          tbiPositioningVisible: true,
+          tbiAnthroX: TBI_ANTHRO_START_X,
+          tbiAnthroFrame: 0,
+          // Reset beam animation state
+          tbiBeamVisible: false,
+          tbiBeamFrame: 0,
+          tbiBeamLoopCount: 0,
+          tbiBeamAnimating: false,
+          phase: 'fading_from_black',
+        });
+      }, 350);
     },
     completeActivityFromResult: () => {
       console.log('[CombinedHomeScene] Completing activity from result');
-      handleActivityComplete();
+      // Check if player failed - if so, restart positioning instead
+      const passed = evaluateTbiPositioning(compActivity.tbiAnthroX);
+      if (!passed) {
+        console.log('[CombinedHomeScene] Failed - restarting TBI positioning');
+        keyboardActions.restartTbiPositioning();
+      } else {
+        console.log('[CombinedHomeScene] Passed - completing activity');
+        handleActivityComplete();
+      }
     },
     openDesk: () => {
       console.log('[CombinedHomeScene] Opening desk comp-sheet');
@@ -355,7 +455,27 @@ export default function CombinedHomeScene() {
     },
     selectCompActivity: () => {
       console.log('[CombinedHomeScene] Selecting activity', compActivity.highlightedActivity);
-      updateCompActivity({ selectedActivity: compActivity.highlightedActivity, phase: 'transitioning' });
+      
+      // Only allow activity 0 (TBI module) to be selected
+      if (compActivity.highlightedActivity === 0) {
+        updateCompActivity({ selectedActivity: compActivity.highlightedActivity, phase: 'transitioning' });
+      } else {
+        // Activities 1-4 are locked - show message
+        console.log('[CombinedHomeScene] Activity locked:', compActivity.highlightedActivity);
+        
+        // Clear any existing timeout
+        if (lockedMessageTimeoutRef.current) {
+          clearTimeout(lockedMessageTimeoutRef.current);
+        }
+        
+        // Show locked message
+        setShowLockedMessage(true);
+        
+        // Hide after 2 seconds
+        lockedMessageTimeoutRef.current = setTimeout(() => {
+          setShowLockedMessage(false);
+        }, 2000);
+      }
     },
     closeCompSheet: () => {
       console.log('[CombinedHomeScene] Closing desk activity');
@@ -397,9 +517,8 @@ export default function CombinedHomeScene() {
       updatePico({ blockingDialogueIndex: pico.blockingDialogueIndex + 1 });
     },
     dismissPicoBlockingDialogue: () => {
-      console.log('[CombinedHomeScene] Dismissing blocking dialogue');
-      updatePico({ showBlockingDialogue: false, isTalking: false, hasShownFirstBlockingMessage: true });
-      setKapoorIsClimbing(false);
+      console.log('[CombinedHomeScene] Dismissing remote dialogue');
+      updatePico({ showBlockingDialogue: false, isTalking: false });
       setTimeout(() => updatePico({ blockingDialogueIndex: 0 }), 250);
     },
     advancePicoDialogue: () => {
@@ -420,15 +539,22 @@ export default function CombinedHomeScene() {
       }, 150);
     },
     petPico: () => {
+      // Only show description if not already petted this playthrough
+      if (pico.hasPetted) {
+        console.log('[CombinedHomeScene] Pico already petted this playthrough');
+        return;
+      }
+      
       console.log('[CombinedHomeScene] Petting Pico');
       updateInteractionUI({ cKeyFrame: 3 });
       setTimeout(() => {
-        updatePico({ showPetDescription: true });
-        setTimeout(() => {
-          updatePico({ showPetDescription: false });
-          updateInteractionUI({ cKeyFrame: 1 });
-        }, 3000);
+        updatePico({ showPetDescription: true, hasPetted: true });
       }, 150);
+    },
+    dismissPetDescription: () => {
+      console.log('[CombinedHomeScene] Dismissing pet description');
+      updatePico({ showPetDescription: false });
+      updateInteractionUI({ cKeyFrame: 1 });
     },
     
     // Telescope actions
@@ -700,10 +826,6 @@ export default function CombinedHomeScene() {
   // === REMOVED: TINY STAR ORBITAL ANIMATION ===
   // (Previously orbited around HDR star, no longer needed in planet-and-moons system)
 
-  const handleBedClick = () => {
-    console.log('[CombinedHomeScene] Bed clicked');
-    // Bed interaction is currently a no-op - can be extended for sleep/rest mechanics
-  };
 
 
   const handleCloseStarDetail = () => {
@@ -738,12 +860,6 @@ export default function CombinedHomeScene() {
     console.log('[CombinedHomeScene] Star viewed - enabling desk interaction');
     setDeskXKeyEnabled(true);
   };
-
-  // Activity interaction - handle activity selection from comp-sheet
-  const handleActivitySelect = (activityIndex: number) => {
-    console.log('[CombinedHomeScene] Activity selected:', activityIndex);
-    updateCompActivity({ selectedActivity: activityIndex, phase: 'transitioning' });
-  };
   
   // TBI Positioning viewer - close and complete activity
   const handleActivityComplete = () => {
@@ -761,19 +877,33 @@ export default function CombinedHomeScene() {
       tbiResultAnimationRef.current = null;
     }
     
+    // Clear locked message timeout
+    if (lockedMessageTimeoutRef.current) {
+      clearTimeout(lockedMessageTimeoutRef.current);
+      lockedMessageTimeoutRef.current = null;
+    }
+    setShowLockedMessage(false);
+    
     // Hide everything and reset
     updateCompActivity({ visible: false, tbiPositioningVisible: false, tbiResultVisible: false });
     
     // Reset all activity state
     setTimeout(() => {
       updateCompActivity({
-        tbiPositioningFrame: 0,
-        tbiResultFrame: 0,
+        tbiAnthroX: TBI_ANTHRO_START_X,
+        tbiAnthroFrame: 0,
+        tbiResultMaskFrame: 0,
+        tbiResultRevealed: false,
+        tbiResultPassed: false,
+        // Reset beam animation state
+        tbiBeamVisible: false,
+        tbiBeamFrame: 0,
+        tbiBeamLoopCount: 0,
+        tbiBeamAnimating: false,
         phase: 'idle',
         optionsFrame: 1,
         option1Frame: 1,
         selectedActivity: null,
-        hoveredActivity: null,
         highlightedActivity: 0,
       });
       setDeskXKeyTriggered(false); // Reset so desk can be used again
@@ -802,21 +932,6 @@ export default function CombinedHomeScene() {
     setCurrentView('home');
   };
 
-  const handleTelescopeClick = () => {
-    if (currentView === 'home') {
-      console.log('[CombinedHomeScene] Telescope clicked - scrolling to sky view');
-      scrollToSky();
-    }
-    // When already in sky view, telescope click does nothing (use ladder to return home)
-  };
-
-  // New handler for ladder (to scroll back to home from sky)
-  const handleLadderClick = () => {
-    console.log('[CombinedHomeScene] Ladder clicked - scrolling to home view');
-    scrollToHome();
-  };
-
-  // Removed hover handlers - no longer needed without tooltips
 
   // Tutorial: First-time home visit guidance (prevent multiple executions)
   const hasProcessedRef = useRef(false);
@@ -925,17 +1040,17 @@ export default function CombinedHomeScene() {
     if (compActivity.phase === 'waiting') {
       console.log('[CombinedHomeScene] Comp-sheet waiting - updating options layer frame');
       
-      // Check if any activity is hovered/highlighted
-      if (compActivity.hoveredActivity !== null || compActivity.highlightedActivity !== null) {
+      // Check if any activity is highlighted (keyboard navigation only)
+      if (compActivity.highlightedActivity !== null) {
         // Show highlighted frame (2-6 based on activity index 0-4)
-        const activityIndex = compActivity.hoveredActivity !== null ? compActivity.hoveredActivity : compActivity.highlightedActivity;
+        const activityIndex = compActivity.highlightedActivity;
         updateCompActivity({ optionsFrame: 2 + activityIndex });
       } else {
-        // No hover/highlight - show frame 1 (none highlighted)
+        // No highlight - show frame 1 (none highlighted)
         updateCompActivity({ optionsFrame: 1 });
       }
     }
-  }, [compActivity.phase, compActivity.hoveredActivity, compActivity.highlightedActivity, updateCompActivity]);
+  }, [compActivity.phase, compActivity.highlightedActivity, updateCompActivity]);
   
   // Comp-sheet option1 layer autonomous animation - loop frames 1-5 with longer linger on frame 1
   useEffect(() => {
@@ -972,6 +1087,125 @@ export default function CombinedHomeScene() {
       };
     }
   }, [compActivity.phase, updateCompActivity]);
+  
+  // Anthro intro animation - phase-based (raising, waving, idle)
+  // Frames 0-7: idle loop, Frames 8-11: raise hand (one-time), Frames 12-15: wave loop
+  useEffect(() => {
+    if (!compActivity.anthroIntroVisible) {
+      // Clean up animation when intro is hidden
+      if (anthroIntroAnimationRef.current) {
+        clearInterval(anthroIntroAnimationRef.current);
+        anthroIntroAnimationRef.current = null;
+      }
+      return;
+    }
+    
+    const phase = compActivity.anthroAnimPhase;
+    const frame = compActivity.anthroIntroFrame;
+    
+    anthroIntroAnimationRef.current = setInterval(() => {
+      if (phase === 'raising') {
+        // Frames 8-11: one-time hand raise, then transition to waving
+        if (frame < 11) {
+          updateCompActivity({ anthroIntroFrame: frame + 1 });
+        } else {
+          // Transition to waving phase
+          updateCompActivity({ anthroIntroFrame: 12, anthroAnimPhase: 'waving' });
+        }
+      } else if (phase === 'waving') {
+        // Frames 12-15: loop waving
+        const nextFrame = frame < 15 ? frame + 1 : 12;
+        updateCompActivity({ anthroIntroFrame: nextFrame });
+      } else {
+        // 'idle': Frames 0-7 loop
+        updateCompActivity({ anthroIntroFrame: (frame + 1) % 8 });
+      }
+    }, 100); // 100ms per frame = 10fps
+    
+    return () => {
+      if (anthroIntroAnimationRef.current) {
+        clearInterval(anthroIntroAnimationRef.current);
+        anthroIntroAnimationRef.current = null;
+      }
+    };
+  }, [compActivity.anthroIntroVisible, compActivity.anthroIntroFrame, compActivity.anthroAnimPhase, updateCompActivity]);
+  
+  // TBI Anthro idle animation - 8-frame loop during positioning phase
+  useEffect(() => {
+    if (!compActivity.tbiPositioningVisible) {
+      // Clean up animation when positioning is hidden
+      if (tbiAnthroAnimationRef.current) {
+        clearInterval(tbiAnthroAnimationRef.current);
+        tbiAnthroAnimationRef.current = null;
+      }
+      return;
+    }
+    
+    tbiAnthroAnimationRef.current = setInterval(() => {
+      updateCompActivity({ 
+        tbiAnthroFrame: (compActivity.tbiAnthroFrame + 1) % TBI_ANTHRO_TOTAL_FRAMES 
+      });
+    }, 100); // 100ms per frame = 10 fps
+    
+    return () => {
+      if (tbiAnthroAnimationRef.current) {
+        clearInterval(tbiAnthroAnimationRef.current);
+        tbiAnthroAnimationRef.current = null;
+      }
+    };
+  }, [compActivity.tbiPositioningVisible, compActivity.tbiAnthroFrame, updateCompActivity]);
+  
+  // TBI Beam animation - plays frames 0-4 once, then loops frames 5-10 four times
+  useEffect(() => {
+    if (!compActivity.tbiBeamAnimating) return;
+    
+    console.log('[CombinedHomeScene] Beam animation started');
+    
+    const animateBeam = () => {
+      const currentFrame = compActivity.tbiBeamFrame;
+      const currentLoopCount = compActivity.tbiBeamLoopCount;
+      
+      // Intro phase: frames 0-4 (play once)
+      if (currentFrame < TBI_BEAM_INTRO_FRAMES) {
+        setTimeout(() => {
+          updateCompActivity({ tbiBeamFrame: currentFrame + 1 });
+        }, TBI_BEAM_FRAME_DURATION);
+      }
+      // Loop phase: frames 5-10 (loop 4 times)
+      else if (currentLoopCount < TBI_BEAM_LOOP_COUNT) {
+        if (currentFrame < TBI_BEAM_LOOP_END_FRAME) {
+          // Continue current loop
+          setTimeout(() => {
+            updateCompActivity({ tbiBeamFrame: currentFrame + 1 });
+          }, TBI_BEAM_FRAME_DURATION);
+        } else {
+          // Loop complete - restart at frame 5 or finish
+          const nextLoopCount = currentLoopCount + 1;
+          if (nextLoopCount < TBI_BEAM_LOOP_COUNT) {
+            console.log(`[CombinedHomeScene] Beam loop ${nextLoopCount + 1}/${TBI_BEAM_LOOP_COUNT}`);
+            setTimeout(() => {
+              updateCompActivity({ 
+                tbiBeamFrame: TBI_BEAM_LOOP_START_FRAME, 
+                tbiBeamLoopCount: nextLoopCount 
+              });
+            }, TBI_BEAM_FRAME_DURATION);
+          } else {
+            // All loops complete - transition to result
+            console.log('[CombinedHomeScene] Beam animation complete, transitioning to result');
+            setTimeout(() => {
+              updateCompActivity({ 
+                tbiBeamVisible: false, 
+                tbiBeamAnimating: false,
+                phase: 'result_fading_to_black' 
+              });
+            }, TBI_BEAM_FRAME_DURATION);
+          }
+        }
+      }
+    };
+    
+    animateBeam();
+  }, [compActivity.tbiBeamAnimating, compActivity.tbiBeamFrame, compActivity.tbiBeamLoopCount, updateCompActivity]);
   
   // Comp-sheet phase transitions - handles boot-up and activity transitions with fade effects
   useEffect(() => {
@@ -1011,14 +1245,14 @@ export default function CombinedHomeScene() {
     if (compActivity.phase === 'fading_to_black') {
       setTimeout(() => {
         console.log('[CombinedHomeScene] Fading from black - showing Anthro intro');
-        updateCompActivity({ anthroIntroVisible: true, anthroIntroFrame: 0, phase: 'intro' });
+        updateCompActivity({ anthroIntroVisible: true, anthroIntroFrame: 8, anthroAnimPhase: 'raising', anthroDialogueIndex: 0, phase: 'intro' });
       }, 350);
     }
     
     if (compActivity.phase === 'intro_fading_to_black') {
       setTimeout(() => {
         console.log('[CombinedHomeScene] Intro complete - showing TBI positioning');
-        updateCompActivity({ anthroIntroVisible: false, tbiPositioningVisible: true, tbiPositioningFrame: 0, phase: 'fading_from_black' });
+        updateCompActivity({ anthroIntroVisible: false, tbiPositioningVisible: true, tbiAnthroX: TBI_ANTHRO_START_X, tbiAnthroFrame: 0, phase: 'fading_from_black' });
       }, 350);
     }
     
@@ -1033,28 +1267,41 @@ export default function CombinedHomeScene() {
     if (compActivity.phase === 'result_fading_to_black') {
       setTimeout(() => {
         console.log('[CombinedHomeScene] TBI faded out - showing result animation');
-        updateCompActivity({ tbiPositioningVisible: false, tbiResultVisible: true, tbiResultFrame: 0, phase: 'result_fading_from_black' });
+        const passed = evaluateTbiPositioning(compActivity.tbiAnthroX);
+        updateCompActivity({ 
+          tbiPositioningVisible: false, 
+          tbiResultVisible: true, 
+          tbiResultMaskFrame: 0, 
+          tbiResultPassed: passed,
+          phase: 'result_fading_from_black' 
+        });
       }, 350);
     }
     
     if (compActivity.phase === 'result_fading_from_black') {
       setTimeout(() => {
-        console.log('[CombinedHomeScene] Result faded in - starting animation');
+        console.log('[CombinedHomeScene] Result faded in - starting mask reveal animation');
         updateCompActivity({ phase: 'result' });
         
-        let currentFrame = 0;
-        const animateResult = () => {
-          if (currentFrame < 11) {
-            currentFrame++;
-            updateCompActivity({ tbiResultFrame: currentFrame });
-            tbiResultAnimationRef.current = setTimeout(animateResult, 500);
+        // Animate mask reveal: 0 (full coverage) → 10 (no coverage)
+        let currentMaskFrame = 0;
+        const animateMaskReveal = () => {
+          if (currentMaskFrame < TBI_MASK_TOTAL_FRAMES - 1) {
+            currentMaskFrame++;
+            updateCompActivity({ tbiResultMaskFrame: currentMaskFrame });
+            tbiResultAnimationRef.current = setTimeout(animateMaskReveal, 400);
           } else {
-            console.log('[CombinedHomeScene] Result animation complete - landed on frame 11');
-            updateCompActivity({ tbiResultFrame: 11 });
+            console.log('[CombinedHomeScene] Mask reveal complete - waiting 350ms before showing result');
+            updateCompActivity({ tbiResultMaskFrame: TBI_MASK_TOTAL_FRAMES - 1 });
+            // Add 350ms pause before revealing pass/fail message
+            tbiResultAnimationRef.current = setTimeout(() => {
+              console.log('[CombinedHomeScene] Result revealed - showing pass/fail message');
+              updateCompActivity({ tbiResultRevealed: true });
+            }, 350);
           }
         };
         
-        tbiResultAnimationRef.current = setTimeout(animateResult, 500);
+        tbiResultAnimationRef.current = setTimeout(animateMaskReveal, 400);
       }, 350);
     }
   }, [compActivity.phase, updateCompActivity]);
@@ -1072,6 +1319,14 @@ export default function CombinedHomeScene() {
         clearTimeout(compOption1AnimationRef.current);
         compOption1AnimationRef.current = null;
       }
+      if (anthroIntroAnimationRef.current) {
+        clearInterval(anthroIntroAnimationRef.current);
+        anthroIntroAnimationRef.current = null;
+      }
+      if (tbiAnthroAnimationRef.current) {
+        clearInterval(tbiAnthroAnimationRef.current);
+        tbiAnthroAnimationRef.current = null;
+      }
       if (tbiResultAnimationRef.current) {
         clearTimeout(tbiResultAnimationRef.current);
         tbiResultAnimationRef.current = null;
@@ -1079,36 +1334,107 @@ export default function CombinedHomeScene() {
     };
   }, []);
   
-  // Arrow keys visibility timer - hide after 10 seconds
+  // Arrow keys visibility timer - hide after 5 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
-      console.log('[CombinedHomeScene] 10 seconds elapsed - hiding arrow keys tutorial');
+      console.log('[CombinedHomeScene] 5 seconds elapsed - hiding arrow keys tutorial');
       setArrowKeysVisible(false);
-    }, 10000);
+    }, 5000);
     
     return () => clearTimeout(timer);
   }, []);
 
   // TBI Positioning keyboard controls - left/right arrow keys to navigate frames
   useEffect(() => {
-    if (!compActivity.tbiPositioningVisible) return;
+    if (!compActivity.tbiPositioningVisible) {
+      // Reset arrow keys frame when positioning screen is hidden
+      setTbiArrowKeysFrame(1);
+      return;
+    }
+    
+    // Track which keys are currently pressed for visual indicator
+    const pressedKeys = new Set<string>();
 
     const handleTbiPositioningKeyDown = (e: KeyboardEvent) => {
-      if (['ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      // Block positioning during beam animation
+      if (compActivity.tbiBeamAnimating) {
+        return;
+      }
+      
+      if (e.key === 'ArrowLeft') {
         e.preventDefault();
         e.stopPropagation();
-      }
-
-      if (e.key === 'ArrowLeft') {
-        setCompActivity(prev => ({ ...prev, tbiPositioningFrame: Math.min(TBI_POSITIONING_TOTAL_FRAMES - 1, prev.tbiPositioningFrame + 1) }));
+        
+        // Track pressed key
+        pressedKeys.add(e.key);
+        
+        // Update visual indicator frame based on what's pressed
+        // Frames: 1=neither, 2=right, 3=left, 4=both
+        const leftPressed = pressedKeys.has('ArrowLeft');
+        const rightPressed = pressedKeys.has('ArrowRight');
+        
+        if (leftPressed && rightPressed) {
+          setTbiArrowKeysFrame(4); // Both pressed
+        } else if (leftPressed) {
+          setTbiArrowKeysFrame(3); // Left pressed - show left arrow (frame 3)
+        } else if (rightPressed) {
+          setTbiArrowKeysFrame(2); // Right pressed - show right arrow (frame 2)
+        }
+        
+        // Navigation: Left moves away from gantry (decrease X position)
+        setCompActivity(prev => ({ ...prev, tbiAnthroX: Math.max(TBI_ANTHRO_MIN_X, prev.tbiAnthroX - TBI_ANTHRO_STEP) }));
       } else if (e.key === 'ArrowRight') {
-        setCompActivity(prev => ({ ...prev, tbiPositioningFrame: Math.max(0, prev.tbiPositioningFrame - 1) }));
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Track pressed key
+        pressedKeys.add(e.key);
+        
+        // Update visual indicator frame based on what's pressed
+        const leftPressed = pressedKeys.has('ArrowLeft');
+        const rightPressed = pressedKeys.has('ArrowRight');
+        
+        if (leftPressed && rightPressed) {
+          setTbiArrowKeysFrame(4); // Both pressed
+        } else if (leftPressed) {
+          setTbiArrowKeysFrame(3); // Left pressed - show left arrow (frame 3)
+        } else if (rightPressed) {
+          setTbiArrowKeysFrame(2); // Right pressed - show right arrow (frame 2)
+        }
+        
+        // Navigation: Right moves toward gantry (increase X position)
+        setCompActivity(prev => ({ ...prev, tbiAnthroX: Math.min(TBI_ANTHRO_MAX_X, prev.tbiAnthroX + TBI_ANTHRO_STEP) }));
+      }
+    };
+    
+    const handleTbiPositioningKeyUp = (e: KeyboardEvent) => {
+      if (['ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        // Remove from pressed keys
+        pressedKeys.delete(e.key);
+        
+        // Update visual indicator based on remaining pressed keys
+        const leftPressed = pressedKeys.has('ArrowLeft');
+        const rightPressed = pressedKeys.has('ArrowRight');
+        
+        if (leftPressed && rightPressed) {
+          setTbiArrowKeysFrame(4); // Both still pressed
+        } else if (leftPressed) {
+          setTbiArrowKeysFrame(3); // Left still pressed (frame 3)
+        } else if (rightPressed) {
+          setTbiArrowKeysFrame(2); // Right still pressed (frame 2)
+        } else {
+          setTbiArrowKeysFrame(1); // Neither pressed
+        }
       }
     };
 
     window.addEventListener('keydown', handleTbiPositioningKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', handleTbiPositioningKeyDown, { capture: true });
-  }, [compActivity.tbiPositioningVisible]);
+    window.addEventListener('keyup', handleTbiPositioningKeyUp, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', handleTbiPositioningKeyDown, { capture: true });
+      window.removeEventListener('keyup', handleTbiPositioningKeyUp, { capture: true });
+    };
+  }, [compActivity.tbiPositioningVisible, compActivity.tbiBeamAnimating]);
   
   // Arrow keys frame animation based on key presses
   // Frames: 1=all up, 2=right only, 3=left only, 4=up only, 5=down only, 6=multiple, 7=all up highlighted, 8=multiple highlighted
@@ -1194,8 +1520,10 @@ export default function CombinedHomeScene() {
   }, [kapoorPosition, currentView, xKeyTriggered, deskXKeyEnabled, deskXKeyTriggered, pico.interacted, updateInteractionUI]);
   
   // Ladder arrow indicators - show up/down arrows when near ladder
+  // Must match the climbing action zone in useKapoorMovement (includes extended right boundary)
   useEffect(() => {
-    const nearLadderX = Math.abs(kapoorPosition.x - CLIMB_X_THRESHOLD) < CLIMB_X_TOLERANCE;
+    const nearLadderX = Math.abs(kapoorPosition.x - CLIMB_X_THRESHOLD) < CLIMB_X_TOLERANCE &&
+                        kapoorPosition.x <= SECOND_FLOOR_BOUNDS.right + CLIMB_RIGHT_EXTENSION;
     const onGroundFloor = Math.abs(kapoorPosition.y - GROUND_FLOOR_Y) < FLOOR_TOLERANCE;
     const onSecondFloor = Math.abs(kapoorPosition.y - SECOND_FLOOR_Y) < FLOOR_TOLERANCE;
     
@@ -1207,8 +1535,16 @@ export default function CombinedHomeScene() {
 
   // === TELESCOPE SPEECH BUBBLE VISIBILITY ===
   useEffect(() => {
-    updateBubble('telescope', { visible: currentView === 'home' && !deskXKeyEnabled });
-  }, [currentView, deskXKeyEnabled, updateBubble]);
+    // Hide regular telescope bubble after completing first activity (exclamation replaces it)
+    updateBubble('telescope', { visible: currentView === 'home' && !deskXKeyEnabled && !hasCompletedFirstActivity });
+  }, [currentView, deskXKeyEnabled, hasCompletedFirstActivity, updateBubble]);
+  
+  // === TELESCOPE EXCLAMATION BUBBLE VISIBILITY ===
+  useEffect(() => {
+    updateBubble('telescopeExclamation', { 
+      visible: hasCompletedFirstActivity && currentView === 'home' 
+    });
+  }, [currentView, hasCompletedFirstActivity, updateBubble]);
   
   // === DESK SPEECH BUBBLE VISIBILITY ===
   useEffect(() => {
@@ -1238,6 +1574,25 @@ export default function CombinedHomeScene() {
     }
   }, [currentView, speechBubbles.telescope.visible, kapoorPosition, updateBubble]);
   
+  // === TELESCOPE EXCLAMATION PROXIMITY DETECTION (for highlighting) ===
+  useEffect(() => {
+    if (!speechBubbles.telescopeExclamation.visible) {
+      updateBubble('telescopeExclamation', { highlighted: false });
+      return;
+    }
+    
+    if (currentView === 'home') {
+      const telescopeDistance = Math.abs(kapoorPosition.x - TELESCOPE_POSITION.x);
+      const isAtTelescope = kapoorPosition.y === SECOND_FLOOR_Y;
+      const inRange = telescopeDistance < PROXIMITY_THRESHOLD && isAtTelescope;
+      updateBubble('telescopeExclamation', { highlighted: inRange });
+    } else if (currentView === 'sky') {
+      updateBubble('telescopeExclamation', { highlighted: true });
+    } else {
+      updateBubble('telescopeExclamation', { highlighted: false });
+    }
+  }, [currentView, speechBubbles.telescopeExclamation.visible, kapoorPosition, updateBubble]);
+  
   // === DESK PROXIMITY DETECTION (for speech bubble highlighting in home view only) ===
   useEffect(() => {
     if (!speechBubbles.desk.visible || currentView !== 'home') {
@@ -1263,6 +1618,20 @@ export default function CombinedHomeScene() {
     const bubbleInterval = setInterval(animateBubble, BUBBLE_FRAME_SPEED);
     return () => clearInterval(bubbleInterval);
   }, [speechBubbles.telescope.visible, updateBubble]);
+  
+  // === TELESCOPE EXCLAMATION BUBBLE ANIMATION ===
+  useEffect(() => {
+    if (!speechBubbles.telescopeExclamation.visible) return;
+    
+    let bubbleFrameCount = 1;
+    const animateBubble = () => {
+      bubbleFrameCount = (bubbleFrameCount % 4) + 1; // Cycle 1-4 (same as telescope bubble)
+      updateBubble('telescopeExclamation', { frame: bubbleFrameCount });
+    };
+    
+    const bubbleInterval = setInterval(animateBubble, BUBBLE_FRAME_SPEED);
+    return () => clearInterval(bubbleInterval);
+  }, [speechBubbles.telescopeExclamation.visible, updateBubble]);
   
   // === DESK SPEECH BUBBLE ANIMATION ===
   useEffect(() => {
@@ -1368,19 +1737,8 @@ export default function CombinedHomeScene() {
     return () => clearInterval(bubbleInterval);
   }, [speechBubbles.pico.visible, updateBubble]);
   
-  // Simplified tutorial state (no complex guided tour)
+  // Tutorial state (no complex guided tour)
   const shownSpotlightsRef = useRef(new Set<string>());
-
-  // Simplified telescope click handler
-  const handleTelescopeClickWithTutorial = () => {
-    console.log(`[CombinedHomeScene] 🔭 Telescope clicked! currentView=${currentView}`);
-    handleTelescopeClick();
-  };
-
-  // Simplified bed click handler
-  const handleBedClickWithTutorial = () => {
-    handleBedClick();
-  };
 
   // Tutorial star interaction handlers
   const handleStarClick = () => {
@@ -1416,6 +1774,15 @@ export default function CombinedHomeScene() {
     };
   }, []);
   
+  // Cleanup locked message timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (lockedMessageTimeoutRef.current) {
+        clearTimeout(lockedMessageTimeoutRef.current);
+      }
+    };
+  }, []);
+  
   return (
     <>
       <JumboViewport>
@@ -1444,14 +1811,14 @@ export default function CombinedHomeScene() {
             }}
           />
           
-          {/* Desk speech bubble - shown in home view after viewing star */}
+          {/* Telescope exclamation indicator - shown after completing first activity, same position as telescope bubble */}
           <SpeechBubbleSprite
-            $frame={speechBubbles.desk.frame}
-            $visible={speechBubbles.desk.visible}
-            $highlighted={speechBubbles.desk.highlighted}
+            $frame={speechBubbles.telescopeExclamation.frame}
+            $visible={speechBubbles.telescopeExclamation.visible}
+            $highlighted={speechBubbles.telescopeExclamation.highlighted}
             style={{
-              left: `${DESK_POSITION.x - 1}px`,
-              top: `${DESK_POSITION.y - 20}px`,
+              left: `${TELESCOPE_POSITION.x - 16}px`,
+              top: `${TELESCOPE_POSITION.y - 20}px`,
             }}
           />
           
@@ -1580,6 +1947,17 @@ export default function CombinedHomeScene() {
                 }}
               />
               
+              {/* Desk speech bubble - shown in home view after viewing star */}
+              <SpeechBubbleSprite
+                $frame={speechBubbles.desk.frame}
+                $visible={speechBubbles.desk.visible}
+                $highlighted={speechBubbles.desk.highlighted}
+                style={{
+                  left: `${DESK_POSITION.x - 1}px`,
+                  top: `${DESK_POSITION.y - 20}px`,
+                }}
+              />
+              
               {/* Pico Dialogue Text - Follows the speaking character */}
               <PicoDialogueText 
                 $visible={pico.showDialogue}
@@ -1660,7 +2038,7 @@ export default function CombinedHomeScene() {
                   : INTERACTION_RANGE;
                 
                 const isNearPico = picoDistance < picoInteractionRange;
-                const showCKey = isNearPico && currentView === 'home' && !pico.showDialogue && !pico.showBlockingDialogue && !compActivity.visible;
+                const showCKey = isNearPico && currentView === 'home' && !pico.showDialogue && !pico.showBlockingDialogue && !compActivity.visible && !pico.hasPetted;
                 const yOffset = (interactionUI.active === 'pico' && !pico.interacted) ? 18 : 0;
                 
                 return (
@@ -1690,11 +2068,12 @@ export default function CombinedHomeScene() {
               <PetDescriptionBox
                 $visible={pico.showPetDescription}
                 style={{
-                  left: `${PICO_POSITION.x + 35}px`,
-                  top: `${PICO_POSITION.y - 60}px`,
+                  left: `${PICO_POSITION.x + 15}px`,
+                  top: `${PICO_POSITION.y - 70}px`,
                 }}
               >
-                Pico though tough on the outside is a softie for a nice head pat
+                <div>Pico though tough on the outside is a softie for a nice head pat</div>
+                <PetContinueHint>(X to close)</PetContinueHint>
               </PetDescriptionBox>
               
               {/* Up arrow - shows when near ladder at ground floor */}
@@ -1798,58 +2177,29 @@ export default function CombinedHomeScene() {
                 </>
               )}
           
-          {/* === HOME VIEW CLICKABLE AREAS === */}
-          {currentView === 'home' && (
-            <>
-              {/* Upper band - Sky view navigation */}
-              <ClickableArea
-                data-testid="home-upper-band"
-                $isHovered={upperBandHovered}
-                $debugColor="rgba(0, 255, 0, 0.3)"
-                style={{ left: '0px', top: '220px', width: '640px', height: '180px' }}
-                onClick={handleTelescopeClickWithTutorial}
-                onMouseEnter={() => setUpperBandHovered(true)}
-                onMouseLeave={() => setUpperBandHovered(false)}
-              />
-              {DEBUG_CLICKBOXES && <DebugLabel style={{ top: '220px', left: '2px' }}>UPPER: Sky View</DebugLabel>}
-
-              {/* Bed area */}
-              <ClickableArea
-                data-testid="home-bed-area"
-                $isHovered={false}
-                style={{ left: '460px', top: '525px', width: '160px', height: '54px' }}
-                onClick={handleBedClickWithTutorial}
-              />
-
-              {/* Desk area - X key interaction only (no click handler) */}
-              <ClickableArea
-                data-testid="home-desk-area"
-                $isHovered={false}
-                style={{ left: '5px', top: '510px', width: '120px', height: '72px' }}
-              />
-            </>
-          )}
-
-          {/* === SKY VIEW CLICKABLE AREAS === */}
-          {currentView === 'sky' && (
-            <>
-              {/* Full height band - Return to home view */}
-              <ClickableArea
-                data-testid="sky-return-band"
-                $isHovered={skyBandHovered}
-                $debugColor="rgba(255, 255, 0, 0.3)"
-                style={{ left: '0px', top: '260px', width: '640px', height: '100px' }}
-                onClick={handleLadderClick}
-                onMouseEnter={() => setSkyBandHovered(true)}
-                onMouseLeave={() => setSkyBandHovered(false)}
-              />
-              {DEBUG_CLICKBOXES && <DebugLabel style={{ top: '260px', left: '2px' }}>FULL: Return Home</DebugLabel>}
-            </>
-          )}
-
-          {/* Celestial bodies moved to CelestialLayer (separate container below clouds) */}
-
-          {/* Removed antiquated tooltip system - was obstructing interface */}
+          {/* Kapoor monologue - appears after closing ??? star modal (positioned relative to Kapoor like Pico dialogue) */}
+          {(() => {
+            const isLastLine = currentMonologueLineIndex >= MONOLOGUE_LINES.length - 1;
+            
+            return (
+              <KapoorMonologue
+                $visible={showMonologue && currentView === 'sky'}
+                style={{
+                  left: `${kapoorPosition.x - 95}px`,
+                  top: `${kapoorPosition.y - 62}px`,
+                }}
+              >
+                <KapoorSpeakerLabel>Kapoor</KapoorSpeakerLabel>
+                <div>{MONOLOGUE_LINES[currentMonologueLineIndex]}</div>
+                <KapoorContinueHint>
+                  {isLastLine ? '(X to close)' : '(X to continue)'}
+                </KapoorContinueHint>
+              </KapoorMonologue>
+            );
+          })()}
+          
+          {/* === HOME VIEW - Keyboard-only controls === */}
+          {/* All interactions (telescope, desk, bed) now handled via keyboard proximity detection */}
         </ScrollingContent>
         
         {/* Star Detail Modal - Rendered within the 640×360 coordinate system */}
@@ -1929,15 +2279,12 @@ export default function CombinedHomeScene() {
               }}
             />
             
-            {/* Activity click regions - only visible during waiting phase */}
+            {/* Activity visual regions - keyboard navigation only (no mouse interaction) */}
             {compActivity.phase === 'waiting' && (
               <>
                 {/* Top-left activity (0) */}
                 <ActivityClickRegion
-                  $active={compActivity.highlightedActivity === 0 || compActivity.hoveredActivity === 0}
-                  onMouseEnter={() => updateCompActivity({ hoveredActivity: 0 })}
-                  onMouseLeave={() => updateCompActivity({ hoveredActivity: null })}
-                  onClick={() => handleActivitySelect(0)}
+                  $active={compActivity.highlightedActivity === 0}
                   style={{
                     left: '185px',
                     top: '115px',
@@ -1948,10 +2295,7 @@ export default function CombinedHomeScene() {
                 
                 {/* Top-right activity (1) */}
                 <ActivityClickRegion
-                  $active={compActivity.highlightedActivity === 1 || compActivity.hoveredActivity === 1}
-                  onMouseEnter={() => updateCompActivity({ hoveredActivity: 1 })}
-                  onMouseLeave={() => updateCompActivity({ hoveredActivity: null })}
-                  onClick={() => handleActivitySelect(1)}
+                  $active={compActivity.highlightedActivity === 1}
                   style={{
                     left: '385px',
                     top: '115px',
@@ -1962,10 +2306,7 @@ export default function CombinedHomeScene() {
                 
                 {/* Bottom-left activity (2) */}
                 <ActivityClickRegion
-                  $active={compActivity.highlightedActivity === 2 || compActivity.hoveredActivity === 2}
-                  onMouseEnter={() => updateCompActivity({ hoveredActivity: 2 })}
-                  onMouseLeave={() => updateCompActivity({ hoveredActivity: null })}
-                  onClick={() => handleActivitySelect(2)}
+                  $active={compActivity.highlightedActivity === 2}
                   style={{
                     left: '185px',
                     top: '195px',
@@ -1976,10 +2317,7 @@ export default function CombinedHomeScene() {
                 
                 {/* Bottom-middle activity (3) */}
                 <ActivityClickRegion
-                  $active={compActivity.highlightedActivity === 3 || compActivity.hoveredActivity === 3}
-                  onMouseEnter={() => updateCompActivity({ hoveredActivity: 3 })}
-                  onMouseLeave={() => updateCompActivity({ hoveredActivity: null })}
-                  onClick={() => handleActivitySelect(3)}
+                  $active={compActivity.highlightedActivity === 3}
                   style={{
                     left: '280px',
                     top: '195px',
@@ -1990,10 +2328,7 @@ export default function CombinedHomeScene() {
                 
                 {/* Bottom-right activity (4) */}
                 <ActivityClickRegion
-                  $active={compActivity.highlightedActivity === 4 || compActivity.hoveredActivity === 4}
-                  onMouseEnter={() => updateCompActivity({ hoveredActivity: 4 })}
-                  onMouseLeave={() => updateCompActivity({ hoveredActivity: null })}
-                  onClick={() => handleActivitySelect(4)}
+                  $active={compActivity.highlightedActivity === 4}
                   style={{
                     left: '385px',
                     top: '195px',
@@ -2004,7 +2339,34 @@ export default function CombinedHomeScene() {
               </>
             )}
             
-            {/* Anthro intro dialogue - 4 frame sequence advanced with X key */}
+            {/* Anthro intro - Composite 3-layer system */}
+            {/* Layer 1 (bottom): Container/background at z-index 305 */}
+            <AnthroIntroContainer
+              $visible={compActivity.anthroIntroVisible}
+              style={{
+                left: '170px',
+                top: '90px',
+              }}
+            />
+            
+            {/* Layer 2 (middle): Dialogue text at z-index 310 */}
+            <AnthroDialogueText
+              $visible={compActivity.anthroIntroVisible}
+              style={{
+                left: '200px',
+                top: '110px',
+              }}
+            >
+              <AnthroSpeakerLabel>
+                {ANTHRO_INTRO_DIALOGUE[compActivity.anthroDialogueIndex].speaker}
+              </AnthroSpeakerLabel>
+              <div>{ANTHRO_INTRO_DIALOGUE[compActivity.anthroDialogueIndex].text}</div>
+              <AnthroDialogueContinueHint>
+                {compActivity.anthroDialogueIndex < ANTHRO_INTRO_DIALOGUE.length - 1 ? '(X to continue)' : '(X to close)'}
+              </AnthroDialogueContinueHint>
+            </AnthroDialogueText>
+            
+            {/* Layer 3 (top): Anthro character sprite at z-index 311 */}
             <AnthroIntroLayer
               $frame={compActivity.anthroIntroFrame}
               $visible={compActivity.anthroIntroVisible}
@@ -2014,9 +2376,8 @@ export default function CombinedHomeScene() {
               }}
             />
             
-            {/* TBI Positioning viewer - sprite sheet navigation with arrow keys */}
+            {/* TBI Positioning viewer - static background with moveable anthro sprite */}
             <TbiPositioningLayer
-              $frame={compActivity.tbiPositioningFrame}
               $visible={compActivity.tbiPositioningVisible}
               style={{
                 left: '170px',
@@ -2024,15 +2385,131 @@ export default function CombinedHomeScene() {
               }}
             />
             
-            {/* TBI Result - animated result screen after positioning complete */}
-            <TbiResultLayer
-              $frame={compActivity.tbiResultFrame}
+            {/* TBI Anthro sprite - 8-frame idle animation, positioned via tbiAnthroX */}
+            <TbiAnthroSprite
+              $frame={compActivity.tbiAnthroFrame}
+              $x={compActivity.tbiAnthroX}
+              $visible={compActivity.tbiPositioningVisible}
+              style={{
+                left: `${170 + compActivity.tbiAnthroX}px`,
+                top: `${90 + TBI_ANTHRO_Y}px`,
+              }}
+            />
+            
+            {/* TBI Beam-on animation overlay - plays on top of positioning screen */}
+            <TbiBeamOnLayer
+              $frame={compActivity.tbiBeamFrame}
+              $visible={compActivity.tbiBeamVisible}
+              style={{
+                left: '170px',
+                top: '90px',
+              }}
+            />
+            
+            {/* TBI Positioning key instructions - show during positioning phase, hide during beam/result */}
+            <TbiPositioningIndicator $visible={
+              compActivity.tbiPositioningVisible && 
+              !compActivity.tbiBeamAnimating &&
+              !compActivity.tbiResultVisible
+            }>
+              <TbiKeyRow>
+                <LeftRightArrowKeysSprite $frame={tbiArrowKeysFrame} /> {/* Responds to left/right input */}
+                <TbiActionLabel>Position</TbiActionLabel>
+              </TbiKeyRow>
+              <TbiKeyRow>
+                <TbiXKeySprite $frame={1} />
+                <TbiActionLabel>Beam On</TbiActionLabel>
+              </TbiKeyRow>
+            </TbiPositioningIndicator>
+            
+            {/* TBI Result - Modular layer system with dynamic color bars */}
+            {/* Layer 1: Backdrop panel with pass/fail messaging */}
+            <TbiResultBackdrop
+              $visible={compActivity.tbiResultVisible}
+              $frame={getTbiResultBackdropFrame(compActivity.tbiAnthroX, compActivity.tbiResultRevealed)}
+              style={{
+                left: '170px',
+                top: '90px',
+              }}
+            />
+            
+            {/* Layer 2: Color bars and indicators (positioned per segment, color from lookup table) */}
+            <TbiResultDataLayer
+              $visible={compActivity.tbiResultVisible}
+              style={{
+                left: '170px',
+                top: '90px',
+              }}
+            >
+              {TBI_SEGMENT_BAR_POSITIONS.map((pos, index) => {
+                const positionIndex = getPositionIndexFromX(compActivity.tbiAnthroX);
+                const barFrame = TBI_POSITION_RESULTS[positionIndex]?.[index] ?? 0;
+                
+                if (pos.useSector1) {
+                  return (
+                    <TbiColorBarSector1
+                      key={`sector1-${index}`}
+                      $colorFrame={barFrame}
+                      $x={pos.x}
+                      $y={pos.y}
+                    />
+                  );
+                }
+                
+                return (
+                  <TbiColorBar
+                    key={`segment-${index}`}
+                    $colorFrame={barFrame}
+                    $x={pos.x}
+                    $y={pos.y}
+                  />
+                );
+              })}
+              
+              {/* Position indicators (checkmark/tilde/X) for each segment */}
+              {TBI_SEGMENT_INDICATOR_POSITIONS.map((pos, index) => {
+                const positionIndex = getPositionIndexFromX(compActivity.tbiAnthroX);
+                const barFrame = TBI_POSITION_RESULTS[positionIndex]?.[index] ?? 0;
+                const indicatorFrame = getIndicatorFrameFromBarFrame(barFrame);
+                
+                return (
+                  <TbiPositionIndicator
+                    key={`indicator-${index}`}
+                    $colorFrame={indicatorFrame}
+                    $x={pos.x}
+                    $y={pos.y}
+                  />
+                );
+              })}
+            </TbiResultDataLayer>
+            
+            {/* Layer 3: Bare anthro silhouette */}
+            <TbiResultBase
               $visible={compActivity.tbiResultVisible}
               style={{
                 left: '170px',
                 top: '90px',
               }}
             />
+            
+            {/* Layer 4: Animated reveal mask */}
+            <TbiResultMask
+              $frame={compActivity.tbiResultMaskFrame}
+              $visible={compActivity.tbiResultVisible}
+              $x={TBI_MASK_POSITION.x}
+              $y={TBI_MASK_POSITION.y}
+            />
+            
+            {/* Locked message - appears when trying to select locked activities */}
+            <LockedMessageBox
+              $visible={showLockedMessage && compActivity.phase === 'waiting'}
+              style={{
+                left: '260px',
+                top: '180px',
+              }}
+            >
+              Module locked
+            </LockedMessageBox>
           </>
         )}
         
@@ -2049,7 +2526,13 @@ export default function CombinedHomeScene() {
         </SkyInteractionIndicator>
         
         {/* Desk activity interaction indicator - fixed at bottom center during desk activities */}
-        <DeskInteractionIndicator $visible={compActivity.visible}>
+        {/* Hidden when TBI activity is in intro, positioning, or result phases */}
+        <DeskInteractionIndicator $visible={
+          compActivity.visible && 
+          !compActivity.anthroIntroVisible && 
+          !compActivity.tbiPositioningVisible && 
+          !compActivity.tbiResultVisible
+        }>
           <DeskKeyRow>
             <DeskXKeySprite $frame={deskXKeyFrame} />
             <DeskActionLabel>Select</DeskActionLabel>
@@ -2059,27 +2542,6 @@ export default function CombinedHomeScene() {
             <DeskActionLabel>Close</DeskActionLabel>
           </DeskKeyRow>
         </DeskInteractionIndicator>
-        
-        {/* Kapoor monologue - appears after closing ??? star modal (positioned relative to Kapoor like Pico dialogue) */}
-        {(() => {
-          const isLastLine = currentMonologueLineIndex >= MONOLOGUE_LINES.length - 1;
-          
-          return (
-            <KapoorMonologue
-              $visible={showMonologue && currentView === 'sky'}
-              style={{
-                left: `${kapoorPosition.x - 70}px`,
-                top: `${kapoorPosition.y - 120}px`,
-              }}
-            >
-              <KapoorSpeakerLabel>Kapoor</KapoorSpeakerLabel>
-              <div>{MONOLOGUE_LINES[currentMonologueLineIndex]}</div>
-              <KapoorContinueHint>
-                {isLastLine ? '(X to close)' : '(X to continue)'}
-              </KapoorContinueHint>
-            </KapoorMonologue>
-          );
-        })()}
         
       </JumboViewport>
 

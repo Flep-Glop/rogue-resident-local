@@ -15,13 +15,26 @@ export interface ChangelogEntry {
 
 // Current version info
 export const CURRENT_VERSION: VersionInfo = {
-  version: "1.1.0-dev",
-  buildDate: "2025-12-16",
+  version: "1.2.0-dev",
+  buildDate: "2026-01-06",
   environment: "development",
 };
 
 // Changelog - only recent entries
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: "v1.2.0-dev",
+    date: "2026-01-06",
+    type: "minor",
+    changes: [
+      "Modular audio system with SFX and background music",
+      "Title screen parallax clouds and shooting stars",
+      "TBI result animation with pass/fail evaluation",
+      "Keyboard-only comp activity navigation",
+      "Anti-mashing input protection for TBI flow",
+      "UX polish: petting, climbing zones, modal hints"
+    ]
+  },
   {
     version: "v1.1.0-dev",
     date: "2025-12-16",
@@ -46,7 +59,7 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
 
 // Utility functions
 export const getCurrentVersionString = (): string => {
-  return `Rogue Resident ${CURRENT_VERSION.version}`;
+  return `The Observatory ${CURRENT_VERSION.version}`;
 };
 
 export const getVersionWithBuild = (): string => {

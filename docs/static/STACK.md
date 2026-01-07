@@ -1,4 +1,4 @@
-# 🔧 ROGUE RESIDENT STACK
+# 🔧 THE OBSERVATORY STACK
 *Current versions, compatibility notes, and known issues*
 
 ## CORE STACK

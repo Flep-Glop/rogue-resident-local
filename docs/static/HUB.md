@@ -1,4 +1,4 @@
-# 🎮 ROGUE RESIDENT DEVELOPMENT HUB
+# 🎮 THE OBSERVATORY DEVELOPMENT HUB
 
 ## FOR AI ASSISTANTS
 You're developing an educational medical physics game using React + PixiJS.

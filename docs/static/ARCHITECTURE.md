@@ -1,4 +1,4 @@
-# 🏗️ ROGUE RESIDENT ARCHITECTURE
+# 🏗️ THE OBSERVATORY ARCHITECTURE
 *Core architectural decisions and patterns that define the project*
 
 ## SURGICAL HYBRID ARCHITECTURE

@@ -38,8 +38,8 @@ const mathJaxConfig = {
 };
 
 export const metadata: Metadata = {
-  title: "Rogue Resident - Medical Physics Educational Game",
-  description: "An educational roguelike game that transforms medical physics education into a narrative-driven experience.",
+  title: "The Observatory - Medical Physics Educational Game",
+  description: "An educational game that turns medical physics education into a knowledge constellation experience.",
 };
 
 export const viewport: Viewport = {

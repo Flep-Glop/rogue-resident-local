@@ -1,4 +1,4 @@
-# 🎯 ROGUE RESIDENT PATTERNS
+# 🎯 THE OBSERVATORY PATTERNS
 *What works, what doesn't, and how to implement successfully*
 
 ## ANIMATION PATTERNS

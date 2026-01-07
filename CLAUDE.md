@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-**Rogue Resident** is an educational game for medical physics training. Players explore a pixel-art home environment with a knowledge constellation system that visualizes learning progress.
+**The Observatory** is an educational game for medical physics training. Players explore a pixel-art home environment with a knowledge constellation system that visualizes learning progress.
 
 ### Core Architecture Patterns
 

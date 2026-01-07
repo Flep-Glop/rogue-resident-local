@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Version Update Script for Rogue Resident
+ * Version Update Script for The Observatory
  * 
  * Usage:
  *   node scripts/update-version.js patch "Fixed bug with constellation display"

@@ -9,6 +9,7 @@ import {
   CLIMB_SPRITE_FRAME_SPEED,
   CLIMB_X_THRESHOLD,
   CLIMB_X_TOLERANCE,
+  CLIMB_RIGHT_EXTENSION,
   FLOOR_TOLERANCE,
   GROUND_FLOOR_Y,
   SECOND_FLOOR_Y,
@@ -18,6 +19,7 @@ import {
   FIRST_FLOOR_BOUNDS,
   SECOND_FLOOR_BOUNDS,
 } from './CombinedHomeScene.styles';
+import { audioManager } from '@/app/audio/AudioManager';
 
 export type KapoorDirection = 'front' | 'back' | 'right' | 'left';
 
@@ -103,9 +105,9 @@ export function useKapoorMovement({
       
       // Check if Kapoor is near climbing position
       setPosition(currentPos => {
-        // Only allow climbing if within range AND not past the second floor right boundary
+        // Only allow climbing if within range AND not past the extended second floor right boundary
         const nearClimbPoint = Math.abs(currentPos.x - CLIMB_X_THRESHOLD) < CLIMB_X_TOLERANCE && 
-                               currentPos.x <= SECOND_FLOOR_BOUNDS.right;
+                               currentPos.x <= SECOND_FLOOR_BOUNDS.right + CLIMB_RIGHT_EXTENSION;
         
         // Check if Kapoor is on a valid floor (ground or second floor)
         const onGroundFloor = Math.abs(currentPos.y - GROUND_FLOOR_Y) < FLOOR_TOLERANCE;
@@ -114,16 +116,10 @@ export function useKapoorMovement({
         
         // Handle climbing up
         if (nearClimbPoint && upPressed && !leftPressed && !rightPressed) {
-          // PICO BLOCKING: Check if player hasn't talked to Pico yet
-          if (!picoInteracted) {
-            console.log('[useKapoorMovement] Pico blocks ladder - player must talk to Pico first!');
-            climbing = true;
-            isFrozenOnLadder = true;
-            setIsClimbing(true);
-            setIsWalking(false);
-            // Trigger callback for blocking dialogue
+          // REMOTE DIALOGUE: Trigger dialogue if player hasn't talked to Pico yet (only once)
+          if (!picoInteracted && !hasShownFirstBlockingMessage) {
+            console.log('[useKapoorMovement] Triggering remote Pico dialogue (climbing without talking)');
             callbacks.onClimbBlocked();
-            return currentPos;
           }
           
           // Check if at ceiling (second floor)
@@ -268,6 +264,11 @@ export function useKapoorMovement({
           frameTickRef.current = 0;
           frameCountRef.current++;
           setFrame(frameCountRef.current);
+          
+          // Play footstep sounds when walking or climbing (on frame advance)
+          if (walking || climbing) {
+            audioManager.playSfx('footstep');
+          }
         }
       }
     };

@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { colors, spacing, typography, mixins } from '@/app/styles/pixelTheme';
-import { NineSliceContainer } from '@/app/components/ui/NineSliceContainer';
 
 // === FITS WITHIN EXISTING 640×360 RESOLUTION ===
 // This modal fits within CombinedHomeScene's existing internal resolution
@@ -90,6 +89,32 @@ const StarSection = styled.div`
   
   /* Allow overflow for star glow effects */
   overflow: visible;
+`;
+
+// Close hint container with X key sprite
+const CloseHintContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+`;
+
+const XKeySprite = styled.div`
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/x-key.png');
+  background-size: 60px 16px;
+  background-position: 0 0; /* First frame */
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+const CloseHintText = styled.span`
+  font-family: 'Aseprite', monospace;
+  font-size: 9px;
+  color: #999;
+  font-style: italic;
 `;
 
 // Star sprite - scaled up version of the same sprite used in zoomed-out view
@@ -506,7 +531,7 @@ export default function StarDetailModal({
         
         {/* Below star - Info panel */}
         <InfoSection>
-          {/* For ??? star: show simple italicized grey text without 9-slice boxes */}
+          {/* For ??? star: show simple italicized grey text */}
           {focusedBodyId === 'star' ? (
             <div style={{ 
               textAlign: 'center',
@@ -531,58 +556,62 @@ export default function StarDetailModal({
               </div>
             </div>
           ) : (
-            /* Main content container with nested unlock button for constellation stars */
-            <NineSliceContainer size="sm" style={{ position: 'relative' }}>
-              <CanvasTypographyOverride>
-                <StarTitle>{starData.name}</StarTitle>
-                <StarDescription>
-                  {starData.description}
-                </StarDescription>
-              
-              {/* Only show mastery for ??? star, constellation stars are display-only */}
-              {!isConstellationStar && (
-                <>
-                  {/* Mastery display */}
-                  <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                    <div style={{ 
-                      fontSize: CanvasFonts.xl,
-                      fontWeight: 'bold',
-                      color: colors.textDim
-                    }}>
-                      Mastery 0/100
-                    </div>
-                  </div>
-                  
-                  {/* Success message - nested inside main panel */}
-                  {isUnlocked && currentFrame === 10 && (
-                    <div style={{ marginTop: '12px', textAlign: 'center' }}>
-                      <div style={{ 
-                        color: colors.active, 
-                        fontWeight: 'bold', 
-                        fontSize: CanvasFonts.xs
-                      }}>
-                        ✨ Star Mastered!
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-              
-              {/* Constellation stars show a message to study them at desk */}
-              {isConstellationStar && (
-                <div style={{ marginTop: '12px', textAlign: 'center' }}>
+            /* Main content - simple text without visual container */
+            <CanvasTypographyOverride>
+              <StarTitle>{starData.name}</StarTitle>
+              <StarDescription>
+                {starData.description}
+              </StarDescription>
+            
+            {/* Only show mastery for ??? star, constellation stars are display-only */}
+            {!isConstellationStar && (
+              <>
+                {/* Mastery display */}
+                <div style={{ marginTop: '8px', textAlign: 'center' }}>
                   <div style={{ 
-                    color: colors.highlight, 
-                    fontSize: CanvasFonts.sm
+                    fontSize: CanvasFonts.xl,
+                    fontWeight: 'bold',
+                    color: colors.textDim
                   }}>
-                    Visit your desk to study this topic
+                    Mastery 0/100
                   </div>
                 </div>
-              )}
-            </CanvasTypographyOverride>
-          </NineSliceContainer>
+                
+                {/* Success message */}
+                {isUnlocked && currentFrame === 10 && (
+                  <div style={{ marginTop: '12px', textAlign: 'center' }}>
+                    <div style={{ 
+                      color: colors.active, 
+                      fontWeight: 'bold', 
+                      fontSize: CanvasFonts.xs
+                    }}>
+                      ✨ Star Mastered!
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            
+            {/* Constellation stars show a message to study them at desk */}
+            {isConstellationStar && (
+              <div style={{ marginTop: '12px', textAlign: 'center' }}>
+                <div style={{ 
+                  color: colors.highlight, 
+                  fontSize: CanvasFonts.sm
+                }}>
+                  Visit your desk to study this topic
+                </div>
+              </div>
+            )}
+          </CanvasTypographyOverride>
           )}
         </InfoSection>
+        
+        {/* Close hint with X key sprite */}
+        <CloseHintContainer>
+          <XKeySprite />
+          <CloseHintText>to close</CloseHintText>
+        </CloseHintContainer>
       </Container>
     </ModalBackdrop>
   );

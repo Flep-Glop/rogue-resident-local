@@ -1,6 +1,6 @@
 /**
  * pixelTheme.ts
- * Theme constants for the Rogue Resident game
+ * Theme constants for The Observatory game
  */
 
 // Color palette

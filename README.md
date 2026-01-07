@@ -1,4 +1,4 @@
-# Rogue Resident
+# The Observatory
 
 **"The mind is not a vessel to be filled, but a constellation to be illuminated."**
 
