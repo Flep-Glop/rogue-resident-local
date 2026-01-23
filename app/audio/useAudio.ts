@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { audioManager } from './AudioManager';
-import { SfxId, MusicId } from './audio.constants';
+import { SfxId, MusicId, VoiceoverId } from './audio.constants';
 
 /**
  * Hook to initialize audio system on first user interaction
@@ -109,6 +109,26 @@ export function useMusic(trackId: MusicId | null) {
 }
 
 /**
+ * Hook to play voiceover lines
+ * Returns a play function that can be called with a VoiceoverId
+ * 
+ * @example
+ * const { playVoiceover } = useVoiceover();
+ * playVoiceover('player_pico_masc');
+ */
+export function useVoiceover() {
+  const play = useCallback((id: VoiceoverId) => {
+    audioManager.playVoiceover(id);
+  }, []);
+
+  const stop = useCallback(() => {
+    audioManager.stopVoiceover();
+  }, []);
+
+  return { playVoiceover: play, stopVoiceover: stop };
+}
+
+/**
  * Hook for footstep sounds tied to walking/climbing state
  * Automatically plays footstep sounds at regular intervals while moving
  * 
@@ -116,7 +136,7 @@ export function useMusic(trackId: MusicId | null) {
  * @param isClimbing - Whether the character is climbing
  * 
  * @example
- * useFootstepSounds(kapoorIsWalking, kapoorIsClimbing);
+ * useFootstepSounds(playerIsWalking, playerIsClimbing);
  */
 export function useFootstepSounds(isWalking: boolean, isClimbing: boolean = false) {
   const isMoving = isWalking || isClimbing;

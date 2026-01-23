@@ -1,8 +1,10 @@
 import { 
   SfxId, 
   MusicId, 
+  VoiceoverId,
   SFX_CONFIG, 
   MUSIC_CONFIG, 
+  VOICEOVER_CONFIG,
   AudioSettings, 
   DEFAULT_AUDIO_SETTINGS 
 } from './audio.constants';
@@ -17,6 +19,7 @@ class AudioManager {
   private sfxBuffers: Map<string, AudioBuffer> = new Map();
   private musicElements: Map<MusicId, HTMLAudioElement> = new Map();
   private currentMusic: MusicId | null = null;
+  private currentVoiceover: HTMLAudioElement | null = null;
   private settings: AudioSettings = DEFAULT_AUDIO_SETTINGS;
   private lastPlayTime: Map<SfxId, number> = new Map();
   private initialized = false;
@@ -231,6 +234,56 @@ class AudioManager {
   }
 
   /**
+   * Play a voiceover line (one-shot dialogue audio)
+   * Stops any currently playing voiceover
+   */
+  playVoiceover(id: VoiceoverId): void {
+    if (this.settings.muted) return;
+
+    const config = VOICEOVER_CONFIG[id];
+    if (!config) {
+      console.warn(`[AudioManager] Unknown voiceover: ${id}`);
+      return;
+    }
+
+    // Stop any currently playing voiceover
+    this.stopVoiceover();
+
+    // Create new audio element
+    const audio = new Audio(config.path);
+    audio.volume = config.volume * this.settings.sfxVolume * this.settings.masterVolume;
+    
+    this.currentVoiceover = audio;
+    
+    console.log(`[AudioManager] Playing voiceover: ${id}`);
+    
+    audio.play().then(() => {
+      console.log(`[AudioManager] Voiceover playing: ${id}`);
+    }).catch(error => {
+      console.warn('[AudioManager] Voiceover playback failed:', error.message);
+      this.currentVoiceover = null;
+    });
+
+    // Clean up when voiceover ends
+    audio.addEventListener('ended', () => {
+      if (this.currentVoiceover === audio) {
+        this.currentVoiceover = null;
+      }
+    });
+  }
+
+  /**
+   * Stop currently playing voiceover
+   */
+  stopVoiceover(): void {
+    if (this.currentVoiceover) {
+      this.currentVoiceover.pause();
+      this.currentVoiceover.src = '';
+      this.currentVoiceover = null;
+    }
+  }
+
+  /**
    * Fade music volume over time
    */
   private fadeMusic(
@@ -292,8 +345,9 @@ class AudioManager {
     this.settings.muted = !this.settings.muted;
     
     if (this.settings.muted) {
-      // Pause all music
+      // Pause all music and stop voiceover
       this.musicElements.forEach(audio => audio.pause());
+      this.stopVoiceover();
     } else {
       // Resume current music
       if (this.currentMusic) {

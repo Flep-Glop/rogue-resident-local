@@ -20,6 +20,7 @@ html, body {
   padding: 0;
   margin: 0;
   overflow: hidden; /* This will prevent scrolling on the main page container */
+  cursor: none;
 }
 
 /* Base CSS Reset */
@@ -27,6 +28,7 @@ html, body {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  cursor: none !important;
 }
 
 /* These variables can be accessed by both the styled-components theme and any regular CSS */

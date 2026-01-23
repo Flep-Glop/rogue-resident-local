@@ -213,9 +213,9 @@ Instead of one monolithic sprite sheet, use multiple aligned layers:
 comp-sheet system (300×180 per frame):
 ├── comp-monitor.png (300×180, z: 300) - Monitor frame with black fill (base layer)
 ├── comp-screen-blue.png / comp-screen-dark.png (300×180, z: 301) - Dynamic screen color overlay
-├── comp-activity.png (300×180, z: 302) - Static content layer
-├── comp-activity-options-sheet.png (7 frames @ 2100×180, z: 303) - Highlight states
-├── comp-activity-option1-sheet.png (5 frames @ 1500×180, z: 304) - Autonomous animation
+├── comp-tabs.png (8 frames @ 2400×180, z: 302) - Tab states with highlight and shop lock
+├── comp-activity-option-popups-sheet.png (7 frames @ 2100×180, z: 303) - Highlight popup states
+├── comp-activity-options.png (static @ 300×180, z: 304) - Activity options content layer
 ├── ActivityClickRegion (z: 305) - Mouse interaction overlay
 ├── tbi-positioning.png (16 frames @ 4800×180, z: 306) - TBI activity content
 ├── anthro-intro.png (4 frames @ 1200×180, z: 305) - Dialogue overlay
@@ -412,3 +412,249 @@ const cameraY = focusedBody.y;
 
 // ✅ Same component, different props
 <MoonSprite $isFocused={focusedId === body.id} />
+```
+
+## MODULAR SPRITE COMPOSITION ARCHITECTURE
+
+### Pattern: Lookup Table Driven Rendering
+Instead of pre-baked sprite animations, use small modular sprites with lookup tables:
+
+```typescript
+// Position lookup table separates game logic from rendering
+const TBI_POSITION_RESULTS = {
+  0: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],  // Far from gantry: all green
+  8: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],  // Optimal: all green
+  15: [0, 1, 2, 2, 2, 2, 2, 2, 1, 0], // Too close: extremities underdosed
+};
+
+// Minimal sprites:
+// - 3-color bars (51×7px each)
+// - 11-frame mask (61×72px)
+// - 3-frame backdrop (base/fail/pass)
+```
+
+### Benefits
+- **Scalability:** 16 positions × 10 segments = 160 results from 6 sprites
+- **Maintainability:** Change outcomes without regenerating assets
+- **Testability:** Pure functions for position → result mapping
+
+## TITLE SCREEN LAYERED ANIMATION SYSTEM
+
+### 11-Layer Composite Architecture
+```
+Layer order (bottom to top):
+├── Background (static)
+├── Cloud Layer 1 (slow parallax, ping-pong 0-7)
+├── Cloud Layer 2 (medium parallax, offset start)
+├── Cloud Layer 3 (fast parallax, desync timer)
+├── Abyss Layer (atmospheric depth)
+├── Shooting Star 1-4 (staggered cooldowns)
+├── Vignette (static darkening overlay)
+├── Title Text (translates in dev mode)
+└── Shine Effect (triggered at intro end + sporadic)
+```
+
+### Ping-Pong Animation Pattern
+Essential for seamless looping without wrap-around frames:
+```typescript
+const updateFrame = () => {
+  if (direction === 1 && frame >= 7) direction = -1;
+  if (direction === -1 && frame <= 0) direction = 1;
+  frame += direction;
+};
+// Result: 0→1→2→3→4→5→6→7→6→5→4→3→2→1→0→1→...
+```
+
+### Parallax Depth Ratios
+Faster movement = closer layer:
+- Cloud 1 (far): 600ms per frame
+- Cloud 2 (mid): 450ms per frame  
+- Cloud 3 (near): 300ms per frame
+- Ratio: 2:1.33:1
+
+## CHARACTER CREATOR SPRITE SYSTEM
+
+### Unified Canvas Architecture
+All character parts use same canvas dimensions for perfect layering:
+
+```typescript
+// 38×102px unified canvas (full body)
+const CHARACTER_PARTS = [
+  { id: 'legs', zIndex: 0 },
+  { id: 'shoes', zIndex: 1 },
+  { id: 'body', zIndex: 2 },
+  { id: 'ears', zIndex: 3 },
+  { id: 'face', zIndex: 4 },
+  { id: 'nose', zIndex: 5 },
+  { id: 'eyes', zIndex: 6 },
+  { id: 'eyebrows', zIndex: 7 },
+  { id: 'mouth', zIndex: 8 },
+  { id: 'facial-hair', zIndex: 9 },
+  { id: 'hair', zIndex: 10 },
+  { id: 'extras', zIndex: 11 },
+];
+```
+
+### Direction-Dependent Z-Index
+Viewing angle changes layer semantics:
+```typescript
+const getPartZIndex = (partId: string, baseZ: number, direction: Direction) => {
+  // Ears: behind face in front view, visible alongside in side view
+  if (partId === 'ears' && (direction === 'left' || direction === 'right')) {
+    return 9; // Move above facial features, below hair
+  }
+  return baseZ;
+};
+```
+
+### Programmatic Layer Animation
+Breathing animation without sprite sheet overhead:
+```typescript
+// 4-frame breathing cycle (600ms per frame)
+const LAYER_GROUPS = {
+  HEAD: ['ears', 'face', 'eyes', ...],   // Moves with breath
+  TORSO: ['body'],                         // Follows head
+  STATIC: ['legs', 'shoes'],               // Stays fixed
+};
+
+// Frame 0: neutral
+// Frame 1: head down 1px
+// Frame 2: torso follows
+// Frame 3: return to neutral
+```
+
+## SPRITE SHEET COMPOSITOR ARCHITECTURE
+
+### Dynamic Sprite Generation Pipeline
+Generate game-compatible sprite sheets from modular character parts:
+
+```typescript
+// Output format: 38 frames matching CharacterSprite expectations
+const FRAME_DEFINITIONS = [
+  // Idle frames (4 per direction × 4 directions = 16)
+  { dir: 'front', suffix: '', animFrame: 0-3 },
+  { dir: 'back', suffix: '-back', animFrame: 0-3 },
+  { dir: 'right', suffix: '-right', animFrame: 0-3 },
+  { dir: 'left', suffix: '-left', animFrame: 0-3 },
+  
+  // Walk frames (8 per side direction × 2 = 16)
+  { dir: 'right', suffix: '-right-w1' through '-w4', animFrame: 0-7 },
+  { dir: 'left', suffix: '-left-w1' through '-w4', animFrame: 0-7 },
+  
+  // Climb frames (6 total)
+  { dir: 'back', suffix: '-back-c1', flip: false/true, animFrame: 0-5 },
+];
+
+// Compositor loads parts → applies palettes → composites → exports data URL
+```
+
+### Graceful Fallback Pattern
+Handle missing directional sprites without breaking:
+```typescript
+const getSpriteSrc = (part, direction, walkFrame?) => {
+  const variants = direction === 'back' ? part.backVariants 
+                 : direction === 'left' || direction === 'right' ? part.sideVariants 
+                 : part.variants;
+  
+  // If variant doesn't exist for direction, fall back to base sprite
+  if (!variants.includes(currentVariant)) {
+    return null; // Silently skip rendering this part
+  }
+  return `/images/characters/${part.id}-${variant}${suffix}.png`;
+};
+```
+
+## TAB-BASED NAVIGATION SYSTEM
+
+### Pattern: Spatial Navigation Extension
+Tabs are vertical lists that extend 2D content navigation:
+
+```typescript
+interface TabNavigationState {
+  currentTab: 'activities' | 'shop';
+  tabFocused: boolean;
+  highlightedItem: number;
+}
+
+// Navigation flow:
+// - Left from leftmost content → focus tabs
+// - Up/Down on tabs → switch tabs
+// - Right from tabs → enter content area
+// - Content uses 2D spatial navigation
+```
+
+### Frame Calculation for Tab States
+```typescript
+const getCompTabsFrame = (
+  currentTab: 'activities' | 'shop',
+  tabFocused: boolean,
+  shopUnlocked: boolean
+): number => {
+  if (!shopUnlocked) return tabFocused ? 2 : 1;  // Locked frames
+  if (currentTab === 'activities') return tabFocused ? 4 : 3;
+  return tabFocused ? 6 : 5;  // Shop tab frames
+};
+```
+
+## AUDIO SYSTEM ARCHITECTURE
+
+### 4-Layer Pattern
+Mirrors sprite system organization:
+
+```
+audio.constants.ts    → Asset definitions, paths, volumes, cooldowns
+AudioManager.ts       → Singleton with Web Audio API (SFX) + HTMLAudioElement (Music/VO)
+useAudio.ts          → React hooks (useAudioInit, useSound, useMusic, useVoiceover)
+audioStore.ts        → Zustand store with localStorage persistence
+```
+
+### Audio Category Characteristics
+| Category | API | Preload | Loop | Fade |
+|----------|-----|---------|------|------|
+| SFX | Web Audio API | Yes | No | No |
+| Music | HTMLAudioElement | No | Yes | Yes |
+| Voiceover | HTMLAudioElement | No | No | No |
+
+### Browser Autoplay Handling
+```typescript
+// Attempt autoplay immediately
+const playResult = await audioManager.playMusic('main_theme');
+
+if (!playResult) {
+  // Blocked by browser policy - retry on first user interaction
+  const handleInteraction = () => {
+    audioManager.playMusic('main_theme');
+    window.removeEventListener('click', handleInteraction);
+    window.removeEventListener('keydown', handleInteraction);
+  };
+  window.addEventListener('click', handleInteraction, { once: true });
+  window.addEventListener('keydown', handleInteraction, { once: true });
+}
+```
+
+## CINEMATIC SPLASH SCREEN SYSTEM
+
+### Multi-Phase Animation State Machine
+```typescript
+type SplashPhase = 
+  | 'fading_to_black'      // 1.5s dramatic fade from title
+  | 'fading_in'            // 1.2s logo 1 fade in
+  | 'animating'            // 36-frame animation at 80ms/frame
+  | 'holding'              // 1s hold on final frame
+  | 'fading_out'           // 1s fade out
+  | 'camp_fading_in'       // 1.2s logo 2 fade in
+  | 'camp_holding'         // 2s hold
+  | 'camp_fading_out';     // 1s fade out → transition
+
+// Key insight: Separate background (Graphics) from content (Sprite)
+// for independent alpha control during transitions
+```
+
+### Easing for Cinematic Feel
+```typescript
+const easeInOutCubic = (t: number): number => {
+  return t < 0.5 
+    ? 4 * t * t * t 
+    : 1 - Math.pow(-2 * t + 2, 3) / 2;
+};
+// Apply to all fade transitions for smooth, professional feel

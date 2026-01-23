@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import * as PIXI from 'pixi.js';
 import { useGameStore } from '@/app/store/gameStore';
+import { useCharacterStore, DEFAULT_CHARACTER } from '@/app/store/characterStore';
 import { colors, typography } from '@/app/styles/pixelTheme';
 import { ChangelogPopup } from '@/app/components/ui/ChangelogPopup';
 import { getCurrentVersionString } from '@/app/utils/versionManager';
@@ -34,7 +35,7 @@ const PixiContainer = styled.div`
 `;
 
 // Vignette overlay similar to telescope view in ConstellationView
-const TitleVignette = styled.div`
+const TitleVignette = styled.div<{ $visible?: boolean }>`
   position: absolute;
   top: 0;
   left: 0;
@@ -42,6 +43,8 @@ const TitleVignette = styled.div`
   height: 100%;
   pointer-events: none;
   z-index: 100;
+  opacity: ${props => props.$visible === false ? 0 : 1};
+  transition: opacity 0.3s ease;
   background: radial-gradient(
     circle at center,
     transparent 0%,
@@ -100,7 +103,7 @@ const WhatsNewButton = styled.button<{ $visible: boolean; $debugMode: boolean }>
   }
 `;
 
-const GameVersion = styled.div`
+const GameVersion = styled.div<{ $visible?: boolean }>`
   position: absolute;
   bottom: 24px;
   width: 100%;
@@ -109,9 +112,10 @@ const GameVersion = styled.div`
   font-size: ${typography.fontSize.sm};
   text-shadow: ${typography.textShadow.pixel};
   letter-spacing: 0.5px;
-  opacity: 0.7;
+  opacity: ${props => props.$visible === false ? 0 : 0.7};
   pointer-events: none;
   font-family: ${typography.fontFamily.pixel};
+  transition: opacity 0.3s ease;
 `;
 
 // Flashing "Press X to Play" indicator
@@ -195,11 +199,10 @@ const DebugBox = styled.div<{ $isEmpty?: boolean; $isSelected?: boolean }>`
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  cursor: ${props => props.$isEmpty ? 'default' : 'pointer'};
   padding: 20px;
   position: relative;
   overflow: visible;
-  pointer-events: ${props => props.$isEmpty ? 'none' : 'auto'};
+  pointer-events: none;
 `;
 
 const DebugBoxImage = styled.div<{ $debugOption: number; $isSelected: boolean; $isPressed: boolean }>`
@@ -224,28 +227,7 @@ const DebugBoxImage = styled.div<{ $debugOption: number; $isSelected: boolean; $
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
   transition: transform 0.1s ease;
-  
-  /* Mouse hover shows highlighted state when not in keyboard mode */
-  &:hover {
-    background-position: ${props => {
-      const baseFrame = props.$debugOption * 3;
-      const frame = baseFrame + 1; // Highlighted frame
-      const position = (frame * 100) / 11;
-      return `${position}% 0%`;
-    }};
-    transform: scale(1.05);
-  }
-  
-  /* Pressed state (click feedback) */
-  &:active {
-    background-position: ${props => {
-      const baseFrame = props.$debugOption * 3;
-      const frame = baseFrame + 2; // Selected/pressed frame
-      const position = (frame * 100) / 11;
-      return `${position}% 0%`;
-    }};
-    transform: scale(0.98);
-  }
+  transform: ${props => props.$isSelected ? 'scale(1.05)' : 'none'};
 `;
 
 const DebugBoxLabel = styled.div`
@@ -267,11 +249,20 @@ export const TitleScreen: React.FC = () => {
   const pixiContainerRef = useRef<HTMLDivElement>(null);
   const pixiAppRef = useRef<PIXI.Application | null>(null);
   const pixiTitleRef = useRef<PIXI.Sprite | null>(null);
+  const pixiShineRef = useRef<PIXI.Sprite | null>(null);
   const pixiPlayButtonRef = useRef<PIXI.Sprite | null>(null);
   const pixiDevModeButtonRef = useRef<PIXI.Sprite | null>(null);
   const pixiWhatsNewButtonRef = useRef<PIXI.Sprite | null>(null);
   const introCompleteRef = useRef(false);
   const lastMousePositionRef = useRef<{ x: number; y: number } | null>(null);
+  
+  // Splash screen animation refs
+  const splashContainerRef = useRef<PIXI.Container | null>(null);
+  const splashBgRef = useRef<PIXI.Graphics | null>(null);
+  const splashSpriteRef = useRef<PIXI.Sprite | null>(null);
+  const splashTexturesRef = useRef<PIXI.Texture[]>([]);
+  const campSpriteRef = useRef<PIXI.Sprite | null>(null);
+  const splashAnimationRef = useRef<{ frame: number; timer: number; holdTimer: number; phase: 'fading_to_black' | 'fading_in' | 'animating' | 'holding' | 'fading_out' | 'camp_fading_in' | 'camp_holding' | 'camp_fading_out' } | null>(null);
   
   const [isLoaded, setIsLoaded] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
@@ -283,8 +274,12 @@ export const TitleScreen: React.FC = () => {
   const [selectedButton, setSelectedButton] = useState(-1); // -1 = no selection (mouse mode), 0 = Play, 1 = Dev Mode, 2 = What's New
   const [selectedDebugOption, setSelectedDebugOption] = useState(-1); // -1 = no selection (mouse mode), 0 = Before Desk, 1 = Before Cutscene, 2 = After Cutscene, 3 = Planetary Systems
   const [pressedDebugOption, setPressedDebugOption] = useState<number | null>(null); // Track which debug option is pressed (showing third frame)
+  const [showSplash, setShowSplash] = useState(false); // Questrium splash screen animation
   
   const startGame = useGameStore(state => state.startGame);
+  const startFromCharacterCreator = useGameStore(state => state.startFromCharacterCreator);
+  const setCharacter = useCharacterStore(state => state.setCharacter);
+  const setHasCreatedCharacter = useCharacterStore(state => state.setHasCreatedCharacter);
   
   // Initialize audio system on first user interaction
   useAudioInit();
@@ -391,6 +386,7 @@ export const TitleScreen: React.FC = () => {
         let shootingStar3Sprite: PIXI.Sprite | null = null;
         let shootingStar4Sprite: PIXI.Sprite | null = null;
         let shineSprite: PIXI.Sprite | null = null;
+        let vignetteSprite: PIXI.Sprite | null = null;
         
         // Texture arrays for animated sprites
         let cloud1Textures: PIXI.Texture[] = [];
@@ -488,12 +484,15 @@ export const TitleScreen: React.FC = () => {
             const shootingStar4Texture = await PIXI.Assets.load('/images/title/title-screen-shooting-stars-4.png');
             const titleTexture = await PIXI.Assets.load('/images/title/title-screen-title.png');
             const shineTexture = await PIXI.Assets.load('/images/title/title-screen-shine.png');
+            const vignetteTexture = await PIXI.Assets.load('/images/title/title-screen-vignette.png');
             const playButtonTexture = await PIXI.Assets.load('/images/title/play-button.png');
             const devModeButtonTexture = await PIXI.Assets.load('/images/title/dev-mode-button.png');
             const whatsNewButtonTexture = await PIXI.Assets.load('/images/title/whats-new-button.png');
+            const questriumTexture = await PIXI.Assets.load('/images/title/questrium.png');
+            const campTexture = await PIXI.Assets.load('/images/title/camp-logo.png');
 
             // Set pixel-perfect rendering for static textures
-            [backgroundTexture, abyssTexture, titleTexture, playButtonTexture, devModeButtonTexture, whatsNewButtonTexture].forEach(texture => {
+            [backgroundTexture, abyssTexture, titleTexture, vignetteTexture, playButtonTexture, devModeButtonTexture, whatsNewButtonTexture].forEach(texture => {
               texture.source.scaleMode = 'nearest';
             });
             
@@ -591,7 +590,15 @@ export const TitleScreen: React.FC = () => {
             shootingStar4Sprite.visible = false;
             app.stage.addChild(shootingStar4Sprite);
 
-            // === LAYER 10: Title (static) ===
+            // === LAYER 10: Vignette (static overlay, does NOT move with title) ===
+            vignetteSprite = new PIXI.Sprite(vignetteTexture);
+            vignetteSprite.scale.set(uniformScale);
+            vignetteSprite.x = centerX;
+            vignetteSprite.y = centerY;
+            vignetteSprite.alpha = 0; // Start invisible for fade from black
+            app.stage.addChild(vignetteSprite);
+
+            // === LAYER 11: Title (static) ===
             titleSprite = new PIXI.Sprite(titleTexture);
             titleSprite.scale.set(uniformScale);
             titleSprite.x = centerX;
@@ -602,14 +609,62 @@ export const TitleScreen: React.FC = () => {
             app.stage.addChild(titleSprite);
             pixiTitleRef.current = titleSprite;
 
-            // === LAYER 11: Shine (7 frames, triggered occasionally) ===
+            // === LAYER 12: Shine (7 frames, triggered occasionally) ===
+            // Shine moves with the title when debug grid is shown
             shineSprite = new PIXI.Sprite(shineTextures[0]);
             shineSprite.scale.set(uniformScale);
             shineSprite.x = centerX;
             shineSprite.y = centerY;
             shineSprite.alpha = 0;
             shineSprite.visible = false;
+            (shineSprite as any).normalY = centerY; // Store normal position
+            (shineSprite as any).debugY = centerY - (80 * uniformScale); // Move up with title when debug grid is shown
             app.stage.addChild(shineSprite);
+            pixiShineRef.current = shineSprite;
+
+            // === SPLASH SCREEN: Questrium logo animation (36 frames, 240x120 each) ===
+            // Create frame textures for questrium sprite sheet
+            questriumTexture.source.scaleMode = 'nearest';
+            const questriumTextures = createFrameTextures(questriumTexture, 36, 240, 120);
+            splashTexturesRef.current = questriumTextures;
+            
+            // Create splash container (black background + centered logos)
+            const splashContainer = new PIXI.Container();
+            splashContainer.visible = false;
+            
+            // Black background covering entire screen
+            const splashBg = new PIXI.Graphics();
+            splashBg.rect(0, 0, app.screen.width, app.screen.height);
+            splashBg.fill(0x000000);
+            splashBg.alpha = 0; // Start transparent for fade-in
+            splashContainer.addChild(splashBg);
+            
+            // Questrium logo sprite - centered and scaled
+            const splashSprite = new PIXI.Sprite(questriumTextures[0]);
+            splashSprite.anchor.set(0.5);
+            splashSprite.x = app.screen.width / 2;
+            splashSprite.y = app.screen.height / 2;
+            // Scale to be nicely visible - 1.5x the native size (since it's now 240x120)
+            splashSprite.scale.set(uniformScale * 1.5);
+            splashSprite.alpha = 0; // Start invisible for fade-in
+            splashContainer.addChild(splashSprite);
+            
+            // CAMP logo sprite - centered and scaled (244x73, single frame)
+            campTexture.source.scaleMode = 'nearest';
+            const campSprite = new PIXI.Sprite(campTexture);
+            campSprite.anchor.set(0.5);
+            campSprite.x = app.screen.width / 2;
+            campSprite.y = app.screen.height / 2;
+            // Scale to match Questrium logo
+            campSprite.scale.set(uniformScale * 1.5);
+            campSprite.alpha = 0; // Start invisible
+            splashContainer.addChild(campSprite);
+            
+            app.stage.addChild(splashContainer);
+            splashContainerRef.current = splashContainer;
+            splashBgRef.current = splashBg;
+            splashSpriteRef.current = splashSprite;
+            campSpriteRef.current = campSprite;
 
             // Helper function to create button sprite from sprite sheet (261x18, 3 frames) using 640x360 coordinates
             const createButtonSprite = (texture: PIXI.Texture, worldX: number, worldY: number, scaleMultiplier: number = 1) => {
@@ -644,8 +699,7 @@ export const TitleScreen: React.FC = () => {
               // Use uniform scale with multiplier
               const buttonScale = uniformScale * scaleMultiplier;
               sprite.scale.set(buttonScale);
-              sprite.eventMode = 'static'; // PIXI v8 way to enable interaction
-              sprite.cursor = 'pointer';
+              sprite.eventMode = 'none'; // Keyboard only - no mouse interaction
               
               // Store textures for state changes
               (sprite as any).normalTexture = normalTexture;
@@ -664,33 +718,10 @@ export const TitleScreen: React.FC = () => {
               1.0 // Normal scale - no extra multiplier needed
             );
             
-            // Start invisible
+            // Start invisible, no mouse interaction (keyboard only)
             playButtonSprite.alpha = 0;
             playButtonSprite.visible = false;
-            
-            // Add hover and click effects
-            playButtonSprite.on('pointerover', () => {
-              playButtonSprite!.texture = (playButtonSprite as any).highlightedTexture;
-              playButtonSprite!.scale.set((playButtonSprite as any).baseScale * 1.05);
-            });
-            playButtonSprite.on('pointerout', () => {
-              playButtonSprite!.texture = (playButtonSprite as any).normalTexture;
-              playButtonSprite!.scale.set((playButtonSprite as any).baseScale);
-            });
-            playButtonSprite.on('pointerdown', () => {
-              playButtonSprite!.texture = (playButtonSprite as any).selectedTexture;
-              playButtonSprite!.scale.set((playButtonSprite as any).baseScale * 0.98);
-            });
-            playButtonSprite.on('pointerup', () => {
-              setTimeout(() => {
-                playButtonSprite!.texture = (playButtonSprite as any).highlightedTexture;
-                playButtonSprite!.scale.set((playButtonSprite as any).baseScale * 1.05);
-              }, 100);
-              
-              setTimeout(() => {
-                handleStartGame();
-              }, 150);
-            });
+            playButtonSprite.eventMode = 'none';
             
             app.stage.addChild(playButtonSprite);
             pixiPlayButtonRef.current = playButtonSprite;
@@ -703,37 +734,10 @@ export const TitleScreen: React.FC = () => {
               1.0 // Normal scale - no extra multiplier needed
             );
             
-            // Start invisible
+            // Start invisible, no mouse interaction (keyboard only)
             settingsButtonSprite.alpha = 0;
             settingsButtonSprite.visible = false;
-            
-            // Add hover and click effects
-            settingsButtonSprite.on('pointerover', () => {
-              settingsButtonSprite!.texture = (settingsButtonSprite as any).highlightedTexture;
-              settingsButtonSprite!.scale.set((settingsButtonSprite as any).baseScale * 1.05);
-            });
-            settingsButtonSprite.on('pointerout', () => {
-              settingsButtonSprite!.texture = (settingsButtonSprite as any).normalTexture;
-              settingsButtonSprite!.scale.set((settingsButtonSprite as any).baseScale);
-            });
-            settingsButtonSprite.on('pointerdown', () => {
-              settingsButtonSprite!.texture = (settingsButtonSprite as any).selectedTexture;
-              settingsButtonSprite!.scale.set((settingsButtonSprite as any).baseScale * 0.98);
-            });
-            settingsButtonSprite.on('pointerup', () => {
-              setTimeout(() => {
-                if (settingsButtonSprite) {
-                  settingsButtonSprite.texture = (settingsButtonSprite as any).highlightedTexture;
-                  settingsButtonSprite.scale.set((settingsButtonSprite as any).baseScale * 1.05);
-                }
-              }, 100);
-              
-              setTimeout(() => {
-                if (introCompleteRef.current) {
-                  setShowDebugGrid(true);
-                }
-              }, 150);
-            });
+            settingsButtonSprite.eventMode = 'none';
             
             app.stage.addChild(settingsButtonSprite);
             pixiDevModeButtonRef.current = settingsButtonSprite;
@@ -746,33 +750,10 @@ export const TitleScreen: React.FC = () => {
               1.0 // Normal scale - no extra multiplier needed
             );
             
-            // Start invisible
+            // Start invisible, no mouse interaction (keyboard only)
             whatsNewButtonSprite.alpha = 0;
             whatsNewButtonSprite.visible = false;
-            
-            // Add hover and click effects
-            whatsNewButtonSprite.on('pointerover', () => {
-              whatsNewButtonSprite!.texture = (whatsNewButtonSprite as any).highlightedTexture;
-              whatsNewButtonSprite!.scale.set((whatsNewButtonSprite as any).baseScale * 1.05);
-            });
-            whatsNewButtonSprite.on('pointerout', () => {
-              whatsNewButtonSprite!.texture = (whatsNewButtonSprite as any).normalTexture;
-              whatsNewButtonSprite!.scale.set((whatsNewButtonSprite as any).baseScale);
-            });
-            whatsNewButtonSprite.on('pointerdown', () => {
-              whatsNewButtonSprite!.texture = (whatsNewButtonSprite as any).selectedTexture;
-              whatsNewButtonSprite!.scale.set((whatsNewButtonSprite as any).baseScale * 0.98);
-            });
-            whatsNewButtonSprite.on('pointerup', () => {
-              setTimeout(() => {
-                whatsNewButtonSprite!.texture = (whatsNewButtonSprite as any).highlightedTexture;
-                whatsNewButtonSprite!.scale.set((whatsNewButtonSprite as any).baseScale * 1.05);
-              }, 100);
-              
-              setTimeout(() => {
-                setShowChangelog(true);
-              }, 150);
-            });
+            whatsNewButtonSprite.eventMode = 'none';
             
             app.stage.addChild(whatsNewButtonSprite);
             pixiWhatsNewButtonRef.current = whatsNewButtonSprite;
@@ -803,6 +784,7 @@ export const TitleScreen: React.FC = () => {
                 if (cloud2Sprite) cloud2Sprite.alpha = bgProgress;
                 if (cloud3Sprite) cloud3Sprite.alpha = bgProgress;
                 if (abyssSprite) abyssSprite.alpha = bgProgress;
+                if (vignetteSprite) vignetteSprite.alpha = bgProgress;
               } else {
                 // Ensure all background layers are fully visible
                 if (backgroundSprite && backgroundSprite.alpha !== 1) backgroundSprite.alpha = 1;
@@ -810,6 +792,7 @@ export const TitleScreen: React.FC = () => {
                 if (cloud2Sprite && cloud2Sprite.alpha !== 1) cloud2Sprite.alpha = 1;
                 if (cloud3Sprite && cloud3Sprite.alpha !== 1) cloud3Sprite.alpha = 1;
                 if (abyssSprite && abyssSprite.alpha !== 1) abyssSprite.alpha = 1;
+                if (vignetteSprite && vignetteSprite.alpha !== 1) vignetteSprite.alpha = 1;
               }
               
               // Animate title fading in (1000-1800ms)
@@ -1073,6 +1056,122 @@ export const TitleScreen: React.FC = () => {
                   }
                 }
               }
+              
+              // === SPLASH SCREEN ANIMATION (Questrium logo + CAMP logo) ===
+              const splashAnim = splashAnimationRef.current;
+              const splashSprite = splashSpriteRef.current;
+              const campSprite = campSpriteRef.current;
+              const splashBg = splashBgRef.current;
+              const splashContainer = splashContainerRef.current;
+              const splashTextures = splashTexturesRef.current;
+              
+              if (splashAnim && splashSprite && campSprite && splashBg && splashContainer && splashTextures.length > 0) {
+                const FADE_TO_BLACK_DURATION = 1500; // 1.5 seconds dramatic fade to black
+                const FADE_IN_DURATION = 1200; // 1.2 seconds fade in logo
+                const SPLASH_FRAME_DURATION = 80; // ms per frame (~12.5fps)
+                const SPLASH_HOLD_DURATION = 1000; // 1 second on last frame
+                const FADE_OUT_DURATION = 1000; // 1 second fade out
+                const CAMP_FADE_IN_DURATION = 1200; // 1.2 seconds fade in CAMP logo
+                const CAMP_HOLD_DURATION = 2000; // 2 seconds hold on CAMP logo
+                const CAMP_FADE_OUT_DURATION = 1000; // 1 second fade out CAMP logo
+                
+                // Easing function for smooth fades
+                const easeInOutCubic = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                
+                if (splashAnim.phase === 'fading_to_black') {
+                  // Fade black overlay over the title screen
+                  splashAnim.timer += deltaTime;
+                  const fadeProgress = Math.min(splashAnim.timer / FADE_TO_BLACK_DURATION, 1);
+                  splashBg.alpha = easeInOutCubic(fadeProgress);
+                  
+                  if (fadeProgress >= 1) {
+                    // Fully black - now fade in the logo
+                    splashAnim.phase = 'fading_in';
+                    splashAnim.timer = 0;
+                  }
+                } else if (splashAnim.phase === 'fading_in') {
+                  // Fade in the Questrium logo from black WHILE animating
+                  splashAnim.timer += deltaTime;
+                  const fadeProgress = Math.min(splashAnim.timer / FADE_IN_DURATION, 1);
+                  splashSprite.alpha = easeInOutCubic(fadeProgress);
+                  
+                  // Animate frames during fade-in (slower rate during fade)
+                  const FADE_IN_FRAME_DURATION = 100; // Slightly slower during fade
+                  if (splashAnim.timer % FADE_IN_FRAME_DURATION < deltaTime && splashAnim.frame < 35) {
+                    splashAnim.frame++;
+                    splashSprite.texture = splashTextures[splashAnim.frame];
+                  }
+                  
+                  if (fadeProgress >= 1) {
+                    // Logo fully visible - continue animation if not done
+                    if (splashAnim.frame >= 35) {
+                      splashAnim.phase = 'holding';
+                      splashAnim.holdTimer = 0;
+                    } else {
+                      splashAnim.phase = 'animating';
+                      splashAnim.timer = 0;
+                    }
+                  }
+                } else if (splashAnim.phase === 'animating') {
+                  splashAnim.timer += deltaTime;
+                  if (splashAnim.timer >= SPLASH_FRAME_DURATION) {
+                    splashAnim.timer = 0;
+                    splashAnim.frame++;
+                    if (splashAnim.frame >= 35) {
+                      // Reached last frame - switch to holding phase
+                      splashAnim.frame = 35;
+                      splashAnim.phase = 'holding';
+                      splashAnim.holdTimer = 0;
+                    }
+                    splashSprite.texture = splashTextures[splashAnim.frame];
+                  }
+                } else if (splashAnim.phase === 'holding') {
+                  splashAnim.holdTimer += deltaTime;
+                  if (splashAnim.holdTimer >= SPLASH_HOLD_DURATION) {
+                    // Fade out the Questrium logo
+                    splashAnim.phase = 'fading_out';
+                    splashAnim.timer = 0;
+                  }
+                } else if (splashAnim.phase === 'fading_out') {
+                  splashAnim.timer += deltaTime;
+                  const fadeProgress = Math.min(splashAnim.timer / FADE_OUT_DURATION, 1);
+                  splashSprite.alpha = 1 - easeInOutCubic(fadeProgress);
+                  
+                  if (fadeProgress >= 1) {
+                    // Questrium fade complete - now fade in CAMP logo
+                    splashAnim.phase = 'camp_fading_in';
+                    splashAnim.timer = 0;
+                  }
+                } else if (splashAnim.phase === 'camp_fading_in') {
+                  // Fade in the CAMP logo
+                  splashAnim.timer += deltaTime;
+                  const fadeProgress = Math.min(splashAnim.timer / CAMP_FADE_IN_DURATION, 1);
+                  campSprite.alpha = easeInOutCubic(fadeProgress);
+                  
+                  if (fadeProgress >= 1) {
+                    // CAMP logo fully visible - hold
+                    splashAnim.phase = 'camp_holding';
+                    splashAnim.holdTimer = 0;
+                  }
+                } else if (splashAnim.phase === 'camp_holding') {
+                  splashAnim.holdTimer += deltaTime;
+                  if (splashAnim.holdTimer >= CAMP_HOLD_DURATION) {
+                    // Fade out the CAMP logo
+                    splashAnim.phase = 'camp_fading_out';
+                    splashAnim.timer = 0;
+                  }
+                } else if (splashAnim.phase === 'camp_fading_out') {
+                  splashAnim.timer += deltaTime;
+                  const fadeProgress = Math.min(splashAnim.timer / CAMP_FADE_OUT_DURATION, 1);
+                  campSprite.alpha = 1 - easeInOutCubic(fadeProgress);
+                  
+                  if (fadeProgress >= 1) {
+                    // All splashes complete - start game (screen stays black)
+                    splashAnimationRef.current = null;
+                    startGame();
+                  }
+                }
+              }
             };
             
             app.ticker.add(animationTicker);
@@ -1248,7 +1347,7 @@ export const TitleScreen: React.FC = () => {
 
   // Keyboard controls for navigation and activation
   useEffect(() => {
-    if (!introComplete || showDebugGrid) return;
+    if (!introComplete || showDebugGrid || showSplash || startingGame) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Prevent default behavior for game controls
@@ -1316,7 +1415,7 @@ export const TitleScreen: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [introComplete, showDebugGrid, selectedButton]);
+  }, [introComplete, showDebugGrid, selectedButton, showSplash, startingGame, playSound]);
 
   // Apply visual highlighting to selected button (keyboard mode only)
   useEffect(() => {
@@ -1353,7 +1452,7 @@ export const TitleScreen: React.FC = () => {
 
   // Keyboard controls for debug grid navigation
   useEffect(() => {
-    if (!showDebugGrid) return;
+    if (!showDebugGrid || showSplash || startingGame) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Prevent default behavior for game controls
@@ -1378,14 +1477,14 @@ export const TitleScreen: React.FC = () => {
             playSound('ui_hover');
             return 0; // Start at first option
           }
-          const next = Math.min(2, prev + 1);
+          const next = Math.min(3, prev + 1); // Allow 4 options (0-3)
           if (next !== prev) playSound('ui_hover');
           return next;
         });
       }
       // X key activation - only works in keyboard mode
       else if ((e.key === 'x' || e.key === 'X') && selectedDebugOption >= 0) {
-        const debugStates = ['before_desk', 'before_cutscene', 'after_cutscene'];
+        const debugStates = ['before_desk', 'before_cutscene', 'after_cutscene', 'character_creator'];
         
         playSound('ui_confirm');
         
@@ -1407,7 +1506,7 @@ export const TitleScreen: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showDebugGrid, selectedDebugOption]);
+  }, [showDebugGrid, selectedDebugOption, showSplash, startingGame, playSound]);
 
   // Handle debug grid transitions
   useEffect(() => {
@@ -1415,6 +1514,7 @@ export const TitleScreen: React.FC = () => {
     if (!isLoaded || !introComplete) return;
 
     const titleSprite = pixiTitleRef.current;
+    const shineSprite = pixiShineRef.current;
     const playButton = pixiPlayButtonRef.current;
     const devModeButton = pixiDevModeButtonRef.current;
     const whatsNewButton = pixiWhatsNewButtonRef.current;
@@ -1439,6 +1539,13 @@ export const TitleScreen: React.FC = () => {
         const titleNormalY = (titleSprite as any).normalY;
         const titleDebugY = (titleSprite as any).debugY;
         titleSprite.y = titleNormalY + (titleDebugY - titleNormalY) * easeProgress;
+        
+        // Move shine with title
+        if (shineSprite) {
+          const shineNormalY = (shineSprite as any).normalY;
+          const shineDebugY = (shineSprite as any).debugY;
+          shineSprite.y = shineNormalY + (shineDebugY - shineNormalY) * easeProgress;
+        }
 
         // Fade out all buttons
         playButton.alpha = 1 - easeProgress;
@@ -1462,6 +1569,13 @@ export const TitleScreen: React.FC = () => {
         const titleNormalY = (titleSprite as any).normalY;
         const titleDebugY = (titleSprite as any).debugY;
         titleSprite.y = titleDebugY + (titleNormalY - titleDebugY) * easeProgress;
+        
+        // Move shine with title
+        if (shineSprite) {
+          const shineNormalY = (shineSprite as any).normalY;
+          const shineDebugY = (shineSprite as any).debugY;
+          shineSprite.y = shineDebugY + (shineNormalY - shineDebugY) * easeProgress;
+        }
 
         // Fade in all buttons
         playButton.visible = true;
@@ -1484,15 +1598,56 @@ export const TitleScreen: React.FC = () => {
   }, [showDebugGrid]);
 
   const handleStartGame = () => {
-    if (startingGame || loadingDev) return;
+    if (startingGame || loadingDev || showSplash) return;
     
     setStartingGame(true);
+    setShowSplash(true);
     
-    // Transition effect - fade out buttons, speed up scroll
-    setTimeout(() => {
-      // Go to game
-      startGame();
-    }, 800);
+    // Hide PIXI buttons during splash
+    const playButton = pixiPlayButtonRef.current;
+    const devModeButton = pixiDevModeButtonRef.current;
+    const whatsNewButton = pixiWhatsNewButtonRef.current;
+    
+    if (playButton) {
+      playButton.visible = false;
+      playButton.eventMode = 'none';
+    }
+    if (devModeButton) {
+      devModeButton.visible = false;
+      devModeButton.eventMode = 'none';
+    }
+    if (whatsNewButton) {
+      whatsNewButton.visible = false;
+      whatsNewButton.eventMode = 'none';
+    }
+    
+    // Initialize splash animation
+    const splashContainer = splashContainerRef.current;
+    const splashBg = splashBgRef.current;
+    const splashSprite = splashSpriteRef.current;
+    const splashTextures = splashTexturesRef.current;
+    
+    if (splashContainer && splashBg && splashSprite && splashTextures.length > 0) {
+      // Reset to first frame, start with everything transparent
+      splashSprite.texture = splashTextures[0];
+      splashSprite.alpha = 0;
+      splashBg.alpha = 0;
+      splashContainer.alpha = 1;
+      splashContainer.visible = true;
+      
+      // Start animation state - begin with fade to black
+      splashAnimationRef.current = {
+        frame: 0,
+        timer: 0,
+        holdTimer: 0,
+        phase: 'fading_to_black'
+      };
+    } else {
+      // Fallback if splash assets not loaded
+      setTimeout(() => {
+        startGame();
+      }, 800);
+    }
   };
 
   const handleOpenSettings = () => {
@@ -1509,6 +1664,22 @@ export const TitleScreen: React.FC = () => {
     setLoadingDev(true);
     console.log(`🧪 Debug state selected: ${stateId}`);
     
+    // Define a preset character for dev mode (skips character creation)
+    const DEV_MODE_CHARACTER = {
+      ...DEFAULT_CHARACTER,
+      name: 'Dev',
+      parts: {
+        ...DEFAULT_CHARACTER.parts,
+        'hair': 3,
+        'eyes': 2,
+        'body': 1,
+      },
+      skinRamp: 'tan1' as const,
+      hairRamp: 'brown' as const,
+      shirtRamp: 'purple' as const,
+      pantsRamp: 'black' as const,
+    };
+    
     // Set debug flag based on state
     if (stateId === 'before_desk') {
       localStorage.setItem('debug_skip_to_desk', 'true');
@@ -1516,14 +1687,23 @@ export const TitleScreen: React.FC = () => {
       localStorage.setItem('debug_skip_to_cutscene', 'true');
     } else if (stateId === 'after_cutscene') {
       localStorage.setItem('debug_after_cutscene', 'true');
-    } else if (stateId === 'planetary_systems') {
-      localStorage.setItem('debug_planetary_systems', 'true');
+    } else if (stateId === 'character_creator') {
+      // Go directly to character creator via game store
+      setTimeout(() => {
+        startGame(); // startGame goes to character_creator phase
+      }, 400);
+      return;
     }
+    
+    // For all non-character_creator debug modes, use preset character and skip to playing
+    console.log('🧪 Using preset dev character to skip character creation');
+    setCharacter(DEV_MODE_CHARACTER);
+    setHasCreatedCharacter(true);
     
     // Transition effect - fade out grid
     setTimeout(() => {
-      // Go directly to game (home scene)
-      startGame();
+      // Go directly to game (playing phase), skipping character creator
+      startFromCharacterCreator();
     }, 800);
   };
 
@@ -1555,13 +1735,13 @@ export const TitleScreen: React.FC = () => {
         {/* UI overlay for non-sprite elements */}
         <UIOverlay>
           {/* Flashing "Press X to Play" indicator - shows after intro completes */}
-          <PressXIndicator $visible={introComplete && !showDebugGrid && !startingGame}>
+          <PressXIndicator $visible={introComplete && !showDebugGrid && !startingGame && !showSplash}>
             <XKeySprite $frame={3} />
             <PressXLabel>to Play</PressXLabel>
           </PressXIndicator>
           
           {/* Game version */}
-          <GameVersion>
+          <GameVersion $visible={!showSplash}>
             {getCurrentVersionString()} - by Questrium
           </GameVersion>
         </UIOverlay>
@@ -1569,7 +1749,7 @@ export const TitleScreen: React.FC = () => {
         {/* What's New button is now a PIXI sprite - HTML button removed */}
         
         {/* Vignette overlay - appears on top of everything except changelog */}
-        <TitleVignette />
+        <TitleVignette $visible={!showSplash} />
         
         {/* Changelog popup */}
         <ChangelogPopup 
@@ -1581,16 +1761,7 @@ export const TitleScreen: React.FC = () => {
         <DebugGridContainer $visible={showDebugGrid}>
           <DebugGrid>
             {/* Row 1 */}
-            <DebugBox 
-              onClick={() => {
-                setPressedDebugOption(0);
-                setTimeout(() => {
-                  handleDebugState('before_desk');
-                  setPressedDebugOption(null);
-                }, 150);
-              }}
-              $isSelected={selectedDebugOption === 0}
-            >
+            <DebugBox $isSelected={selectedDebugOption === 0}>
               <DebugBoxImage 
                 $debugOption={0} 
                 $isSelected={selectedDebugOption === 0}
@@ -1598,16 +1769,7 @@ export const TitleScreen: React.FC = () => {
               />
               <DebugBoxLabel>Before Desk</DebugBoxLabel>
             </DebugBox>
-            <DebugBox 
-              onClick={() => {
-                setPressedDebugOption(1);
-                setTimeout(() => {
-                  handleDebugState('before_cutscene');
-                  setPressedDebugOption(null);
-                }, 150);
-              }}
-              $isSelected={selectedDebugOption === 1}
-            >
+            <DebugBox $isSelected={selectedDebugOption === 1}>
               <DebugBoxImage 
                 $debugOption={1} 
                 $isSelected={selectedDebugOption === 1}
@@ -1615,16 +1777,7 @@ export const TitleScreen: React.FC = () => {
               />
               <DebugBoxLabel>Before Cutscene</DebugBoxLabel>
             </DebugBox>
-            <DebugBox 
-              onClick={() => {
-                setPressedDebugOption(2);
-                setTimeout(() => {
-                  handleDebugState('after_cutscene');
-                  setPressedDebugOption(null);
-                }, 150);
-              }}
-              $isSelected={selectedDebugOption === 2}
-            >
+            <DebugBox $isSelected={selectedDebugOption === 2}>
               <DebugBoxImage 
                 $debugOption={2} 
                 $isSelected={selectedDebugOption === 2}
@@ -1634,31 +1787,22 @@ export const TitleScreen: React.FC = () => {
             </DebugBox>
             
             {/* Row 2 */}
-            <DebugBox 
-              onClick={() => {
-                setPressedDebugOption(3);
-                setTimeout(() => {
-                  handleDebugState('planetary_systems');
-                  setPressedDebugOption(null);
-                }, 150);
-              }}
-              $isSelected={selectedDebugOption === 3}
-            >
+            <DebugBox $isSelected={selectedDebugOption === 3}>
               <DebugBoxImage 
                 $debugOption={3} 
                 $isSelected={selectedDebugOption === 3}
                 $isPressed={pressedDebugOption === 3}
               />
-              <DebugBoxLabel>Planetary Systems</DebugBoxLabel>
+              <DebugBoxLabel>Character Creator</DebugBoxLabel>
             </DebugBox>
-            <DebugBox $isEmpty onClick={() => setShowDebugGrid(false)} />
-            <DebugBox $isEmpty onClick={() => setShowDebugGrid(false)} />
-            <DebugBox $isEmpty onClick={() => setShowDebugGrid(false)} />
+            <DebugBox $isEmpty />
+            <DebugBox $isEmpty />
+            <DebugBox $isEmpty />
             
             {/* Row 3 */}
-            <DebugBox $isEmpty onClick={() => setShowDebugGrid(false)} />
-            <DebugBox $isEmpty onClick={() => setShowDebugGrid(false)} />
-            <DebugBox $isEmpty onClick={() => setShowDebugGrid(false)} />
+            <DebugBox $isEmpty />
+            <DebugBox $isEmpty />
+            <DebugBox $isEmpty />
           </DebugGrid>
         </DebugGridContainer>
       </FullScreenContainer>

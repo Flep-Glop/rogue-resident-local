@@ -20,12 +20,23 @@ export interface KeyboardState {
   showAnthroIntro: boolean;
   anthroDialogueIndex: number;
   anthroDialogueLinesLength: number;
+  // Book/journal state
+  bookVisible: boolean;
   showTbiPositioning: boolean;
   showTbiResult: boolean;
   tbiResultRevealed: boolean;
   tbiResultPassed: boolean;
+  tbiResultDialogueIndex: number;
+  tbiResultDialogueLinesLength: number; // Length of current result dialogue (fail: 2, pass: 4)
   tbiBeamAnimating: boolean;
+  rewardItemsClaiming: boolean; // true during reward claim animation (blocks input)
+  journalCollected: boolean; // true after book is first closed (journal in corner)
   highlightedActivity: number;
+  
+  // Tab navigation state
+  currentTab: 'activities' | 'shop';
+  tabFocused: boolean;
+  highlightedShopItem: number;
   
   // Dialogue state
   showMonologue: boolean;
@@ -40,7 +51,6 @@ export interface KeyboardState {
   
   // Interaction state
   showStarDetail: boolean;
-  showPetDescription: boolean;
   skyHighlight: SkyHighlightType;
   activeInteraction: InteractionType;
   deskXKeyTriggered: boolean;
@@ -60,13 +70,24 @@ export interface KeyboardActions {
   // Comp-sheet actions
   advanceAnthroIntro: () => void;
   completeAnthroIntro: () => void;
+  // Book/journal actions
+  openBook: () => void;
+  closeBook: () => void;
+  shakeBook: () => void;
+  openBookFromCorner: () => void; // ESC key opens book when journal is collected
   completeTbiPositioning: () => void;
-  restartTbiPositioning: () => void;
-  completeActivityFromResult: () => void;
+  advanceResultDialogue: () => void;
+  completeResultDialogue: () => void;
   openDesk: () => void;
   selectCompActivity: () => void;
   closeCompSheet: () => void;
   navigateActivity: (direction: 'up' | 'down' | 'left' | 'right') => void;
+  
+  // Tab navigation actions
+  focusTabs: () => void;
+  unfocusTabs: () => void;
+  switchTab: (tab: 'activities' | 'shop') => void;
+  navigateShopItem: (direction: 'left' | 'right') => void;
   
   // Monologue actions
   advanceMonologue: () => void;
@@ -140,11 +161,77 @@ export function useKeyboardControls({ state, actions, enabled = true }: UseKeybo
           return;
         }
         
-        // Comp-sheet activity navigation
+        // Book shake when trying to flip pages (left/right arrows only)
+        if (state.bookVisible && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+          console.log('[useKeyboardControls] Book shake - no more pages');
+          playSfx('ui_denied');
+          actions.shakeBook();
+          return;
+        }
+        
+        // Comp-sheet navigation during waiting phase
         if (state.compSheetVisible && state.compSheetPhase === 'waiting') {
           const direction = e.key === 'ArrowLeft' ? 'left' :
                            e.key === 'ArrowRight' ? 'right' :
                            e.key === 'ArrowUp' ? 'up' : 'down';
+          
+          // Handle tab-focused navigation
+          if (state.tabFocused) {
+            if (direction === 'up') {
+              // Switch to activities tab
+              if (state.currentTab !== 'activities') {
+                playSfx('ui_hover');
+                actions.switchTab('activities');
+              }
+            } else if (direction === 'down') {
+              // Switch to shop tab (only if shop is unlocked)
+              if (state.currentTab !== 'shop' && state.hasCompletedFirstActivity) {
+                playSfx('ui_hover');
+                actions.switchTab('shop');
+              } else if (!state.hasCompletedFirstActivity) {
+                // Play denied sound when trying to access locked shop
+                playSfx('ui_denied');
+              }
+            } else if (direction === 'right') {
+              // Unfocus tabs and enter content area
+              playSfx('ui_hover');
+              actions.unfocusTabs();
+            }
+            return;
+          }
+          
+          // Handle shop item navigation
+          if (state.currentTab === 'shop') {
+            if (direction === 'left') {
+              if (state.highlightedShopItem === 0) {
+                // At leftmost shop item, focus tabs
+                playSfx('ui_hover');
+                actions.focusTabs();
+              } else {
+                playSfx('ui_hover');
+                actions.navigateShopItem('left');
+              }
+            } else if (direction === 'right') {
+              if (state.highlightedShopItem < 2) {
+                playSfx('ui_hover');
+                actions.navigateShopItem('right');
+              }
+            }
+            return;
+          }
+          
+          // Handle activity navigation (existing logic)
+          // Check if navigating left from leftmost activities should focus tabs
+          if (direction === 'left') {
+            const leftmostActivities = [0, 2]; // top-left and bottom-left
+            if (leftmostActivities.includes(state.highlightedActivity)) {
+              // Focus the tab sidebar
+              playSfx('ui_hover');
+              actions.focusTabs();
+              return;
+            }
+          }
+          
           playSfx('ui_hover');
           actions.navigateActivity(direction);
         }
@@ -179,7 +266,8 @@ export function useKeyboardControls({ state, actions, enabled = true }: UseKeybo
         const timeSinceLastInput = now - lastInputTime.current;
         
         // Priority 0a: Advance Anthro intro dialogue (with cooldown)
-        if (state.showAnthroIntro && state.compSheetPhase === 'intro') {
+        // Skip if book is visible (handled separately by book close handler)
+        if (state.showAnthroIntro && state.compSheetPhase === 'intro' && !state.bookVisible) {
           if (timeSinceLastInput < INPUT_COOLDOWN) {
             console.log(`[useKeyboardControls] Anthro intro: cooldown active (${timeSinceLastInput}ms < ${INPUT_COOLDOWN}ms)`);
             return;
@@ -187,7 +275,12 @@ export function useKeyboardControls({ state, actions, enabled = true }: UseKeybo
           
           lastInputTime.current = now;
           playSfx('ui_confirm');
-          if (state.anthroDialogueIndex < state.anthroDialogueLinesLength - 1) {
+          
+          // At dialogue index 2, open book instead of advancing
+          if (state.anthroDialogueIndex === 2) {
+            console.log('[useKeyboardControls] Opening book at dialogue 2');
+            actions.openBook();
+          } else if (state.anthroDialogueIndex < state.anthroDialogueLinesLength - 1) {
             actions.advanceAnthroIntro();
           } else {
             actions.completeAnthroIntro();
@@ -210,11 +303,17 @@ export function useKeyboardControls({ state, actions, enabled = true }: UseKeybo
           playSfx('ui_confirm');
           actions.completeTbiPositioning();
         }
-        // Priority 0c: Complete activity from result screen (gated behind reveal animation)
+        // Priority 0c: Result dialogue screen (gated behind reveal animation) - X key for both pass and fail
         else if (state.showTbiResult && state.compSheetPhase === 'result') {
           // Block input until mask reveal animation completes AND result is revealed
           if (!state.tbiResultRevealed) {
             console.log('[useKeyboardControls] TBI result: blocked until mask reveal completes');
+            return;
+          }
+          
+          // Block input during reward claim animation
+          if (state.rewardItemsClaiming) {
+            console.log('[useKeyboardControls] TBI result: blocked during reward claim animation');
             return;
           }
           
@@ -223,14 +322,13 @@ export function useKeyboardControls({ state, actions, enabled = true }: UseKeybo
             return;
           }
           
-          // X key only for failed attempts (restart positioning)
-          if (!state.tbiResultPassed) {
-            lastInputTime.current = now;
-            playSfx('ui_confirm');
-            actions.completeActivityFromResult();
+          // X key handles both pass and fail cases
+          lastInputTime.current = now;
+          playSfx('ui_confirm');
+          if (state.tbiResultDialogueIndex < state.tbiResultDialogueLinesLength - 1) {
+            actions.advanceResultDialogue();
           } else {
-            console.log('[useKeyboardControls] TBI result: passed - use C key to complete');
-            playSfx('ui_denied');
+            actions.completeResultDialogue(); // Restart positioning (fail) or complete activity (pass)
           }
         }
         // Priority 1a: Advance/dismiss monologue
@@ -276,12 +374,7 @@ export function useKeyboardControls({ state, actions, enabled = true }: UseKeybo
             actions.completePicoDialogue();
           }
         }
-        // Priority 2e: Dismiss pet description
-        else if (state.showPetDescription) {
-          playSfx('ui_confirm');
-          actions.dismissPetDescription();
-        }
-        // Priority 2f: Start Pico dialogue
+        // Priority 2e: Start Pico dialogue
         else if (state.currentView === 'home' && state.activeInteraction === 'pico' && !state.picoInteracted) {
           playSfx('ui_confirm');
           actions.startPicoDialogue();
@@ -313,40 +406,43 @@ export function useKeyboardControls({ state, actions, enabled = true }: UseKeybo
       
       // === C KEY ===
       if (e.key === 'c' || e.key === 'C') {
-        const now = Date.now();
-        const timeSinceLastInput = now - lastInputTime.current;
-        
-        // Priority 0a: Complete TBI result if passed (with cooldown)
-        if (state.showTbiResult && state.compSheetPhase === 'result' && state.tbiResultPassed) {
-          // Block input until mask reveal animation completes AND result is revealed
-          if (!state.tbiResultRevealed) {
-            console.log('[useKeyboardControls] TBI result: blocked until mask reveal completes');
-            return;
-          }
-          
-          if (timeSinceLastInput < INPUT_COOLDOWN) {
-            console.log(`[useKeyboardControls] TBI result: cooldown active (${timeSinceLastInput}ms < ${INPUT_COOLDOWN}ms)`);
-            return;
-          }
-          
-          lastInputTime.current = now;
-          playSfx('ui_confirm');
-          actions.completeActivityFromResult();
+        // Priority 0: Close book (whenever visible, not just during anthro intro)
+        if (state.bookVisible) {
+          console.log('[useKeyboardControls] C key - closing book');
+          playSfx('ui_decline');
+          actions.closeBook();
+          return;
         }
-        // Priority 0b: Close desk activity (but not during intro/TBI/result phases)
-        else if (state.compSheetVisible && !state.showAnthroIntro && !state.showTbiPositioning && !state.showTbiResult) {
+        // Priority 1: Close desk activity (but not during intro/TBI/result phases)
+        if (state.compSheetVisible && !state.showAnthroIntro && !state.showTbiPositioning && !state.showTbiResult) {
           playSfx('ui_decline');
           actions.closeCompSheet();
         }
-        // Priority 1: Return from sky view
+        // Priority 2: Return from sky view
         else if (state.currentView === 'sky' && !state.showStarDetail && !state.isPlayingCutscene) {
           playSfx('ui_decline');
           actions.returnFromSky();
         }
-        // Priority 2: Pet Pico
+        // Priority 3: Pet Pico
         else if (state.currentView === 'home' && state.isNearPico) {
           playSfx('ui_confirm');
           actions.petPico();
+        }
+      }
+      
+      // === ESCAPE KEY ===
+      if (e.key === 'Escape') {
+        // Open book from corner when journal is collected
+        if (state.journalCollected && !state.bookVisible) {
+          console.log('[useKeyboardControls] ESC - opening book from corner');
+          playSfx('ui_confirm');
+          actions.openBookFromCorner();
+        }
+        // Close book if it's open
+        else if (state.bookVisible) {
+          console.log('[useKeyboardControls] ESC - closing book');
+          playSfx('ui_decline');
+          actions.closeBook();
         }
       }
     };

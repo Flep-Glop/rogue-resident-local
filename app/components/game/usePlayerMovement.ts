@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, MutableRefObject } from 'react';
 import {
-  KAPOOR_START_POSITION,
+  PLAYER_START_POSITION,
   WALK_SPEED,
   CLIMB_SPEED,
   FRAME_INTERVAL,
@@ -21,58 +21,60 @@ import {
 } from './CombinedHomeScene.styles';
 import { audioManager } from '@/app/audio/AudioManager';
 
-export type KapoorDirection = 'front' | 'back' | 'right' | 'left';
+export type PlayerDirection = 'front' | 'back' | 'right' | 'left';
 
-export interface KapoorState {
+export interface PlayerState {
   position: { x: number; y: number };
-  direction: KapoorDirection;
+  direction: PlayerDirection;
   frame: number;
   isWalking: boolean;
   isClimbing: boolean;
 }
 
-export interface KapoorSetters {
+export interface PlayerSetters {
   setPosition: (pos: { x: number; y: number }) => void;
-  setDirection: (dir: KapoorDirection) => void;
+  setDirection: (dir: PlayerDirection) => void;
   setIsWalking: (walking: boolean) => void;
   setIsClimbing: (climbing: boolean) => void;
 }
 
 // Callback for when player attempts to climb but is blocked
-export interface KapoorMovementCallbacks {
+export interface PlayerMovementCallbacks {
   onClimbBlocked: () => void;
 }
 
-interface UseKapoorMovementProps {
+interface UsePlayerMovementProps {
   keysPressed: MutableRefObject<Set<string>>;
   currentView: 'home' | 'sky';
   picoInteracted: boolean;
   isClimbBlocked: boolean; // True when Pico blocking dialogue is active
   hasShownFirstBlockingMessage: boolean;
-  callbacks: KapoorMovementCallbacks;
+  isDialogueActive: boolean; // True when any Pico dialogue is currently showing
+  callbacks: PlayerMovementCallbacks;
 }
 
-interface UseKapoorMovementReturn {
-  state: KapoorState;
-  setters: KapoorSetters;
+interface UsePlayerMovementReturn {
+  state: PlayerState;
+  setters: PlayerSetters;
   animationRef: MutableRefObject<NodeJS.Timeout | null>;
 }
 
 /**
- * Hook for Kapoor character movement and animation
+ * Hook for player character movement and animation
  * Handles walking, climbing, and floor boundary detection
  */
-export function useKapoorMovement({
+export function usePlayerMovement({
   keysPressed,
   currentView,
   picoInteracted,
   isClimbBlocked,
   hasShownFirstBlockingMessage,
+  isDialogueActive,
   callbacks,
-}: UseKapoorMovementProps): UseKapoorMovementReturn {
+}: UsePlayerMovementProps): UsePlayerMovementReturn {
   // Position and animation state
-  const [position, setPosition] = useState(KAPOOR_START_POSITION);
-  const [direction, setDirection] = useState<KapoorDirection>('front');
+  const [position, setPosition] = useState(PLAYER_START_POSITION);
+  const [direction, setDirection] = useState<PlayerDirection>('front');
   const [frame, setFrame] = useState(0);
   const [isWalking, setIsWalking] = useState(false);
   const [isClimbing, setIsClimbing] = useState(false);
@@ -85,7 +87,7 @@ export function useKapoorMovement({
   
   // Movement and animation loop
   useEffect(() => {
-    const animateKapoor = () => {
+    const animatePlayer = () => {
       // Disable movement when in sky view
       if (currentView === 'sky') {
         return;
@@ -103,28 +105,37 @@ export function useKapoorMovement({
       let climbing = false;
       let isFrozenOnLadder = false;
       
-      // Check if Kapoor is near climbing position
+      // Check if player is near climbing position
       setPosition(currentPos => {
         // Only allow climbing if within range AND not past the extended second floor right boundary
         const nearClimbPoint = Math.abs(currentPos.x - CLIMB_X_THRESHOLD) < CLIMB_X_TOLERANCE && 
                                currentPos.x <= SECOND_FLOOR_BOUNDS.right + CLIMB_RIGHT_EXTENSION;
         
-        // Check if Kapoor is on a valid floor (ground or second floor)
+        // Check if player is on a valid floor (ground or second floor)
         const onGroundFloor = Math.abs(currentPos.y - GROUND_FLOOR_Y) < FLOOR_TOLERANCE;
         const onSecondFloor = Math.abs(currentPos.y - SECOND_FLOOR_Y) < FLOOR_TOLERANCE;
         const onValidFloor = onGroundFloor || onSecondFloor;
         
         // Handle climbing up
         if (nearClimbPoint && upPressed && !leftPressed && !rightPressed) {
+          // Block climbing while any Pico dialogue is active (prevents double dialogue)
+          if (isDialogueActive) {
+            console.log('[usePlayerMovement] Climbing blocked - dialogue is active');
+            return currentPos;
+          }
+          
           // REMOTE DIALOGUE: Trigger dialogue if player hasn't talked to Pico yet (only once)
-          if (!picoInteracted && !hasShownFirstBlockingMessage) {
-            console.log('[useKapoorMovement] Triggering remote Pico dialogue (climbing without talking)');
+          // Also check that no dialogue is currently active to prevent double triggers
+          if (!picoInteracted && !hasShownFirstBlockingMessage && !isDialogueActive) {
+            console.log('[usePlayerMovement] Triggering remote Pico dialogue (climbing without talking)');
             callbacks.onClimbBlocked();
+            // Block climbing immediately - don't allow any movement this frame
+            return currentPos;
           }
           
           // Check if at ceiling (second floor)
           if (currentPos.y <= SECOND_FLOOR_Y) {
-            console.log('[useKapoorMovement] At ceiling - cannot climb higher, freezing animation');
+            console.log('[usePlayerMovement] At ceiling - cannot climb higher, freezing animation');
             climbing = true;
             isFrozenOnLadder = true;
             setIsClimbing(true);
@@ -134,7 +145,7 @@ export function useKapoorMovement({
           
           // Start or continue climbing up
           if (climbingStartY === null) {
-            console.log('[useKapoorMovement] Starting climb UP at y:', currentPos.y);
+            console.log('[usePlayerMovement] Starting climb UP at y:', currentPos.y);
             setClimbingStartY(currentPos.y);
           }
           
@@ -147,11 +158,11 @@ export function useKapoorMovement({
             setIsWalking(false);
             
             const newY = Math.max(SECOND_FLOOR_Y, currentPos.y - CLIMB_SPEED);
-            console.log('[useKapoorMovement] Climbing UP - distance:', distanceClimbed.toFixed(0), 'px');
+            console.log('[usePlayerMovement] Climbing UP - distance:', distanceClimbed.toFixed(0), 'px');
             return { ...currentPos, y: newY };
           } else {
             // Finished climbing - return to idle
-            console.log('[useKapoorMovement] Climb complete! Returning to idle');
+            console.log('[usePlayerMovement] Climb complete! Returning to idle');
             setIsClimbing(false);
             setIsWalking(false);
             setDirection('front');
@@ -163,7 +174,7 @@ export function useKapoorMovement({
         else if (nearClimbPoint && downPressed && !leftPressed && !rightPressed) {
           // Check if at floor
           if (currentPos.y >= GROUND_FLOOR_Y) {
-            console.log('[useKapoorMovement] At ground floor - cannot climb lower, freezing animation');
+            console.log('[usePlayerMovement] At ground floor - cannot climb lower, freezing animation');
             climbing = true;
             isFrozenOnLadder = true;
             setIsClimbing(true);
@@ -177,12 +188,12 @@ export function useKapoorMovement({
           setIsWalking(false);
           
           const newY = Math.min(GROUND_FLOOR_Y, currentPos.y + CLIMB_SPEED);
-          console.log('[useKapoorMovement] Climbing DOWN to y:', newY.toFixed(0));
+          console.log('[usePlayerMovement] Climbing DOWN to y:', newY.toFixed(0));
           return { ...currentPos, y: newY };
         }
         // Handle stopping on the ladder
         else if (nearClimbPoint && !upPressed && !downPressed && !leftPressed && !rightPressed) {
-          console.log('[useKapoorMovement] Stopped on ladder - freezing climb frame');
+          console.log('[usePlayerMovement] Stopped on ladder - freezing climb frame');
           climbing = true;
           isFrozenOnLadder = true;
           setIsClimbing(true);
@@ -191,7 +202,7 @@ export function useKapoorMovement({
         }
         else if (climbingStartY !== null && !nearClimbPoint) {
           // Reset climbing if moved away horizontally
-          console.log('[useKapoorMovement] Moved away from ladder - resetting');
+          console.log('[usePlayerMovement] Moved away from ladder - resetting');
           setIsClimbing(false);
           setClimbingStartY(null);
         }
@@ -220,7 +231,7 @@ export function useKapoorMovement({
               
               if (newX === currentPos.x) {
                 setIsWalking(false);
-                console.log(`[useKapoorMovement] Hit left boundary at x=${currentPos.x.toFixed(0)}`);
+                console.log(`[usePlayerMovement] Hit left boundary at x=${currentPos.x.toFixed(0)}`);
               } else {
                 setIsWalking(true);
                 walking = true;
@@ -235,7 +246,7 @@ export function useKapoorMovement({
               
               if (newX === currentPos.x) {
                 setIsWalking(false);
-                console.log(`[useKapoorMovement] Hit right boundary at x=${currentPos.x.toFixed(0)}`);
+                console.log(`[usePlayerMovement] Hit right boundary at x=${currentPos.x.toFixed(0)}`);
               } else {
                 setIsWalking(true);
                 walking = true;
@@ -247,7 +258,7 @@ export function useKapoorMovement({
             }
           } else {
             setIsWalking(false);
-            console.log('[useKapoorMovement] Not on valid floor (y:', currentPos.y.toFixed(0), ') - walking disabled');
+            console.log('[usePlayerMovement] Not on valid floor (y:', currentPos.y.toFixed(0), ') - walking disabled');
           }
         }
         
@@ -274,14 +285,14 @@ export function useKapoorMovement({
     };
     
     // Start animation loop
-    animationRef.current = setInterval(animateKapoor, FRAME_INTERVAL);
+    animationRef.current = setInterval(animatePlayer, FRAME_INTERVAL);
     
     return () => {
       if (animationRef.current) {
         clearInterval(animationRef.current);
       }
     };
-  }, [climbingStartY, currentView, picoInteracted, isClimbBlocked, hasShownFirstBlockingMessage, callbacks, keysPressed]);
+  }, [climbingStartY, currentView, picoInteracted, isClimbBlocked, hasShownFirstBlockingMessage, isDialogueActive, callbacks, keysPressed]);
   
   return {
     state: {

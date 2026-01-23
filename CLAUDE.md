@@ -50,7 +50,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Home Scene (CombinedHomeScene.tsx):**
 - Single large scene with vertical camera panning
 - Interactive elements: telescope (sky view), desk (TBI activity), Pico (companion)
-- Character-based navigation with Kapoor sprite
+- Character-based navigation with customizable player sprite
 
 **Knowledge Constellation:**
 - Medical physics concepts represented as planet and moon system

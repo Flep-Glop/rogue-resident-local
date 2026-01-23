@@ -18,9 +18,9 @@ interface ConstellationStar {
 
 // Interface for debug mode setters
 export interface DebugModeSetters {
-  setKapoorPosition: (pos: { x: number; y: number }) => void;
-  setKapoorDirection: (dir: 'front' | 'back' | 'right' | 'left') => void;
-  setKapoorIsWalking: (walking: boolean) => void;
+  setPlayerPosition: (pos: { x: number; y: number }) => void;
+  setPlayerDirection: (dir: 'front' | 'back' | 'right' | 'left') => void;
+  setPlayerIsWalking: (walking: boolean) => void;
   setDeskXKeyEnabled: (enabled: boolean) => void;
   setArrowKeysVisible: (visible: boolean) => void;
   setHasCompletedFirstActivity: (completed: boolean) => void;
@@ -37,16 +37,16 @@ export interface DebugModeSetters {
  * Reads localStorage flags and sets up specific game states for testing
  * 
  * Available debug modes (set via localStorage):
- * - debug_skip_to_desk: Position Kapoor near desk with interaction enabled
+ * - debug_skip_to_desk: Position player near desk with interaction enabled
  * - debug_skip_to_cutscene: Pre-cutscene state (after first activity)
  * - debug_after_cutscene: Post-cutscene state (ready for second activity)
  * - debug_planetary_systems: Showcase mode with 7 planetary systems
  */
 export function useDebugModes(setters: DebugModeSetters): void {
   const {
-    setKapoorPosition,
-    setKapoorDirection,
-    setKapoorIsWalking,
+    setPlayerPosition,
+    setPlayerDirection,
+    setPlayerIsWalking,
     setDeskXKeyEnabled,
     setArrowKeysVisible,
     setHasCompletedFirstActivity,
@@ -70,10 +70,10 @@ export function useDebugModes(setters: DebugModeSetters): void {
       // Skip welcome screen
       hasShownWelcomeRef.current = true;
       
-      // Position Kapoor near desk (left side of first floor)
-      setKapoorPosition({ x: 200, y: 467 });
-      setKapoorDirection('right');
-      setKapoorIsWalking(false);
+      // Position player near desk (left side of first floor)
+      setPlayerPosition({ x: 200, y: 467 });
+      setPlayerDirection('right');
+      setPlayerIsWalking(false);
       
       // Enable desk interaction immediately (simulate star having been viewed)
       setDeskXKeyEnabled(true);
@@ -97,10 +97,10 @@ export function useDebugModes(setters: DebugModeSetters): void {
       // Skip welcome screen
       hasShownWelcomeRef.current = true;
       
-      // Position Kapoor near telescope (ground floor, near ladder)
-      setKapoorPosition({ x: 480, y: 467 });
-      setKapoorDirection('right');
-      setKapoorIsWalking(false);
+      // Position player near telescope (ground floor, near ladder)
+      setPlayerPosition({ x: 480, y: 467 });
+      setPlayerDirection('right');
+      setPlayerIsWalking(false);
       
       // Mark first activity as completed (enables cutscene trigger)
       setHasCompletedFirstActivity(true);
@@ -124,10 +124,10 @@ export function useDebugModes(setters: DebugModeSetters): void {
       // Skip welcome screen
       hasShownWelcomeRef.current = true;
       
-      // Position Kapoor near desk (close enough for X key to show - desk is at x:400, threshold is 60px)
-      setKapoorPosition({ x: 360, y: 467 });
-      setKapoorDirection('right');
-      setKapoorIsWalking(false);
+      // Position player near desk (close enough for X key to show - desk is at x:400, threshold is 60px)
+      setPlayerPosition({ x: 360, y: 467 });
+      setPlayerDirection('right');
+      setPlayerIsWalking(false);
       
       // Mark first activity as completed AND cutscene as seen
       setHasCompletedFirstActivity(true);
@@ -153,7 +153,7 @@ export function useDebugModes(setters: DebugModeSetters): void {
       
       // Enable desk X key system (planet has been "viewed")
       setDeskXKeyEnabled(true);
-      // Note: deskXKeyVisible will be set by proximity check when Kapoor gets near desk
+      // Note: deskXKeyVisible will be set by proximity check when player gets near desk
       
       // Set initial sky highlight to TBI planet (for second activity focus)
       setSkyHighlight('tbi');
@@ -177,10 +177,10 @@ export function useDebugModes(setters: DebugModeSetters): void {
       // Skip welcome screen
       hasShownWelcomeRef.current = true;
       
-      // Position Kapoor on ground floor, far left (out of the way)
-      setKapoorPosition({ x: 100, y: 467 });
-      setKapoorDirection('right');
-      setKapoorIsWalking(false);
+      // Position player on ground floor, far left (out of the way)
+      setPlayerPosition({ x: 100, y: 467 });
+      setPlayerDirection('right');
+      setPlayerIsWalking(false);
       
       // Hide all tutorial/interaction elements
       setArrowKeysVisible(false);

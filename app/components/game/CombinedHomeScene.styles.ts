@@ -248,11 +248,14 @@ export const CharacterSprite = styled.div<{
   $direction: 'front' | 'back' | 'right' | 'left';
   $isWalking: boolean;
   $isClimbing: boolean;
+  $customSpriteSheet?: string;
 }>`
   position: absolute;
   width: 38px;
   height: 102px;
-  background-image: url('/images/characters/sprites/kapoor-home.png');
+  background-image: ${props => props.$customSpriteSheet 
+    ? `url('${props.$customSpriteSheet}')` 
+    : `url('/images/characters/sprites/kapoor-home.png')`};
   background-size: ${38 * 38}px 102px;
   background-position: ${props => {
     let frameOffset = 0;
@@ -545,7 +548,7 @@ export const TbiActionLabel = styled.div`
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 `;
 
-export const KapoorMonologue = styled.div<{ $visible: boolean }>`
+export const PlayerMonologue = styled.div<{ $visible: boolean }>`
   position: absolute;
   width: 140px;
   font-family: 'Aseprite', monospace;
@@ -562,14 +565,14 @@ export const KapoorMonologue = styled.div<{ $visible: boolean }>`
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 `;
 
-export const KapoorSpeakerLabel = styled.div`
+export const PlayerSpeakerLabel = styled.div`
   color: #FFD700;
   font-weight: bold;
   margin-bottom: 4px;
   display: block;
 `;
 
-export const KapoorContinueHint = styled.div`
+export const PlayerContinueHint = styled.div`
   font-size: 9px;
   color: #999;
   margin-top: 8px;
@@ -613,6 +616,42 @@ export const SpeechBubbleSprite = styled.div<{ $frame: number; $visible: boolean
   transition: opacity 0.3s ease, transform 0.3s ease;
 `;
 
+// Heart float animation - pops up, floats up while fading
+const heartFloatAnimation = css`
+  @keyframes heartFloat {
+    0% {
+      opacity: 0;
+      transform: translateY(0) scale(0.5);
+    }
+    15% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-20px) scale(1);
+    }
+  }
+`;
+
+// Heart bubble - single 16×16px image that floats up and fades
+export const HeartBubbleSprite = styled.div<{ $visible: boolean }>`
+  ${heartFloatAnimation}
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background-image: url('/images/home/heart.png');
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 46;
+  pointer-events: none;
+  opacity: 0;
+  ${props => props.$visible && css`
+    animation: heartFloat 1.2s ease-out forwards;
+  `}
+`;
+
 export const PicoDialogueText = styled.div<{ $visible: boolean }>`
   position: absolute;
   width: 160px;
@@ -646,33 +685,6 @@ export const PicoContinueHint = styled.div`
   font-style: italic;
 `;
 
-export const PetDescriptionBox = styled.div<{ $visible: boolean }>`
-  position: absolute;
-  width: 150px;
-  font-family: 'Aseprite', monospace;
-  font-size: 12px;
-  color: #aaa;
-  font-style: italic;
-  line-height: 1.4;
-  z-index: 55;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  padding: 10px 12px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  opacity: ${props => props.$visible ? 1 : 0};
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-`;
-
-export const PetContinueHint = styled.div`
-  font-size: 9px;
-  color: #999;
-  margin-top: 8px;
-  font-style: italic;
-`;
-
 export const LockedMessageBox = styled.div<{ $visible: boolean }>`
   position: absolute;
   width: 120px;
@@ -692,6 +704,304 @@ export const LockedMessageBox = styled.div<{ $visible: boolean }>`
   transition: opacity 0.3s ease;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
   text-align: center;
+`;
+
+// === BOOK/JOURNAL SYSTEM ===
+
+/** Book prompt container - shows "X to open book" with journal icon */
+export const BookPromptContainer = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 312;
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+`;
+
+/** Small journal icon (16x16) displayed beside the prompt */
+export const JournalIcon = styled.div`
+  width: 16px;
+  height: 16px;
+  background-image: url('/images/home/journal.png');
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+/** X key sprite for the book prompt */
+export const BookXKeySprite = styled.div<{ $frame: number }>`
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/x-key.png');
+  background-size: ${15 * 4}px 16px;
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+/** Text label for "Open Book" */
+export const BookPromptLabel = styled.div`
+  font-family: 'Aseprite', monospace;
+  font-size: 11px;
+  color: #e0e0e0;
+  white-space: nowrap;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
+/** Book popup container - slides up from bottom */
+export const BookPopupContainer = styled.div<{ $visible: boolean; $shaking: boolean }>`
+  position: absolute;
+  width: 576px;
+  height: 296px;
+  left: 50%;
+  bottom: 60px;
+  transform: translateX(-50%) ${props => props.$visible ? 'translateY(0)' : 'translateY(100%)'};
+  background-image: url('/images/home/book-sheet-simple.png');
+  background-size: 576px 296px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 320; /* Above everything in the comp activity */
+  pointer-events: ${props => props.$visible ? 'all' : 'none'};
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: transform 0.35s ease-out, opacity 0.25s ease;
+  
+  /* Shake animation when trying to flip pages */
+  animation: ${props => props.$shaking ? 'bookShake 0.3s ease-in-out' : 'none'};
+  
+  @keyframes bookShake {
+    0%, 100% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+    20% { transform: translateX(-50%) translateY(0) translateX(-4px) rotate(-0.5deg); }
+    40% { transform: translateX(-50%) translateY(0) translateX(4px) rotate(0.5deg); }
+    60% { transform: translateX(-50%) translateY(0) translateX(-3px) rotate(-0.3deg); }
+    80% { transform: translateX(-50%) translateY(0) translateX(3px) rotate(0.3deg); }
+  }
+`;
+
+/** Book instruction bar - shows at bottom when book is open */
+export const BookInstructionBar = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  z-index: 321;
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+`;
+
+/** Row for each instruction (key sprite + label) */
+export const BookKeyRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+/** C key sprite for closing the book */
+export const BookCKeySprite = styled.div<{ $frame: number }>`
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/c-key.png');
+  background-size: ${15 * 4}px 16px;
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+/** Arrow keys sprite for page navigation (shows as disabled/grayed) */
+export const BookArrowKeysSprite = styled.div<{ $frame: number }>`
+  width: 33px;
+  height: 17px;
+  background-image: url('/images/ui/left-right-arrow-keys.png');
+  background-size: ${33 * 6}px 17px;
+  background-position: ${props => (props.$frame - 1) * -33}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  opacity: 0.5; /* Grayed out to indicate pages aren't available */
+`;
+
+/** Action label for book instructions */
+export const BookActionLabel = styled.div`
+  font-family: 'Aseprite', monospace;
+  font-size: 12px;
+  color: #ffffff;
+  white-space: nowrap;
+  image-rendering: pixelated;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
+/** "No more pages" error message - similar to LockedMessageBox */
+export const NoMorePagesMessage = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  font-family: 'Aseprite', monospace;
+  font-size: 11px;
+  color: #ff9f43;
+  font-style: italic;
+  line-height: 1.4;
+  z-index: 322; /* Above book */
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 159, 67, 0.3);
+  opacity: ${props => props.$visible ? 1 : 0};
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  text-align: center;
+  white-space: nowrap;
+  
+  /* Position above the book */
+  left: 50%;
+  bottom: 370px;
+  transform: translateX(-50%);
+`;
+
+// === REWARD ITEMS SYSTEM ===
+
+/** 
+ * Container for reward items - slides to top-right of viewport and fades when claiming.
+ * Positioned in viewport coordinates to match anthro dialogue area.
+ * Starting position matches book prompt area (left: 200px, top: 230px).
+ */
+export const RewardItemsContainer = styled.div<{ $visible: boolean; $claiming: boolean }>`
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 400; /* Above comp activity layers */
+  pointer-events: none;
+  
+  /* Starting position - matches book prompt and anthro dialogue area */
+  left: 200px;
+  top: 230px;
+  
+  /* Visibility and claiming animation - animates to top-right corner */
+  opacity: ${props => props.$claiming ? 0 : (props.$visible ? 1 : 0)};
+  transform: ${props => props.$claiming 
+    ? 'translate(400px, -218px) scale(0.8)' 
+    : 'translate(0, 0) scale(1)'};
+  transition: ${props => props.$visible 
+    ? 'opacity 0.5s ease-out 0.3s, transform 0.6s ease-in-out' 
+    : 'opacity 0.3s ease'};
+`;
+
+/** Single reward item row (count + sprite) */
+export const RewardItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+/** Reward count text (e.g., "8" for coins) */
+export const RewardCount = styled.div`
+  font-family: 'Aseprite', monospace;
+  font-size: 12px;
+  color: #ffd700;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+`;
+
+/** Funding sprite (11x12) - coin icon */
+export const FundingSprite = styled.div`
+  width: 11px;
+  height: 12px;
+  background-image: url('/images/home/funding.png');
+  background-size: 11px 12px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+/** Page sprite (16x16) - journal page icon */
+export const PageSprite = styled.div`
+  width: 16px;
+  height: 16px;
+  background-image: url('/images/home/page.png');
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+/** X key sprite for reward claim prompt */
+export const RewardXKeySprite = styled.div<{ $frame: number }>`
+  width: 15px;
+  height: 16px;
+  background-image: url('/images/ui/x-key.png');
+  background-size: ${15 * 4}px 16px;
+  background-position: ${props => (props.$frame - 1) * -15}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+`;
+
+/** Text label for reward claim action */
+export const RewardClaimLabel = styled.div`
+  font-family: 'Aseprite', monospace;
+  font-size: 11px;
+  color: #e0e0e0;
+  white-space: nowrap;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+`;
+
+// === JOURNAL CORNER SYSTEM ===
+
+/** 
+ * Journal icon that flies to corner when book is first closed.
+ * Uses same top/right positioning as corner icon to ensure exact alignment.
+ * Animates from center-bottom of screen to top-right corner.
+ */
+export const JournalFlyingIcon = styled.div<{ $animating: boolean }>`
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background-image: url('/images/home/journal.png');
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 400;
+  pointer-events: none;
+  
+  /* Final position matches JournalCornerIcon exactly */
+  top: 12px;
+  right: 12px;
+  
+  /* Animation: starts from center-bottom, flies to final position */
+  opacity: ${props => props.$animating ? 1 : 0};
+  transform: ${props => props.$animating 
+    ? 'translate(0, 0) scale(1)' /* Final position - no transform needed */
+    : 'translate(-292px, 132px) scale(1)'}; /* Starting position offset */
+  transition: ${props => props.$animating 
+    ? 'transform 0.5s ease-in-out, opacity 0.1s ease' 
+    : 'opacity 0.1s ease'};
+`;
+
+/** 
+ * Persistent journal icon in top-right corner.
+ * Appears after book is first closed (journal collected).
+ * Player can press ESC to open book from anywhere.
+ */
+export const JournalCornerIcon = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 12px;
+  right: 12px;
+  background-image: url('/images/home/journal.png');
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 350; /* Above most UI but below modals */
+  pointer-events: none;
+  
+  opacity: ${props => props.$visible ? 1 : 0};
+  transform: ${props => props.$visible ? 'scale(1)' : 'scale(0.8)'};
+  transition: opacity 0.3s ease, transform 0.3s ease;
 `;
 
 // === COMP-SHEET COMPOSITE LAYER SYSTEM ===
@@ -728,12 +1038,24 @@ export const CompScreenLayer = styled.div<{ $visible: boolean; $variant: 'blue' 
   transition: opacity 0.3s ease, transform 0.3s ease, background-image 0.3s ease;
 `;
 
-export const CompActivityLayer = styled.div<{ $visible: boolean }>`
+/**
+ * Consolidated tabs layer - 8 frames showing activity/shop tabs with highlight and lock states
+ * Frame 1: Activity tab, no highlight, shop locked
+ * Frame 2: Activity tab, activity highlight, shop locked
+ * Frame 3: Activity tab, no highlight, shop unlocked
+ * Frame 4: Activity tab, activity highlight, shop unlocked
+ * Frame 5: Activity tab, shop highlight, shop unlocked
+ * Frame 6: Shop tab, no highlight, shop unlocked
+ * Frame 7: Shop tab, shop highlight, shop unlocked
+ * Frame 8: Shop tab, activity highlight, shop unlocked
+ */
+export const CompTabsLayer = styled.div<{ $frame: number; $visible: boolean }>`
   position: absolute;
   width: 300px;
   height: 180px;
-  background-image: url('/images/home/comp-activity.png');
-  background-size: 300px 180px;
+  background-image: url('/images/home/comp-tabs.png');
+  background-size: ${300 * 8}px 180px;
+  background-position: ${props => (props.$frame - 1) * -300}px 0px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
   z-index: 302;
@@ -746,7 +1068,7 @@ export const CompOptionsLayer = styled.div<{ $frame: number; $visible: boolean }
   position: absolute;
   width: 300px;
   height: 180px;
-  background-image: url('/images/home/comp-activity-options-sheet.png');
+  background-image: url('/images/home/comp-activity-option-popups-sheet.png');
   background-size: ${300 * 7}px 180px;
   background-position: ${props => (props.$frame - 1) * -300}px 0px;
   background-repeat: no-repeat;
@@ -757,13 +1079,45 @@ export const CompOptionsLayer = styled.div<{ $frame: number; $visible: boolean }
   transition: opacity 0.3s ease;
 `;
 
-export const CompOption1Layer = styled.div<{ $frame: number; $visible: boolean }>`
+export const CompOptionsStaticLayer = styled.div<{ $visible: boolean }>`
   position: absolute;
   width: 300px;
   height: 180px;
-  background-image: url('/images/home/comp-activity-option1-sheet.png');
-  background-size: ${300 * 5}px 180px;
+  background-image: url('/images/home/comp-activity-options.png');
+  background-size: 300px 180px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 304;
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+`;
+
+// === SHOP TAB LAYERS ===
+
+/** Shop option popups layer - displays selection popups/highlight boxes (4 frames: none, item 1, item 2, item 3) */
+export const CompShopPopupsLayer = styled.div<{ $frame: number; $visible: boolean }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  background-image: url('/images/home/comp-shop-option-popups-sheet.png');
+  background-size: ${300 * 4}px 180px;
   background-position: ${props => (props.$frame - 1) * -300}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 303;
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+`;
+
+/** Shop options layer - displays shop items with prices (static, on top of popups) */
+export const CompShopOptionsLayer = styled.div<{ $visible: boolean }>`
+  position: absolute;
+  width: 300px;
+  height: 180px;
+  background-image: url('/images/home/comp-shop-options.png');
+  background-size: 300px 180px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
   z-index: 304;
@@ -826,7 +1180,7 @@ export const AnthroDialogueText = styled.div<{ $visible: boolean }>`
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(4px);
   padding: 10px 12px 10px 12px;
-  padding-right: 40px;
+  padding-right: 60px;
   border-radius: 4px;
   border: 1px solid rgba(100, 200, 255, 0.3);
   opacity: ${props => props.$visible ? 1 : 0};
@@ -835,15 +1189,16 @@ export const AnthroDialogueText = styled.div<{ $visible: boolean }>`
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 `;
 
-// Layer 3 (top): Anthro character sprite (16-frame animation)
-// Frames 0-7: idle, Frames 8-11: hand raise (one-time), Frames 12-15: waving (loop)
+// Layer 3 (top): Anthro character sprite (43-frame animation, 39×82px per frame)
+// Frames 0-7: body idle, 8-15: waving, 16-37: transformation, 38-42: slab idle
+// Position set via inline style in CombinedHomeScene.tsx
 export const AnthroIntroLayer = styled.div<{ $frame: number; $visible: boolean }>`
   position: absolute;
-  width: 300px;
-  height: 180px;
+  width: 39px;
+  height: 82px;
   background-image: url('/images/home/anthro-intro.png');
-  background-size: ${300 * 16}px 180px;
-  background-position: ${props => props.$frame * -300}px 0px;
+  background-size: ${39 * 43}px 82px;
+  background-position: ${props => props.$frame * -39}px 0px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
   z-index: 311;
@@ -884,13 +1239,15 @@ export const TbiPositioningLayer = styled.div<{ $visible: boolean }>`
   transition: opacity 0.3s ease;
 `;
 
-/** TBI Anthro sprite - 8-frame idle animation (31×90px per frame), positioned via $x prop */
+/** TBI Anthro sprite - 16-frame animation (31×92px per frame), positioned via $x prop
+ * Frames 0-7: body idle (not used in positioning), Frames 8-15: slab idle (used for positioning)
+ */
 export const TbiAnthroSprite = styled.div<{ $frame: number; $x: number; $visible: boolean }>`
   position: absolute;
   width: 31px;
-  height: 90px;
+  height: 92px;
   background-image: url('/images/home/anthro-tbi.png');
-  background-size: ${31 * 8}px 90px;
+  background-size: ${31 * 16}px 92px;
   background-position: ${props => props.$frame * -31}px 0px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
@@ -939,7 +1296,7 @@ export const TbiResultDataLayer = styled.div<{ $visible: boolean }>`
   position: absolute;
   width: 300px;
   height: 180px;
-  z-index: 308;
+  z-index: 312;
   pointer-events: none;
   opacity: ${props => props.$visible ? 1 : 0};
   transition: opacity 0.3s ease;
@@ -973,16 +1330,36 @@ export const TbiColorBarSector1 = styled.div<{ $colorFrame: number; $x: number; 
   image-rendering: pixelated;
 `;
 
-/** Bare anthro silhouette - single frame base layer */
-export const TbiResultBase = styled.div<{ $visible: boolean }>`
+/** Result container frame - sits below bars (65×75px, positioned via props) */
+export const TbiResultBase = styled.div<{ $visible: boolean; $x: number; $y: number }>`
   position: absolute;
-  width: 300px;
-  height: 180px;
-  background-image: url('/images/home/tbi-result-base.png');
-  background-size: 300px 180px;
+  width: 65px;
+  height: 75px;
+  left: ${props => 170 + props.$x}px;
+  top: ${props => 90 + props.$y}px;
+  background-image: url('/images/home/tbi-positioning-result-base.png');
+  background-size: 65px 75px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
-  z-index: 309;
+  z-index: 311;
+  pointer-events: none;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.3s ease;
+`;
+
+/** Anthro slab idle - uses frames 38-42 from anthro-intro.png (39×82px per frame, 5 frames) */
+export const TbiResultAnthro = styled.div<{ $visible: boolean; $x: number; $y: number; $frame: number }>`
+  position: absolute;
+  width: 39px;
+  height: 82px;
+  left: ${props => 170 + props.$x}px;
+  top: ${props => 90 + props.$y}px;
+  background-image: url('/images/home/anthro-intro.png');
+  background-size: ${39 * 43}px 82px;
+  background-position: ${props => props.$frame * -39}px 0px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  z-index: 313;
   pointer-events: none;
   opacity: ${props => props.$visible ? 1 : 0};
   transition: opacity 0.3s ease;
@@ -995,12 +1372,12 @@ export const TbiResultMask = styled.div<{ $frame: number; $visible: boolean; $x:
   height: 72px;
   left: ${props => 170 + props.$x}px;
   top: ${props => 90 + props.$y}px;
-  background-image: url('/images/home/tbi-masks.png');
+  background-image: url('/images/home/tbi-masks-slab.png');
   background-size: ${61 * 11}px 72px;
   background-position: ${props => props.$frame * -61}px 0px;
   background-repeat: no-repeat;
   image-rendering: pixelated;
-  z-index: 310;
+  z-index: 314;
   pointer-events: none;
   opacity: ${props => props.$visible ? 1 : 0};
   transition: opacity 0.3s ease;
@@ -1067,5 +1444,16 @@ export const BoundaryFloorIndicator = styled.div<{ $color: string }>`
     border-radius: 2px;
     border: 1px solid ${props => props.$color};
   }
+`;
+
+// Intro fade overlay - fades from black when scene loads
+export const IntroFadeOverlay = styled.div<{ $visible: boolean }>`
+  position: fixed;
+  inset: 0;
+  background: black;
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 1.5s ease-out;
+  pointer-events: none;
+  z-index: 9999;
 `;
 

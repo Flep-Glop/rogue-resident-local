@@ -542,17 +542,8 @@ export default function StarDetailModal({
                 fontSize: '48px',
                 fontStyle: 'italic',
                 color: '#888',
-                marginBottom: '12px'
               }}>
                 ???
-              </div>
-              <div style={{
-                fontSize: '14px',
-                fontStyle: 'normal',
-                color: '#aaa',
-                lineHeight: '1.4'
-              }}>
-                The sparkles, elusive, yet tangible, remain unclear.
               </div>
             </div>
           ) : (

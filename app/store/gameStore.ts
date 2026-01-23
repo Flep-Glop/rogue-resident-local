@@ -1,9 +1,13 @@
 import { create } from 'zustand';
 
+// Game phases for managing transitions
+export type GamePhase = 'title' | 'character_creator' | 'playing';
+
 // State interface for the game store
 interface GameState {
-  // Core game state - simplified to boolean
+  // Core game state
   isPlaying: boolean;
+  gamePhase: GamePhase;
   
   // Constellation cutscene tracking
   hasCompletedFirstActivity: boolean;
@@ -13,6 +17,8 @@ interface GameState {
   
   // Actions
   startGame: () => void;
+  goToCharacterCreator: () => void;
+  startFromCharacterCreator: () => void;
   returnToTitle: () => void;
 }
 
@@ -20,6 +26,7 @@ interface GameState {
 export const useGameStore = create<GameState>((set, get) => ({
   // Initialize core game state
   isPlaying: false,
+  gamePhase: 'title',
   
   // Initialize constellation cutscene tracking
   hasCompletedFirstActivity: false,
@@ -29,13 +36,23 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   // Game state management
   startGame: () => {
-    console.log('[GameStore] Starting game');
-    set({ isPlaying: true });
+    console.log('[GameStore] Starting game (going to character creator)');
+    set({ gamePhase: 'character_creator' });
+  },
+  
+  goToCharacterCreator: () => {
+    console.log('[GameStore] Going to character creator');
+    set({ gamePhase: 'character_creator' });
+  },
+  
+  startFromCharacterCreator: () => {
+    console.log('[GameStore] Starting game from character creator');
+    set({ isPlaying: true, gamePhase: 'playing' });
   },
   
   returnToTitle: () => {
     console.log('[GameStore] Returning to title');
-    set({ isPlaying: false });
+    set({ isPlaying: false, gamePhase: 'title' });
   },
 }));
 

@@ -80,6 +80,14 @@
    - **Issue:** Border-image 9-slice always uses entire image, can't slice subsections
    - **Solution:** Use separate image files for each state (default, hover, selected)
 
+7. **Flex Container Squishing Fixed-Size Children**
+   - **Issue:** Fixed-size elements shrink when flex siblings are added
+   - **Solution:** Add `flex-shrink: 0` to fixed-size elements
+
+8. **Duplicate CSS Transition Declarations**
+   - **Issue:** Second transition property overwrites first (e.g., `transition: left` overwrites `transition: opacity`)
+   - **Solution:** Combine into single declaration: `transition: opacity 0.3s, left 0.1s`
+
 ### Performance Gotchas
 1. **Memory Leaks in PixiJS**
    - **Issue:** Not cleaning up tickers and sprites
@@ -103,6 +111,52 @@
    - **Issue:** Switching component types (StarSprite ↔ MoonSprite) causes React unmount/remount
    - **Solution:** Use same component type with different props for smooth CSS transitions
 
+3. **useEffect/useCallback Declaration Order**
+   - **Issue:** `ReferenceError: Cannot access before initialization`
+   - **Cause:** useEffect references useCallback defined later in component
+   - **Solution:** Define useCallbacks before useEffects that reference them
+
+4. **React Key Includes Animation Frame**
+   - **Issue:** Flickering/remounting every animation frame
+   - **Cause:** Including frame number in React key causes remount each frame
+   - **Solution:** Only include values that change element identity in keys, not animation state
+
+5. **Async State Update + Same-Frame Movement**
+   - **Issue:** Movement continues for 3-5px after blocking state change
+   - **Cause:** setState is async, movement logic continues in same frame
+   - **Solution:** Return early immediately after triggering blocking state change
+
+### JavaScript Gotchas
+1. **Constant Hoisting Issues**
+   - **Issue:** `ReferenceError: Cannot access 'X' before initialization`
+   - **Cause:** Constant used in default state before being defined
+   - **Solution:** Move constants before code that references them, or reorganize file structure
+
+### Browser Quirks
+1. **Cursor: none Resets on Window Re-entry**
+   - **Issue:** React-managed cursor hiding fails when mouse leaves and re-enters window
+   - **Solution:** Use global CSS (`* { cursor: none !important; }`) instead of React state
+
+2. **Browser Autoplay Policies**
+   - **Issue:** Audio blocked before user interaction
+   - **Solution:** Attempt autoplay, catch rejection, retry on first click/keypress
+   - **Note:** Only guaranteed solution is "Click to Enter" gate screen
+
+### Aseprite Gotchas
+1. **saveCopyAs() Ignores Active Frame**
+   - **Issue:** `sprite:saveCopyAs()` exports frame 1 content for all frames
+   - **Cause:** API doesn't always respect `app.activeFrame` selection
+   - **Solution:** Get cel directly, create temporary sprite, export temp sprite
+
+2. **Hidden Parent Groups**
+   - **Issue:** Child layers export as blank when parent group is hidden
+   - **Solution:** Make parent groups visible before exporting child layers
+
+3. **Nested Layer Groups in Scripts**
+   - **Issue:** Script exports 0 layers
+   - **Cause:** Layers are nested in groups, flat iteration misses them
+   - **Solution:** Use recursive `collectLayers()` function to traverse hierarchy
+
 ### Sprite/Animation Gotchas
 1. **Frame Range Overlap Between Sheets**
    - **Issue:** Frame range checks (5-10) match multiple sprite sheets
@@ -111,6 +165,11 @@
 2. **Highlighting Wrong Frames**
    - **Issue:** Frame offset (+9, +24) applied to wrong sprite sheet
    - **Solution:** Check star ID pattern before applying offset
+
+3. **Flip Logic Inconsistency Across Render Paths**
+   - **Issue:** Hair flips in game but not in preview (or vice versa)
+   - **Cause:** Live preview and sprite compositor have different flip logic
+   - **Solution:** Use same condition (`part.hasClimb && flip`) in both paths
 
 ## BROWSER COMPATIBILITY
 

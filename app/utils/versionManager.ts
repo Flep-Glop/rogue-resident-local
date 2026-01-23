@@ -15,13 +15,26 @@ export interface ChangelogEntry {
 
 // Current version info
 export const CURRENT_VERSION: VersionInfo = {
-  version: "1.2.0-dev",
-  buildDate: "2026-01-06",
+  version: "1.3.0-dev",
+  buildDate: "2026-01-22",
   environment: "development",
 };
 
 // Changelog - only recent entries
 export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+  {
+    version: "v1.3.0-dev",
+    date: "2026-01-22",
+    type: "minor",
+    changes: [
+      "Character creator with modular sprite composition",
+      "Book/journal popup with reward collection system",
+      "Anthro 'SUPER SLAB MODE' transformation animation",
+      "ESC key journal access from anywhere after collection",
+      "Questrium splash animation during fade-in",
+      "Dev mode preset character + debug shortcuts"
+    ]
+  },
   {
     version: "v1.2.0-dev",
     date: "2026-01-06",

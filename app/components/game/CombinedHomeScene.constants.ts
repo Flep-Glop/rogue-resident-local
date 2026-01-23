@@ -52,11 +52,12 @@ export interface PicoState {
   interacted: boolean;
   showDialogue: boolean;
   dialogueIndex: number;
-  showPetDescription: boolean;
   hasPetted: boolean; // Track if Pico has been petted this playthrough
   showBlockingDialogue: boolean;
   blockingDialogueIndex: number;
   hasShownFirstBlockingMessage: boolean;
+  // Heart animation state (plays after petting)
+  heartAnimating: boolean;
 }
 
 /** Computer/desk activity system state */
@@ -64,24 +65,43 @@ export interface CompActivityState {
   visible: boolean;
   phase: 'idle' | 'booting' | 'booting_fade_in' | 'waiting' | 'transitioning' | 'fading_to_black' | 'intro' | 'intro_fading_to_black' | 'fading_from_black' | 'activity' | 'result_fading_to_black' | 'result_fading_from_black' | 'result';
   optionsFrame: number;
-  option1Frame: number;
   selectedActivity: number | null;
   highlightedActivity: number;
   anthroIntroVisible: boolean;
-  anthroIntroFrame: number; // Animation frame (0-7: idle, 8-11: raise hand, 12-15: wave)
-  anthroAnimPhase: 'idle' | 'raising' | 'waving'; // Current animation phase
-  anthroDialogueIndex: number; // Track dialogue progression
+  anthroIntroFrame: number; // Animation frame (0-7: idle, 8-15: wave, 16-37: transform, 38-42: slab idle)
+  anthroAnimPhase: 'idle' | 'raising' | 'waving' | 'transforming' | 'slab_idle'; // Current animation phase
+  anthroDialogueIndex: number; // Track dialogue progression (intro: 0-4)
   tbiPositioningVisible: boolean;
   tbiAnthroX: number; // Anthro horizontal position in pixels (within TBI_ANTHRO_MIN_X to TBI_ANTHRO_MAX_X)
   tbiAnthroFrame: number; // 8-frame idle animation loop (0-7)
   tbiResultVisible: boolean;
   tbiResultMaskFrame: number; // 0=full coverage, 10=no coverage (reveal animation)
+  tbiResultAnthroFrame: number; // Slab idle animation (frames 38-42 from anthro-intro.png)
   tbiResultRevealed: boolean; // true after mask animation + 350ms delay completes
   tbiResultPassed: boolean; // true if player passed (≥8 green segments), false if failed
+  tbiResultDialogueIndex: number; // Track pass/fail dialogue progression (fail: 0-1, pass: 0-3)
   tbiBeamVisible: boolean; // Beam animation overlay
   tbiBeamFrame: number; // Current frame (0-10)
   tbiBeamLoopCount: number; // How many times the loop (frames 6-11) has played
   tbiBeamAnimating: boolean; // true during beam animation
+  // Tab navigation system
+  currentTab: 'activities' | 'shop'; // Which tab is currently active
+  tabFocused: boolean; // true when navigation focus is on the tab sidebar
+  // Shop state
+  highlightedShopItem: number; // 0-2 for the three shop items
+  shopOptionsFrame: number; // Animation frame for shop options highlight
+  shopPopupsFrame: number; // Animation frame for shop option popups
+  // Book/journal state (shown during TBI intro after dialogue 2)
+  bookPromptVisible: boolean; // Shows "X to open book" prompt with journal icon
+  bookVisible: boolean; // Shows the actual book popup
+  bookShaking: boolean; // Triggers shake animation when trying to flip pages
+  showNoMorePages: boolean; // Shows "No more pages" error message
+  // Reward items state (shown during TBI pass dialogue at index 2)
+  rewardItemsVisible: boolean; // Shows the funding + page reward items
+  rewardItemsClaiming: boolean; // Triggers slide-to-top-right + fade animation
+  // Journal corner state (persistent after first book close)
+  journalCollected: boolean; // true after book is closed for first time (journal now in corner)
+  journalCornerAnimating: boolean; // true during animation of journal flying to corner
 }
 
 /** Cutscene star data */
@@ -137,13 +157,13 @@ export interface InteractionUIState {
 
 // TBI Anthro positioning system (sprite moves over static background)
 export const TBI_ANTHRO_FRAME_WIDTH = 31;  // Each frame is 31px wide
-export const TBI_ANTHRO_FRAME_HEIGHT = 90; // 90px tall
-export const TBI_ANTHRO_TOTAL_FRAMES = 8;  // 8-frame idle animation
+export const TBI_ANTHRO_FRAME_HEIGHT = 92; // 92px tall (updated from 91)
+export const TBI_ANTHRO_TOTAL_FRAMES = 16; // 16-frame animation (0-7: body idle, 8-15: slab idle)
 export const TBI_ANTHRO_MIN_X = 14;        // Leftmost position (far from gantry) - ADJUSTABLE
 export const TBI_ANTHRO_MAX_X = 206;       // Rightmost position (near gantry) - ADJUSTABLE
 export const TBI_ANTHRO_START_X = 13;     // Starting position (middle of range)
 export const TBI_ANTHRO_STEP = 13;          // Pixels moved per arrow key press - ADJUSTABLE
-export const TBI_ANTHRO_Y = 48;            // Fixed Y position within TBI container
+export const TBI_ANTHRO_Y = 46;            // Fixed Y position within TBI container
 
 /**
  * Converts anthro X position to a position index (0-15) for result lookup
@@ -179,18 +199,17 @@ export const DEFAULT_PICO_STATE: PicoState = {
   interacted: false,
   showDialogue: false,
   dialogueIndex: 0,
-  showPetDescription: false,
   hasPetted: false,
   showBlockingDialogue: false,
   blockingDialogueIndex: 0,
   hasShownFirstBlockingMessage: false,
+  heartAnimating: false,
 };
 
 export const DEFAULT_COMP_ACTIVITY: CompActivityState = {
   visible: false,
   phase: 'idle',
   optionsFrame: 1,
-  option1Frame: 1,
   selectedActivity: null,
   highlightedActivity: 0,
   anthroIntroVisible: false,
@@ -199,15 +218,35 @@ export const DEFAULT_COMP_ACTIVITY: CompActivityState = {
   anthroDialogueIndex: 0,
   tbiPositioningVisible: false,
   tbiAnthroX: TBI_ANTHRO_START_X, // Start at center of range
-  tbiAnthroFrame: 0,
+  tbiAnthroFrame: 8, // Start at slab idle (frames 8-15)
   tbiResultVisible: false,
   tbiResultMaskFrame: 0, // Start fully covered
+  tbiResultAnthroFrame: 38, // Start at slab idle (frames 38-42 from anthro-intro.png)
   tbiResultRevealed: false,
   tbiResultPassed: false,
+  tbiResultDialogueIndex: 0, // Start at first result dialogue line
   tbiBeamVisible: false,
   tbiBeamFrame: 0,
   tbiBeamLoopCount: 0,
   tbiBeamAnimating: false,
+  // Tab navigation
+  currentTab: 'activities',
+  tabFocused: false,
+  // Shop state
+  highlightedShopItem: 0,
+  shopOptionsFrame: 1,
+  shopPopupsFrame: 1,
+  // Book/journal state
+  bookPromptVisible: false,
+  bookVisible: false,
+  bookShaking: false,
+  showNoMorePages: false,
+  // Reward items state
+  rewardItemsVisible: false,
+  rewardItemsClaiming: false,
+  // Journal corner state
+  journalCollected: false,
+  journalCornerAnimating: false,
 };
 
 export const DEFAULT_CUTSCENE: CutsceneState = {
@@ -234,8 +273,8 @@ export const DEFAULT_INTERACTION_UI: InteractionUIState = {
 
 // === POSITION CONSTANTS ===
 
-// Kapoor is 102px tall, Pico is 21px tall
-// Kapoor at y:467 has bottom at 467+102=569
+// Player is 102px tall, Pico is 21px tall
+// Player at y:467 has bottom at 467+102=569
 // Pico needs y = 569-21 = 548 to align bottoms
 export const PICO_POSITION = { x: 330, y: 548 };
 
@@ -244,7 +283,7 @@ export const DESK_POSITION = { x: 410, y: 495 }; // First floor (shifted 10px ri
 export const PRIMAREUS_POSITION = { x: 180, y: 120 }; // ??? star in sky
 export const STAR_X_KEY_POSITION = { x: PRIMAREUS_POSITION.x + 20, y: PRIMAREUS_POSITION.y - 5 };
 
-export const KAPOOR_START_POSITION = { x: 150, y: 467 };
+export const PLAYER_START_POSITION = { x: 150, y: 467 };
 export const GROUND_FLOOR_Y = 467;
 export const SECOND_FLOOR_Y = 307; // 467 - 160 = 307
 
@@ -255,6 +294,21 @@ export const PICO_PROXIMITY_THRESHOLD = 80; // Horizontal distance for highlight
 export const PICO_LEFT_EXTENSION = 60; // Additional distance allowed to the left of Pico
 
 // === FRAME COUNTS ===
+
+// === ANTHRO INTRO SPRITE CONSTANTS ===
+// anthro-intro.png: 43 frames at 39×82px each
+export const ANTHRO_INTRO_FRAME_WIDTH = 39;   // Each frame is 39px wide
+export const ANTHRO_INTRO_FRAME_HEIGHT = 82;  // Each frame is 82px tall
+export const ANTHRO_INTRO_TOTAL_FRAMES = 43;  // Total frames in sheet
+// Frame ranges (0-indexed):
+export const ANTHRO_INTRO_IDLE_START = 0;     // Body idle: frames 0-7
+export const ANTHRO_INTRO_IDLE_END = 7;
+export const ANTHRO_INTRO_WAVE_START = 8;     // Body waving: frames 8-15
+export const ANTHRO_INTRO_WAVE_END = 15;
+export const ANTHRO_INTRO_TRANSFORM_START = 16; // Transformation: frames 16-37
+export const ANTHRO_INTRO_TRANSFORM_END = 37;
+export const ANTHRO_INTRO_SLAB_IDLE_START = 38; // Slab idle: frames 38-42
+export const ANTHRO_INTRO_SLAB_IDLE_END = 42;
 
 // === TBI BEAM ANIMATION ===
 export const TBI_BEAM_TOTAL_FRAMES = 11; // 0-10: 11 frames total
@@ -282,26 +336,41 @@ export const STAR_NAMES: Record<StarIdType, string> = {
 // === DIALOGUE DATA ===
 
 export const MONOLOGUE_LINES = [
-  "Still unsure what to make of that... Spending some time studying at the desk might help."
+  "Hm. Not sure what to make of that one yet... Maybe some time down at the desk might help clear things up a bit."
 ];
 
 export const PICO_DIALOGUE_LINES = [
   { speaker: 'Pico', text: 'Hey, welcome home!' },
   { speaker: 'Pico', text: "Heading straight for the Telescope? I'll hold it down here." },
-  { speaker: 'Kapoor', text: "These stars don't find themselves, thanks Pico." }
+  { speaker: 'player', text: "Sorry Pico, the sky isn't gonna map itself. I'll come back down soon." }
 ];
 
 export const PICO_BLOCKING_DIALOGUE = [
   { speaker: 'Pico', text: 'Hey, welcome home!' },
   { speaker: 'Pico', text: "Heading straight for the Telescope? I'll hold it down here." },
-  { speaker: 'Kapoor', text: "These stars don't find themselves, thanks Pico." }
+  { speaker: 'player', text: "Sorry Pico, the sky isn't gonna map itself. I'll come back down soon." }
 ];
 
 export const ANTHRO_INTRO_DIALOGUE = [
-  { speaker: 'Anthro', text: 'Hey there! I\'m Anthro, your friendly anthropomorphic phantom.' },
-  { speaker: 'Anthro', text: 'I help medical physicists practice radiation treatments without any risk to real patients.' },
-  { speaker: 'Anthro', text: 'Today we\'re doing TBI - Total Body Irradiation. Your job is to position me so the beam covers my whole body evenly.' },
-  { speaker: 'Anthro', text: 'Use the arrow keys to move me, then press X when you think I\'m positioned correctly. Let\'s do this!' }
+  { speaker: 'Anthro', text: "Hey there! Name's Anthro—short for Anthropomorphic Phantom, but that's a mouthful." },
+  { speaker: 'Anthro', text: "I'm basically a practice dummy for radiation treatments. All the dose! All the learning! None of the risk!" },
+  { speaker: 'Anthro', text: "So basically this is how it works, here's a page, throw it in your journal and give it a look over. After you're done reading let me know." },
+  { speaker: 'Anthro', text: "That journal is your friend, feel free to open it anytime with the Esc key." },
+  { speaker: 'Anthro', text: "As you can see from the page, today we're working on TBI—Total Body Irradiation. This is a complex process so for now lets take it from the basics, one step at a time. To start off, position me so the beam covers me from head to toe, total-body." },
+  { speaker: 'Anthro', text: "For now let's simplify things... SUPER SLAB MODE! This form will suit our needs for now." },
+  { speaker: 'Anthro', text: "Use the arrow keys to move me around, then hit X when you think we're good to go. Let's do this!" }
+];
+
+export const ANTHRO_FAIL_DIALOGUE = [
+  { speaker: 'Anthro', text: "Hey don't short me now! Haha, just kidding. Here's a hint: use the yellow light field emitting from the gantry as a guide." },
+  { speaker: 'Anthro', text: "No worries, let's try again." }
+];
+
+export const ANTHRO_PASS_DIALOGUE = [
+  { speaker: 'Anthro', text: "Great job! As you deduced, the light field represents where the radiation will be delivered." },
+  { speaker: 'Anthro', text: "By placing me far enough from the gantry you were able to encompass my total body in that field." },
+  { speaker: 'Anthro', text: "Great work today, here's a couple items, you earned it." },
+  { speaker: 'Anthro', text: "That funding can be spent in the shop one tab over. Buy decor, clothes, etc to customize your space and make it feel like home. The page shows the next steps in this module, take a look before you come back." }
 ];
 
 // === ACTIVITY POSITIONS (for keyboard navigation) ===
@@ -314,6 +383,57 @@ export const ACTIVITY_POSITIONS = [
   { id: 3, x: 310, y: 220 },  // bottom-middle
   { id: 4, x: 415, y: 220 },  // bottom-right
 ];
+
+// === SHOP ITEM POSITIONS (for keyboard navigation) ===
+// Three shop items positioned horizontally in the shop content area
+export const SHOP_ITEM_POSITIONS = [
+  { id: 0, x: 230, y: 200 },  // left item (Globe)
+  { id: 1, x: 320, y: 200 },  // middle item (Party Hat Pico)
+  { id: 2, x: 410, y: 200 },  // right item (Shrub)
+];
+
+// === TAB POSITIONS (for keyboard navigation) ===
+// Tabs on the left sidebar: Activities (top) and Shop (bottom)
+export const TAB_POSITIONS = [
+  { id: 0, tab: 'activities' as const, y: 130 },  // Activities tab
+  { id: 1, tab: 'shop' as const, y: 170 },        // Shop tab
+];
+
+/**
+ * Calculates which frame of comp-tabs.png to display based on current state.
+ * 
+ * Frame structure:
+ * 1: Activity tab, no highlight, shop locked
+ * 2: Activity tab, activity highlight, shop locked
+ * 3: Activity tab, no highlight, shop unlocked
+ * 4: Activity tab, activity highlight, shop unlocked
+ * 5: Activity tab, shop highlight, shop unlocked (unused with current navigation)
+ * 6: Shop tab, no highlight, shop unlocked
+ * 7: Shop tab, shop highlight, shop unlocked
+ * 8: Shop tab, activity highlight, shop unlocked (unused with current navigation)
+ * 
+ * @param currentTab - 'activities' or 'shop'
+ * @param tabFocused - whether the tab sidebar is focused (current tab is highlighted)
+ * @param shopUnlocked - whether the shop has been unlocked (after completing first activity)
+ * @returns Frame number (1-8)
+ */
+export function getCompTabsFrame(
+  currentTab: 'activities' | 'shop',
+  tabFocused: boolean,
+  shopUnlocked: boolean
+): number {
+  // Shop locked - only frames 1-2 available (always on activities tab)
+  if (!shopUnlocked) {
+    return tabFocused ? 2 : 1;
+  }
+  
+  // Shop unlocked - frames 3-8 available
+  if (currentTab === 'activities') {
+    return tabFocused ? 4 : 3;
+  } else {
+    return tabFocused ? 7 : 6;
+  }
+}
 
 // === TBI RESULT SYSTEM ===
 
@@ -380,22 +500,28 @@ export const TBI_POSITION_PERCENTAGES: Record<number, number[]> = {
  * Bars are stacked with no spacing (each bar is flush against the next)
  */
 export const TBI_SEGMENT_BAR_POSITIONS: Array<{ x: number; y: number; useSector1: boolean }> = [
-  { x: 104, y: 48, useSector1: true },   // 0: head (8px tall, ends at 56)
-  { x: 104, y: 56, useSector1: false },  // 1: neck (7px tall, ends at 63)
-  { x: 104, y: 63, useSector1: false },  // 2: upperChest (7px tall, ends at 70)
-  { x: 104, y: 70, useSector1: false },  // 3: lowerChest (7px tall, ends at 77)
-  { x: 104, y: 77, useSector1: false },  // 4: upperAbdomen (7px tall, ends at 84)
-  { x: 104, y: 84, useSector1: false },  // 5: lowerAbdomen (7px tall, ends at 91)
-  { x: 104, y: 91, useSector1: false },  // 6: upperLegs (7px tall, ends at 98)
-  { x: 104, y: 98, useSector1: false },  // 7: knees (7px tall, ends at 105)
-  { x: 104, y: 105, useSector1: false }, // 8: lowerLegs (7px tall, ends at 112)
-  { x: 104, y: 112, useSector1: false }, // 9: feet (7px tall, ends at 119)
+  { x: 237, y: 48, useSector1: true },   // 0: head (8px tall, ends at 56) - overlapping anthro body
+  { x: 237, y: 56, useSector1: false },  // 1: neck (7px tall, ends at 63)
+  { x: 237, y: 63, useSector1: false },  // 2: upperChest (7px tall, ends at 70)
+  { x: 237, y: 70, useSector1: false },  // 3: lowerChest (7px tall, ends at 77)
+  { x: 237, y: 77, useSector1: false },  // 4: upperAbdomen (7px tall, ends at 84)
+  { x: 237, y: 84, useSector1: false },  // 5: lowerAbdomen (7px tall, ends at 91)
+  { x: 237, y: 91, useSector1: false },  // 6: upperLegs (7px tall, ends at 98)
+  { x: 237, y: 98, useSector1: false },  // 7: knees (7px tall, ends at 105)
+  { x: 237, y: 105, useSector1: false }, // 8: lowerLegs (7px tall, ends at 112)
+  { x: 237, y: 112, useSector1: false }, // 9: feet (7px tall, ends at 119)
 ];
 
 /** Position of the mask overlay (absolute positioning to align with bars) */
 // Position relative to the result container at (170, 90)
 // Bars start at x:100, y:48 within the container
-export const TBI_MASK_POSITION = { x: 94, y: 47 };
+export const TBI_MASK_POSITION = { x: 227, y: 47 };
+
+/** Position of the anthro result base container (65×75px sprite) */
+export const TBI_RESULT_BASE_POSITION = { x: 225, y: 46 };
+
+/** Position of the anthro slab sprite on result screen (39×82px from anthro-intro.png) - separate from base */
+export const TBI_RESULT_SLAB_POSITION = { x: 234, y: 40 };
 
 /** Total frames in the mask reveal animation (0 = full coverage, 10 = no coverage) */
 export const TBI_MASK_TOTAL_FRAMES = 11;
@@ -418,16 +544,16 @@ export const TBI_INDICATOR_FRAMES = {
  * [x, y] coordinates for the TOP-LEFT corner of each 5×3px indicator
  */
 export const TBI_SEGMENT_INDICATOR_POSITIONS: Array<{ x: number; y: number }> = [
-  { x: 146, y: 51 },  // 0: head
-  { x: 146, y: 58 },  // 1: neck
-  { x: 146, y: 65 },  // 2: upperChest
-  { x: 146, y: 72 },  // 3: lowerChest
-  { x: 146, y: 79 },  // 4: upperAbdomen
-  { x: 146, y: 86 },  // 5: lowerAbdomen
-  { x: 146, y: 93 },  // 6: upperLegs
-  { x: 146, y: 100 }, // 7: knees
-  { x: 146, y: 107 }, // 8: lowerLegs
-  { x: 146, y: 114 }, // 9: feet
+  { x: 279, y: 51 },  // 0: head - right side of anthro body
+  { x: 279, y: 58 },  // 1: neck
+  { x: 279, y: 65 },  // 2: upperChest
+  { x: 279, y: 72 },  // 3: lowerChest
+  { x: 279, y: 79 },  // 4: upperAbdomen
+  { x: 279, y: 86 },  // 5: lowerAbdomen
+  { x: 279, y: 93 },  // 6: upperLegs
+  { x: 279, y: 100 }, // 7: knees
+  { x: 279, y: 107 }, // 8: lowerLegs
+  { x: 279, y: 114 }, // 9: feet
 ];
 
 /**

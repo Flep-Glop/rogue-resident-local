@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useGameStore } from '@/app/store/gameStore';
+import { useCharacterStore } from '@/app/store/characterStore';
 
 import ParallaxRenderer from './ParallaxRenderer';
 import StarDetailModal from '@/app/components/ui/StarDetailModal';
@@ -12,8 +13,8 @@ import { useKeyboardControls, calculateActivityNavigation, KeyboardState, Keyboa
 // Import debug modes hook
 import { useDebugModes, DebugModeSetters } from './useDebugModes';
 
-// Import Kapoor movement hook
-import { useKapoorMovement, KapoorMovementCallbacks } from './useKapoorMovement';
+// Import player movement hook
+import { usePlayerMovement, PlayerMovementCallbacks } from './usePlayerMovement';
 
 // Import constants and types
 import {
@@ -34,7 +35,7 @@ import {
   TELESCOPE_POSITION,
   DESK_POSITION,
   PRIMAREUS_POSITION,
-  KAPOOR_START_POSITION,
+  PLAYER_START_POSITION,
   GROUND_FLOOR_Y,
   SECOND_FLOOR_Y,
   PROXIMITY_THRESHOLD,
@@ -52,6 +53,8 @@ import {
   PICO_DIALOGUE_LINES,
   PICO_BLOCKING_DIALOGUE,
   ANTHRO_INTRO_DIALOGUE,
+  ANTHRO_FAIL_DIALOGUE,
+  ANTHRO_PASS_DIALOGUE,
   ACTIVITY_POSITIONS,
   WALK_SPEED,
   CLIMB_SPEED,
@@ -71,7 +74,16 @@ import {
   TBI_SEGMENT_BAR_POSITIONS,
   TBI_SEGMENT_INDICATOR_POSITIONS,
   TBI_MASK_POSITION,
+  TBI_RESULT_BASE_POSITION,
+  TBI_RESULT_SLAB_POSITION,
   TBI_MASK_TOTAL_FRAMES,
+  // Anthro intro animation
+  ANTHRO_INTRO_WAVE_START,
+  ANTHRO_INTRO_WAVE_END,
+  ANTHRO_INTRO_TRANSFORM_START,
+  ANTHRO_INTRO_TRANSFORM_END,
+  ANTHRO_INTRO_SLAB_IDLE_START,
+  ANTHRO_INTRO_SLAB_IDLE_END,
   // TBI Beam animation
   TBI_BEAM_TOTAL_FRAMES,
   TBI_BEAM_INTRO_FRAMES,
@@ -80,8 +92,8 @@ import {
   TBI_BEAM_LOOP_COUNT,
   TBI_BEAM_FRAME_DURATION,
   getIndicatorFrameFromBarFrame,
-  getTbiResultBackdropFrame,
   evaluateTbiPositioning,
+  getCompTabsFrame,
 } from './CombinedHomeScene.constants';
 
 // Import all styled components and constants from styles file
@@ -122,22 +134,44 @@ import {
   LeftRightArrowKeysSprite,
   TbiXKeySprite,
   TbiActionLabel,
-  KapoorMonologue,
-  KapoorSpeakerLabel,
-  KapoorContinueHint,
+  PlayerMonologue,
+  PlayerSpeakerLabel,
+  PlayerContinueHint,
   PicoSprite,
   SpeechBubbleSprite,
   PicoDialogueText,
   PicoSpeakerLabel,
   PicoContinueHint,
-  PetDescriptionBox,
-  PetContinueHint,
+  HeartBubbleSprite,
   LockedMessageBox,
+  // Book/Journal system
+  BookPromptContainer,
+  JournalIcon,
+  BookXKeySprite,
+  BookPromptLabel,
+  BookPopupContainer,
+  BookInstructionBar,
+  BookKeyRow,
+  BookCKeySprite,
+  BookArrowKeysSprite,
+  BookActionLabel,
+  NoMorePagesMessage,
+  RewardItemsContainer,
+  RewardItem,
+  RewardCount,
+  FundingSprite,
+  PageSprite,
+  RewardXKeySprite,
+  RewardClaimLabel,
+  JournalFlyingIcon,
+  JournalCornerIcon,
   CompMonitorLayer,
   CompScreenLayer,
-  CompActivityLayer,
+  CompTabsLayer,
   CompOptionsLayer,
-  CompOption1Layer,
+  CompOptionsStaticLayer,
+  CompShopOptionsLayer,
+  CompShopPopupsLayer,
   CompSheetBackdrop,
   ActivityClickRegion,
   AnthroIntroContainer,
@@ -149,31 +183,38 @@ import {
   TbiAnthroSprite,
   TbiBeamOnLayer,
   // TBI Modular Result System
-  TbiResultBackdrop,
   TbiResultDataLayer,
   TbiColorBar,
   TbiColorBarSector1,
   TbiPositionIndicator,
   TbiResultBase,
+  TbiResultAnthro,
   TbiResultMask,
   BoundaryLine,
   BoundaryLabel,
   BoundaryFloorIndicator,
+  IntroFadeOverlay,
 } from './CombinedHomeScene.styles';
 
 // Import audio system
-import { useAudioInit } from '@/app/audio/useAudio';
+import { useAudioInit, useVoiceover } from '@/app/audio/useAudio';
 
 export default function CombinedHomeScene() {
-  // Initialize audio system (backup in case not initialized on title screen)
+// Initialize audio system (backup in case not initialized on title screen)
   useAudioInit();
-  
-  const { 
-    hasCompletedFirstActivity, 
+  const { playVoiceover, stopVoiceover } = useVoiceover();
+
+  const {
+    hasCompletedFirstActivity,
     hasSeenConstellationCutscene,
     setHasCompletedFirstActivity,
     setHasSeenConstellationCutscene
   } = useGameStore();
+  
+  // Get custom character sprite sheet and voice type (if created)
+  const { spriteSheet: customSpriteSheet, character } = useCharacterStore();
+  const playerVoiceType = character.voiceType;
+  
   // Removed hoveredArea state - no longer needed without tooltips
   const [showStarDetail, setShowStarDetail] = useState(false);
   const [activeStarId, setActiveStarId] = useState<StarIdType>('star'); // Track which star modal is open
@@ -193,7 +234,7 @@ export default function CombinedHomeScene() {
   const [skyHighlight, setSkyHighlight] = useState<SkyHighlightType>('star'); // Default to star highlighted
   
   
-  // Kapoor monologue for ??? star inspection
+  // Player monologue for ??? star inspection
   const [inspectionCount, setInspectionCount] = useState(0); // 0 = not started, 1 = first time, 2 = second time, 3+ = completed
   const [currentMonologueLineIndex, setCurrentMonologueLineIndex] = useState(0);
   const [showMonologue, setShowMonologue] = useState(false);
@@ -207,9 +248,19 @@ export default function CombinedHomeScene() {
     setSpeechBubbles(prev => ({ ...prev, [key]: { ...prev[key], ...updates } }));
   }, []);
   
+  // === INTRO FADE STATE ===
+  // Fade from black when scene first loads
+  const [introFadeVisible, setIntroFadeVisible] = useState(true);
   
+  // Fade out the intro overlay after a brief delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIntroFadeVisible(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
   
-  // Keys pressed ref for keyboard controls (shared between keyboard controls and Kapoor movement)
+  // Keys pressed ref for keyboard controls (shared between keyboard controls and player movement)
   const keysPressed = useRef<Set<string>>(new Set());
   
   // === GROUPED STATE: Pico Character ===
@@ -221,10 +272,10 @@ export default function CombinedHomeScene() {
     setPico(prev => ({ ...prev, ...updates }));
   }, []);
   
-  // === KAPOOR MOVEMENT HOOK ===
-  const kapoorMovementCallbacks: KapoorMovementCallbacks = useMemo(() => ({
+  // === PLAYER MOVEMENT HOOK ===
+  const playerMovementCallbacks: PlayerMovementCallbacks = useMemo(() => ({
     onClimbBlocked: () => {
-      console.log('[CombinedHomeScene] Kapoor climbing without talking - showing remote dialogue');
+      console.log('[CombinedHomeScene] Player climbing without talking - showing remote dialogue');
       // Just trigger the dialogue - don't block climbing
       if (!pico.hasShownFirstBlockingMessage) {
         updatePico({ blockingDialogueIndex: 0, showBlockingDialogue: true, isTalking: true, hasShownFirstBlockingMessage: true });
@@ -232,22 +283,26 @@ export default function CombinedHomeScene() {
       // If already shown, don't repeat
     },
   }), [pico.hasShownFirstBlockingMessage, updatePico]);
-  
+
   const {
-    state: kapoorState,
-    setters: kapoorSetters,
-  } = useKapoorMovement({
+    state: playerState,
+    setters: playerSetters,
+  } = usePlayerMovement({
     keysPressed,
     currentView,
     picoInteracted: pico.interacted,
     isClimbBlocked: pico.showBlockingDialogue,
     hasShownFirstBlockingMessage: pico.hasShownFirstBlockingMessage,
-    callbacks: kapoorMovementCallbacks,
+    isDialogueActive: pico.showDialogue || pico.showBlockingDialogue,
+    callbacks: playerMovementCallbacks,
   });
   
   // Destructure for convenience throughout component
-  const { position: kapoorPosition, direction: kapoorDirection, frame: kapoorFrame, isWalking: kapoorIsWalking, isClimbing: kapoorIsClimbing } = kapoorState;
-  const { setPosition: setKapoorPosition, setDirection: setKapoorDirection, setIsWalking: setKapoorIsWalking, setIsClimbing: setKapoorIsClimbing } = kapoorSetters;
+  const { position: playerPosition, direction: playerDirection, frame: playerFrame, isWalking: playerIsWalking, isClimbing: playerIsClimbing } = playerState;
+  const { setPosition: setPlayerPosition, setDirection: setPlayerDirection, setIsWalking: setPlayerIsWalking, setIsClimbing: setPlayerIsClimbing } = playerSetters;
+  
+  // Get player name from character store (fallback to empty string if not set)
+  const playerName = useCharacterStore((state) => state.character.name) || 'Player';
   
   // === GROUPED STATE: Interaction UI ===
   const [interactionUI, setInteractionUI] = useState<InteractionUIState>(DEFAULT_INTERACTION_UI);
@@ -271,10 +326,10 @@ export default function CombinedHomeScene() {
   // === GROUPED STATE: Computer/Desk Activity System ===
   const [compActivity, setCompActivity] = useState<CompActivityState>(DEFAULT_COMP_ACTIVITY);
   const compSheetAnimationRef = useRef<NodeJS.Timeout | null>(null);
-  const compOption1AnimationRef = useRef<NodeJS.Timeout | null>(null);
   const anthroIntroAnimationRef = useRef<NodeJS.Timeout | null>(null);
   const tbiAnthroAnimationRef = useRef<NodeJS.Timeout | null>(null);
   const tbiResultAnimationRef = useRef<NodeJS.Timeout | null>(null);
+  const tbiResultAnthroAnimationRef = useRef<NodeJS.Timeout | null>(null);
   const [showLockedMessage, setShowLockedMessage] = useState(false);
   const lockedMessageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -325,7 +380,7 @@ export default function CombinedHomeScene() {
   
   // === KEYBOARD STATE (for useKeyboardControls hook) ===
   // Pre-calculate Pico proximity for keyboard handler
-  const picoHorizontalOffset = kapoorPosition.x - PICO_POSITION.x;
+  const picoHorizontalOffset = playerPosition.x - PICO_POSITION.x;
   const picoDistance = Math.abs(picoHorizontalOffset);
   const picoInteractionRange = picoHorizontalOffset < 0 
     ? (PROXIMITY_THRESHOLD / 2) + PICO_LEFT_EXTENSION 
@@ -339,12 +394,20 @@ export default function CombinedHomeScene() {
     showAnthroIntro: compActivity.anthroIntroVisible,
     anthroDialogueIndex: compActivity.anthroDialogueIndex,
     anthroDialogueLinesLength: ANTHRO_INTRO_DIALOGUE.length,
+    bookVisible: compActivity.bookVisible,
     showTbiPositioning: compActivity.tbiPositioningVisible,
     showTbiResult: compActivity.tbiResultVisible,
     tbiResultRevealed: compActivity.tbiResultRevealed,
     tbiResultPassed: compActivity.tbiResultPassed,
+    tbiResultDialogueIndex: compActivity.tbiResultDialogueIndex,
+    tbiResultDialogueLinesLength: compActivity.tbiResultPassed ? ANTHRO_PASS_DIALOGUE.length : ANTHRO_FAIL_DIALOGUE.length,
     tbiBeamAnimating: compActivity.tbiBeamAnimating,
+    rewardItemsClaiming: compActivity.rewardItemsClaiming,
+    journalCollected: compActivity.journalCollected,
     highlightedActivity: compActivity.highlightedActivity,
+    currentTab: compActivity.currentTab,
+    tabFocused: compActivity.tabFocused,
+    highlightedShopItem: compActivity.highlightedShopItem,
     showMonologue,
     currentMonologueLineIndex,
     monologueLinesLength: MONOLOGUE_LINES.length,
@@ -355,7 +418,6 @@ export default function CombinedHomeScene() {
     picoBlockingDialogueIndex: pico.blockingDialogueIndex,
     picoBlockingDialogueLinesLength: PICO_BLOCKING_DIALOGUE.length,
     showStarDetail,
-    showPetDescription: pico.showPetDescription,
     skyHighlight,
     activeInteraction: interactionUI.active,
     deskXKeyTriggered,
@@ -385,16 +447,81 @@ export default function CombinedHomeScene() {
           anthroAnimPhase: 'idle',
           anthroIntroFrame: 0
         });
+      } else if (nextIndex === 5) {
+        // Advancing to "SUPER SLAB MODE!" - trigger transformation animation
+        console.log('[CombinedHomeScene] Triggering SUPER SLAB MODE transformation');
+        updateCompActivity({ 
+          anthroDialogueIndex: nextIndex,
+          anthroAnimPhase: 'transforming',
+          anthroIntroFrame: ANTHRO_INTRO_TRANSFORM_START
+        });
       } else {
         updateCompActivity({ anthroDialogueIndex: nextIndex });
+      }
+      // Play voiceover for the new dialogue line
+      // Note: index 3 ('anthro_journal_tip') has no voiceover yet - will be skipped
+      // Index 5 ('anthro_slab_mode') has no voiceover yet - will be skipped
+      const anthroIntroVoiceovers = ['anthro_hello', 'anthro_description', 'anthro_how_it_works', 'anthro_journal_tip', 'anthro_after_page', 'anthro_slab_mode', 'anthro_directions'] as const;
+      if (nextIndex < anthroIntroVoiceovers.length && anthroIntroVoiceovers[nextIndex] !== 'anthro_journal_tip' && anthroIntroVoiceovers[nextIndex] !== 'anthro_slab_mode') {
+        playVoiceover(anthroIntroVoiceovers[nextIndex]);
       }
     },
     completeAnthroIntro: () => {
       console.log('[CombinedHomeScene] Intro complete, fading to TBI');
       updateCompActivity({ phase: 'intro_fading_to_black' });
     },
+    // Book/journal actions
+    openBook: () => {
+      console.log('[CombinedHomeScene] Opening book');
+      updateCompActivity({ bookVisible: true });
+    },
+    closeBook: () => {
+      console.log('[CombinedHomeScene] Closing book');
+      const isFirstClose = !compActivity.journalCollected;
+      
+      // Close book
+      updateCompActivity({ bookVisible: false });
+      
+      // First-time close: advance dialogue to journal tip and animate journal to corner
+      if (isFirstClose) {
+        console.log('[CombinedHomeScene] First book close - showing journal tip dialogue');
+        updateCompActivity({ 
+          anthroDialogueIndex: 3,
+          journalCornerAnimating: true,
+        });
+        // Note: No voiceover for journal tip line yet (index 3)
+        
+        // After animation (500ms) + hold (3000ms), mark journal as collected
+        // Journal stays visible at corner for 3 seconds before transitioning to permanent icon
+        setTimeout(() => {
+          updateCompActivity({ 
+            journalCornerAnimating: false,
+            journalCollected: true,
+          });
+        }, 3500);
+      }
+    },
+    shakeBook: () => {
+      console.log('[CombinedHomeScene] Shaking book - no more pages');
+      // Trigger shake animation and show error message
+      updateCompActivity({ bookShaking: true, showNoMorePages: true });
+      // Reset shake after animation completes (300ms)
+      setTimeout(() => {
+        updateCompActivity({ bookShaking: false });
+      }, 300);
+      // Hide error message after a bit longer (1s)
+      setTimeout(() => {
+        updateCompActivity({ showNoMorePages: false });
+      }, 1000);
+    },
+    openBookFromCorner: () => {
+      console.log('[CombinedHomeScene] Opening book from corner (ESC)');
+      updateCompActivity({ bookVisible: true });
+    },
     completeTbiPositioning: () => {
       console.log('[CombinedHomeScene] TBI positioning complete, starting beam animation');
+      // Stop any playing voiceover (anthro directions, etc.)
+      stopVoiceover();
       // Start beam animation overlay
       updateCompActivity({ 
         tbiBeamVisible: true, 
@@ -403,37 +530,79 @@ export default function CombinedHomeScene() {
         tbiBeamAnimating: true 
       });
     },
-    restartTbiPositioning: () => {
-      console.log('[CombinedHomeScene] Restarting TBI positioning (failed attempt)');
-      // Fade out result screen
-      updateCompActivity({ phase: 'intro_fading_to_black' });
-      // After fade completes, reset to positioning
-      setTimeout(() => {
-        updateCompActivity({ 
-          tbiResultVisible: false,
-          tbiResultRevealed: false,
-          tbiResultMaskFrame: 0,
-          tbiResultPassed: false,
-          tbiPositioningVisible: true,
-          tbiAnthroX: TBI_ANTHRO_START_X,
-          tbiAnthroFrame: 0,
-          // Reset beam animation state
-          tbiBeamVisible: false,
-          tbiBeamFrame: 0,
-          tbiBeamLoopCount: 0,
-          tbiBeamAnimating: false,
-          phase: 'fading_from_black',
-        });
-      }, 350);
-    },
-    completeActivityFromResult: () => {
-      console.log('[CombinedHomeScene] Completing activity from result');
-      // Check if player failed - if so, restart positioning instead
-      const passed = evaluateTbiPositioning(compActivity.tbiAnthroX);
-      if (!passed) {
-        console.log('[CombinedHomeScene] Failed - restarting TBI positioning');
-        keyboardActions.restartTbiPositioning();
+    advanceResultDialogue: () => {
+      const currentIndex = compActivity.tbiResultDialogueIndex;
+      const nextIndex = currentIndex + 1;
+      console.log('[CombinedHomeScene] Advancing result dialogue', nextIndex);
+      
+      // Special case: when advancing FROM index 2 (reward message) in pass dialogue
+      // Trigger claiming animation before advancing
+      if (compActivity.tbiResultPassed && currentIndex === 2 && !compActivity.rewardItemsClaiming) {
+        console.log('[CombinedHomeScene] Triggering reward claim animation');
+        updateCompActivity({ rewardItemsClaiming: true });
+        
+        // After animation completes, advance dialogue and hide rewards
+        setTimeout(() => {
+          updateCompActivity({ 
+            tbiResultDialogueIndex: nextIndex,
+            rewardItemsVisible: false,
+            rewardItemsClaiming: false,
+          });
+          // Play voiceover for dialogue 3
+          playVoiceover('anthro_wrap_up');
+        }, 500);
+        return;
+      }
+      
+      // Normal dialogue advancement
+      updateCompActivity({ tbiResultDialogueIndex: nextIndex });
+      
+      // Show reward items when advancing TO index 2 in pass dialogue
+      if (compActivity.tbiResultPassed && nextIndex === 2) {
+        updateCompActivity({ rewardItemsVisible: true });
+      }
+      
+      // Play voiceover for the new dialogue line
+      if (compActivity.tbiResultPassed) {
+        const passVoiceovers = ['anthro_great_job', 'anthro_explanation', 'anthro_rewards', 'anthro_wrap_up'] as const;
+        if (nextIndex < passVoiceovers.length) {
+          playVoiceover(passVoiceovers[nextIndex]);
+        }
       } else {
+        const failVoiceovers = ['anthro_dont_short_me', 'anthro_try_again'] as const;
+        if (nextIndex < failVoiceovers.length) {
+          playVoiceover(failVoiceovers[nextIndex]);
+        }
+      }
+    },
+    completeResultDialogue: () => {
+      console.log('[CombinedHomeScene] Completing result dialogue');
+      // Stop any playing voiceover (anthro result feedback, etc.)
+      stopVoiceover();
+      if (!compActivity.tbiResultPassed) {
+        // Failed - restart positioning
+        console.log('[CombinedHomeScene] Failed - restarting TBI positioning');
+        updateCompActivity({ phase: 'intro_fading_to_black' });
+        setTimeout(() => {
+          updateCompActivity({
+            tbiResultVisible: false,
+            tbiResultRevealed: false,
+            tbiResultMaskFrame: 0,
+            tbiResultAnthroFrame: 38, // Reset slab idle to start
+            tbiResultPassed: false,
+            tbiResultDialogueIndex: 0,
+            tbiPositioningVisible: true,
+            tbiAnthroX: TBI_ANTHRO_START_X,
+            tbiAnthroFrame: 8, // Start at slab idle (frames 8-15)
+            tbiBeamVisible: false,
+            tbiBeamFrame: 0,
+            tbiBeamLoopCount: 0,
+            tbiBeamAnimating: false,
+            phase: 'fading_from_black',
+          });
+        }, 350);
+      } else {
+        // Passed - complete activity
         console.log('[CombinedHomeScene] Passed - completing activity');
         handleActivityComplete();
       }
@@ -448,8 +617,10 @@ export default function CombinedHomeScene() {
           visible: true,
           phase: 'booting',
           optionsFrame: 1,
-          option1Frame: 1,
           highlightedActivity: 0,
+          currentTab: 'activities',
+          tabFocused: false,
+          highlightedShopItem: 0,
         });
       }, 150);
     },
@@ -489,6 +660,32 @@ export default function CombinedHomeScene() {
       }
     },
     
+    // Tab navigation actions
+    focusTabs: () => {
+      console.log('[CombinedHomeScene] Focusing tab sidebar');
+      updateCompActivity({ tabFocused: true });
+    },
+    unfocusTabs: () => {
+      console.log('[CombinedHomeScene] Unfocusing tab sidebar, entering content area');
+      updateCompActivity({ tabFocused: false });
+    },
+    switchTab: (tab) => {
+      console.log(`[CombinedHomeScene] Switching tab to: ${tab}`);
+      updateCompActivity({ 
+        currentTab: tab,
+        // Reset content selection when switching tabs
+        highlightedActivity: tab === 'activities' ? 0 : compActivity.highlightedActivity,
+        highlightedShopItem: tab === 'shop' ? 0 : compActivity.highlightedShopItem,
+      });
+    },
+    navigateShopItem: (direction) => {
+      const newItem = direction === 'left' 
+        ? Math.max(0, compActivity.highlightedShopItem - 1)
+        : Math.min(2, compActivity.highlightedShopItem + 1);
+      console.log(`[CombinedHomeScene] Shop navigation: ${compActivity.highlightedShopItem} → ${newItem}`);
+      updateCompActivity({ highlightedShopItem: newItem });
+    },
+    
     // Monologue actions
     advanceMonologue: () => {
       console.log('[CombinedHomeScene] Advancing monologue line');
@@ -514,7 +711,12 @@ export default function CombinedHomeScene() {
     // Pico actions
     advancePicoBlockingDialogue: () => {
       console.log('[CombinedHomeScene] Advancing blocking dialogue');
-      updatePico({ blockingDialogueIndex: pico.blockingDialogueIndex + 1 });
+      const newIndex = pico.blockingDialogueIndex + 1;
+      // Play player voiceover when reaching line index 2 (player's response)
+      if (newIndex === 2) {
+        playVoiceover(playerVoiceType === 'feminine' ? 'player_fem_pico' : 'player_masc_pico');
+      }
+      updatePico({ blockingDialogueIndex: newIndex });
     },
     dismissPicoBlockingDialogue: () => {
       console.log('[CombinedHomeScene] Dismissing remote dialogue');
@@ -523,7 +725,12 @@ export default function CombinedHomeScene() {
     },
     advancePicoDialogue: () => {
       console.log('[CombinedHomeScene] Advancing Pico dialogue');
-      updatePico({ dialogueIndex: pico.dialogueIndex + 1 });
+      const newIndex = pico.dialogueIndex + 1;
+      // Play player voiceover when reaching line index 2 (player's response)
+      if (newIndex === 2) {
+        playVoiceover(playerVoiceType === 'feminine' ? 'player_fem_pico' : 'player_masc_pico');
+      }
+      updatePico({ dialogueIndex: newIndex });
     },
     completePicoDialogue: () => {
       console.log('[CombinedHomeScene] Pico dialogue complete');
@@ -539,22 +746,22 @@ export default function CombinedHomeScene() {
       }, 150);
     },
     petPico: () => {
-      // Only show description if not already petted this playthrough
+      // Only allow petting if not already petted this playthrough
       if (pico.hasPetted) {
         console.log('[CombinedHomeScene] Pico already petted this playthrough');
         return;
       }
       
-      console.log('[CombinedHomeScene] Petting Pico');
+      console.log('[CombinedHomeScene] Petting Pico - starting heart animation');
       updateInteractionUI({ cKeyFrame: 3 });
       setTimeout(() => {
-        updatePico({ showPetDescription: true, hasPetted: true });
+        // Start the heart float animation (CSS handles the animation)
+        updatePico({ hasPetted: true, heartAnimating: true });
       }, 150);
     },
     dismissPetDescription: () => {
-      console.log('[CombinedHomeScene] Dismissing pet description');
-      updatePico({ showPetDescription: false });
-      updateInteractionUI({ cKeyFrame: 1 });
+      // No longer needed - heart animation auto-completes
+      console.log('[CombinedHomeScene] dismissPetDescription called (no-op)');
     },
     
     // Telescope actions
@@ -830,13 +1037,15 @@ export default function CombinedHomeScene() {
 
   const handleCloseStarDetail = () => {
     setShowStarDetail(false);
-    
+
     // If closing ??? star modal, show monologue immediately (no delay to prevent UI flicker)
     if (activeStarId === 'star') {
       // Increment inspection count and reset to first line
       setInspectionCount(prev => prev + 1);
       setCurrentMonologueLineIndex(0);
       setShowMonologue(true);
+      // Play "not sure" voiceover using player's selected voice
+      playVoiceover(playerVoiceType === 'feminine' ? 'player_fem_desk' : 'player_masc_desk');
     }
   };
 
@@ -891,8 +1100,9 @@ export default function CombinedHomeScene() {
     setTimeout(() => {
       updateCompActivity({
         tbiAnthroX: TBI_ANTHRO_START_X,
-        tbiAnthroFrame: 0,
+        tbiAnthroFrame: 8, // Start at slab idle (frames 8-15)
         tbiResultMaskFrame: 0,
+        tbiResultAnthroFrame: 38, // Reset slab idle to start
         tbiResultRevealed: false,
         tbiResultPassed: false,
         // Reset beam animation state
@@ -902,9 +1112,14 @@ export default function CombinedHomeScene() {
         tbiBeamAnimating: false,
         phase: 'idle',
         optionsFrame: 1,
-        option1Frame: 1,
         selectedActivity: null,
         highlightedActivity: 0,
+        // Reset tab/shop state
+        currentTab: 'activities',
+        tabFocused: false,
+        highlightedShopItem: 0,
+        shopOptionsFrame: 1,
+        shopPopupsFrame: 1,
       });
       setDeskXKeyTriggered(false); // Reset so desk can be used again
     }, 300);
@@ -959,9 +1174,9 @@ export default function CombinedHomeScene() {
   
   // === DEBUG MODES HOOK ===
   const debugModeSetters: DebugModeSetters = {
-    setKapoorPosition,
-    setKapoorDirection,
-    setKapoorIsWalking,
+    setPlayerPosition,
+    setPlayerDirection,
+    setPlayerIsWalking,
     setDeskXKeyEnabled,
     setArrowKeysVisible,
     setHasCompletedFirstActivity,
@@ -1037,59 +1252,23 @@ export default function CombinedHomeScene() {
   
   // Comp-sheet options layer animation - show highlighted frame based on hover/highlight state
   useEffect(() => {
-    if (compActivity.phase === 'waiting') {
+    if (compActivity.phase === 'waiting' && compActivity.currentTab === 'activities') {
       console.log('[CombinedHomeScene] Comp-sheet waiting - updating options layer frame');
       
-      // Check if any activity is highlighted (keyboard navigation only)
-      if (compActivity.highlightedActivity !== null) {
+      // Check if any activity is highlighted (keyboard navigation only) and tabs not focused
+      if (compActivity.highlightedActivity !== null && !compActivity.tabFocused) {
         // Show highlighted frame (2-6 based on activity index 0-4)
         const activityIndex = compActivity.highlightedActivity;
         updateCompActivity({ optionsFrame: 2 + activityIndex });
       } else {
-        // No highlight - show frame 1 (none highlighted)
+        // No highlight or tabs focused - show frame 1 (none highlighted)
         updateCompActivity({ optionsFrame: 1 });
       }
     }
-  }, [compActivity.phase, compActivity.highlightedActivity, updateCompActivity]);
+  }, [compActivity.phase, compActivity.highlightedActivity, compActivity.currentTab, compActivity.tabFocused, updateCompActivity]);
   
-  // Comp-sheet option1 layer autonomous animation - loop frames 1-5 with longer linger on frame 1
-  useEffect(() => {
-    if (compActivity.phase === 'waiting') {
-      console.log('[CombinedHomeScene] Starting option1 layer autonomous animation');
-      
-      let currentFrame = 1;
-      updateCompActivity({ option1Frame: currentFrame });
-      
-      const animateFrame = () => {
-        if (currentFrame === 1) {
-          compOption1AnimationRef.current = setTimeout(() => {
-            currentFrame = 2;
-            updateCompActivity({ option1Frame: currentFrame });
-            animateFrame();
-          }, 1000) as unknown as NodeJS.Timeout;
-        } else {
-          compOption1AnimationRef.current = setTimeout(() => {
-            currentFrame++;
-            if (currentFrame > 5) currentFrame = 1;
-            updateCompActivity({ option1Frame: currentFrame });
-            animateFrame();
-          }, 150) as unknown as NodeJS.Timeout;
-        }
-      };
-      
-      animateFrame();
-      
-      return () => {
-        if (compOption1AnimationRef.current) {
-          clearTimeout(compOption1AnimationRef.current);
-          compOption1AnimationRef.current = null;
-        }
-      };
-    }
-  }, [compActivity.phase, updateCompActivity]);
-  
-  // Anthro intro animation - phase-based (raising, waving, idle)
-  // Frames 0-7: idle loop, Frames 8-11: raise hand (one-time), Frames 12-15: wave loop
+  // Anthro intro animation - phase-based (waving, transforming, slab_idle, idle)
+  // Frames 0-7: body idle, 8-15: waving, 16-37: transformation, 38-42: slab idle
   useEffect(() => {
     if (!compActivity.anthroIntroVisible) {
       // Clean up animation when intro is hidden
@@ -1105,16 +1284,23 @@ export default function CombinedHomeScene() {
     
     anthroIntroAnimationRef.current = setInterval(() => {
       if (phase === 'raising') {
-        // Frames 8-11: one-time hand raise, then transition to waving
-        if (frame < 11) {
+        // Legacy support - transition to waving immediately
+        updateCompActivity({ anthroIntroFrame: ANTHRO_INTRO_WAVE_START, anthroAnimPhase: 'waving' });
+      } else if (phase === 'waving') {
+        // Frames 8-15: loop waving
+        const nextFrame = frame < ANTHRO_INTRO_WAVE_END ? frame + 1 : ANTHRO_INTRO_WAVE_START;
+        updateCompActivity({ anthroIntroFrame: nextFrame });
+      } else if (phase === 'transforming') {
+        // Frames 16-37: one-time transformation, then switch to slab_idle
+        if (frame < ANTHRO_INTRO_TRANSFORM_END) {
           updateCompActivity({ anthroIntroFrame: frame + 1 });
         } else {
-          // Transition to waving phase
-          updateCompActivity({ anthroIntroFrame: 12, anthroAnimPhase: 'waving' });
+          // Transformation complete - switch to slab idle
+          updateCompActivity({ anthroIntroFrame: ANTHRO_INTRO_SLAB_IDLE_START, anthroAnimPhase: 'slab_idle' });
         }
-      } else if (phase === 'waving') {
-        // Frames 12-15: loop waving
-        const nextFrame = frame < 15 ? frame + 1 : 12;
+      } else if (phase === 'slab_idle') {
+        // Frames 38-42: loop slab idle
+        const nextFrame = frame < ANTHRO_INTRO_SLAB_IDLE_END ? frame + 1 : ANTHRO_INTRO_SLAB_IDLE_START;
         updateCompActivity({ anthroIntroFrame: nextFrame });
       } else {
         // 'idle': Frames 0-7 loop
@@ -1130,7 +1316,7 @@ export default function CombinedHomeScene() {
     };
   }, [compActivity.anthroIntroVisible, compActivity.anthroIntroFrame, compActivity.anthroAnimPhase, updateCompActivity]);
   
-  // TBI Anthro idle animation - 8-frame loop during positioning phase
+  // TBI Anthro idle animation - slab idle loop (frames 8-15) during positioning phase
   useEffect(() => {
     if (!compActivity.tbiPositioningVisible) {
       // Clean up animation when positioning is hidden
@@ -1141,10 +1327,14 @@ export default function CombinedHomeScene() {
       return;
     }
     
+    // Slab idle uses frames 8-15 in anthro-tbi.png
+    const SLAB_IDLE_START = 8;
+    const SLAB_IDLE_END = 15;
+    
     tbiAnthroAnimationRef.current = setInterval(() => {
-      updateCompActivity({ 
-        tbiAnthroFrame: (compActivity.tbiAnthroFrame + 1) % TBI_ANTHRO_TOTAL_FRAMES 
-      });
+      const currentFrame = compActivity.tbiAnthroFrame;
+      const nextFrame = currentFrame < SLAB_IDLE_END ? currentFrame + 1 : SLAB_IDLE_START;
+      updateCompActivity({ tbiAnthroFrame: nextFrame });
     }, 100); // 100ms per frame = 10 fps
     
     return () => {
@@ -1207,6 +1397,44 @@ export default function CombinedHomeScene() {
     animateBeam();
   }, [compActivity.tbiBeamAnimating, compActivity.tbiBeamFrame, compActivity.tbiBeamLoopCount, updateCompActivity]);
   
+  // TBI Result Anthro slab idle animation - loops frames 38-42 from anthro-intro.png during result phase
+  useEffect(() => {
+    if (!compActivity.tbiResultVisible) {
+      // Clean up animation when result is hidden
+      if (tbiResultAnthroAnimationRef.current) {
+        clearInterval(tbiResultAnthroAnimationRef.current);
+        tbiResultAnthroAnimationRef.current = null;
+      }
+      return;
+    }
+    
+    tbiResultAnthroAnimationRef.current = setInterval(() => {
+      const currentFrame = compActivity.tbiResultAnthroFrame;
+      const nextFrame = currentFrame < ANTHRO_INTRO_SLAB_IDLE_END ? currentFrame + 1 : ANTHRO_INTRO_SLAB_IDLE_START;
+      updateCompActivity({ tbiResultAnthroFrame: nextFrame });
+    }, 100); // 100ms per frame = 10 fps
+    
+    return () => {
+      if (tbiResultAnthroAnimationRef.current) {
+        clearInterval(tbiResultAnthroAnimationRef.current);
+        tbiResultAnthroAnimationRef.current = null;
+      }
+    };
+  }, [compActivity.tbiResultVisible, compActivity.tbiResultAnthroFrame, updateCompActivity]);
+  
+  // Heart animation - CSS handles the float/fade, we just need to end the state after animation completes
+  useEffect(() => {
+    if (!pico.heartAnimating) return;
+    
+    // Animation duration is 1.2s (matches CSS animation)
+    const timeout = setTimeout(() => {
+      console.log('[CombinedHomeScene] Heart animation complete');
+      updatePico({ heartAnimating: false });
+    }, 1200);
+    
+    return () => clearTimeout(timeout);
+  }, [pico.heartAnimating, updatePico]);
+  
   // Comp-sheet phase transitions - handles boot-up and activity transitions with fade effects
   useEffect(() => {
     // === BOOT-UP PHASES (opening the computer) ===
@@ -1229,11 +1457,6 @@ export default function CombinedHomeScene() {
     if (compActivity.phase === 'transitioning') {
       console.log('[CombinedHomeScene] Starting comp-sheet transition animation');
       
-      if (compOption1AnimationRef.current) {
-        clearTimeout(compOption1AnimationRef.current);
-        compOption1AnimationRef.current = null;
-      }
-      
       updateCompActivity({ optionsFrame: 7 });
       
       setTimeout(() => {
@@ -1246,13 +1469,15 @@ export default function CombinedHomeScene() {
       setTimeout(() => {
         console.log('[CombinedHomeScene] Fading from black - showing Anthro intro');
         updateCompActivity({ anthroIntroVisible: true, anthroIntroFrame: 8, anthroAnimPhase: 'raising', anthroDialogueIndex: 0, phase: 'intro' });
+        // Play Anthro's greeting voiceover
+        playVoiceover('anthro_hello');
       }, 350);
     }
     
     if (compActivity.phase === 'intro_fading_to_black') {
       setTimeout(() => {
         console.log('[CombinedHomeScene] Intro complete - showing TBI positioning');
-        updateCompActivity({ anthroIntroVisible: false, tbiPositioningVisible: true, tbiAnthroX: TBI_ANTHRO_START_X, tbiAnthroFrame: 0, phase: 'fading_from_black' });
+        updateCompActivity({ anthroIntroVisible: false, tbiPositioningVisible: true, tbiAnthroX: TBI_ANTHRO_START_X, tbiAnthroFrame: 8, phase: 'fading_from_black' });
       }, 350);
     }
     
@@ -1271,7 +1496,8 @@ export default function CombinedHomeScene() {
         updateCompActivity({ 
           tbiPositioningVisible: false, 
           tbiResultVisible: true, 
-          tbiResultMaskFrame: 0, 
+          tbiResultMaskFrame: 0,
+          tbiResultAnthroFrame: 38, // Start slab idle animation
           tbiResultPassed: passed,
           phase: 'result_fading_from_black' 
         });
@@ -1289,14 +1515,17 @@ export default function CombinedHomeScene() {
           if (currentMaskFrame < TBI_MASK_TOTAL_FRAMES - 1) {
             currentMaskFrame++;
             updateCompActivity({ tbiResultMaskFrame: currentMaskFrame });
-            tbiResultAnimationRef.current = setTimeout(animateMaskReveal, 400);
+            tbiResultAnimationRef.current = setTimeout(animateMaskReveal, 150);
           } else {
             console.log('[CombinedHomeScene] Mask reveal complete - waiting 350ms before showing result');
             updateCompActivity({ tbiResultMaskFrame: TBI_MASK_TOTAL_FRAMES - 1 });
-            // Add 350ms pause before revealing pass/fail message
+            // Add 350ms pause before revealing pass/fail dialogue
             tbiResultAnimationRef.current = setTimeout(() => {
-              console.log('[CombinedHomeScene] Result revealed - showing pass/fail message');
-              updateCompActivity({ tbiResultRevealed: true });
+              console.log('[CombinedHomeScene] Result revealed - showing result dialogue');
+              updateCompActivity({ tbiResultRevealed: true, tbiResultDialogueIndex: 0 });
+              // Play first result voiceover (pass: great_job, fail: dont_short_me)
+              const passed = evaluateTbiPositioning(compActivity.tbiAnthroX);
+              playVoiceover(passed ? 'anthro_great_job' : 'anthro_dont_short_me');
             }, 350);
           }
         };
@@ -1314,11 +1543,7 @@ export default function CombinedHomeScene() {
         clearInterval(pingPongIntervalRef.current);
         pingPongIntervalRef.current = null;
       }
-      // Note: Kapoor animation is now cleaned up by useKapoorMovement hook
-      if (compOption1AnimationRef.current) {
-        clearTimeout(compOption1AnimationRef.current);
-        compOption1AnimationRef.current = null;
-      }
+      // Note: Player animation is now cleaned up by usePlayerMovement hook
       if (anthroIntroAnimationRef.current) {
         clearInterval(anthroIntroAnimationRef.current);
         anthroIntroAnimationRef.current = null;
@@ -1330,6 +1555,10 @@ export default function CombinedHomeScene() {
       if (tbiResultAnimationRef.current) {
         clearTimeout(tbiResultAnimationRef.current);
         tbiResultAnimationRef.current = null;
+      }
+      if (tbiResultAnthroAnimationRef.current) {
+        clearInterval(tbiResultAnthroAnimationRef.current);
+        tbiResultAnthroAnimationRef.current = null;
       }
     };
   }, []);
@@ -1478,15 +1707,15 @@ export default function CombinedHomeScene() {
     
     // Calculate distances to all interactive objects
     const telescopeDistance = Math.sqrt(
-      Math.pow(kapoorPosition.x - TELESCOPE_POSITION.x, 2) + 
-      Math.pow(kapoorPosition.y - TELESCOPE_POSITION.y, 2)
+      Math.pow(playerPosition.x - TELESCOPE_POSITION.x, 2) + 
+      Math.pow(playerPosition.y - TELESCOPE_POSITION.y, 2)
     );
     
     // Desk uses horizontal-only distance (side-view 2D game)
-    const deskDistance = Math.abs(kapoorPosition.x - DESK_POSITION.x);
+    const deskDistance = Math.abs(playerPosition.x - DESK_POSITION.x);
     
     // Pico distance with extended range to the left
-    const picoHorizontalOffset = kapoorPosition.x - PICO_POSITION.x;
+    const picoHorizontalOffset = playerPosition.x - PICO_POSITION.x;
     const picoDistance = Math.abs(picoHorizontalOffset);
     
     // Find closest interactive object within ACTUAL INTERACTION RANGE (not proximity hint range)
@@ -1517,21 +1746,21 @@ export default function CombinedHomeScene() {
     const closest = nearbyInteractions[0];
     
     updateInteractionUI({ active: closest.type, contextLabel: closest.label, xKeyFrame: 1 });
-  }, [kapoorPosition, currentView, xKeyTriggered, deskXKeyEnabled, deskXKeyTriggered, pico.interacted, updateInteractionUI]);
+  }, [playerPosition, currentView, xKeyTriggered, deskXKeyEnabled, deskXKeyTriggered, pico.interacted, updateInteractionUI]);
   
   // Ladder arrow indicators - show up/down arrows when near ladder
-  // Must match the climbing action zone in useKapoorMovement (includes extended right boundary)
+  // Must match the climbing action zone in usePlayerMovement (includes extended right boundary)
   useEffect(() => {
-    const nearLadderX = Math.abs(kapoorPosition.x - CLIMB_X_THRESHOLD) < CLIMB_X_TOLERANCE &&
-                        kapoorPosition.x <= SECOND_FLOOR_BOUNDS.right + CLIMB_RIGHT_EXTENSION;
-    const onGroundFloor = Math.abs(kapoorPosition.y - GROUND_FLOOR_Y) < FLOOR_TOLERANCE;
-    const onSecondFloor = Math.abs(kapoorPosition.y - SECOND_FLOOR_Y) < FLOOR_TOLERANCE;
+    const nearLadderX = Math.abs(playerPosition.x - CLIMB_X_THRESHOLD) < CLIMB_X_TOLERANCE &&
+                        playerPosition.x <= SECOND_FLOOR_BOUNDS.right + CLIMB_RIGHT_EXTENSION;
+    const onGroundFloor = Math.abs(playerPosition.y - GROUND_FLOOR_Y) < FLOOR_TOLERANCE;
+    const onSecondFloor = Math.abs(playerPosition.y - SECOND_FLOOR_Y) < FLOOR_TOLERANCE;
     
     updateInteractionUI({
       showUpArrow: nearLadderX && onGroundFloor && currentView === 'home',
       showDownArrow: nearLadderX && onSecondFloor && currentView === 'home',
     });
-  }, [kapoorPosition, currentView, updateInteractionUI]);
+  }, [playerPosition, currentView, updateInteractionUI]);
 
   // === TELESCOPE SPEECH BUBBLE VISIBILITY ===
   useEffect(() => {
@@ -1562,8 +1791,8 @@ export default function CombinedHomeScene() {
     
     if (currentView === 'home') {
       const telescopeDistance = Math.sqrt(
-        Math.pow(kapoorPosition.x - TELESCOPE_POSITION.x, 2) + 
-        Math.pow(kapoorPosition.y - TELESCOPE_POSITION.y, 2)
+        Math.pow(playerPosition.x - TELESCOPE_POSITION.x, 2) + 
+        Math.pow(playerPosition.y - TELESCOPE_POSITION.y, 2)
       );
       const INTERACTION_RANGE = PROXIMITY_THRESHOLD / 2;
       updateBubble('telescope', { highlighted: telescopeDistance < INTERACTION_RANGE });
@@ -1572,7 +1801,7 @@ export default function CombinedHomeScene() {
     } else {
       updateBubble('telescope', { highlighted: false });
     }
-  }, [currentView, speechBubbles.telescope.visible, kapoorPosition, updateBubble]);
+  }, [currentView, speechBubbles.telescope.visible, playerPosition, updateBubble]);
   
   // === TELESCOPE EXCLAMATION PROXIMITY DETECTION (for highlighting) ===
   useEffect(() => {
@@ -1582,8 +1811,8 @@ export default function CombinedHomeScene() {
     }
     
     if (currentView === 'home') {
-      const telescopeDistance = Math.abs(kapoorPosition.x - TELESCOPE_POSITION.x);
-      const isAtTelescope = kapoorPosition.y === SECOND_FLOOR_Y;
+      const telescopeDistance = Math.abs(playerPosition.x - TELESCOPE_POSITION.x);
+      const isAtTelescope = playerPosition.y === SECOND_FLOOR_Y;
       const inRange = telescopeDistance < PROXIMITY_THRESHOLD && isAtTelescope;
       updateBubble('telescopeExclamation', { highlighted: inRange });
     } else if (currentView === 'sky') {
@@ -1591,7 +1820,7 @@ export default function CombinedHomeScene() {
     } else {
       updateBubble('telescopeExclamation', { highlighted: false });
     }
-  }, [currentView, speechBubbles.telescopeExclamation.visible, kapoorPosition, updateBubble]);
+  }, [currentView, speechBubbles.telescopeExclamation.visible, playerPosition, updateBubble]);
   
   // === DESK PROXIMITY DETECTION (for speech bubble highlighting in home view only) ===
   useEffect(() => {
@@ -1600,10 +1829,10 @@ export default function CombinedHomeScene() {
       return;
     }
     
-    const deskDistance = Math.abs(kapoorPosition.x - DESK_POSITION.x);
+    const deskDistance = Math.abs(playerPosition.x - DESK_POSITION.x);
     const INTERACTION_RANGE = PROXIMITY_THRESHOLD / 2;
     updateBubble('desk', { highlighted: deskDistance < INTERACTION_RANGE });
-  }, [currentView, speechBubbles.desk.visible, kapoorPosition, updateBubble]);
+  }, [currentView, speechBubbles.desk.visible, playerPosition, updateBubble]);
   
   // === TELESCOPE SPEECH BUBBLE ANIMATION ===
   useEffect(() => {
@@ -1654,7 +1883,7 @@ export default function CombinedHomeScene() {
       return;
     }
     
-    const picoHorizontalOffset = kapoorPosition.x - PICO_POSITION.x;
+    const picoHorizontalOffset = playerPosition.x - PICO_POSITION.x;
     const picoDistance = Math.abs(picoHorizontalOffset);
     const INTERACTION_RANGE = PROXIMITY_THRESHOLD / 2;
     
@@ -1667,7 +1896,7 @@ export default function CombinedHomeScene() {
     } else {
       updateInteractionUI({ cKeyFrame: 1 });
     }
-  }, [kapoorPosition, currentView, updateInteractionUI]);
+  }, [playerPosition, currentView, updateInteractionUI]);
   
   // === PICO ANIMATION LOOP ===
   useEffect(() => {
@@ -1706,8 +1935,8 @@ export default function CombinedHomeScene() {
       return;
     }
     
-    const horizontalDistance = Math.abs(kapoorPosition.x - PICO_POSITION.x);
-    const picoHorizontalOffset = kapoorPosition.x - PICO_POSITION.x;
+    const horizontalDistance = Math.abs(playerPosition.x - PICO_POSITION.x);
+    const picoHorizontalOffset = playerPosition.x - PICO_POSITION.x;
     const INTERACTION_RANGE = PROXIMITY_THRESHOLD / 2;
     
     const picoInteractionRange = picoHorizontalOffset < 0 
@@ -1721,7 +1950,7 @@ export default function CombinedHomeScene() {
     }
     
     updateBubble('pico', { highlighted: isNear });
-  }, [kapoorPosition, speechBubbles.pico.visible, speechBubbles.pico.highlighted, updateBubble]);
+  }, [playerPosition, speechBubbles.pico.visible, speechBubbles.pico.highlighted, updateBubble]);
   
   // === PICO SPEECH BUBBLE ANIMATION ===
   useEffect(() => {
@@ -1913,16 +2142,17 @@ export default function CombinedHomeScene() {
         <ScrollingContent $scrollPosition={scrollPosition} $transitionDuration={transitionDuration}>
           <ForegroundLayer />
           
-          {/* Kapoor animated character - stays visible during scroll transition */}
+          {/* Player character - uses custom sprite if created, otherwise default sprite */}
           <CharacterSprite
-                $frame={kapoorFrame}
-                $direction={kapoorDirection}
-                $isWalking={kapoorIsWalking}
-                $isClimbing={kapoorIsClimbing}
+                $frame={playerFrame}
+                $direction={playerDirection}
+                $isWalking={playerIsWalking}
+                $isClimbing={playerIsClimbing}
+                $customSpriteSheet={customSpriteSheet || undefined}
                 style={{
-                  left: `${kapoorPosition.x}px`,
+                  left: `${playerPosition.x}px`,
                   // Position relative to ScrollingContent - moves with the home scene during scroll
-                  top: `${kapoorPosition.y}px`,
+                  top: `${playerPosition.y}px`,
                 }}
               />
               
@@ -1936,10 +2166,10 @@ export default function CombinedHomeScene() {
                 }}
               />
               
-              {/* Speech bubble above Pico - always visible until interaction, highlights when Kapoor is near */}
+              {/* Speech bubble above Pico - always visible until interaction, hides during heart animation */}
               <SpeechBubbleSprite
                 $frame={speechBubbles.pico.frame}
-                $visible={speechBubbles.pico.visible}
+                $visible={speechBubbles.pico.visible && !pico.heartAnimating}
                 $highlighted={speechBubbles.pico.highlighted}
                 style={{
                   left: `${PICO_POSITION.x + 6}px`,
@@ -1964,14 +2194,16 @@ export default function CombinedHomeScene() {
                 style={{
                   left: PICO_DIALOGUE_LINES[pico.dialogueIndex].speaker === 'Pico' 
                     ? `${PICO_POSITION.x + 10}px`
-                    : `${kapoorPosition.x - 90}px`,
+                    : `${playerPosition.x - 90}px`,
                   top: PICO_DIALOGUE_LINES[pico.dialogueIndex].speaker === 'Pico'
                     ? `${PICO_POSITION.y - 80}px`
-                    : `${kapoorPosition.y - 65}px`,
+                    : `${playerPosition.y - 65}px`,
                 }}
               >
                 <PicoSpeakerLabel>
-                  {PICO_DIALOGUE_LINES[pico.dialogueIndex].speaker}
+                  {PICO_DIALOGUE_LINES[pico.dialogueIndex].speaker === 'player' 
+                    ? playerName 
+                    : PICO_DIALOGUE_LINES[pico.dialogueIndex].speaker}
                 </PicoSpeakerLabel>
                 <div>{PICO_DIALOGUE_LINES[pico.dialogueIndex].text}</div>
                 <PicoContinueHint>
@@ -1983,12 +2215,18 @@ export default function CombinedHomeScene() {
               <PicoDialogueText 
                 $visible={pico.showBlockingDialogue}
                 style={{
-                  left: `${PICO_POSITION.x + 10}px`,
-                  top: `${PICO_POSITION.y - 100}px`,
+                  left: PICO_BLOCKING_DIALOGUE[pico.blockingDialogueIndex].speaker === 'Pico' 
+                    ? `${PICO_POSITION.x + 10}px`
+                    : `${playerPosition.x - 90}px`,
+                  top: PICO_BLOCKING_DIALOGUE[pico.blockingDialogueIndex].speaker === 'Pico'
+                    ? `${PICO_POSITION.y - 100}px`
+                    : `${playerPosition.y - 65}px`,
                 }}
               >
                 <PicoSpeakerLabel>
-                  {PICO_BLOCKING_DIALOGUE[pico.blockingDialogueIndex].speaker}
+                  {PICO_BLOCKING_DIALOGUE[pico.blockingDialogueIndex].speaker === 'player' 
+                    ? playerName 
+                    : PICO_BLOCKING_DIALOGUE[pico.blockingDialogueIndex].speaker}
                 </PicoSpeakerLabel>
                 <div>{PICO_BLOCKING_DIALOGUE[pico.blockingDialogueIndex].text}</div>
                 <PicoContinueHint>
@@ -1996,13 +2234,13 @@ export default function CombinedHomeScene() {
                 </PicoContinueHint>
               </PicoDialogueText>
               
-              {/* Arrow keys tutorial - hover over Kapoor for first 20 seconds */}
+              {/* Arrow keys tutorial - hover over player for first 20 seconds */}
               <ArrowKeysSprite
                 $frame={arrowKeysFrame}
                 $visible={arrowKeysVisible}
                 style={{
-                  left: `${kapoorPosition.x - 4}px`, // Center above Kapoor (38px char - 45px sprite = -7px, +3px adjustment)
-                  top: `${kapoorPosition.y - 45}px`,  // Hover above Kapoor's head
+                  left: `${playerPosition.x - 4}px`, // Center above player (38px char - 45px sprite = -7px, +3px adjustment)
+                  top: `${playerPosition.y - 45}px`,  // Hover above player's head
                 }}
               />
               
@@ -2011,8 +2249,8 @@ export default function CombinedHomeScene() {
                 $frame={interactionUI.xKeyFrame}
                 $visible={interactionUI.active !== null && currentView === 'home' && !pico.showDialogue && !pico.showBlockingDialogue && !compActivity.visible}
                 style={{
-                  left: `${kapoorPosition.x + 36}px`,
-                  top: `${kapoorPosition.y - 5}px`,
+                  left: `${playerPosition.x + 36}px`,
+                  top: `${playerPosition.y - 5}px`,
                 }}
               />
               
@@ -2020,8 +2258,8 @@ export default function CombinedHomeScene() {
               <ContextLabel
                 $visible={interactionUI.active !== null && currentView === 'home' && !pico.showDialogue && !compActivity.visible}
                 style={{
-                  left: `${kapoorPosition.x + 55}px`,
-                  top: `${kapoorPosition.y - 5}px`,
+                  left: `${playerPosition.x + 55}px`,
+                  top: `${playerPosition.y - 5}px`,
                 }}
               >
                 {interactionUI.contextLabel}
@@ -2029,7 +2267,7 @@ export default function CombinedHomeScene() {
               
               {/* C key for petting Pico - shows when in actual interaction range, stacked below X key if both visible */}
               {(() => {
-                const picoHorizontalOffset = kapoorPosition.x - PICO_POSITION.x;
+                const picoHorizontalOffset = playerPosition.x - PICO_POSITION.x;
                 const picoDistance = Math.abs(picoHorizontalOffset);
                 const INTERACTION_RANGE = PROXIMITY_THRESHOLD / 2;
                 
@@ -2047,15 +2285,15 @@ export default function CombinedHomeScene() {
                       $frame={interactionUI.cKeyFrame}
                       $visible={showCKey}
                       style={{
-                        left: `${kapoorPosition.x + 36}px`,
-                        top: `${kapoorPosition.y - 5 + yOffset}px`,
+                        left: `${playerPosition.x + 36}px`,
+                        top: `${playerPosition.y - 5 + yOffset}px`,
                       }}
                     />
                     <ContextLabel
                       $visible={showCKey}
                       style={{
-                        left: `${kapoorPosition.x + 55}px`,
-                        top: `${kapoorPosition.y - 5 + yOffset}px`,
+                        left: `${playerPosition.x + 55}px`,
+                        top: `${playerPosition.y - 5 + yOffset}px`,
                       }}
                     >
                       Pet
@@ -2064,32 +2302,29 @@ export default function CombinedHomeScene() {
                 );
               })()}
               
-              {/* Pet description textbox - appears after petting Pico */}
-              <PetDescriptionBox
-                $visible={pico.showPetDescription}
+              {/* Heart bubble animation - appears above Pico after petting (same position as speech bubble) */}
+              <HeartBubbleSprite
+                $visible={pico.heartAnimating}
                 style={{
-                  left: `${PICO_POSITION.x + 15}px`,
-                  top: `${PICO_POSITION.y - 70}px`,
+                  left: `${PICO_POSITION.x + 6}px`,
+                  top: `${PICO_POSITION.y - 20}px`,
                 }}
-              >
-                <div>Pico though tough on the outside is a softie for a nice head pat</div>
-                <PetContinueHint>(X to close)</PetContinueHint>
-              </PetDescriptionBox>
+              />
               
               {/* Up arrow - shows when near ladder at ground floor */}
               <UpArrowSprite
                 $frame={interactionUI.upArrowFrame}
                 $visible={interactionUI.showUpArrow && !pico.showDialogue && !compActivity.visible}
                 style={{
-                  left: `${kapoorPosition.x + 36}px`,
-                  top: `${kapoorPosition.y - 5}px`,
+                  left: `${playerPosition.x + 36}px`,
+                  top: `${playerPosition.y - 5}px`,
                 }}
               />
               <ContextLabel
                 $visible={interactionUI.showUpArrow && !pico.showDialogue && !compActivity.visible}
                 style={{
-                  left: `${kapoorPosition.x + 55}px`,
-                  top: `${kapoorPosition.y - 5}px`,
+                  left: `${playerPosition.x + 55}px`,
+                  top: `${playerPosition.y - 5}px`,
                 }}
               >
                 Climb
@@ -2100,15 +2335,15 @@ export default function CombinedHomeScene() {
                 $frame={interactionUI.downArrowFrame}
                 $visible={interactionUI.showDownArrow && !pico.showDialogue && !compActivity.visible}
                 style={{
-                  left: `${kapoorPosition.x + 36}px`,
-                  top: `${kapoorPosition.y - 5}px`,
+                  left: `${playerPosition.x + 36}px`,
+                  top: `${playerPosition.y - 5}px`,
                 }}
               />
               <ContextLabel
                 $visible={interactionUI.showDownArrow && !pico.showDialogue && !compActivity.visible}
                 style={{
-                  left: `${kapoorPosition.x + 55}px`,
-                  top: `${kapoorPosition.y - 5}px`,
+                  left: `${playerPosition.x + 55}px`,
+                  top: `${playerPosition.y - 5}px`,
                 }}
               >
                 Descend
@@ -2167,34 +2402,34 @@ export default function CombinedHomeScene() {
                   <BoundaryLabel 
                     $color="#FFFF00" 
                     style={{ 
-                      left: `${kapoorPosition.x}px`, 
-                      top: `${kapoorPosition.y - 15}px`,
+                      left: `${playerPosition.x}px`, 
+                      top: `${playerPosition.y - 15}px`,
                       fontSize: '8px'
                     }}
                   >
-                    ({kapoorPosition.x.toFixed(0)}, {kapoorPosition.y.toFixed(0)})
+                    ({playerPosition.x.toFixed(0)}, {playerPosition.y.toFixed(0)})
                   </BoundaryLabel>
                 </>
               )}
           
-          {/* Kapoor monologue - appears after closing ??? star modal (positioned relative to Kapoor like Pico dialogue) */}
+          {/* Player monologue - appears after closing ??? star modal (positioned relative to player like Pico dialogue) */}
           {(() => {
             const isLastLine = currentMonologueLineIndex >= MONOLOGUE_LINES.length - 1;
             
             return (
-              <KapoorMonologue
+              <PlayerMonologue
                 $visible={showMonologue && currentView === 'sky'}
                 style={{
-                  left: `${kapoorPosition.x - 95}px`,
-                  top: `${kapoorPosition.y - 62}px`,
+                  left: `${playerPosition.x - 95}px`,
+                  top: `${playerPosition.y - 62}px`,
                 }}
               >
-                <KapoorSpeakerLabel>Kapoor</KapoorSpeakerLabel>
+                <PlayerSpeakerLabel>{playerName}</PlayerSpeakerLabel>
                 <div>{MONOLOGUE_LINES[currentMonologueLineIndex]}</div>
-                <KapoorContinueHint>
+                <PlayerContinueHint>
                   {isLastLine ? '(X to close)' : '(X to continue)'}
-                </KapoorContinueHint>
-              </KapoorMonologue>
+                </PlayerContinueHint>
+              </PlayerMonologue>
             );
           })()}
           
@@ -2225,8 +2460,8 @@ export default function CombinedHomeScene() {
           );
         })()}
 
-        {/* Backdrop overlay - darkens and blurs when comp-sheet is visible */}
-        <CompSheetBackdrop $visible={compActivity.visible} />
+        {/* Backdrop overlay - darkens and blurs when comp-sheet or book is visible */}
+        <CompSheetBackdrop $visible={compActivity.visible || compActivity.bookVisible} />
 
         {/* Comp-sheet composite layer system - appears when desk interaction starts */}
         {compActivity.visible && (
@@ -2250,8 +2485,9 @@ export default function CombinedHomeScene() {
               }}
             />
             
-            {/* Layer 2: Activity base (visible during boot fade-in and waiting) */}
-            <CompActivityLayer
+            {/* Layer 2: Tabs layer - consolidated activity/shop tabs with highlight and lock states */}
+            <CompTabsLayer
+              $frame={getCompTabsFrame(compActivity.currentTab, compActivity.tabFocused, hasCompletedFirstActivity)}
               $visible={compActivity.phase === 'booting_fade_in' || compActivity.phase === 'waiting'}
               style={{
                 left: '170px',
@@ -2262,17 +2498,16 @@ export default function CombinedHomeScene() {
             {/* Layer 3: Activity options highlights */}
             <CompOptionsLayer
               $frame={compActivity.optionsFrame}
-              $visible={compActivity.phase === 'booting_fade_in' || compActivity.phase === 'waiting' || compActivity.phase === 'transitioning'}
+              $visible={compActivity.currentTab === 'activities' && (compActivity.phase === 'booting_fade_in' || compActivity.phase === 'waiting' || compActivity.phase === 'transitioning')}
               style={{
                 left: '170px',
                 top: '90px',
               }}
             />
             
-            {/* Layer 4: Activity option 1 animation */}
-            <CompOption1Layer
-              $frame={compActivity.option1Frame}
-              $visible={compActivity.phase === 'booting_fade_in' || compActivity.phase === 'waiting'}
+            {/* Layer 4: Activity options static layer */}
+            <CompOptionsStaticLayer
+              $visible={compActivity.currentTab === 'activities' && (compActivity.phase === 'booting_fade_in' || compActivity.phase === 'waiting')}
               style={{
                 left: '170px',
                 top: '90px',
@@ -2280,11 +2515,11 @@ export default function CombinedHomeScene() {
             />
             
             {/* Activity visual regions - keyboard navigation only (no mouse interaction) */}
-            {compActivity.phase === 'waiting' && (
+            {compActivity.currentTab === 'activities' && compActivity.phase === 'waiting' && (
               <>
                 {/* Top-left activity (0) */}
                 <ActivityClickRegion
-                  $active={compActivity.highlightedActivity === 0}
+                  $active={compActivity.highlightedActivity === 0 && !compActivity.tabFocused}
                   style={{
                     left: '185px',
                     top: '115px',
@@ -2295,7 +2530,7 @@ export default function CombinedHomeScene() {
                 
                 {/* Top-right activity (1) */}
                 <ActivityClickRegion
-                  $active={compActivity.highlightedActivity === 1}
+                  $active={compActivity.highlightedActivity === 1 && !compActivity.tabFocused}
                   style={{
                     left: '385px',
                     top: '115px',
@@ -2306,7 +2541,7 @@ export default function CombinedHomeScene() {
                 
                 {/* Bottom-left activity (2) */}
                 <ActivityClickRegion
-                  $active={compActivity.highlightedActivity === 2}
+                  $active={compActivity.highlightedActivity === 2 && !compActivity.tabFocused}
                   style={{
                     left: '185px',
                     top: '195px',
@@ -2317,7 +2552,7 @@ export default function CombinedHomeScene() {
                 
                 {/* Bottom-middle activity (3) */}
                 <ActivityClickRegion
-                  $active={compActivity.highlightedActivity === 3}
+                  $active={compActivity.highlightedActivity === 3 && !compActivity.tabFocused}
                   style={{
                     left: '280px',
                     top: '195px',
@@ -2328,7 +2563,7 @@ export default function CombinedHomeScene() {
                 
                 {/* Bottom-right activity (4) */}
                 <ActivityClickRegion
-                  $active={compActivity.highlightedActivity === 4}
+                  $active={compActivity.highlightedActivity === 4 && !compActivity.tabFocused}
                   style={{
                     left: '385px',
                     top: '195px',
@@ -2338,6 +2573,27 @@ export default function CombinedHomeScene() {
                 />
               </>
             )}
+            
+            {/* === SHOP TAB LAYERS === */}
+            {/* Layer 1: Shop option popups (selection highlight boxes) */}
+            {/* Frame mapping: tabFocused→frame 1 (none), otherwise highlightedShopItem 0→frame 2, 1→frame 3, 2→frame 4 */}
+            <CompShopPopupsLayer
+              $frame={compActivity.tabFocused ? 1 : compActivity.highlightedShopItem + 2}
+              $visible={compActivity.currentTab === 'shop' && compActivity.phase === 'waiting'}
+              style={{
+                left: '170px',
+                top: '90px',
+              }}
+            />
+            
+            {/* Layer 3: Shop options (items with prices - static layer) */}
+            <CompShopOptionsLayer
+              $visible={compActivity.currentTab === 'shop' && (compActivity.phase === 'booting_fade_in' || compActivity.phase === 'waiting')}
+              style={{
+                left: '170px',
+                top: '90px',
+              }}
+            />
             
             {/* Anthro intro - Composite 3-layer system */}
             {/* Layer 1 (bottom): Container/background at z-index 305 */}
@@ -2350,8 +2606,9 @@ export default function CombinedHomeScene() {
             />
             
             {/* Layer 2 (middle): Dialogue text at z-index 310 */}
+            {/* Hide dialogue when book is visible (book takes over the screen) */}
             <AnthroDialogueText
-              $visible={compActivity.anthroIntroVisible}
+              $visible={compActivity.anthroIntroVisible && !compActivity.bookVisible}
               style={{
                 left: '200px',
                 top: '110px',
@@ -2362,17 +2619,35 @@ export default function CombinedHomeScene() {
               </AnthroSpeakerLabel>
               <div>{ANTHRO_INTRO_DIALOGUE[compActivity.anthroDialogueIndex].text}</div>
               <AnthroDialogueContinueHint>
-                {compActivity.anthroDialogueIndex < ANTHRO_INTRO_DIALOGUE.length - 1 ? '(X to continue)' : '(X to close)'}
+                {/* At dialogue 2, show book prompt instead of continue hint */}
+                {compActivity.anthroDialogueIndex === 2 
+                  ? null  /* Book prompt shown separately below */
+                  : (compActivity.anthroDialogueIndex < ANTHRO_INTRO_DIALOGUE.length - 1 ? '(X to continue)' : '(X to close)')}
               </AnthroDialogueContinueHint>
             </AnthroDialogueText>
             
+            {/* Book prompt - shows at dialogue index 2 with journal icon */}
+            <BookPromptContainer
+              $visible={compActivity.anthroIntroVisible && compActivity.anthroDialogueIndex === 2 && !compActivity.bookVisible}
+              style={{
+                left: '200px',
+                top: '230px',
+              }}
+            >
+              <JournalIcon />
+              <BookXKeySprite $frame={1} />
+              <BookPromptLabel>Open Book</BookPromptLabel>
+            </BookPromptContainer>
+            
             {/* Layer 3 (top): Anthro character sprite at z-index 311 */}
+            {/* Hide anthro sprite when book is visible */}
+            {/* Sprite is 39×82px, positioned mid-right within the 300×180 container at (170, 90) */}
             <AnthroIntroLayer
               $frame={compActivity.anthroIntroFrame}
-              $visible={compActivity.anthroIntroVisible}
+              $visible={compActivity.anthroIntroVisible && !compActivity.bookVisible}
               style={{
-                left: '170px',
-                top: '90px',
+                left: '394px',  /* Mid-right: container left (170) + ~180px offset */
+                top: '130px',   /* Vertically centered: container top (90) + ~40px offset */
               }}
             />
             
@@ -2423,10 +2698,9 @@ export default function CombinedHomeScene() {
             </TbiPositioningIndicator>
             
             {/* TBI Result - Modular layer system with dynamic color bars */}
-            {/* Layer 1: Backdrop panel with pass/fail messaging */}
-            <TbiResultBackdrop
+            {/* Layer 1: Dark backdrop container (same as intro) */}
+            <AnthroIntroContainer
               $visible={compActivity.tbiResultVisible}
-              $frame={getTbiResultBackdropFrame(compActivity.tbiAnthroX, compActivity.tbiResultRevealed)}
               style={{
                 left: '170px',
                 top: '90px',
@@ -2483,22 +2757,53 @@ export default function CombinedHomeScene() {
               })}
             </TbiResultDataLayer>
             
-            {/* Layer 3: Bare anthro silhouette */}
+            {/* Layer 3: Container frame (65×75px positioned sprite, below bars) */}
             <TbiResultBase
               $visible={compActivity.tbiResultVisible}
-              style={{
-                left: '170px',
-                top: '90px',
-              }}
+              $x={TBI_RESULT_BASE_POSITION.x}
+              $y={TBI_RESULT_BASE_POSITION.y}
             />
             
-            {/* Layer 4: Animated reveal mask */}
+            {/* Layer 4: Anthro slab idle (above bars, below mask) - uses frames 38-42 from anthro-intro.png */}
+            <TbiResultAnthro
+              $visible={compActivity.tbiResultVisible}
+              $x={TBI_RESULT_SLAB_POSITION.x}
+              $y={TBI_RESULT_SLAB_POSITION.y}
+              $frame={compActivity.tbiResultAnthroFrame}
+            />
+            
+            {/* Layer 5: Animated reveal mask */}
             <TbiResultMask
               $frame={compActivity.tbiResultMaskFrame}
               $visible={compActivity.tbiResultVisible}
               $x={TBI_MASK_POSITION.x}
               $y={TBI_MASK_POSITION.y}
             />
+
+            {/* Layer 5: Result dialogue (pass or fail) - appears after mask reveal */}
+            <AnthroDialogueText
+              $visible={compActivity.tbiResultVisible && compActivity.tbiResultRevealed}
+              style={{
+                left: '200px',
+                top: '110px',
+              }}
+            >
+              <AnthroSpeakerLabel>
+                {compActivity.tbiResultPassed 
+                  ? ANTHRO_PASS_DIALOGUE[compActivity.tbiResultDialogueIndex]?.speaker 
+                  : ANTHRO_FAIL_DIALOGUE[compActivity.tbiResultDialogueIndex]?.speaker}
+              </AnthroSpeakerLabel>
+              <div>
+                {compActivity.tbiResultPassed 
+                  ? ANTHRO_PASS_DIALOGUE[compActivity.tbiResultDialogueIndex]?.text 
+                  : ANTHRO_FAIL_DIALOGUE[compActivity.tbiResultDialogueIndex]?.text}
+              </div>
+              <AnthroDialogueContinueHint>
+                {compActivity.tbiResultPassed 
+                  ? (compActivity.tbiResultDialogueIndex < ANTHRO_PASS_DIALOGUE.length - 1 ? '(X to continue)' : '(X to close)')
+                  : (compActivity.tbiResultDialogueIndex < ANTHRO_FAIL_DIALOGUE.length - 1 ? '(X to continue)' : '(X to retry)')}
+              </AnthroDialogueContinueHint>
+            </AnthroDialogueText>
             
             {/* Locked message - appears when trying to select locked activities */}
             <LockedMessageBox
@@ -2543,6 +2848,51 @@ export default function CombinedHomeScene() {
           </DeskKeyRow>
         </DeskInteractionIndicator>
         
+        {/* Book popup - slides up from bottom when opened (accessible from anywhere via ESC) */}
+        <BookPopupContainer
+          $visible={compActivity.bookVisible}
+          $shaking={compActivity.bookShaking}
+        />
+        
+        {/* Book instruction bar - shows when book is open */}
+        <BookInstructionBar $visible={compActivity.bookVisible}>
+          <BookKeyRow>
+            <BookArrowKeysSprite $frame={1} />
+            <BookActionLabel>Pages</BookActionLabel>
+          </BookKeyRow>
+          <BookKeyRow>
+            <BookCKeySprite $frame={1} />
+            <BookActionLabel>Close</BookActionLabel>
+          </BookKeyRow>
+        </BookInstructionBar>
+        
+        {/* "No more pages" error message */}
+        <NoMorePagesMessage $visible={compActivity.showNoMorePages}>
+          No more pages
+        </NoMorePagesMessage>
+        
+        {/* Reward items - shows at pass dialogue index 2, animates to top-right corner */}
+        <RewardItemsContainer
+          $visible={compActivity.rewardItemsVisible && compActivity.tbiResultPassed && compActivity.tbiResultDialogueIndex === 2}
+          $claiming={compActivity.rewardItemsClaiming}
+        >
+          <RewardItem>
+            <RewardCount>8</RewardCount>
+            <FundingSprite />
+          </RewardItem>
+          <RewardItem>
+            <PageSprite />
+          </RewardItem>
+          <RewardXKeySprite $frame={1} />
+          <RewardClaimLabel>Claim</RewardClaimLabel>
+        </RewardItemsContainer>
+        
+        {/* Journal flying to corner - animates when book is first closed */}
+        <JournalFlyingIcon $animating={compActivity.journalCornerAnimating} />
+        
+        {/* Persistent journal icon in top-right corner - appears after journal is collected */}
+        <JournalCornerIcon $visible={compActivity.journalCollected && !compActivity.bookVisible} />
+        
       </JumboViewport>
 
       {/* Boom effect overlay (full-screen flash + pulse during cutscene) */}
@@ -2551,6 +2901,9 @@ export default function CombinedHomeScene() {
       {/* Cinematic letterbox bars - slide in AFTER scroll completes, during cutscene only */}
       <CinematicLetterbox $visible={cutscene.isPlaying} $position="top" />
       <CinematicLetterbox $visible={cutscene.isPlaying} $position="bottom" />
+
+      {/* Intro fade overlay - fades from black when scene loads */}
+      <IntroFadeOverlay $visible={introFadeVisible} />
 
     </>
   );

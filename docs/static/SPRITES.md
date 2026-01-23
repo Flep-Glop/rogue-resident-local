@@ -25,9 +25,20 @@
 ## COMPONENT SPRITES
 
 ### TitleScreen.tsx
-**Backgrounds & Title**
-- `title-screen-background.png`: 640×360px (consolidated background, replaces separate cloud layers)
-- `title-screen-title.png`: Title sprite
+**Backgrounds & Layers** (11-layer composite system)
+- `title-screen-background.png`: 640×360px (consolidated static background)
+- `title-screen-clouds-1.png`: 8 frames, horizontal (far layer, slowest parallax)
+- `title-screen-clouds-2.png`: 8 frames, horizontal (mid layer, medium parallax)
+- `title-screen-clouds-3.png`: 8 frames, horizontal (near layer, fastest parallax)
+- `title-screen-abyss.png`: Atmospheric depth layer
+- `title-screen-shooting-star.png`: Shooting star animation (4 instances with staggered timing)
+- `title-screen-vignette.png`: Static darkening overlay (separated from title)
+- `title-screen-title.png`: "THE OBSERVATORY" title text (translates in dev mode)
+- `title-screen-shine.png`: Celebration effect (triggers at intro end + sporadic)
+
+**Splash Screen Logos**
+- `questrium.png`: 36 frames, 8640×120 (240×120 per frame, animated logo)
+- `camp-logo.png`: Static, 244×73
 
 **Interactive Buttons** (3-frame sprites: normal/highlighted/selected)
 - `play-button.png`: 261×18px (87×18 per frame × 3 frames)
@@ -40,7 +51,7 @@
   - Frames 0-2: "Before Desk" (normal/highlighted/selected)
   - Frames 3-5: "Before Cutscene" (normal/highlighted/selected)
   - Frames 6-8: "After Cutscene" (normal/highlighted/selected)
-  - Frames 9-11: "Planetary Systems" (normal/highlighted/selected)
+  - Frames 9-11: "Character Creator" (normal/highlighted/selected)
 
 ### CombinedHomeScene.tsx
 **Scene Background**
@@ -55,20 +66,74 @@
 - `star-sheet.png`: 14×14px × 40 frames (1-indexed, frames 1-40)
 - `planetary-sheet.png`: 14×14px × 96 frames (0-indexed, organized as 8 sets × 3 types × 4 sections)
 
-**Comp-Sheet Composite Layers** (all 300×180px per frame)
+**Comp-Sheet Composite Layers** (all 300×180px per frame unless noted)
 - `comp-monitor.png`: Monitor frame with black fill (300×180) - base layer
 - `comp-screen-blue.png`: Screen color for home menu (300×180) - overlays monitor
 - `comp-screen-dark.png`: Screen color for TBI activity (300×180) - overlays monitor
-- `comp-activity.png`: Static content layer (300×180)
-- `comp-activity-options-sheet.png`: 7 frames, 2100×180 (frame 1: none, 2-6: highlights, 7: pressed)
-- `comp-activity-option1-sheet.png`: 5 frames, 1500×180 (autonomous thinking animation)
-- `anthro-intro.png`: 4 frames, 1200×180 (dialogue sequence before TBI activity)
-- `tbi-positioning.png`: 16 frames, 4800×180 (TBI patient positioning - left/right arrow navigation)
-- `tbi-positioning-result.png`: 13 frames, 3900×180 (result animation - frames 0-10 auto-play at 500ms, frame 11 final)
+- `comp-tabs.png`: 8 frames, 2400×180 (tab selection + highlight + shop lock states)
+- `comp-activity-option-popups-sheet.png`: 7 frames, 2100×180 (frame 1: none, 2-6: highlights, 7: pressed)
+- `comp-activity-options.png`: static, 300×180 (activity options content layer)
+- `comp-shop.png`: Shop base layer (300×180)
+- `comp-shop-options.png`: Shop items layer (300×180)
+- `comp-shop-option-popups-sheet.png`: 4 frames, 1200×180 (frame 1: none, 2-4: item highlights)
+
+**Anthro Intro System**
+- `anthro-intro.png`: 16 frames, 4800×180 (frames 0-7: idle, 8-11: hand raise, 12-15: wave loop)
+
+**TBI Positioning System** (modular sprites)
+- `tbi-positioning-background.png`: Static background (300×180)
+- `tbi-positioning-anthro.png`: 8 frames, 248×90 (31×90 per frame, idle animation during positioning)
+- `tbi-beam-sheet.png`: 11 frames, 3300×180 (beam activation: frames 0-4 intro, 5-10 loop)
+- `left-right-arrow-keys.png`: 6 frames, 198×17 (33×17 per frame, input indicators)
+
+**TBI Result System** (modular sprite composition)
+- `tbi-positioning-result-base.png`: Container frame (65×75) - z:311
+- `tbi-positioning-result-anthro.png`: Anthro body (65×75) - z:313
+- `tbi-bar-red.png` / `tbi-bar-yellow.png` / `tbi-bar-green.png`: Color bars (51×7-8px each)
+- `position-indicators.png`: 3 frames, 15×3 (5×3 per frame: X, tilde, checkmark)
+- `tbi-mask.png`: 11 frames, 671×72 (61×72 per frame, reveal animation)
 
 **Character Sprites**
-- `/images/characters/sprites/kapoor-home.png`: 38×102px × 38 frames (idle: 1-16, walk: 17-32, climb: 33-38)
+- `/images/characters/sprites/kapoor-home.png`: 38×102px × 38 frames (idle: 0-15, walk: 16-31, climb: 32-37) - Default player sprite when no custom character created
 - `/images/characters/sprites/pico.png`: ~21px tall × 60 frames (idle: 0-29, talking: 30-59)
+
+**Player Character Sprite System** (generated via compositor)
+- Canvas: 38×102px per frame
+- Total frames: 38
+- Frame layout:
+  - 0-3: Front idle (4 frames breathing)
+  - 4-7: Back idle (4 frames breathing)
+  - 8-11: Right idle (4 frames breathing)
+  - 12-15: Left idle (4 frames breathing)
+  - 16-23: Right walk (8 frames cycle)
+  - 24-31: Left walk (8 frames cycle)
+  - 32-37: Climb (6 frames alternating)
+
+**Character Part Sprites** (38×102px unified canvas)
+Location: `/public/images/characters/`
+Naming convention: `{part}-{variant}[-{direction}][-{anim}].png`
+
+| Part | Variants | Directions | Walk Frames | Climb Frames |
+|------|----------|------------|-------------|--------------|
+| body | 2 | front, back, left, right | - | c1, c2 |
+| legs | 2 | front, back, left, right | w1-w4 | c1 |
+| shoes | 2 | front, back, left, right | w1-w4 | c1 |
+| ears | 3 | front, back, left, right | - | - |
+| face | 2 | front, back, left, right | - | - |
+| nose | 2 | front, left, right | - | - |
+| eyes | 6 | front, left, right | - | - |
+| eyebrows | 3 | front, left, right | - | - |
+| mouth | 3 | front, left, right | - | - |
+| facial-hair | 3 | front, left, right | - | - |
+| hair | 7 | front, back, left, right | - | - |
+| extras | 3 | front, back, left, right | - | - |
+
+Example filenames:
+- `body-1.png` (front)
+- `body-1-back.png`
+- `body-1-left.png` / `body-1-right.png`
+- `body-1-back-c1.png` / `body-1-back-c2.png` (climb poses)
+- `legs-1-left-w1.png` through `legs-1-left-w4.png` (walk frames)
 
 **Speech Bubbles**
 - `speech-bubble.png`: ~20×20px × 8 frames (1-4: normal, 5-8: highlighted)
@@ -79,6 +144,10 @@
 - `up-arrow-key.png`: 15×16px × 4 frames
 - `down-arrow-key.png`: 15×16px × 4 frames
 - `arrow-keys.png`: 48×32px × 8 frames (movement tutorial)
+- `left-right-arrow-keys.png`: 198×17 (33×17 per frame × 6 frames, TBI positioning controls)
+
+**Feedback Effects**
+- `heart.png`: 16×16px (single frame, used with CSS keyframe animation for floating effect)
 
 ### Hospital Backgrounds
 **Room Backgrounds** (640×360px)
@@ -113,18 +182,36 @@ When creating new sprites, provide these specifications to Aseprite:
 ```
 /public/images/
 ├── cards/                # Ability card images
-├── characters/
-│   └── sprites/          # Character sprite sheets
+├── characters/           # Character creator part sprites
+│   ├── body-*.png        # Body variants and directions
+│   ├── legs-*.png        # Leg variants, directions, walk frames
+│   ├── shoes-*.png       # Shoe variants, directions, walk frames
+│   ├── hair-*.png        # Hair variants and directions
+│   ├── face-*.png        # Face variants and directions
+│   ├── eyes-*.png        # Eye variants (front/side only)
+│   ├── ...               # Other facial features
+│   └── sprites/          # Pre-built character sprite sheets
+│       ├── kapoor-home.png
+│       └── pico.png
 ├── home/                 # Home scene assets
+│   ├── comp-*.png        # Computer interface layers
+│   ├── tbi-*.png         # TBI activity sprites
+│   └── anthro-*.png      # Anthro character sprites
 ├── hospital/
 │   └── backgrounds/      # Hospital room backgrounds
 ├── journal/              # Journal UI assets
 ├── title/                # Title screen assets
+│   ├── title-screen-*.png  # Background layers
+│   ├── *-button.png      # Menu buttons
+│   ├── questrium.png     # Animated logo
+│   └── camp-logo.png     # Static logo
 ├── ui/
 │   ├── buttons/
 │   ├── containers/
 │   └── icons/
 ├── ambient/              # Ambient effects
+├── audio/                # Audio files
+│   └── voiceover/        # Character voiceover files
 └── weather/              # Weather particles
 ```
 
@@ -187,6 +274,38 @@ const backgroundPosition = `${frameIndex * -frameWidth}px 0`;
 const backgroundPosition = `calc(-100% * ${frameIndex} / ${N - 1}) 0`;
 ```
 
+## ASEPRITE EXPORT PIPELINE
+
+### Character Sprite Export Script
+Lua script for batch-exporting character parts with directional variants:
+
+**Frame organization in Aseprite:**
+- Frame 1: Front-facing
+- Frame 2: Back-facing
+- Frame 3: Right-facing (auto-mirrors to left)
+- Frames 4-7: Walk cycle (right, auto-mirrors to left)
+- Frames 8-9: Climb poses (back-facing)
+
+**Output naming:**
+```
+{layername}.png           # Frame 1 (front)
+{layername}-back.png      # Frame 2
+{layername}-right.png     # Frame 3
+{layername}-left.png      # Frame 3 horizontally flipped
+{layername}-right-w1.png  # Frame 4 (walk)
+{layername}-left-w1.png   # Frame 4 flipped
+...
+{layername}-back-c1.png   # Frame 8 (climb)
+{layername}-back-c2.png   # Frame 9 (climb)
+```
+
+**Script location:** `File → Scripts → Open Scripts Folder`
+
+### Key Insights
+- Use `sprite:saveCopyAs()` carefully - may not respect `app.activeFrame`
+- Safer approach: get cel directly, create temp sprite, export temp sprite
+- Recursive `collectLayers()` function needed for nested layer groups
+
 ## CRITICAL REMINDERS
 
 1. **Always use native dimensions** - no scaling in code
@@ -197,3 +316,5 @@ const backgroundPosition = `calc(-100% * ${frameIndex} / ${N - 1}) 0`;
 6. **0-indexed vs 1-indexed** - check sheet convention before calculating positions
 7. **9-slice requires separate files** - cannot slice subsections of sprite sheets
 8. **Container aspect-ratio must match frame dimensions** - prevents truncation/squishing
+9. **Unified canvas size** for layered character systems (38×102px for full body)
+10. **Direction suffixes** follow pattern: none=front, -back, -left, -right, -w1 through -w4, -c1/-c2

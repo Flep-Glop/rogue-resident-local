@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { TitleScreen } from './components/screens/TitleScreen';
+import { CharacterCreatorScreen } from './components/screens/CharacterCreatorScreen';
 import CombinedHomeScene from './components/game/CombinedHomeScene';
-import { useGameStore } from './store/gameStore';
+import { useGameStore, GamePhase } from './store/gameStore';
 
 const PageContainer = styled.div`
   min-height: 100vh;
@@ -17,7 +18,7 @@ const fadeIn = keyframes`
   to { opacity: 1; }
 `;
 
-const LoadingOverlay = styled.div<{ $visible: boolean; $fadeOut: boolean }>`
+const LoadingOverlay = styled.div<{ $visible: boolean }>`
   position: fixed;
   inset: 0;
   background: black;
@@ -27,7 +28,7 @@ const LoadingOverlay = styled.div<{ $visible: boolean; $fadeOut: boolean }>`
   align-items: center;
   pointer-events: ${props => props.$visible ? 'all' : 'none'};
   opacity: ${props => props.$visible ? 1 : 0};
-  transition: opacity 0.3s ease-out;
+  transition: opacity 0.5s ease-out;
 `;
 
 const LoadingText = styled.div`
@@ -39,38 +40,42 @@ const LoadingText = styled.div`
 
 // Game component with built-in loading transition
 const Game: React.FC = () => {
-  const isPlaying = useGameStore(state => state.isPlaying);
-  const [displayState, setDisplayState] = useState<'title' | 'loading' | 'game'>(
-    isPlaying ? 'game' : 'title'
-  );
-  const prevPlayingRef = useRef(isPlaying);
+  const gamePhase = useGameStore(state => state.gamePhase);
+  const [displayPhase, setDisplayPhase] = useState<GamePhase | 'loading'>(gamePhase);
+  const prevPhaseRef = useRef(gamePhase);
 
-  // Handle transition when isPlaying changes
+  // Handle transition when gamePhase changes
   useEffect(() => {
-    if (prevPlayingRef.current === isPlaying) return;
-    prevPlayingRef.current = isPlaying;
+    if (prevPhaseRef.current === gamePhase) return;
+    const prevPhase = prevPhaseRef.current;
+    prevPhaseRef.current = gamePhase;
 
-    // Show loading screen
-    setDisplayState('loading');
-
-    // After brief loading, show target screen
-    const timer = setTimeout(() => {
-      setDisplayState(isPlaying ? 'game' : 'title');
-    }, 800);
-
-    return () => clearTimeout(timer);
-  }, [isPlaying]);
+    // Character creator handles its own fade transitions
+    // Only show loading overlay for title <-> playing transitions
+    if (gamePhase === 'character_creator' || prevPhase === 'character_creator') {
+      // Direct transition - character creator handles its own fade
+      setDisplayPhase(gamePhase);
+    } else {
+      // Show loading screen for other transitions
+      setDisplayPhase('loading');
+      const timer = setTimeout(() => {
+        setDisplayPhase(gamePhase);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [gamePhase]);
 
   return (
     <>
       {/* Loading overlay */}
-      <LoadingOverlay $visible={displayState === 'loading'} $fadeOut={false}>
+      <LoadingOverlay $visible={displayPhase === 'loading'}>
         <LoadingText>Loading...</LoadingText>
       </LoadingOverlay>
 
       {/* Render appropriate screen */}
-      {displayState === 'title' && <TitleScreen />}
-      {displayState === 'game' && <CombinedHomeScene />}
+      {displayPhase === 'title' && <TitleScreen />}
+      {displayPhase === 'character_creator' && <CharacterCreatorScreen />}
+      {displayPhase === 'playing' && <CombinedHomeScene />}
     </>
   );
 };
